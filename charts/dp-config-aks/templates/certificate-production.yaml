@@ -1,0 +1,24 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cic-cert-subscription-scope-production
+  namespace: tibco-system
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: cloud@tibco.com
+    privateKeySecretRef:
+      name: cic-cert-subscription-scope-production
+    solvers:
+      - dns01:
+          azureDNS:
+            hostedZoneName: "{{ .Values.global.dnsSandboxSubdomain }}.{{ .Values.global.dnsGlobalTopDomain }}"
+            resourceGroupName: "{{ .Values.global.azureSubscriptionDnsResourceGroup }}"
+            subscriptionID: "{{ .Values.global.azureSubscriptionId }}"
+            environment: AzurePublicCloud
+            managedIdentity:
+              clientID: "{{ .Values.global.azureAwiAsoDnsClientId }}"

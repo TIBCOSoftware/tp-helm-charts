@@ -1,0 +1,70 @@
+#  /*
+#    Copyright © 2023. Cloud Software Group, Inc.
+#    This file is subject to the license terms contained
+#    in the license file that is distributed with this file.
+# */
+# name of chart
+name: dp-config-es
+# label indicating which project this pipeline belongs to (Don't change)
+partOf: TIBCO-Platform
+# indicating which tools are used to generate this template (Don't change)
+createdBy: generator
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+storage:
+  enabled: false
+  name: gp3enc
+  reclaimPolicy: Delete
+
+domain: ""  # dp-platform.<host-domain>
+
+es:
+  version: "8.9.0"
+  count: 1
+  storage:
+    name: gp3enc
+  ingress:
+    ingressClassName: dp-config-aws-traefik
+    host: elastic
+    service: dp-config-es-es-http
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+
+kibana:
+  version: "8.9.0"
+  count: 1
+  ingress:
+    ingressClassName: dp-config-aws-traefik
+    host: kibana
+    service: dp-config-es-kb-http
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+
+apm:
+  enabled: true
+  version: "8.9.0"
+  count: 1
+  ingress:
+    ingressClassName: dp-config-aws-traefik
+    host: apm
+    service: dp-config-es-apm-http
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+
+index:
+  enabled: true
+  patterns:
+    userApps: ["user-app-*"]

@@ -1,0 +1,19 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+{{ include "dp-configure-namespace.validate-namespace" . }}
+{{- if .Values.networkPolicy.create -}}
+Node CIDR: {{ include "dp-configure-namespace.nodeCidr" . }}
+Pod CIDR: {{ include "dp-configure-namespace.podCidr" . }}
+{{- if eq (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+To use a different Pod CIDR, please use --set networkPolicy.podCidrIpBlock=<PodIpCidr>
+PodIpCidr=<IP range of Pod IP CIDR (CIDR notation)> e.g. 192.168.0.0/16
+{{- end }}
+{{- else }}
+Network policies creation is disabled by default.
+To enable network policies creation, please use --set networkPolicy.create=true
+{{- end }}
+Release name: {{ .Release.Name }}
+To learn more about the release, try:
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}

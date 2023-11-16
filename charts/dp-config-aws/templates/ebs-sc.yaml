@@ -1,0 +1,20 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{if .Values.storageClass.ebs.enabled  -}}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.ebs.name }}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "{{ .Values.storageClass.ebs.default }}"
+parameters:
+{{- range $key, $value := .Values.storageClass.ebs.parameters }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+provisioner: ebs.csi.aws.com
+reclaimPolicy: {{ .Values.storageClass.ebs.reclaimPolicy }}
+allowVolumeExpansion: {{ .Values.storageClass.ebs.allowVolumeExpansion }}
+volumeBindingMode: {{ .Values.storageClass.ebs.volumeBindingMode }}
+{{- end -}}

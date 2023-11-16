@@ -1,0 +1,110 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tp-cp-proxy
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-proxy.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      containers:
+      - name: cp-proxy
+        image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                key: clientId
+                name: {{ include "tp-cp-proxy.consts.outputSecretName" . }}
+          - name: CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: clientSecret
+                name: {{ include "tp-cp-proxy.consts.outputSecretName" . }}
+          - name: DATAPLANE_ID
+            value: {{ .Values.global.cp.dataplaneId }}
+          - name: NAMESPACE
+            value: {{ .Release.Namespace }}
+        args:
+          - start
+          - -o
+          - "https://{{ .Values.global.cp.cpHostname }}"
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+        ports:
+        - containerPort: 3125
+          name: proxy
+{{- if .Values.enableLogging }}
+      - name: fluentbit
+        image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: cp-proxy
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: dockercontainerlogs
+            mountPath: /var/lib/docker/containers
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+      volumes:
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: tp-cp-proxy-fluentbit-config
+{{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}

@@ -1,0 +1,220 @@
+{{/*
+    Copyright © 2023. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{/* network policies are created in each namespace if enabled in the values */}}
+{{- if .Values.networkPolicy.create -}}
+{{/* Default network policies applied to the namespace */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.global.tibco.dataPlaneId }}-default
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  - Ingress
+  egress:
+  {{- /* Enable egress to all the pods within all namespaces of same data plane on all ports */}}
+  {{- /* Enable egress to all the pods in the current namespace to allow pod-to-pod communication on all ports */}}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
+      podSelector: {}
+  {{- /* Enable egress to all the pods in a specifically labelled external namespace on all ports */}}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          networking.platform.tibco.com/non-dp-ns: enable
+      podSelector: {}
+  {{- /* Enable egress to kube-dns on all pods in release namespace on ports 53 with TCP and UDP */}}
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  ingress:
+  {{- /* Enable ingress from all the pods within all namespaces of same data plane on all ports */}}
+  {{- /* Enable ingress from all the pods in the current namespace to allow pod-to-pod communication on all ports */}}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
+      podSelector: {}
+  {{- /* Enable ingress from all the pods in a specifically labelled external namespace on all ports */}}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          networking.platform.tibco.com/non-dp-ns: enable
+      podSelector: {}
+
+---
+
+{{/* Label based policies - pods need to have this label in order to establish the communication */}}
+{{/* Label based network policy to enable egress communication to internet with exception 
+for accessing node cidr on all ports */}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ .Values.global.tibco.dataPlaneId }}-internet-all
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      egress.networking.platform.tibco.com/internet-all: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ include "dp-configure-namespace.nodeCidr" . }}
+        {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+        - {{ include "dp-configure-namespace.podCidr" . }}
+        {{- end }}
+
+---
+
+{{/* Label based network policy to enable egress communication to internet 
+with exception for accessing node cidr on port 80 and 443 */}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ .Values.global.tibco.dataPlaneId }}-internet-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      egress.networking.platform.tibco.com/internet-web: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ include "dp-configure-namespace.nodeCidr" . }}
+        {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+        - {{ include "dp-configure-namespace.podCidr" . }}
+        {{- end }}
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+
+---
+
+{{/* Label based network policy to enable egress communication on port 443 and 6443 to kubernetes api server
+and ingress communication on all ports from kubernetes api server */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.global.tibco.dataPlaneId }}-kubernetes-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/kubernetes-api: enable
+  policyTypes:
+  - Egress
+  - Ingress
+  egress:
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-apiserver
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.nodeCidr" . }}
+    {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.podCidr" . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  ingress:
+  - from: 
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-apiserver
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.nodeCidr" . }}
+    {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.podCidr" . }}
+    {{- end }}
+
+---
+
+{{/* Label based network policy to enable ingress communication on all ports to pods from internet */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.global.tibco.dataPlaneId }}-internet-access
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      ingress.networking.platform.tibco.com/internet-access: enable
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ include "dp-configure-namespace.nodeCidr" . }}
+        {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+        - {{ include "dp-configure-namespace.podCidr" . }}
+        {{- end }}
+
+---
+
+{{/* Label based network policy to enable ingress communication on all ports to pods from node cidr */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.global.tibco.dataPlaneId }}-cluster-access
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      ingress.networking.platform.tibco.com/cluster-access: enable
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.nodeCidr" . }}
+    {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.podCidr" . }}
+    {{- end }}
+{{- end -}}

@@ -1,0 +1,187 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.index.enabled -}}
+apiVersion: es.eck.github.com/v1alpha1
+kind: IndexTemplate
+metadata:
+  name: {{ .Release.Name }}-user-apps-index-template
+  namespace: elastic-system
+spec:
+  targetInstance:
+    name: {{ .Release.Name }}
+  body: |
+    {
+      "index_patterns": {{ .Values.index.patterns.userApps | toJson }},
+      "template":
+        {
+          "settings":
+            {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "refresh_interval": "5s",
+              "index":
+                {
+                  "codec": "best_compression",
+                  "lifecycle":
+                    {
+                      "name": "{{ .Release.Name }}-user-index-60d-lifecycle-policy",
+                      "rollover_alias": "user-apps"
+                    }
+                }
+            },
+          "aliases":
+            {
+              "user-apps": {}
+            },
+          "mappings":
+            {
+              "properties":
+                {
+                  "@timestamp":
+                    {
+                      "type": "date"
+                    },
+                  "Body":
+                    {
+                      "properties":
+                        {
+                          "log_time":
+                            {
+                              "type": "date"
+                            },
+                          "log_level":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "message":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            }
+                        }
+                    },
+                  "Resource": 
+                    {
+                      "properties":
+                        {
+                          "app_id":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "app_type":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "dataplane_id":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "workload_type":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "app_tags":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "pod_namespace":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "pod_name":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            },
+                          "pod_uid":
+                            {
+                              "type": "text",
+                              "fields":
+                                {
+                                  "keyword":
+                                    {
+                                      "type": "keyword",
+                                      "ignore_above": 256
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+{{- end -}}

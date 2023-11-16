@@ -1,0 +1,27 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v2
+name: dp-config-aks
+version: "1.0.12"
+appVersion: "1.0.0"
+description: dp-config-aks is used to config non-CIC2 TIBCO Dataplane
+type: application
+home: https://github.com/tibco/cicinfra-integration
+maintainers:
+  - name: TIBCO Cloud Dev Team
+    email: cloud@tibco.com
+dependencies:
+  - name: traefik
+    version: 24.0.0
+    repository: https://traefik.github.io/charts
+    condition: traefik.enabled
+  - name: ingress-nginx
+    version: 4.7.2
+    repository: https://kubernetes.github.io/ingress-nginx
+    condition: ingress-nginx.enabled
+annotations:
+  artifacthub.io/changes: |
+    - kind: changed
+      description: "Added nginx"

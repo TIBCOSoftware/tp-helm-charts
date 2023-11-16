@@ -1,0 +1,315 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+# Default values for o11y service.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  cp:
+    dataplaneId: dp-dp1
+    instanceId: defaultinstid
+    namespace: tp-dp-dp1
+    containerRegistry:
+      secret: ""
+      url: reldocker.tibco.com
+    environmentType: ""
+    resources:
+      serviceaccount:
+        namespace: ""
+        serviceAccountName: ""
+      o11y:
+        logsServer:
+          kind: "elasticSearch"
+          config:
+            exporter:
+              services:
+                logindex:
+                  endpoint: "logsServer-config-exporter-services-logindex-endpoint"
+                  username: "logsServer-config-exporter-services-logindex-username"
+              userapp:
+                logindex:
+                  endpoint: "logsServer-config-exporter-userapp-logindex-endpoint"
+                  username: "logsServer-config-exporter-userapp-logindex-username"
+            proxy:
+              userapp:
+                logindex:
+                  endpoint: "logsServer-config-proxy-userapp-logindex-endpoint"
+                  username: "logsServer-config-proxy-userapp-logindex-endpoint"
+            services:
+              logindex: "logsServer-config-services-logindex"
+            userapp:
+              logindex: "logsServer-config-userapp-logindex"
+          secret:
+            exporter:
+              services:
+                logindex:
+                  password: "logsServer-secret-exporter-services-logindex-password"
+              userapp:
+                logindex:
+                  password: "logsServer-secret-exporter-userapp-logindex-password"
+            proxy:
+              userapp:
+                logindex:
+                  password: "logsServer-secret-proxy-userapp-logindex-password"
+        tracesServer:
+          kind: "jaeger"
+          config:
+            collector:
+              host: "dummy"
+              port: 4317
+            es:
+              host: "tracesServer-config-es-host"
+              port: 9200
+              username: "tracesServer-config-es-username"
+          secret:
+            es:
+              password: "tracesServer-secret-es-password"
+        metricsServer:
+          kind: "prometheus"
+          config:
+            exporter:
+              endpoint: "metricsServer-config-exporter-endpoint"
+            proxy:
+              endpoint: "metricsServer-config-proxy-endpoint"
+              username: "metricsServer-config-proxy-username"
+          secret:
+            exporter:
+              token: "metricsServer-secret-exporter-token"
+            proxy:
+              password: "metricsServer-secret-proxy-password"
+        config:
+          otel:
+            receiver:
+              service:
+                name: "otel-userapp"
+                port: 4317
+          finops:
+            collector:
+              endpoint: "finops-collector-endpoint"
+          logserver:
+            userapp:
+              logindex: "tibco-user-app"
+              traceindex: "dummy"
+            services:
+              logindex: "tibco-services"
+            proxy:
+              userapp:
+                logindex:
+                  endpoint: ""
+                  username: "elastic"
+            exporter:
+              userapp:
+                logindex:
+                  endpoint: ""
+                  username: "elastic"
+              services:
+                logindex:
+                  endpoint: ""
+                  username: "elastic"
+          promserver:
+            proxy:
+              endpoint: "dummy"
+              username: "dummy"
+            exporter:
+              endpoint: "dummy"
+          jaeger:
+            collector:
+              host: "dummy"
+              port: 4317
+            es:
+              host: ""
+              port: 9200
+              username: "elastic"
+        secret:
+          logserver:
+            userapp:
+              proxy:
+                password: "pwd-userapp-proxy"
+              exporter:
+                password: "pwd-userapp-exporter"
+            services:
+              exporter:
+                password: "pwd-svc-exporter"
+          promserver:
+            proxy:
+              password: "pwd-promserver-proxy"
+            exporter:
+              token: "token-promserver-exporter"
+          jaeger:
+            es:
+              password: "pwd-jaeger-es"
+  otel:
+    finops:
+      exporters:
+        metricsendpoint: "http://cp-proxy/finops/finops-service/api/v1/proxy"
+  o11yservice:
+    serviceAccount: ""
+    data:
+      namespace: dp-integration-default
+    image:
+      registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
+      tag: 665
+
+
+replicaCount: 1
+
+imagePullSecrets: []
+
+serviceAccount:
+  enabled: false
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 7820
+  targetPort: 7820
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+# resources:
+#  requests:
+#    cpu: 50m
+#    memory: 128Mi
+#  limits:
+#    cpu: "2"
+#    memory: 2048Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+probes:
+  liveness:
+    initialDelaySeconds: 3
+    failureThreshold: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
+
+# -- Additional environment variables.
+extraEnvVars: []
+#  - name: NAME
+#    value: value
+
+# The name of ConfigMap containing additional environment variables.
+extraEnvVarsCM: ""
+
+# The name of Secret containing extra additional environment variables.
+extraEnvVarsSecret: ""
+
+# -- Extra volumeMounts for the integration services container.
+# More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
+extraVolumeMounts: []
+  # - name: example
+  #   mountPath: /opt/tibco/example.txt
+#   subPath: example.txt
+
+# -- Extra volumes for the integration services container.
+# More info: `kubectl explain deployment.spec.template.spec.volumes`.
+extraVolumes: []
+  # - name: example
+  #   persistentVolumeClaim:
+#     claimName: exampleClaim
+
+# -- Additional init containers to add to the automationservices pod.
+extraInitContainers: []
+  # - name: dummy-init
+  #   image: busybox
+#   command: ['echo', "hey"]
+
+image:
+  pullPolicy: IfNotPresent
+
+ingress:
+  # -- Enables configuration of ingress to expose o11y-service. Requires ingress support in the Kubernetes cluster.
+  enabled: true
+  hostsOverride: false
+  className: haproxy
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+    haproxy.org/cors-enable: "true"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/src-ip-header: X-Real-IP
+    haproxy.org/timeout-http-request: 600s
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+jaeger:
+  service:
+    name: jaeger-query
+    port: 80
+  ingress:
+    # -- Enables configuration of ingress to expose o11y-service. Requires ingress support in the Kubernetes cluster.
+    enabled: true
+    hostsOverride: false
+    className: haproxy
+    hosts:
+      - host: ""
+        paths:
+          - path: /
+            pathType: Prefix
+    # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
+    annotations:
+      ingress.kubernetes.io/rewrite-target: /
+      haproxy.org/cors-enable: "true"
+      haproxy.org/load-balance: leastconn
+      haproxy.org/src-ip-header: X-Real-IP
+      haproxy.org/timeout-http-request: 600s
+
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+enableLogging: true
+fluentbit:
+  image:
+    tag: 2.1.6

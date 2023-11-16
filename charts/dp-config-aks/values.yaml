@@ -1,0 +1,117 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Name of chart
+name: dp-config-aks
+# label indicating which project this pipeline belongs to (Don't change)
+partOf: TIBCO-Platform
+# indicating which tools are used to generate this template (Don't change)
+createdBy: generator
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+dns:
+  domain: ""  # abc.<host-domain>
+  vanity: "*"
+
+tls:
+  setup: production
+  certificateNamespace: ingress-system
+  certificateSecretName: cic-certificate-production-azure
+
+httpIngress:
+  enabled: true
+  name: nginx
+  ingressClassName: azure-application-gateway  # see: https://github.com/kubernetes-sigs/external-dns/blob/master/docs/faq.md
+  backend:
+    serviceName: dp-config-aks-ingress-nginx-controller
+    servicePort: 80
+  # more AGIC annotations: https://azure.github.io/application-gateway-kubernetes-ingress/annotations/#appgw-ssl-certificate
+  annotations:
+    cert-manager.io/cluster-issuer: "cic-cert-subscription-scope-production"
+    external-dns.alpha.kubernetes.io/hostname: ""  # *.abc.<host-domain>
+
+# the dns value is actually use pattern:
+# {{ .Values.global.azureResourceGroup }}.{{ .Values.global.dnsSandboxSubdomain }}.{{ .Values.global.dnsGlobalTopDomain }}
+# as helm does not support templating values.yaml; we have to manually replace dns values for traefik
+
+storageClass:
+  # see: https://learn.microsoft.com/en-us/azure/aks/concepts-storage
+  azuredisk:
+    enabled: false
+    name: azure-disk-sc
+    default: false
+    parameters:
+      skuname: StandardSSD_LRS
+    reclaimPolicy: "Delete"
+    allowVolumeExpansion: true
+    volumeBindingMode: WaitForFirstConsumer
+
+  # https://learn.microsoft.com/en-us/azure/aks/azure-files-csi
+  azurefile:
+    enabled: false
+    name: azure-files-sc
+    default: false
+    parameters:
+      skuName: Standard_LRS
+    reclaimPolicy: "Delete"
+    allowVolumeExpansion: true
+    volumeBindingMode: WaitForFirstConsumer
+    # mountOptions:
+    #   - dir_mode=0640
+    #   - file_mode=0640
+    #   - uid=0
+    #   - gid=0
+    #   - mfsymlinks
+    #   - cache=strict # https://linux.die.net/man/8/mount.cifs
+    #   - nosharesock
+
+ingress-nginx:
+  # chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
+  enabled: true
+  controller:
+    service:  # for external-dns
+      type: ClusterIP
+    nodeSelector:
+      kubernetes.io/os: linux
+
+traefik:
+  enabled: false
+  hub:  # for hub
+    enabled: false
+  service:  # for external-dns
+    type: ClusterIP
+    # annotations: # for external dns to register domain
+    #   external-dns.alpha.kubernetes.io/hostname: "" # *.abc.<host-domain>
+  ingressRoute:  # for dashboard
+    dashboard:
+      matchRule: ""  # Host(``) && PathPrefix(`/dashboard`) || Host(``) && PathPrefix(`/api`)
+      entryPoints:
+        - traefik
+        - web
+        - websecure
+  providers:  # for external service
+    kubernetesIngress:
+      allowExternalNameServices: true
+  nodeSelector:  # for cic2
+    kubernetes.io/os: linux
+  tlsStore:  # for certificate
+    default:
+      defaultCertificate:
+        secretName: cic-certificate-production-azure
+  additionalArguments:
+    - '--serversTransport.insecureSkipVerify=true'
+
+global:
+  dnsSandboxSubdomain: ""
+  dnsGlobalTopDomain: ""
+  azureSubscriptionDnsResourceGroup: ""
+  azureSubscriptionId: ""
+  azureAwiAsoDnsClientId: ""

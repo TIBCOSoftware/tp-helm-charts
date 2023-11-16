@@ -1,0 +1,21 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{if .Values.storageClass.efs.enabled -}}
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: {{ .Values.storageClass.efs.name }}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "{{ .Values.storageClass.efs.default }}"
+provisioner: efs.csi.aws.com
+{{- with .Values.storageClass.efs.mountOptions }}
+mountOptions:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+parameters:
+{{- range $key, $value := .Values.storageClass.efs.parameters }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end -}}

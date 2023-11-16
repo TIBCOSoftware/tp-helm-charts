@@ -1,0 +1,20 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{if .Values.storageClass.azuredisk.enabled  -}}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.azuredisk.name }}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "{{ .Values.storageClass.azuredisk.default }}"
+provisioner: disk.csi.azure.com
+reclaimPolicy: {{ .Values.storageClass.azuredisk.reclaimPolicy }}
+allowVolumeExpansion: {{ .Values.storageClass.azuredisk.allowVolumeExpansion }}
+volumeBindingMode: {{ .Values.storageClass.azuredisk.volumeBindingMode }}
+parameters:
+{{- range $key, $value := .Values.storageClass.azuredisk.parameters }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end -}}

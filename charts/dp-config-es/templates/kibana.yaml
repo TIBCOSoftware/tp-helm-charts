@@ -1,0 +1,24 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  version: {{ .Values.kibana.version }}
+  count: {{ .Values.kibana.count }}
+  config:
+    # Configure this to a domain you control
+    server.publicBaseUrl: https://kibana.{{ .Values.domain }}
+    xpack.security.sameSiteCookies: None
+  elasticsearchRef:
+    name: {{ .Release.Name }}
+    namespace: {{ .Release.Namespace }}
+  http:
+    service:
+      spec:
+        type: ClusterIP

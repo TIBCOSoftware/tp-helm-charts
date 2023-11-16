@@ -1,0 +1,24 @@
+{{/*
+    Copyright © 2023. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{/* all cluster role bindings are created at once during the deployment of the chart in primary namespace */}}
+{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-cluster-scope
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "dp-configure-namespace.serviceAccount" . }}
+    namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . }}
+
+{{- end -}}

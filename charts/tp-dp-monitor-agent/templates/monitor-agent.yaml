@@ -1,0 +1,207 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# exposes the service on targetPorts 7831 and 9831
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 7831
+    protocol: TCP
+    targetPort: 7831
+  - name: monitor-server
+    port: 9831
+    protocol: TCP
+    targetPort: 9831
+  selector:
+    {{- include "tp-dp-monitor-agent.shared.labels.selector" . | nindent 4 }}
+---
+# exposes the service on targetPorts 7831 to be scraped only for o11y 
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-o11y
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+    prometheus.io/scrape: "true"
+  annotations:
+    prometheus.io/path: "/api/v1/metrics/o11y"
+    prometheus.io/port: "7831"
+spec:
+  ports:
+  - name: server
+    port: 7831
+    protocol: TCP
+    targetPort: 7831
+  selector:
+    {{- include "tp-dp-monitor-agent.shared.labels.selector" . | nindent 4 }}
+---
+# exposes the service on targetPorts 7831 to be scraped both for o11y and for finops
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-finops
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+    prometheus.io/scrape: "true"
+    platform.tibco.com/scrape_finops: "true"
+  annotations:
+    prometheus.io/path: "/api/v1/metrics/rai"
+    prometheus.io/port: "7831"
+spec:
+  ports:
+  - name: server
+    port: 7831
+    protocol: TCP
+    targetPort: 7831
+  selector:
+    {{- include "tp-dp-monitor-agent.shared.labels.selector" . | nindent 4 }}
+---
+# monitor Agent Deployment definition; this is a k8s Deployment
+# apart from some tibco specific specificiations,
+# this defines the resources for the pod, liveness and readiness probes
+# along with the environment variables required by the microservice
+#Deployment CR:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-dp-monitor-agent.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        networking.platform.tibco.com/kubernetes-api: enable
+        {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 8 }}
+{{- if .Values.global.enableLogging }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      serviceAccountName:  {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      terminationGracePeriodSeconds: 10
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      containers:
+      - name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+        image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tp-dp-monitor-agent:{{ include "tp-dp-monitor-agent.generated.buildNumber" . }}
+        resources:
+          requests:
+            cpu: 125m
+            memory: 512Mi
+          limits:
+            cpu: 250m
+            memory: 1024Mi
+        ports:
+        - containerPort: 7831
+          name: server
+        - containerPort: 9831
+          name: monitor-server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9831
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9831
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: LOG_LEVEL
+          value: {{ .Values.global.LOG_LEVEL }}
+        - name: DP_NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: CP_PROXY_HOST
+          value: cp-proxy.{{ .Release.Namespace }}.svc.cluster.local
+        - name: DATA_PLANE_ID
+          value: {{ .Values.global.cp.dataplaneId }}
+        - name: DP_SUBSCRIPTION_ID
+          value: {{ .Values.global.cp.subscriptionId }}
+{{- if .Values.global.enableLogging }}
+      - name: fluentbit
+        image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tp-dp-monitor-fluentbit:{{ include "tp-dp-monitor-agent.consts.fluentbit.buildNumber" . }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+{{- if .Values.global.finops }}
+{{- if .Values.global.finops.logServer }}
+{{- if .Values.global.finop.logServer.default }}
+          - name: LOG_SERVER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: username
+          - name: LOG_SERVER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: password
+{{- end }}
+{{- end }}
+{{- end }}
+        volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: dockercontainerlogs
+              mountPath: /var/lib/docker/containers
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if .Values.global.enableLogging }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-fluentbit-config
+{{- end }}

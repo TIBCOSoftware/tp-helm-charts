@@ -1,0 +1,11 @@
+Copyright © 2023. Cloud Software Group, Inc.
+This file is subject to the license terms contained in the license file that is distributed with this file.
+
+This chart is used for config TIBCO Platform
+
+This will Set Up Elastic clusters for DP
+TO access kibana: https://kibana.{{.Values.domain}}
+TO access service elasticsearch: https://elastic.{{.Values.domain}}
+
+To get elastic boot password:
+$ kubectl get secret dp-config-es-es-elastic-user -n {{ .Release.Namespace }} -o jsonpath="{.data.elastic}" | base64 --decode

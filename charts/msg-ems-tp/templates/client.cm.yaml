@@ -1,0 +1,44 @@
+#
+# Copyright (c) 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained 
+# in the license file that is distributed with this file.  
+#
+
+{{- $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEmsHost := printf "%s.%s.svc" $svcEms .Release.Namespace -}}
+{{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
+{{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
+{{- $emsRealmPort := $emsParams.ems.ports.realmPort -}}
+{{- $emsTcpPort := $emsParams.ems.ports.tcpPort -}}
+{{- $emsSslPort := $emsParams.ems.ports.sslPort -}}
+{{- $emsPromPort := $emsParams.ems.ports.promServerEP -}}
+
+#
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $emsParams.ems.name }}-clients
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    tib-dp-app: msg-ems-ftl
+    tib-dp-msg-info: "ems-ew-clients"
+    tib-msg-stsname: "{{ $emsParams.ems.name }}-ems"
+    {{ include "msg.dp.labels" . | indent 4 }}
+data:
+  EMS_TCP_PORT: "{{ $emsTcpPort }}"
+  EMS_SSL_PORT: "{{ $emsSslPort }}"
+  EMS_REALM_PORT: "{{ $emsRealmPort }}"
+  EMS_PROM_PORT: "{{ $emsPromPort }}"
+  EMS_ADMIN_USER: "admin"
+  EMS_ADMIN_PASSWORD: ""
+  EMS_FTL_REALM_URL: "http://{{ $svcFtlHost }}:{{ $emsRealmPort }}"
+  {{ if .Values.ems.sslEnable }}
+  EMS_SSL_URL: "ssl://{{ $svcEmsHost }}:{{ $emsSslPort }},ssl://{{ $svcEmsHost }}:{{ $emsSslPort }}"
+  {{ end }}
+  {{ if .Values.ems.tcpEnable }}
+  EMS_TCP_URL: "tcp://{{ $svcEmsHost }}:{{ $emsTcpPort }},tcp://{{ $svcEmsHost }}:{{ $emsTcpPort }}"
+  {{ end }}
+...

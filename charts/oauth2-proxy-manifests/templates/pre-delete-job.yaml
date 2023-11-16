@@ -1,0 +1,57 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "oauth2-proxy.fullname" . }}
+  namespace: {{ template "oauth2-proxy.namespace" $ }}
+  labels:
+{{- include "oauth2-proxy.labels" . | indent 4 }}
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 60
+  template:
+    metadata:
+      name: {{ template "oauth2-proxy.fullname" . }}
+      labels:
+        {{- include "oauth2-proxy.labels" . | indent 8 }}
+{{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 8 }}
+{{- end }}
+    spec:
+    {{- if .Values.priorityClassName }}
+      priorityClassName: "{{ .Values.priorityClassName }}"
+    {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ template "oauth2-proxy.serviceAccountName" . }}
+      automountServiceAccountToken : {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- if .Values.hostAlias.enabled }}
+      hostAliases:
+        - ip: {{ .Values.hostAlias.ip }}
+          hostnames:
+          - {{ .Values.hostAlias.hostname }}
+      {{- end }}
+      restartPolicy: Never
+      containers:
+      - name: oauth2-proxy-secret-pre-delete-job
+        image: "{{ template "tibco.image.repository.alpine" .}}"
+        command: [ "/bin/sh", "-c", "source /etc/config/script/iat_to_clienid.sh && cleanup" ]
+        volumeMounts:
+        - name: shell-script-volume
+          mountPath: /etc/config/script/iat_to_clienid.sh
+          subPath: iat_to_clienid.sh 
+      volumes:
+        - name: shell-script-volume
+          configMap:
+            name: {{ template "oauth2-proxy.fullname" . }}-shell-script-cm

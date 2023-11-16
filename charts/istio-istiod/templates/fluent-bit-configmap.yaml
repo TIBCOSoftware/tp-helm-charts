@@ -1,0 +1,89 @@
+# Copyright Â© 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+# Source: fluent-bit/templates/configmap.yaml
+---
+{{- if .Values.enableLogging }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-fluent-bit-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: fluent-bit-0.36.0
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      /fluent-bit/etc/parsers.conf
+      Parsers_File      /fluent-bit/etc/custom_parsers.conf
+      Parsers_File      /fluent-bit/etc/update_record.lua
+      HTTP_Server On
+      HTTP_Listen 0.0.0.0
+      HTTP_Port 2020
+      Health_Check On
+
+    [INPUT]
+      Name              tail
+      Tag               dp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/containers/${POD_NAME}_{{.Release.Namespace}}_discovery*.log
+      multiline.parser  docker, cri
+      DB                /var/log/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+    [FILTER]
+      Name              record_modifier
+      Match             dp.*
+      Remove_key        stream
+      Remove_key        _p
+
+    [FILTER]
+      name              parser
+      Match             dp.*
+      Parser            istio-discovery-json-parser
+      key_name          log
+      Reserve_Data      On
+
+    [FILTER]
+      Name lua
+      Match dp.*
+      Script update_record.lua
+      Call update_record
+
+    [OUTPUT]
+      Match dp.*
+      {{- range $key, $val := .Values.fluentBit.output }}
+      {{ $key }} {{ $val }}
+      {{- end }}
+
+  update_record.lua: |
+    -- move level, scope, and message under log
+    function update_record(tag, timestamp, record)
+      local log = {};
+      log.level = record["level"]
+      record["level"] = nil;
+      log.scope = record["scope"]
+      record["scope"] = nil;
+      log.msg  = record["msg"]
+      record["msg"] = nil;
+      record.log = log
+      return 2, timestamp, record
+    end
+
+  custom_parsers.conf: |
+    [PARSER]
+      Name              istio-discovery-json-parser
+      Format            json
+      Time_Key          time
+      Time_Key time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L%z
+      Decode_Field_As   json log
+{{- end }}
+
+

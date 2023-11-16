@@ -1,0 +1,93 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-dp-secret-controller.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-secret-controller.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-dp-secret-controller.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tp-dp-secret-controller.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      {{- else }}
+      serviceAccountName: {{ include "tp-dp-secret-controller.consts.appName" . }}
+      {{- end }}
+      containers:
+        - name: controller
+          image: {{ include "tp-dp-secret-controller.image.registry" .}}{{"/"}}{{ include "tp-dp-secret-controller.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+{{- if .Values.enableLogging }}
+        - name: fluentbit
+          image: {{ include "tp-dp-secret-controller.image.registry" .}}{{"/"}}{{ include "tp-dp-secret-controller.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: controller
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: dockercontainerlogs
+              mountPath: /var/lib/docker/containers
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+      volumes:
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-dp-secret-controller.consts.appName" . }}-fluentbit-config
+{{- end }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

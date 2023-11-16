@@ -1,0 +1,33 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if .Values.enableIngress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+    {{- with .Values.ingress.annotations }}
+    {{- tpl (toYaml .) $ | nindent 4}}
+    {{- end }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" .| nindent 4}}
+spec:
+  ingressClassName: {{ tpl .Values.ingress.className . }}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.ingress.pathPrefix }}
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+    {{- with .Values.ingress.host }}
+    host: {{ . }}
+    {{- end }}
+{{- end }}

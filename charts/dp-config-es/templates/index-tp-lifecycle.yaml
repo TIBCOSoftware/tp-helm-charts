@@ -1,0 +1,40 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.index.enabled -}}
+apiVersion: es.eck.github.com/v1alpha1
+kind: IndexLifecyclePolicy
+metadata:
+  name: {{ .Release.Name }}-user-index-60d-lifecycle-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetInstance:
+    name: {{ .Release.Name }}
+  body: |
+    {
+      "policy": {
+        "phases": {
+          "hot": {
+            "min_age": "0ms",
+            "actions": {
+              "rollover": {
+                "max_primary_shard_size": "50gb",
+                "max_age": "7d"
+              },
+              "set_priority": {
+                "priority": 100
+              }
+            }
+          },
+          "delete": {
+            "min_age": "60d",
+            "actions": {
+              "delete": {}
+            }
+          }
+        }
+      }
+    }
+{{- end -}}

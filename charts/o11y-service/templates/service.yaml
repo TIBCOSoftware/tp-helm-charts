@@ -1,0 +1,19 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "o11y-service.consts.appName" . }}
+  labels:
+    {{- include "o11y-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: server
+      port: 7820
+      protocol: TCP
+      targetPort: 7820
+  selector:
+    {{- include "o11y-service.shared.labels.selector" . | nindent 4 }}

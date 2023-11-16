@@ -1,0 +1,55 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if eq .Values.global.cp.resources.serviceaccount.serviceAccountName "" -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "o11y-service.sa" . }}
+  
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "o11y-service.role" . }}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get","list","watch","create","delete","patch","update"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get","list","watch","create","delete","patch","update"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get","list","watch","create","delete","patch","update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get","list","watch","create","delete","patch","update"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get","list","watch","create","delete","patch","update"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get","list","watch","create","delete","patch","update"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get","list","watch","create","delete","patch","update"] 
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "o11y-service.role-bind" . }}
+subjects:
+  - kind: ServiceAccount
+    {{- if eq .Values.global.cp.resources.serviceaccount.serviceAccountName "" }}
+    name: {{ include "o11y-service.sa" . }}
+    {{- else }}
+    name: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+    {{- end }}
+roleRef:
+  kind: Role
+  name: {{ include "o11y-service.role" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end -}}

@@ -1,0 +1,111 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if .Values.enableLogging }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tibco-developer-hub-fluentbit-config
+  labels: {{ include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+    {{- include "tibcohub.platform.commonLabels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               dp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      multiline.parser  docker, cri
+      DB                /var/log/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             dp.*
+      Remove_key        stream
+      Remove_key        _p
+        
+    [FILTER]
+      Name              parser
+      Match             dp.*
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
+
+    [FILTER]
+      Name              nest
+      Match             dp.*
+      Operation         lift
+      Nested_under      log
+      Add_prefix        log. 
+    #incase log is not a json
+    [FILTER]
+      Name              modify
+      Match             dp.*
+      Rename            log log.message       
+      
+    [FILTER]
+      Name              modify
+      Match             dp.*
+      Rename            log.level top.level
+    
+    [FILTER]
+      Name              nest
+      Match             dp.*
+      Operation         nest
+      Wildcard          log.*
+      Nest_Under        top.msg
+      Remove_prefix     log. 
+    
+    [FILTER]
+      Name              nest
+      Match             dp.*
+      Operation         nest
+      Wildcard          top.*
+      Nest_Under        log
+      Remove_prefix     top.
+ 
+
+  output.conf: |   
+    # [OUTPUT]
+    #   Name   stdout
+    #   Match  dp.*
+    #   Format json
+    #   json_date_key false
+
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                dp.*
+      Host                 otel-services.${POD_NAMESPACE}.svc.cluster.local
+      Port                 4318
+      Logs_uri             /v1/logs
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+  
+  parsers.conf: |
+    [PARSER]
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         Off
+      Decode_Field_As   json log
+
+{{- end }}
