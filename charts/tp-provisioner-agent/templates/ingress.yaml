@@ -1,0 +1,35 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if .Values.enableIngress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+    {{- with .Values.ingress.annotations }}
+    {{- tpl (toYaml .) $ | nindent 4}}
+    {{- end }}
+    "helm.sh/hook": post-install, post-upgrade # using post install hooks to create ingress rule. the post-upgrade hook is debatable as this would the ingress rule gets recreated in each upgrade.
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "tp-provisioner-agent.shared.labels.standard" .| nindent 4}}
+spec:
+  ingressClassName: {{ tpl .Values.ingress.className . }}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.ingress.pathPrefix }}
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+    {{- with .Values.ingress.host }}
+    host: {{ . }}
+    {{- end }}
+{{- end }}
