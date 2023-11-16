@@ -1,0 +1,85 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.index.enabled -}}
+apiVersion: es.eck.github.com/v1alpha1
+kind: IndexTemplate
+metadata:
+  name: {{ .Release.Name }}-jaeger-service-index-template
+  namespace: elastic-system
+spec:
+  targetInstance:
+    name: {{ .Release.Name }}
+  body: |
+    {
+      "priority": 5,
+      "index_patterns": ["*jaeger-service-*"],
+      "template": {
+        "settings": {
+          "index": {
+            "mapping": {
+              "nested_fields": {
+                "limit": "50"
+              }
+            },
+            "requests": {
+              "cache": {
+                "enable": "true"
+              }
+            },
+            "number_of_shards": "6",
+            "number_of_replicas": "1",
+            "lifecycle.name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy",
+            "lifecycle.rollover_alias": "jaeger-service-write"
+          }
+        },
+        "mappings": {
+          "_routing": {
+            "required": false
+          },
+          "numeric_detection": false,
+          "dynamic_date_formats": [
+            "strict_date_optional_time",
+            "yyyy/MM/dd HH:mm:ss Z||yyyy/MM/dd Z"
+          ],
+          "_source": {
+            "excludes": [],
+            "includes": [],
+            "enabled": true
+          },
+          "dynamic": true,
+          "dynamic_templates": [
+            {
+              "span_tags_map": {
+                "path_match": "tag.*",
+                "mapping": {
+                  "ignore_above": 256,
+                  "type": "keyword"
+                }
+              }
+            },
+            {
+              "process_tags_map": {
+                "path_match": "process.tag.*",
+                "mapping": {
+                  "ignore_above": 256,
+                  "type": "keyword"
+                }
+              }
+            }
+          ],
+          "date_detection": true,
+          "properties": {
+            "operationName": {
+              "type": "keyword"
+            },
+            "serviceName": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    }
+{{- end -}}

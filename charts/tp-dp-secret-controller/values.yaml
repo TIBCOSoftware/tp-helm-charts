@@ -1,0 +1,47 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Resources
+# https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources:
+  requests:
+    cpu: 100m
+    memory: 150Mi
+  limits:
+    cpu: 200m
+    memory: 300Mi
+
+# no of replicas
+replicaCount: "1"
+
+image:
+  name: tp-dp-secret-controller
+  tag: 40
+  pullPolicy: IfNotPresent
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+
+tolerations: {}
+
+global:
+  cp:
+    cpHostName: "acme.local.my.cic2.pro"
+    dataplaneId: "abcd"
+    subscriptionId: "sub1"
+    containerRegistry:
+      url: "reldocker.tibco.com"
+      secret: "abcd"
+    resources:
+      serviceaccount:
+        serviceAccountName: ""
+
+enableLogging: true
+
+fluentbit:
+  image:
+    registry: cr.fluentbit.io/fluent/fluent-bit
+    tag: 2.1.6

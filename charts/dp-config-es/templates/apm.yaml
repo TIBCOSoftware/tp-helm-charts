@@ -1,0 +1,25 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.apm.enabled -}}
+apiVersion: apm.k8s.elastic.co/v1
+kind: ApmServer
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  version: {{ .Values.apm.version }}
+  count: {{ .Values.apm.count }}
+  elasticsearchRef:
+    name: {{ .Release.Name }}
+    namespace: {{ .Release.Namespace }}
+  kibanaRef:
+    name: {{ .Release.Name }}
+    namespace: {{ .Release.Namespace }}
+  http:
+    service:
+      spec:
+        type: ClusterIP
+{{- end -}}

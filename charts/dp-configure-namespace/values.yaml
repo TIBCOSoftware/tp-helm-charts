@@ -1,0 +1,27 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+global:
+  tibco:
+    dataPlaneId: "abcd"
+    # Provide the name of primary namespace where dp-core-infrastrcuture is to be deployed
+    # This namespace has the service account for which the role-bindig will be created for primary namespace and additional namespaces
+    primaryNamespaceName: "dp-namespace"
+    # Provide the name of the service account from primary namespace
+    # This will be used for dp-core-infrastrcuture, capability provisioning, application deployment
+    serviceAccount: "sa"
+
+# Use an already existing service account present in the primary namespace
+# Default value is true. Possible values are true, false
+createServiceAccount: true
+
+networkPolicy:
+  # Flag to enable or disable creating default network policies for a namespace
+  # Default value is false. Possible values are true, false
+  create: false
+  # Required value if the network policies are to be enabled
+  # node CIDR IP block
+  nodeCidrIpBlock: ""
+  # pod CIDR IP block
+  podCidrIpBlock: ""

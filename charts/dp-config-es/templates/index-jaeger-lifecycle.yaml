@@ -1,0 +1,51 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.index.enabled -}}
+apiVersion: es.eck.github.com/v1alpha1
+kind: IndexLifecyclePolicy
+metadata:
+  name: {{ .Release.Name }}-jaeger-index-30d-lifecycle-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetInstance:
+    name: {{ .Release.Name }}
+  body: |
+    {
+      "policy": {
+        "_meta": {
+          "description": "this will be used for traces",
+          "project": {
+            "name": "jaeger",
+            "department": "platform infra"
+          }
+        },
+        "phases": {
+          "hot": {
+            "actions": {
+              "rollover": {
+                "max_size": "2GB",
+                "max_age": "7d"
+              }
+            }
+          },
+          "warm": {
+            "min_age": "10d",
+            "actions": {
+              "forcemerge": {
+                "max_num_segments": 1
+              }
+            }
+          },
+          "delete": {
+            "min_age": "30d",
+            "actions": {
+              "delete": {}
+            }
+          }
+        }
+      }
+    }
+{{- end -}}

@@ -1,0 +1,130 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Name of chart
+name: dp-config-aws
+# label indicating which project this pipeline belongs to (Don't change)
+partOf: TIBCO-Platform
+# indicating which tools are used to generate this template (Don't change)
+createdBy: generator
+
+dns:
+  domain: ""  # abc.<host-domain>
+  vanity: "*"
+
+# this ingress object is used for AWS Load Balancer Controller to create ALB
+httpIngress:
+  enabled: true
+  name: nginx   # traefik for traefik
+  ingressClassName: alb  # this is for AWS ingress controller
+  backend:
+    serviceName: dp-config-aws-ingress-nginx-controller  # serviceName dp-config-aws-traefik for traefik
+    servicePort: 80    # port 443 for traefik
+  # more AWS annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/ingress/annotations/
+  annotations:
+    alb.ingress.kubernetes.io/group.name: ""  # abc.<host-domain>
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP  # HTTPS for traefik
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/success-codes: 200-499
+    alb.ingress.kubernetes.io/target-type: ip
+    external-dns.alpha.kubernetes.io/hostname: ""  # *.abc.<host-domain>
+
+# this service object is used for NLB user case. Ideally, we will use annotation to create NLB
+service:
+  # list of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.5/guide/service/annotations/
+  enabled: false
+  name: dp-config-aws-service
+  type: LoadBalancer
+  annotations: {}
+  labels: {}
+  ports:
+    ems:
+      enabled: true
+      containerPort: 8080
+      servicePort: 443
+      protocol: TCP
+      # hostPort: 443
+      # nodePort: 30317
+      # appProtocol: tcp
+  selector: {}
+
+# storageClass can not be updated: parameters: Forbidden: updates to parameters are forbidden
+storageClass:
+  # see: https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
+  ebs:
+    enabled: false
+    name: ebs-gp3
+    default: false
+    parameters:
+      type: gp3
+      fsType: ext4
+      # iopsPerGB: 10
+      encrypted: true
+    reclaimPolicy: Retain
+    allowVolumeExpansion: true
+    volumeBindingMode: WaitForFirstConsumer
+  # see: https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html
+  # and: https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/examples/kubernetes/dynamic_provisioning/README.md
+  # follow this to create EFS: GUI: https://docs.aws.amazon.com/efs/latest/ug/gs-step-two-create-efs-resources.html
+  # script: https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/docs/efs-create-filesystem.md
+  efs:
+    enabled: false
+    name: efs-sc
+    default: false
+    mountOptions:
+      - soft
+      - timeo=300
+      - actimeo=1
+    parameters:
+      provisioningMode: efs-ap
+      fileSystemId: ""
+      directoryPerms: "700"
+      # basePath: "/data"
+      # subPathPattern: "${.PVC.namespace}/${.PVC.name}" # optional
+      # gidRangeStart: "1000" # optional
+      # gidRangeEnd: "2000" # optional
+      # ensureUniqueDirectory: "true" # optional
+
+traefik:
+  # chart values: https://github.com/traefik/traefik-helm-chart/blob/master/traefik/values.yaml
+  enabled: false
+  hub:  # for hub
+    enabled: false
+  service:  # for external-dns
+    type: ClusterIP
+  ingressRoute:  # for dashboard
+    dashboard:
+      matchRule: Host(``) && PathPrefix(`/dashboard`) || Host(``) && PathPrefix(`/api`)
+      entryPoints:
+        - traefik
+        - web
+        - websecure
+  providers:  # for external service
+    kubernetesIngress:
+      allowExternalNameServices: true
+  nodeSelector:  # for cic2
+    kubernetes.io/os: linux
+  additionalArguments:
+    - '--serversTransport.insecureSkipVerify=true'
+
+ingress-nginx:
+  # chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
+  enabled: true
+  controller:
+    service:  # for external-dns
+      type: ClusterIP
+    nodeSelector:
+      kubernetes.io/os: linux
+
+# this is used for calico settings
+tigera-operator:
+  enabled: false
+  installation:
+    enabled: true
+    kubernetesProvider: EKS
+    cni:
+      type: AmazonVPC
+    calicoNetwork:
+      bgp: Disabled

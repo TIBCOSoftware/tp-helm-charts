@@ -1,0 +1,29 @@
+image:
+  repository: "ghcr.io/snenkov-tibco/oauth2-proxy-tibx"
+  tag: "v7.4.0-tibx"
+config:
+  existingSecret: "oauth2-proxy-tibx" ### can be the release name to make it unique
+extraArgs:
+  oidc-issuer-url: "" ### https://${global.cp.cpHostname}
+  redirect-url: "" ### https://${global.cp.resources.ingress.fqdn}${global.cp.capability.pathPrefix}/oauth2/callback
+
+ingress:
+  className: nginx ### ${global.cp.resources.ingress.ingressClassName}
+  hosts: 
+    - "" ### ${global.cp.resources.ingress.fqdn}
+  path: "/oauth2" ### ${global.cp.capability.pathPrefix}/oauth2
+
+# CP Provided
+  # global:
+  # cp:
+  #   secrets:
+  #     iat:
+  #   cpHostname:
+  #   instanceId:
+  #   capability:
+  #     pathPrefix: ""
+  # co:
+  #   resources:
+  #     ingress:
+  #       fqdn:
+  #       ingressClassName:

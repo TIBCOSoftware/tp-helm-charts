@@ -1,0 +1,12 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+{{- if .Values.global.security.peerAuthentication }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: "{{ .Release.Namespace }}-default-security-policy"
+spec:
+  mtls:
+    mode: "{{ .Values.global.security.peerAuthentication }}"
+{{- end }}

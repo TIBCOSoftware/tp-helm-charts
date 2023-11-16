@@ -1,0 +1,32 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.volumes.artifactmanager.persistentVolumeClaim.create }}
+{{- $pvcCheck :=  (lookup "v1" "PersistentVolumeClaim" .Release.Namespace ( include "artifactmanager.storage.pvc.name" . )) }}
+{{- if not $pvcCheck }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "artifactmanager.storage.pvc.name" . }}
+  labels:
+  {{- include "artifactmanager.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- range .Values.volumes.artifactmanager.persistentVolumeClaim.accessModes }}
+    - {{ . }}
+    {{- end }}
+  storageClassName: {{ .Values.global.cp.resources.storage.storageClassName | quote }}
+  volumeMode: {{ .Values.volumes.artifactmanager.persistentVolumeClaim.volumeMode }}
+  {{- with .Values.volumes.artifactmanager.persistentVolumeClaim.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.volumes.artifactmanager.persistentVolumeClaim.volumeName }}
+  volumeName: {{ .Values.volumes.artifactmanager.persistentVolumeClaim.volumeName | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

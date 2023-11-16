@@ -1,0 +1,18 @@
+{{/*
+    Copyright © 2023. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{/* service account is created only in the primary namespace */}}
+{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
+{{- if .Values.createServiceAccount -}}
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: {{ include "dp-configure-namespace.serviceAccount" . }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+{{- end -}}
+{{- end -}}

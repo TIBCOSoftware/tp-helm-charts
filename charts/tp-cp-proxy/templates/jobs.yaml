@@ -1,0 +1,84 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-proxy.consts.appName" . }}-client-credential-creation
+  labels:
+    {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 18000 #cleanup after 5hr
+  template:
+    metadata:
+      name: client-credential-creation
+      labels:
+        {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName | default (printf "%s%s" (include "tp-cp-proxy.consts.appName" .) "-job-sa") }}
+      containers:
+        - name: post-install-job
+          image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - configure
+            - -i
+            - {{ .Values.global.cp.secrets.iat }}
+            - -o
+            - "https://{{ .Values.global.cp.cpHostname}}"
+            - -s
+            - {{ include "tp-cp-proxy.consts.outputSecretName" .}}
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-proxy.consts.appName" . }}-client-credential-deletion
+  labels:
+    {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  ttlSecondsAfterFinished: 18000 #cleanup after 5hr
+  backoffLimit: 0
+  template:
+    metadata:
+      name: client-credential-secret-deletion
+      labels:
+        {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName | default (printf "%s%s" (include "tp-cp-proxy.consts.appName" .) "-job-sa") }}
+      containers:
+        - name: pre-delete-job
+          image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - delete
+            - -s
+            - {{ include "tp-cp-proxy.consts.outputSecretName" .}}
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}

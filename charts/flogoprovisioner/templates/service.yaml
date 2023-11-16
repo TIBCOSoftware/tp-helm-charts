@@ -1,0 +1,23 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flogoprovisioner.fullname" . }}
+  labels:
+    {{- include "flogoprovisioner.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.publicApiService.port }}
+      targetPort: {{ .Values.publicApiService.targetPort }}
+      protocol: TCP
+      name: publicapihttp
+  selector:
+    {{- include "flogoprovisioner.selectorLabels" . | nindent 4 }}

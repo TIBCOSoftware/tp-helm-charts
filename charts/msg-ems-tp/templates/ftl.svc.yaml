@@ -1,0 +1,88 @@
+#
+# Copyright (c) 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained 
+# in the license file that is distributed with this file.  
+#
+
+# .......... FTL SERVICE ..........
+---
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
+{{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcProm := printf "%s-%s" $emsParams.ems.name "prom" -}}
+{{- $stsname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+#
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcFtl }}"
+  labels:
+    tib-dp-app: msg-ems-ftl
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
+    tib-msg-svcname: "{{ $svcFtl }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+spec:
+  ports:
+  - name: ems-realm-port
+    port: {{ int $emsParams.ems.ports.realmPort }}
+    protocol: TCP
+  - name: watchdog-port
+    port: {{ int $emsParams.ems.ports.watchdogPort }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+...
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcEms }}"
+  labels:
+    tib-dp-app: msg-ems-ftl
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
+    tib-msg-svcname: "{{ $svcEms }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+spec:
+  ports:
+  - name: ems-http-port
+    port: {{ int $emsParams.ems.ports.httpPort }}
+    protocol: TCP
+  - name: ems-tcp-port
+    port: {{ int $emsParams.ems.ports.tcpPort }}
+    protocol: TCP
+  - name: ems-ssl-port
+    port: {{ int $emsParams.ems.ports.sslPort }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+...
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcProm }}"
+  labels:
+    tib-dp-app: msg-ems-ftl
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
+    tib-msg-svcname: "{{ $svcEms }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+    prometheus.io/scrape: "true"
+    platform.tibco.com/scrape_finops: "true"
+    prometheus.io/port: "{{ ($emsParams.ems.ports.promServerEP | default 9091) }}"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ ($emsParams.ems.ports.promServerEP | default 9091) }}"
+    prometheus.io/scheme: "http"
+    prometheus.io/insecure_skip_verify: "true"
+spec:
+  ports:
+  - name: prom-port
+    port: {{ int $emsParams.ems.ports.promServerEP }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"

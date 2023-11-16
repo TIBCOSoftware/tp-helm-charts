@@ -1,0 +1,29 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+## CONTEXT
+
+replicaCount: "1"
+global:
+  LOG_LEVEL: debug
+  cp:
+    dataplaneId: "abcd"
+    subscriptionId: "sub1"
+    instanceId: "qwerty"
+    containerRegistry:
+      url: "reldocker.tibco.com"
+      secret: "test"
+    resources:
+      serviceaccount:
+        serviceAccountName: "monitor-agent-sa"
+        create: false
+  # .Values.global.enableLogging variable can be set to false to disable starting fluentbit side-car containers
+  enableLogging: true
+enableIngress: true
+ingress:
+  annotations: {}
+    # nginx custom annotation example
+    # nginx.org/rewrites: "serviceName={{ include \"tp-dp-monitor-agent.consts.appName\" . }} rewrite=/" #https://github.com/nginxinc/kubernetes-ingress/tree/v2.4.2/examples/ingress-resources/rewrites
+  pathPrefix: /tibco/agent/infra/tp-dp-monitor-agent/
+  className: "haproxy-dp-{{ .Values.global.cp.dataplaneId}}"  # Ex: nginx, haproxy

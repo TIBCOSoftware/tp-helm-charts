@@ -1,0 +1,32 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.index.enabled -}}
+apiVersion: es.eck.github.com/v1alpha1
+kind: Index
+metadata:
+  name: jaeger-span-000001
+  namespace: elastic-system
+spec:
+  targetInstance:
+    name: {{ .Release.Name }}
+  dependencies:
+    indexTemplates:
+      - {{ .Release.Name }}-jaeger-span-index-template
+  body: |
+    {
+      "aliases" : {
+        "jaeger-span-write": {
+          "is_write_index": "true"
+        }
+      },
+      "settings": {
+        "index": {
+          "number_of_shards": 3,
+          "number_of_replicas": 2
+        }
+      }
+    }
+{{- end -}}

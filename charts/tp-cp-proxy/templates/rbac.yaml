@@ -1,0 +1,32 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.global.cp.resources.serviceaccount.serviceAccountName "" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tp-cp-proxy.consts.appName" .}}-job-role
+  labels:
+    {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get","create","delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tp-cp-proxy.consts.appName" .}}-job-rolebinding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tp-cp-proxy.consts.appName" .}}-job-sa
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "tp-cp-proxy.consts.appName" .}}-job-role
+  apiGroup: rbac.authorization.k8s.io
+{{ end }}

@@ -1,0 +1,76 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+### OPERATOR RBAC
+---
+
+{{- if eq .Values.global.cp.resources.serviceaccount.serviceAccountName "" }}
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: {{ include "dp-core-distributed-lock-operator.consts.appName" . }}
+  labels:
+    {{- include "dp-core-distributed-lock-operator.shared.labels.standard" . | nindent 4 }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    {{- include "dp-core-distributed-lock-operator.shared.labels.standard" . | nindent 4 }}
+  name: {{ include "dp-core-distributed-lock-operator.shared.func.globalResourcePrefix" . }}role
+rules:
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  resourceNames:
+  - tibcodistributedlocks.cloud.tibco.com
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - cloud.tibco.com
+  resources:
+  - tibcodistributedlocks
+  - tibcodistributedlocks/status
+  verbs: ["get","list","watch","create","delete","patch","update"]
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+    - events
+  verbs:
+    - create
+    - patch
+
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "dp-core-distributed-lock-operator.shared.func.globalResourcePrefix" . }}rb
+  labels:
+    {{- include "dp-core-distributed-lock-operator.shared.labels.standard" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-core-distributed-lock-operator.shared.func.globalResourcePrefix" . }}role
+subjects:
+- kind: ServiceAccount
+  {{- if eq .Values.global.cp.resources.serviceaccount.serviceAccountName "" }}
+  name: {{ include "dp-core-distributed-lock-operator.consts.appName" . }}
+- kind: ServiceAccount
+  name: tp-dp-{{ .Values.global.cp.dataplaneId }}-sa
+  {{- else }}
+  name: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+  {{- end }}
+
+{{- end }}

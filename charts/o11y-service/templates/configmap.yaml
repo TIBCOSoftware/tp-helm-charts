@@ -1,0 +1,56 @@
+#
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    use-subpath: "true"
+  labels:
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  name: {{ include "o11y-service.fullname" . }}
+data:
+  otel-recvservice-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.service.name }}
+  otel-recvservice-port: {{ quote .Values.global.cp.resources.o11y.config.otel.receiver.service.port }}
+  #logsserver
+{{- if eq .Values.global.cp.resources.o11y.logsServer.kind "elasticSearch" }}
+  logserver-app-logIndex: {{ .Values.global.cp.resources.o11y.logsServer.config.userapp.logindex }}
+  #ES_EXPORTER_LOG_INDEX_NAME duplicate of 'logserver-svc-logIndex'
+  ES_EXPORTER_LOG_INDEX_NAME: {{ .Values.global.cp.resources.o11y.logsServer.config.userapp.logindex }}
+  logserver-svc-logIndex: {{ .Values.global.cp.resources.o11y.logsServer.config.services.logindex }}
+  #ES_SERVICE_LOG_INDEX_NAME duplicate of 'logserver-svc-logIndex'
+  ES_SERVICE_LOG_INDEX_NAME: {{ .Values.global.cp.resources.o11y.logsServer.config.services.logindex }}
+  logserver-proxy-app-endpoint: {{ .Values.global.cp.resources.o11y.logsServer.config.proxy.userapp.logindex.endpoint }}
+  logserver-proxy-app-userName: {{ .Values.global.cp.resources.o11y.logsServer.config.proxy.userapp.logindex.username }}
+  # duplicate of 'logserver-proxy-app-userName'
+  ES_EXPORTER_LOG_INDEX_USERNAME: {{ .Values.global.cp.resources.o11y.logsServer.config.proxy.userapp.logindex.username }}
+  logserver-exporter-app-endpoint: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.userapp.logindex.endpoint }}
+  #ES_SERVER_EXPORTER_ENDPOINT duplicate of 'logserver-exporter-app-endpoint'
+  ES_SERVER_EXPORTER_ENDPOINT: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.userapp.logindex.endpoint }}
+  logserver-exporter-app-userName: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.userapp.logindex.username }}
+  logserver-exporter-svc-endpoint: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.services.logindex.endpoint }}
+  #ES_SERVER_SERVICE_ENDPOINT duplicate of 'logserver-exporter-svc-endpoint'
+  ES_SERVER_SERVICE_ENDPOINT: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.services.logindex.endpoint }}
+  logserver-exporter-svc-userName: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.services.logindex.username }}
+  #ES_SERVICE_LOG_INDEX_USERNAME duplicate of 'logserver-exporter-svc-userName'
+  ES_SERVICE_LOG_INDEX_USERNAME: {{ .Values.global.cp.resources.o11y.logsServer.config.exporter.services.logindex.username }}
+{{- end }}
+  #metrcisserver
+{{- if eq .Values.global.cp.resources.o11y.metricsServer.kind "prometheus" }}
+  promserver-proxy-endpoint: {{ .Values.global.cp.resources.o11y.metricsServer.config.proxy.endpoint }}
+  promserver-proxy-userName: {{ .Values.global.cp.resources.o11y.metricsServer.config.proxy.username }}
+{{- end }}
+  #tracesserver
+{{- if eq .Values.global.cp.resources.o11y.tracesServer.kind "jaeger" }}
+  jaeger-es-host: {{ .Values.global.cp.resources.o11y.tracesServer.config.es.host }}
+  jaeger-es-port: {{ quote .Values.global.cp.resources.o11y.tracesServer.config.es.port }}
+  jaeger-es-username: {{ .Values.global.cp.resources.o11y.tracesServer.config.es.username }}
+{{- end }}
+  JAEGER_COLLECTOR_ENDPOINT: {{ include "o11y-service.jaeger-collector-endpoint" . }}
+  #finops
+  FINOPS_OTLP_COLLECTOR_ENDPOINT: {{ include "o11y-service.finops-collector-endpoint" . }}
+  jaeger-ui-config.json: '{"monitor":{"menuEnabled":false},"dependencies":{"menuEnabled":false},"menu":[{"label":"
+    Control Panel","items":[{"label":"Home","url":"../../../../cp"},{"label":"Data
+    Planes","url":"../../../../cp/app/subscription"},{"label":"Observability","url":"../../../../cp/metrics"}]}],"linkPatterns":[{"type":"tags","key":"app_id","url":"../../../../cp/#{app_type}/appdetails/processes?dp_id=#{dataplane_id}&capability_instance_id=#{capability_instance_id}&app_id=#{app_id}","text":"Open app details #{app_name}"}]}'

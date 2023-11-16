@@ -1,0 +1,23 @@
+#
+# Copyright (c) 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained 
+# in the license file that is distributed with this file.  
+#
+
+{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $emsParams.ems.name }}-params
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    tib-dp-app: msg-ems-ftl
+    tib-dp-release: "{{ .Release.Name }}"
+    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+data:
+  emsparams.yaml: |
+{{ include "need.msg.ems.params" . | indent 4 }}
+...

@@ -1,0 +1,41 @@
+#
+# Copyright (c) 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+global:
+  cp:
+    dataplaneId:
+    instanceId:
+
+dp:
+  # CAUTION: Values set here will override .global.cp.*
+  # See _dp.helpers.tpl to set defaults
+  #
+
+ems:
+  stores: ftl
+  sizing: small
+  use: dev
+  # CAUTION: Current chart does not support overriding internal ports
+  ports:
+    httpPort: 9010
+    tcpPort: 9011
+    sslPort: 9012
+    realmPort: 9013
+    adminPort: 9014
+    promServerEP: 9091
+    promQueuesEP: 9092
+    promTopicsEP: 9093
+    watchdogPort: 12502
+    loggerPort: 12506
+  msgData:
+    storageType: emptyDir
+    storageName: none
+  logs:
+    storageType: useMsgData
+    storageName: none
+  sslEnable: true
+  tcpEnable: true
+  opsEnable: false
