@@ -20,7 +20,7 @@ There are some charts that can help customers set up cluster ingress, storage cl
 
 ### Prerequisites
 1. [x] Helm **v3 > 3.12.0** [installed](https://helm.sh/docs/using_helm/#installing-helm): `helm version`
-2. [x] Chart repository: `helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts/`
+2. [x] Chart repository: `helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts`
 
 ### Deploy TIBCO Platform data plane components
 
