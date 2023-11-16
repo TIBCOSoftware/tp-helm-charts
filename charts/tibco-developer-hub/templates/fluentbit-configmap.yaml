@@ -62,24 +62,21 @@ data:
     [FILTER]
       Name              modify
       Match             dp.*
-      Rename            log.level top.level
+      Rename            log.message log.msg
     
     [FILTER]
       Name              nest
       Match             dp.*
       Operation         nest
       Wildcard          log.*
-      Nest_Under        top.msg
-      Remove_prefix     log. 
-    
-    [FILTER]
-      Name              nest
-      Match             dp.*
-      Operation         nest
-      Wildcard          top.*
       Nest_Under        log
-      Remove_prefix     top.
+      Remove_prefix     log.
  
+    [FILTER]
+      Name lua
+      Match dp.*
+      Script update_record.lua
+      Call update_record  
 
   output.conf: |   
     # [OUTPUT]
@@ -108,4 +105,23 @@ data:
       Time_Keep         Off
       Decode_Field_As   json log
 
+  update_record.lua: |
+    -- Function to append all fields under key "msg"
+    function update_record(tag, timestamp, record)
+      local newLog = record["log"]
+      local newMsg = ""
+      for key, val in pairs(newLog) do
+        if(key ~= "level" and key ~= "caller" and key ~= "msg" and key ~= "stacktrace" and key ~= "error" and key ~= "errorVerbose") then
+          if(key ~= "time") then 
+            newMsg = newLog["msg"] .. ", " .. key .. ": " .. val
+          end
+          newLog[key] = nil
+        end
+      end
+      if(newMsg ~= "") then
+        newLog["msg"] = newMsg
+      end
+      record["log"] = newLog
+      return 2, timestamp, record
+    end  
 {{- end }}
