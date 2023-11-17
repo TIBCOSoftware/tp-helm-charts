@@ -78,19 +78,20 @@ data:
       Time_Keep         On
       Decode_Field_As   json log
   update_record.lua: |
-    -- Function to append all fields under key "msg"
+    -- Function to append all fields under key "log"
     function update_record(tag, timestamp, record)
-      local newLog = record["log"]
-      local newMsg = newLog["msg"]
-      for key, val in pairs(newLog) do
-        if(key ~= "level" and key ~= "caller" and key ~= "msg" and key ~= "stacktrace" and key ~= "error" and key ~= "errorVerbose") then
-          if(key ~= "time") then
-            newMsg = newMsg .. ", " .. key .. ": " .. tostring(val)
-          end
-          newLog[key] = nil
-        end
+      local newLog = {}
+      newLog["log"] = "info"
+      local myLog = record["log"]
+      local mytime, mycaller, mymsg = myLog:match('%[(.-)%] %[(.-)%] (.*)')
+      if mytime == nil or mytime == '' then
+        newLog["msg"] = myLog
+        newLog["caller"] = "unknown"
+        record["log"] = newLog  
+        return 2, timestamp, record
       end
-      newLog["msg"] = newMsg
+      newLog["msg"] = mymsg
+      newLog["caller"] = mycaller
       record["log"] = newLog
       return 2, timestamp, record
     end
