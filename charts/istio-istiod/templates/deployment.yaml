@@ -107,6 +107,10 @@ spec:
 {{- end }}
       securityContext:
         fsGroup: 1337
+{{- if .Values.global.cp.containerRegistry.secret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+{{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.pilot.image }}
@@ -116,10 +120,6 @@ spec:
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-{{- if .Values.global.cp.containerRegistry.secret }}
-          imagePullSecrets:
-            - name: {{ .Values.global.cp.containerRegistry.secret }}
 {{- end }}
           args:
           - "discovery"
