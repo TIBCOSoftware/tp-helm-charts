@@ -340,6 +340,9 @@ The `nginx` ingress class is the main ingress that DP will use. The `azure-appli
 > [!IMPORTANT]
 > You will need to provide this ingress class name i.e. nginx to TIBCO Control Plane when you deploy capability.
 
+> [!IMPORTANT]
+> When creating a k8 service with type: loadbalancer, in cases where the virtual machine scale set has a network security group on the subnet level, additional inbound security rules may need to be created to the load balancer external IP address to ensure outside connectivity
+
 ### Storage Class
 
 ```bash
