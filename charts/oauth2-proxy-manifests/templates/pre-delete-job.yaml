@@ -50,7 +50,10 @@ spec:
         volumeMounts:
         - name: shell-script-volume
           mountPath: /etc/config/script/iat_to_clienid.sh
-          subPath: iat_to_clienid.sh 
+          subPath: iat_to_clienid.sh
+{{- if .Values.global.cp.containerRegistry.secret }}
+      imagePullSecrets: [ name: {{ .Values.global.cp.containerRegistry.secret }} ]
+{{- end }}          
       volumes:
         - name: shell-script-volume
           configMap:
