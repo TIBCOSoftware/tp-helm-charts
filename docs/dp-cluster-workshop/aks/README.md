@@ -100,6 +100,8 @@ export PUBLIC_IP_NAME="public-ip" # name of public ip resource
 export NAT_GW_NAME="nat-gateway" # name of NAT gateway resource
 export NAT_GW_SUBNET_NAME="natgw-subnet" # name of NAT gateway subnet
 export NAT_GW_SUBNET_CIDR="10.4.18.0/27" # CIDR of the NAT gateway subnet address space
+export APISERVER_SUBNET_NAME="apiserver-subnet" # name of api server subnet resource
+export APISERVER_SUBNET_CIDR="10.4.19.0/28" # CIDR of the kubernetes api server subnet address space
 
 ## By default, only your public IP will be added to allow access to public cluster
 export AUTHORIZED_IP=""  # declare additional IPs to be whitelisted for accessing cluster
@@ -117,7 +119,7 @@ export DP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage clas
 export DP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities 
 export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 export DP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record sets
-export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "azure", "calico"
+export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "calico"
 export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure file shares
 export STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
 ```
@@ -149,11 +151,21 @@ It will take approximately 5 minutes to complete the configuration.
 
 ## Create Azure Kubernetes Service (AKS) cluster
 > [!IMPORTNANT]
-> Please note, for cluster we are using a flag --enable-workload-identity.
-> This works with if the preview feature EnableWorkloadIdentityPreview is registered for the subscription.
+> Please note, we are using the flag --enable-workload-identity in create cluster command.
+> This works, if the preview feature EnableWorkloadIdentityPreview is registered for the subscription.
 > You might get a prompt to allow to register the feature as part of script execution, if it is not registered already.
 > This is one time step and you can also enable explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/cli/azure/feature?view=azure-cli-latest#az-feature-register)
 > e.g. az feature register --namespace Microsoft.ContainerService --name EnableWorkloadIdentityPreview
+
+> [!IMPORTNANT]
+> Please note, we are using the flag --enable-apiserver-vnet-integration in create cluster command.
+> This is to esnure that the cluster API server endpoint is available publicly and can be accessed over VNet by nodes.
+> This works, if the preview feature EnableAPIServerVnetIntegrationPreview is registered for the subscription.
+> You might get a prompt to allow to register the feature as part of script execution, if it is not registered already.
+> This is one time step and you can also enable explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/azure/aks/api-server-vnet-integration)
+> e.g. az feature register --namespace "Microsoft.ContainerService" --name "EnableAPIServerVnetIntegrationPreview"
+> You will also need to [add the aks-preview extension for API Server VNet integration using cli command](https://learn.microsoft.com/en-us/azure/aks/api-server-vnet-integration)
+> e.g. az extension add --name aks-preview
 
 Execute the script
 ```bash

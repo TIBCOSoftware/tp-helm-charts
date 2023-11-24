@@ -78,6 +78,11 @@ az network vnet subnet create -g ${DP_RESOURCE_GROUP} --vnet-name "${VNET_NAME}"
 _ret=$?
 verify_error "${_ret}" "aks_subnet"
 
+# create aks subnet
+az network vnet subnet create -g ${DP_RESOURCE_GROUP} --vnet-name "${VNET_NAME}" -n "${APISERVER_SUBNET_NAME}" --address-prefixes "${APISERVER_SUBNET_CIDR}"
+_ret=$?
+verify_error "${_ret}" "api_server_subnet"
+
 # create nat gateway subnet
 az network vnet subnet create -g ${DP_RESOURCE_GROUP} --vnet-name "${VNET_NAME}" -n "${NAT_GW_SUBNET_NAME}" --address-prefixes "${NAT_GW_SUBNET_CIDR}" --nat-gateway "${NAT_GW_ID}"
 _ret=$?

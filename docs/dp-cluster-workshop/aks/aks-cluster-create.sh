@@ -32,6 +32,9 @@ export AKS_VNET_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${DP
 # set application gateway subnet details
 export APPLICATION_GW_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${DP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${VNET_NAME}/subnets/${APPLICATION_GW_SUBNET_NAME}"
 
+# set api server subnet details
+export APISERVER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${DP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${VNET_NAME}/subnets/${APISERVER_SUBNET_NAME}"
+
 # create aks cluster
 echo "start to create AKS: ${DP_RESOURCE_GROUP}/${DP_CLUSTER_NAME}"
 az aks create -g "${DP_RESOURCE_GROUP}" -n "${DP_CLUSTER_NAME}" \
@@ -43,11 +46,13 @@ az aks create -g "${DP_RESOURCE_GROUP}" -n "${DP_CLUSTER_NAME}" \
   --enable-oidc-issuer \
   --enable-workload-identity \
   --network-plugin azure${NETWORK_POLICY_PARAMETER} \
-  --kubernetes-version "1.28.0" \
+  --kubernetes-version "1.27.7" \
   --outbound-type userAssignedNATGateway \
   --appgw-name gateway \
   --vnet-subnet-id "${AKS_VNET_SUBNET_ID}" \
   --appgw-subnet-id "${APPLICATION_GW_SUBNET_ID}" \
+  --enable-apiserver-vnet-integration \
+  --apiserver-subnet-id "${APISERVER_SUBNET_ID}" \
   --assign-identity "${USER_ASSIGNED_ID}" \
   --assign-kubelet-identity "${USER_ASSIGNED_ID}"
 _ret=$?
