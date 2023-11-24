@@ -2,9 +2,9 @@ Table of Contents
 =================
 <!-- TOC -->
 * [Table of Contents](#table-of-contents)
-* [TIBCO Data Plane Cluster Workshop](#tibco-data-plane-cluster-workshop)
+* [Data Plane Cluster Workshop](#data-plane-cluster-workshop)
   * [Introduction](#introduction)
-  * [Command Line Tools needed](#command-line-tools-needed)
+  * [Command Line Tools required](#command-line-tools-required)
   * [Recommended IAM Policies](#recommended-iam-policies)
   * [Export required variables](#export-required-variables)
   * [Create EKS cluster](#create-eks-cluster)
@@ -13,8 +13,8 @@ Table of Contents
   * [Install Ingress Controller, Storage Class](#install-ingress-controller-storage-class)
     * [Setup DNS](#setup-dns)
     * [Setup EFS](#setup-efs)
-    * [Ingress Controller](#ingress-controller)
     * [Storage Class](#storage-class)
+    * [Ingress Controller](#ingress-controller)
   * [Install Calico [OPTIONAL]](#install-calico-optional)
     * [Pre Installation Steps](#pre-installation-steps)
     * [Chart Installation Step](#chart-installation-step)
@@ -23,24 +23,24 @@ Table of Contents
     * [Install Elastic stack](#install-elastic-stack)
     * [Install Prometheus stack](#install-prometheus-stack)
     * [Install Opentelemetry Collector for metrics](#install-opentelemetry-collector-for-metrics)
-  * [Information needed to be set on TIBCO Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
+  * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco®-control-plane)
   * [Clean up](#clean-up)
 <!-- TOC -->
 
-# TIBCO Data Plane Cluster Workshop
+# Data Plane Cluster Workshop
 
-The goal of this workshop is to provide a hands-on experience to deploy a TIBCO Data Plane cluster in AWS. This is the prerequisite for the TIBCO Data Plane.
+The goal of this workshop is to provide hands-on experience to deploy a Data Plane cluster in AWS. This is the prerequisite for the Data Plane.
 
 > [!Note]
 > This workshop is NOT meant for production deployment.
 
 ## Introduction
 
-In order to deploy TIBCO Data Plane, you need to have a Kubernetes cluster and install the necessary tools. This workshop will guide you to create a Kubernetes cluster in AWS and install the necessary tools.
+In order to deploy Data Plane, you need to have a Kubernetes cluster and install the necessary tools. This workshop will guide you to create a Kubernetes cluster in AWS and install the necessary tools.
 
-## Command Line Tools needed
+## Command Line Tools required
 
-We are running the steps in a MacBook Pro. The following tools are installed using [brew](https://brew.sh/): 
+The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The following tools are installed using [brew](https://brew.sh/):
 * envsubst (part of homebrew gettext)
 * jq (1.7)
 * yq (v4.35.2)
@@ -54,8 +54,8 @@ For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
-> Please use --platform while building tha image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
-> We have used linux/amd64 as platform. This can be different based on your machine OS.
+> Please use --platform while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
+> This can be different based on your machine OS and hardware architecture.
 
 A sample command on Linux AMD64 is
 ```bash
@@ -72,8 +72,8 @@ docker buildx build --platform=${platform} --progress=plain \
 > Please use export AWS_PAGER="" within the container to disable the use of a pager
 
 ## Recommended IAM Policies
-It is recommeded to have the [Minimum IAM Policies](https://eksctl.io/usage/minimum-iam-policies/ attached to the role which is being used for the cluster creation.
-Additionally, you will need to add the AmazonElasticFileSystemFullAccess (arn:aws:iam::aws:policy/AmazonElasticFileSystemFullAccess) policy to the role you are going to use.
+It is recommended to have the [Minimum IAM Policies](https://eksctl.io/usage/minimum-iam-policies/) attached to the role which is being used for the cluster creation.
+Additionally, you will need to add the [AmazonElasticFileSystemFullAccess](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonElasticFileSystemFullAccess.html) policy to the role you are going to use.
 > [!NOTE]
 > Please use this role with recommended IAM policies attached, to create and access EKS cluster
 
@@ -107,20 +107,20 @@ Change the directory to eks/ to proceed with the next steps.
 cd /eks
 ```
 
-## Create EKS cluster
+## Create Amazon Elastic Kubernetes Service (EKS) cluster
 
-In this section, we will use [eksctl tool](https://eksctl.io/) to create an EKS cluster. This tool is recommended by AWS as the official tool to create EKS cluster.
+In this step, we will use the [eksctl tool](https://eksctl.io/) which is a recommended tool by AWS to create an EKS cluster.
 
 In the context of eksctl tool; they have a yaml file called `ClusterConfig object`. 
 This yaml file contains all the information needed to create an EKS cluster. 
-We have created a yaml file [eksctl-recipe.yaml](eksctl-recipe.yaml) for our workshop to bring up an EKS cluster for TIBCO data plane.
+We have created a yaml file [eksctl-recipe.yaml](eksctl-recipe.yaml) for our workshop to bring up an EKS cluster for Data Plane.
 We can use the following command to create an EKS cluster in your AWS account. 
 
 ```bash 
 cat eksctl-recipe.yaml | envsubst | eksctl create cluster -f -
 ```
 
-It will take around 30 minutes to create an empty EKS cluster. 
+It will take approximately 30 minutes to create an EKS cluster.
 
 ## Generate kubeconfig to connect to EKS cluster
 
@@ -221,19 +221,19 @@ In this section, we will install ingress controller and storage class. We have m
 It will create the following resources:
 * a main ingress object which will be able to create AWS alb and act as a main ingress for DP cluster
 * annotation for external-dns to create DNS record for the main ingress
-* a storage class for EBS
-* a storage class for EFS
+* EBS with Amazon Elastic Block Store (EBS)
+* EFS with Amazon Elastic File System (EFS)
 
 ### Setup DNS
 Please use an appropriate domain name in place of `dp1.aws.example.com`. You can use `*.dp1.aws.example.com` as the wildcard domain name for all the DP capabilities.
 
 You can use the following services to register domain and manage certificates.
-* [Amazon Route 53](https://aws.amazon.com/route53/): to manage DNS. You can register your dataplanes domain in Route 53. And give permission to external-dns to add new record.
+* [Amazon Route 53](https://aws.amazon.com/route53/): to manage DNS. You can register your Data Plane domain in Route 53. And give permission to external-dns to add new record.
 * [AWS Certificate Manager (ACM)](https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html): to manage SSL certificate. You can create a wildcard certificate for `*.<DP_DOMAIN>` in ACM.
 * aws-load-balancer-controller: to create AWS ALB. It will automatically create AWS ALB and add SSL certificate to ALB.
 * external-dns: to create DNS record in Route 53. It will automatically create DNS record for ingress objects.
 
-For this workshop work; you will need to 
+For this workshop, you will need to
 * register a domain name in Route 53. You can follow this [link](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html) to register a domain name in Route 53.
 * create a wildcard certificate in ACM. You can follow this [link](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) to create a wildcard certificate in ACM.
 
@@ -248,9 +248,58 @@ We provide an [EFS creation script](create-efs.sh) to create EFS.
 ./create-efs.sh
 ```
 
-### Ingress Controller
-After running above script; we will get an EFS ID output like `fs-0ec1c745c10d523f6`. We will need to use this value to deploy `dp-config-aws` helm chart.
+### Storage Class
+After running above script; we will get an EFS ID output like `fs-0ec1c745c10d523f6`. We will need to use that value to deploy `dp-config-aws` helm chart.
 
+```bash
+## following variable is required to create the storage class
+export DP_EFS_ID="fs-0ec1c745c10d523f6" # replace with the EFS ID created in your installation
+
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n storage-system dp-config-aws-storage dp-config-aws \
+  --repo "${TIBCO_DP_HELM_CHART_REPO}" \
+  --labels layer=1 \
+  --version "1.0.23" -f - <<EOF
+dns:
+  domain: "${DP_DOMAIN}"
+httpIngress:
+  enabled: false
+storageClass:
+  ebs:
+    enabled: ${DP_EBS_ENABLED}
+  efs:
+    enabled: ${DP_EFS_ENABLED}
+    parameters:
+      fileSystemId: "${DP_EFS_ID}"
+tigera-operator:
+  enabled: false
+ingress-nginx:
+  enabled: false
+EOF
+```
+
+Use the following command to get the storage class name.
+
+```bash
+$ kubectl get storageclass
+NAME            PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+ebs-gp3         ebs.csi.aws.com         Retain          WaitForFirstConsumer   true                   7h17m
+efs-sc          efs.csi.aws.com         Delete          Immediate              false                  7h17m
+gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  7h41m
+```
+
+We have some scripts in the recipe to create and setup EFS. The `dp-config-aws` helm chart will create all these storage classes.
+* `ebs-gp3` is the storage class for EBS. This is used for
+  * storage class for data while provisioning TIBCO Enterprise Message Service™ (EMS) capability
+* `efs-sc` is the storage class for EFS. This is used for
+  * artifactmanager while provisioning TIBCO BusinessWorks™ Container Edition capability
+  * storage class for log when we provision EMS capability
+* `gp2` is the default storage class for EKS. AWS creates it by default and we don't recommend to use it.
+
+> [!IMPORTANT]
+> You will need to provide this storage class name to TIBCO® Control Plane when you deploy capability.
+
+### Ingress Controller
 ```bash
 ## following variable is required to send traces using nginx
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
@@ -312,63 +361,13 @@ nginx   k8s.io/ingress-nginx   <none>       7h11m
 The `nginx` ingress class is the main ingress that DP will use. The `alb` ingress class is used by AWS ALB ingress controller.
 
 > [!IMPORTANT]
-> You will need to provide this ingress class name i.e. nginx to TIBCO Control Plane when you deploy capability.
-
-### Storage Class
-
-```bash
-## following variable is required to create the storage class
-export DP_EFS_ID="fs-0ec1c745c10d523f6" # Replace with the EFS ID created in your installation
-
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n storage-system dp-config-aws-storage dp-config-aws \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" \
-  --labels layer=1 \
-  --version "1.0.23" -f - <<EOF
-dns:
-  domain: "${DP_DOMAIN}"
-httpIngress:
-  enabled: false
-storageClass:
-  ebs:
-    enabled: ${DP_EBS_ENABLED}
-  efs:
-    enabled: ${DP_EFS_ENABLED}
-    parameters:
-      fileSystemId: "${DP_EFS_ID}"
-tigera-operator:
-  enabled: false
-ingress-nginx:
-  enabled: false
-EOF
-```
-
-Use the following command to get the storage class name.
-
-```bash
-$ kubectl get storageclass
-NAME            PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-ebs-gp3         ebs.csi.aws.com         Retain          WaitForFirstConsumer   true                   7h17m
-efs-sc          efs.csi.aws.com         Delete          Immediate              false                  7h17m
-gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  7h41m
-```
-
-We have some scripts in the recipe to create and setup EFS. The `dp-config-aws` helm chart will create all these storage classes.
-* `ebs-gp3` is the storage class for EBS. This is used for
-  * storage class for data when provision EMS capability
-* `efs-sc` is the storage class for EFS. This is used for
-  * artifactmanager when we provision BWCE capability
-  * storage class for log when we provision EMS capability
-* `gp2` is the default storage class for EKS. AWS create it by default and don't recommend to use it.
-
-> [!IMPORTANT]
-> You will need to provide this storage class name to TIBCO Control Plane when you deploy capability.
+> You will need to provide this ingress class name i.e. nginx to TIBCO® Control Plane when you deploy capability.
 
 ## Install Calico [OPTIONAL]
 For network policies to take effect in the EKS cluster, we will need to deploy [calico](https://www.tigera.io/project-calico/).
 
 ### Pre Installation Steps
-As we are using Amazon VPC CNI add-on version 1.11.0 or later, traffic flow to Pods on branch network interfaces is subject to Calico network policy enforcement if we set POD_SECURITY_GROUP_ENFORCING_MODE=standard for the Amazon VPC CNI add-on.
+As we are using [Amazon VPC CNI](https://github.com/aws/amazon-vpc-cni-k8s) add-on version 1.11.0 or later, traffic flow to Pods on branch network interfaces is subject to Calico network policy enforcement if we set POD_SECURITY_GROUP_ENFORCING_MODE=standard for the Amazon VPC CNI add-on.
 
 Use the following command to set the mode
 ```bash
@@ -459,7 +458,7 @@ vpc.amazonaws.com/pod-ips: 10.200.108.148
 
 <details>
 
-<summary>Use the following command to install Elastic stack...</summary>
+<summary>Use the following command to install Elastic stack</summary>
 
 ```bash
 # install eck-operator
@@ -469,7 +468,7 @@ helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${DP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
+  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
 domain: ${DP_DOMAIN}
 es:
   version: "8.9.1"
@@ -507,7 +506,7 @@ kubectl get secret dp-config-es-es-elastic-user -n elastic-system -o jsonpath="{
 
 <details>
 
-<summary>Use the following command to install Prometheus stack...</summary>
+<summary>Use the following command to install Prometheus stack</summary>
 
 ```bash
 # install prometheus stack
@@ -780,22 +779,22 @@ helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
 ```
 </details>
 
-## Information needed to be set on TIBCO Control Plane
+## Information needed to be set on TIBCO® Control Plane
 
-You can get BASE_FQDN by running the following command:
+You can get BASE_FQDN (fully qualified domain name) by running the following command:
 ```bash
 kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 ```
 
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| VPC_CIDR             | 10.200.0.0/16                                                                    | from eks recipe                                         |
-| Ingress class name   | nginx                                                                            | used for BWCE                                                     |
-| EFS storage class    | efs-sc                                                                           | used for BWCE EFS storage                                         |
-| EBS storage class    | ebs-gp3                                                                          | used for EMS messaging                                            |
-| BW FQDN              | bwce.\<BASE_FQDN\>                                                               | capability fqdn |
-| Elastic User app logs index   | user-app-1                                                                       | dp-config-es index template (value configured with o11y-data-plane-configuration in CP UI)                               |
-| Elastic Search logs index     | service-1                                                                        | dp-config-es index template (value configured with o11y-data-plane-configuration in CP UI)                               |
+| VPC_CIDR             | 10.200.0.0/16                                                                    | from EKS recipe                                         |
+| Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
+| EFS storage class    | efs-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition EFS storage                                         |
+| EBS storage class    | ebs-gp3                                                                          | used for TIBCO Enterprise Message Service™ (EMS)|
+| BW FQDN              | bwce.\<BASE_FQDN\>                                                               | Capability FQDN |
+| Elastic User app logs index   | user-app-1                                                                       | dp-config-es index template (value configured with o11y-data-plane-configuration in TIBCO® Control Plane)                               |
+| Elastic Search logs index     | service-1                                                                        | dp-config-es index template (value configured with o11y-data-plane-configuration in TIBCO® Control Plane)                               |
 | Elastic Search internal endpoint | https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200               | Elastic Search service                                                |
 | Elastic Search public endpoint   | https://elastic.\<BASE_FQDN\>                                                    | Elastic Search ingress host                                                |
 | Elastic Search password          | xxx                                                                              | Elastic Search password in dp-config-es-es-elastic-user secret                                             |
@@ -803,12 +802,13 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 | Prometheus service internal endpoint | http://kube-prometheus-stack-prometheus.prometheus-system.svc.cluster.local:9090 | Prometheus service                                        |
 | Prometheus public endpoint | https://prometheus-internal.\<BASE_FQDN\>  |  Prometheus ingress host                                        |
 | Grafana endpoint  | https://grafana.\<BASE_FQDN\> | Grafana ingress host                                        |
-Network Policies Details for Data Plane Namespace | [Confluence Document for Network Policies](https://confluence.tibco.com/display/TCP/Data+Plane+Network+Polices) | To be replcaed with TIBCO Doc link
+Network Policies Details for Data Plane Namespace | [Data Plane Network Policies Document](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/UserGuide/controlling-traffic-with-network-policies.htm) | 
 
 ## Clean up
 
-Please process for de-provisioning of all the provisioned capabilities from the control plane UI, first.
-On successful de-provisionong, delete the data plane from the control plane UI.
+Please delete the Data Plane from TIBCO® Control Plane UI.
+Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
+
 
 For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
 ```bash

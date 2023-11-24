@@ -2,14 +2,14 @@ Table of Contents
 =================
 <!-- TOC -->
 * [Table of Contents](#table-of-contents)
-* [TIBCO Data Plane Cluster Workshop](#tibco-data-plane-cluster-workshop)
+* [Data Plane Cluster Workshop](#data-plane-cluster-workshop)
   * [Introduction](#introduction)
-  * [Command Line Tools needed](#command-line-tools-needed)
+  * [Command Line Tools required](#command-line-tools-required)
   * [Recommended Roles and Permissions](#recommended-roles-and-permissions)
   * [Export required variables](#export-required-variables)
-  * [PRE AKS cluster create scripts](#pre-aks-cluster-create-scripts)
-  * [Create AKS cluster](#create-aks-cluster)
-  * [POST AKS cluster create scripts](#post-aks-cluster-create-scripts)
+  * [Pre cluster creation scripts](#pre-cluster-creation-scripts)
+  * [Create Azure Kubernetes Service (AKS) cluster](#create-azure-kubernetes-service-aks-cluster)
+  * [Post cluster create scripts](#post-cluster-creation-scripts)
   * [Generate kubeconfig to connect to AKS cluster](#generate-kubeconfig-to-connect-to-aks-cluster)
   * [Install common third party tools](#install-common-third-party-tools)
   * [Install Ingress Controller, Storage class](#install-ingress-controller-storage-class)
@@ -20,24 +20,24 @@ Table of Contents
     * [Install Elastic stack](#install-elastic-stack)
     * [Install Prometheus stack](#install-prometheus-stack)
     * [Install Opentelemetry Collector for metrics](#install-opentelemetry-collector-for-metrics)
-  * [Information needed to be set on TIBCO Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
+  * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco®-control-plane)
   * [Clean up](#clean-up)
 <!-- TOC -->
 
-# TIBCO Data Plane Cluster Workshop
+# Data Plane Cluster Workshop
 
-The goal of this workshop is to provide a hands-on experience to deploy a TIBCO Data Plane cluster in Azure. This is the prerequisite for the TIBCO Data Plane.
+The goal of this workshop is to provide a hands-on experience to deploy a Data Plane cluster in Azure. This is the prerequisite for the Data Plane.
 
 > [!Note]
 > This workshop is NOT meant for production deployment.
 
 ## Introduction
 
-In order to deploy TIBCO Data Plane, you need to have a Kubernetes cluster and install the necessary tools. This workshop will guide you to create a Kubernetes cluster in Azure and install the necessary tools.
+In order to deploy Data Plane, you need to have a Kubernetes cluster and install the necessary tools. This workshop will guide you to create a Kubernetes cluster in Azure and install the necessary tools.
 
-## Command Line Tools needed
+## Command Line Tools required
 
-We are running the steps in a MacBook Pro. The following tools are installed using [brew](https://brew.sh/): 
+The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The following tools are installed using [brew](https://brew.sh/):
 * envsubst (part of homebrew gettext)
 * yq (v4.35.2)
 * jq (1.7)
@@ -50,8 +50,8 @@ For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
-> Please use --platform while building tha image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
-> We have used linux/amd64 as platform. This can be different based on your machine OS.
+> Please use --platform while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
+> This can be different based on your machine OS and hardware architecture.
 
 A sample command on Linux AMD64 is
 ```bash
@@ -63,13 +63,18 @@ docker buildx build --platform=${platform} --progress=plain \
   -t workshop-cli-tools:latest --load .
 ```
 ## Recommended Roles and Permissions
-We have used a user with Contributor & User Access Administrator over the scope of subscription for the workshop.
-Additionally, API permissions for Directory.Read.All and ServicePrincipalEndpoint.Read.All are required for the AAD role to propagate.
+The steps are run with a Service Principal sign in.
+The Service Principal has:
+* Contributor role assigned over the scope of subscription used for the workshop
+* User Access Administrator role assigned over the scope of subscription used for the workshop
+* API permissions for Directory.Read.All and ServicePrincipalEndpoint.Read.All for the AAD role to propagate
 
-You can optionally choose to [create a service principal with these role assignments](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?tabs=bash) with the above roles and permissions. That is tested to work.
+You will need to [create a service principal with these role assignments](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?tabs=bash) with the above roles and permissions.
+
+You can optionally choose run the steps as a Azure Subscription user with above permissions.
 
 > [!NOTE]
-> Please use this role with recommended roles and permissions, to create and access AKS cluster
+> Please use this user with recommended roles and permissions, to create and access AKS cluster
 
 ## Export required variables
 ```bash
@@ -105,17 +110,16 @@ export DP_DOMAIN="dp1.azure.example.com" # domain to be used
 export DP_SANDBOX_SUBDOMAIN="dp1" # hostname of DP_DOMAIN
 export DP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of DP_DOMAIN
 export MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
-export DP_DISK_ENABLED="true" # to enable azure block storage class
-export DP_DISK_STORAGE_CLASS="azure-disk-sc" # name of azure block storage class
-export DP_FILE_ENABLED="true" # to enable azure files share storage class
+export DP_DISK_ENABLED="true" # to enable azure disk storage class
+export DP_DISK_STORAGE_CLASS="azure-disk-sc" # name of azure disk storage class
+export DP_FILE_ENABLED="true" # to enable azure files storage class
 export DP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage class
 export DP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities 
 export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 export DP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record sets
 export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "azure", "calico"
-export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure files
+export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure file shares
 export STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
-export MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller class
 ```
 
 Change the directory to aks/ to proceed with the next steps.
@@ -123,27 +127,27 @@ Change the directory to aks/ to proceed with the next steps.
 cd /aks
 ```
 
-## PRE AKS cluster create scripts
-Execute the script to create
-1. Resource group
-2. User assigned identity
-3. Role assignment for the user assigned identity
-  1. as contributor over the scope of subscription
-  2. as dns zone contributor over the scope of DNS resource group
-  3. as network contributor over the scope of data plane resource group
-4. NAT gateway
-5. Virtual network
-6. Subnets for
-  1. AKS cluster
-  2. Application gateway
-  3. NAT gateway
+## Pre cluster creation scripts
+Execute the script to create following Azure resources
+* Resource group
+* User assigned identity
+* Role assignment for the user assigned identity
+  * as contributor over the scope of subscription
+  * as dns zone contributor over the scope of DNS resource group
+  * as network contributor over the scope of data plane resource group
+* NAT gateway
+* Virtual network
+* Subnet for
+  * AKS cluster
+  * Application gateway
+  * NAT gateway
 
 ```bash
 ./pre-aks-cluster-script.sh
 ```
-It will take around 5 minutes to complete the configuration.
+It will take approximately 5 minutes to complete the configuration.
 
-## Create AKS cluster
+## Create Azure Kubernetes Service (AKS) cluster
 > [!IMPORTNANT]
 > Please note, for cluster we are using a flag --enable-workload-identity.
 > This works with if the preview feature EnableWorkloadIdentityPreview is registered for the subscription.
@@ -151,23 +155,25 @@ It will take around 5 minutes to complete the configuration.
 > This is one time step and you can also enable explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/cli/azure/feature?view=azure-cli-latest#az-feature-register)
 > e.g. az feature register --namespace Microsoft.ContainerService --name EnableWorkloadIdentityPreview
 
-Execute the script 
+Execute the script
 ```bash
 ./aks-cluster-create.sh
 ```
 
-It will take around 15 minutes to create an empty AKS cluster. 
+It will take approximately 15 minutes to create an AKS cluster.
 > [!NOTE]
 > The AKS cluster provisioned is of version 1.28 which is in [public preview mode](https://> azure.microsoft.com/en-us/updates/public-preview-aks-support-for-kubernetes-version-128/)
 
-## POST AKS cluster create scripts
+## Post cluster creation scripts
 Execute the script to
 1. create federated workload identity federation
 2. create namespace and secret for external dns
+
 ```bash
 ./post-aks-cluster-script.sh
 ```
-It will take around 5 minutes to complete the configuration.
+
+It will take approximately 5 minutes to complete the configuration.
 
 ## Generate kubeconfig to connect to AKS cluster
 We can use the following command to generate kubeconfig file.
@@ -182,7 +188,7 @@ kubectl get nodes
 
 ## Install common third party tools
 
-Before we deploy ingress or observability tools on an empty AKS cluster; we need to install some basic tools. 
+Before we deploy ingress or observability tools on an empty AKS cluster; we need to install some basic tools.
 * [cert-manager](https://cert-manager.io/docs/installation/helm/)
 * [external-dns](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns)
 
@@ -194,7 +200,7 @@ Before we deploy ingress or observability tools on an empty AKS cluster; we need
 
 <details>
 
-<summary>We can use the following commands to install these tools......</summary>
+<summary>We can use the following commands to install these tools</summary>
 
 ```bash
 # install cert-manager
@@ -237,7 +243,7 @@ EOF
 
 <details>
 
-<summary>Sample output of third party helm charts that we have installed in the AKS cluster...</summary>
+<summary>Sample output of third party helm charts that we have installed in the AKS cluster</summary>
 
 ```bash
 $ helm ls -A -a
@@ -257,11 +263,11 @@ NAME                        CONTROLLER                  PARAMETERS   AGE
 azure-application-gateway   azure/application-gateway   <none>       19m
 ```
 
-In this section, we will install ingress controller and storage class. We have made a helm chart called `dp-config-aks` that encapsulates the installation of ingress controller and storage class. 
+In this section, we will install ingress controller and storage class. We have made a helm chart called `dp-config-aks` that encapsulates the installation of ingress controller and storage class.
 It will create the following resources:
 * a main ingress object which will be able to create Azure Application Gateway and act as a main ingress for DP cluster
 * annotation for external-dns to create DNS record for the main ingress
-* a storage class for Azure Block Storage
+* a storage class for Azure Disks
 * a storage class for Azure Files
 
 ### Setup DNS
@@ -338,10 +344,10 @@ nginx                       k8s.io/ingress-nginx        <none>       2m18s
 The `nginx` ingress class is the main ingress that DP will use. The `azure-application-gateway` ingress class is used by Azure Application Gateway.
 
 > [!IMPORTANT]
-> You will need to provide this ingress class name i.e. nginx to TIBCO Control Plane when you deploy capability.
+> You will need to provide this ingress class name i.e. nginx to TIBCO® Control Plane when you deploy capability.
 
 > [!IMPORTANT]
-> When creating a k8 service with type: loadbalancer, in cases where the virtual machine scale set has a network security group on the subnet level, additional inbound security rules may need to be created to the load balancer external IP address to ensure outside connectivity
+> When creating a kubernetes service with type: loadbalancer, in cases where the virtual machine scale set has a network security group on the subnet level, additional inbound security rules may need to be created to the load balancer external IP address to ensure outside connectivity
 
 ### Storage Class
 
@@ -391,15 +397,15 @@ managed-premium         disk.csi.azure.com   Delete          WaitForFirstConsume
 ```
 
 We will be using the following storage classes created with `dp-config-aks` helm chart.
-* `azure-disk-sc` is the storage class for Azure Block Storage. This is used for
-  * storage class for data when provision EMS capability
+* `azure-disk-sc` is the storage class for Azure Disks. This is used for
+  * storage class for data when provision TIBCO Enterprise Message Service™ (EMS) capability
 * `azure-files-sc` is the storage class for Azure Files. This is used for
-  * artifactmanager when we provision BWCE capability
+  * artifactmanager when we provision TIBCO BusinessWorks™ Container Edition capability
   * storage class for log when we provision EMS capability
-* `default` is the default storage class for AKS. Azure create it by default and don't recommend to use it.
+* `default` is the default storage class for AKS. Azure creates it by default and we don't recommend to use it.
 
 > [!IMPORTANT]
-> You will need to provide this storage class name to TIBCO Control Plane when you deploy capability.
+> You will need to provide these storage class names to TIBCO® Control Plane when you deploy capability.
 
 ## Install Observability tools
 
@@ -407,7 +413,7 @@ We will be using the following storage classes created with `dp-config-aks` helm
 
 <details>
 
-<summary>Use the following command to install Elastic stack...</summary>
+<summary>Use the following command to install Elastic stack</summary>
 
 ```bash
 # install eck-operator
@@ -417,7 +423,7 @@ helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${DP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
+  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
 domain: ${DP_DOMAIN}
 es:
   version: "8.9.1"
@@ -455,7 +461,7 @@ kubectl get secret dp-config-es-es-elastic-user -n elastic-system -o jsonpath="{
 
 <details>
 
-<summary>Use the following command to install Prometheus stack...</summary>
+<summary>Use the following command to install Prometheus stack</summary>
 
 ```bash
 # install prometheus stack
@@ -524,7 +530,7 @@ The username is `admin`. And Prometheus Operator use fixed password: `prom-opera
 
 <details>
 
-<summary>Use the following command to install Opentelemetry Collector for metrics...</summary>
+<summary>Use the following command to install Opentelemetry Collector for metrics</summary>
 
 ```bash
 ## create the values.yaml file with below contents
@@ -728,22 +734,22 @@ helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
 ```
 </details>
 
-## Information needed to be set on TIBCO Control Plane
+## Information needed to be set on TIBCO® Control Plane
 
-You can get BASE_FQDN by running the following command:
+You can get BASE_FQDN (fully qualified domain name) by running the following command:
 ```bash
 kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 ```
 
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| VNET_CIDR             | 10.4.0.0/16                                                                    | from VNet                                         |
-| ingress class name   | nginx                                                                            | used for BWCE                                                     |
-| Azure Files storage class    | azure-files-sc                                                                           | BWCE Azure files storage                                         |
-| Azure Disks storage class    | azure-disk-sc                                                                          | used for EMS messaging                                            |
-| BW FQDN              | bwce.\<BASE_FQDN\>                                                               | capability fqdn |
-| Elastic User app logs index   | user-app-1                                                                       | dp-config-es index template (value configured with o11y-data-plane-configuration in CP UI)                               |
-| Elastic Search logs index     | service-1                                                                        | dp-config-es index template (value configured with o11y-data-plane-configuration in CP UI)                                |
+| VNET_CIDR             | 10.4.0.0/16                                                                    | from VNet address space                                      |
+| Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
+| Azure Files storage class    | azure-files-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition Azure Files storage                                         |
+| Azure Disks storage class    | azure-disk-sc                                                                          | used for TIBCO Enterprise Message Service™ (EMS)                                             |
+| BW FQDN              | bwce.\<BASE_FQDN\>                                                               | Capability FQDN |
+| Elastic User app logs index   | user-app-1                                                                       | dp-config-es index template (value configured with o11y-data-plane-configuration in TIBCO® Control Plane)                               |
+| Elastic Search logs index     | service-1                                                                        | dp-config-es index template (value configured with o11y-data-plane-configuration in TIBCO® Control Plane)                                |
 | Elastic Search internal endpoint | https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200               | Elastic Search service                                                |
 | Elastic Search public endpoint   | https://elastic.\<BASE_FQDN\>                                                    | Elastic Search ingress                                                |
 | Elastic Search password          | xxx                                                                              |               | Elastic Search password in dp-config-es-es-elastic-user secret                                                     |
@@ -751,12 +757,12 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 | Prometheus service internal endpoint | http://kube-prometheus-stack-prometheus.prometheus-system.svc.cluster.local:9090 | Prometheus service                                        |
 | Prometheus public endpoint | https://prometheus-internal.\<BASE_FQDN\>  |  Prometheus ingress host                                        |
 | Grafana endpoint  | https://grafana.\<BASE_FQDN\> | Grafana ingress host                                        |
-Network Policies Details for Data Plane Namespace | [Confluence Document for Network Policies](https://confluence.tibco.com/display/TCP/Data+Plane+Network+Polices) | To be replcaed with TIBCO Doc link
+Network Policies Details for Data Plane Namespace | [Data Plane Network Policies Document](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/UserGuide/controlling-traffic-with-network-policies.htm) | 
 
 ## Clean up
 
-Please process for de-provisioning of all the provisioned capabilities from the control plane UI, first.
-On successful de-provisionong, delete the data plane from the control plane UI.
+Please delete the Data Plane from TIBCO® Control Plane UI.
+Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
 
 For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
 ```bash
