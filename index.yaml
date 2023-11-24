@@ -135,6 +135,25 @@ entries:
   dp-config-es:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2023-11-24T20:25:48.992701824Z"
+    dependencies:
+    - condition: eck-custom-resources-operator.enabled
+      name: eck-custom-resources-operator
+      repository: https://xco-sk.github.io/eck-custom-resources/
+      version: 0.5.6
+    description: dp-config-es
+    digest: 8d900f8f55dca6dfc947b1ba62f9accc5e4cfe2c52f218705ca477776520adf7
+    home: https://github.com/tibco/cicinfra-integration
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: dp-config-es
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-es-1.0.18/dp-config-es-1.0.18.tgz
+    version: 1.0.18
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2023-11-16T05:54:25.17102246Z"
     dependencies:
     - condition: eck-custom-resources-operator.enabled
@@ -153,6 +172,17 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-es-1.0.17/dp-config-es-1.0.17.tgz
     version: 1.0.17
   dp-configure-namespace:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2023-11-24T20:25:49.119385744Z"
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
+    digest: 6e33c04487cc3faee0ace3de92a69587b3884f989a6405bb0b3c20acc1760a56
+    name: dp-configure-namespace
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.0.17/dp-configure-namespace-1.0.17.tgz
+    version: 1.0.17
   - apiVersion: v2
     appVersion: 1.0.0
     created: "2023-11-16T05:54:25.341493683Z"
@@ -674,4 +704,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2023-11-23T06:21:53.428536405Z"
+generated: "2023-11-24T20:25:49.11944225Z"
