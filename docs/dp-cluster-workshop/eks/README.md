@@ -293,7 +293,7 @@ We have some scripts in the recipe to create and setup EFS. The `dp-config-aws` 
   * storage class for data while provisioning TIBCO Enterprise Message Service™ (EMS) capability
 * `efs-sc` is the storage class for EFS. This is used for
   * artifactmanager while provisioning TIBCO BusinessWorks™ Container Edition capability
-  * storage class for log when we provision EMS capability
+  * storage class for log while provisioning EMS capability
 * `gp2` is the default storage class for EKS. AWS creates it by default and we don't recommend to use it.
 
 > [!IMPORTANT]
@@ -790,7 +790,7 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
 | VPC_CIDR             | 10.200.0.0/16                                                                    | from EKS recipe                                         |
 | Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
-| EFS storage class    | efs-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition EFS storage                                         |
+| EFS storage class    | efs-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition and TIBCO Enterprise Message Service™ (EMS) EFS storage                                         |
 | EBS storage class    | ebs-gp3                                                                          | used for TIBCO Enterprise Message Service™ (EMS)|
 | BW FQDN              | bwce.\<BASE_FQDN\>                                                               | Capability FQDN |
 | Elastic User app logs index   | user-app-1                                                                       | dp-config-es index template (value configured with o11y-data-plane-configuration in TIBCO® Control Plane)                               |

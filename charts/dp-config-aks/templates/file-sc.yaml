@@ -13,6 +13,10 @@ provisioner: file.csi.azure.com
 reclaimPolicy: {{ .Values.storageClass.azurefile.reclaimPolicy }}
 allowVolumeExpansion: {{ .Values.storageClass.azurefile.allowVolumeExpansion }}
 volumeBindingMode: {{ .Values.storageClass.azurefile.volumeBindingMode }}
+{{- with .Values.storageClass.azurefile.mountOptions }}
+mountOptions:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 parameters:
 {{- range $key, $value := .Values.storageClass.azurefile.parameters }}
   {{ $key }}: {{ $value | quote }}

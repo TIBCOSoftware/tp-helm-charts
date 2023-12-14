@@ -1,8 +1,8 @@
 {{ if .Values.ems.opsEnable }}
 #
 # Copyright (c) 2023. Cloud Software Group, Inc.
-# This file is subject to the license terms contained 
-# in the license file that is distributed with this file.  
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 
 #   ${hostname}-${replicaId}.${serviceName}.${namespace}.svc.${clusterDomain}
@@ -20,6 +20,7 @@
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcEmsHost := printf "%s.%s.svc" $svcEms .Release.Namespace -}}
+{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
 #
 kind: StatefulSet
@@ -158,10 +159,10 @@ spec:
                 value: "http://{{ $svcFtlHost }}:$(REALM_PORT)"
               - name: EMS_TCP_URL
                 # the service load-balanced EMS TCP URL
-                value: "tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
+                value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
               - name: EMS_SSL_URL
                 # the service load-balanced EMS SSL URL
-                value: "ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
+                value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
               - name: TCM_WATCHDOG_CONFIG
                 value: "/logs/$(MY_POD_NAME)/boot/watchdog.yml"
               - name: TCM_WD_PORT

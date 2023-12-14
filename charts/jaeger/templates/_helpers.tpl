@@ -490,6 +490,9 @@ Cassandra related command line options
 Elasticsearch related command line options
 */}}
 {{- define "elasticsearch.cmdArgs" -}}
+- --es.server-urls={{ .Values.global.cp.resources.o11y.tracesServer.config.es.endpoint }}
+- --es.username={{ .Values.global.cp.resources.o11y.tracesServer.config.es.username }}
+- --es.password={{ .Values.global.cp.resources.o11y.tracesServer.secret.es.password }}
 {{- range $key, $value := .Values.storage.elasticsearch.cmdlineParams -}}
 {{- if $value }}
 - --{{ $key }}={{ $value }}

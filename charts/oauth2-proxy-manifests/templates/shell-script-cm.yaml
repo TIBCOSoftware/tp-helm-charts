@@ -25,22 +25,38 @@ data:
     }'
 
     exchangeIatForClientId () {
-      response=$(curl -s https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/register --header "Authorization: Bearer {{ .Values.global.cp.secrets.iat }}" --data "${body}" --header 'Content-Type: application/json')
+      response=$(curl --fail-with-body -s https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/register --header "Authorization: Bearer {{ .Values.global.cp.secrets.iat }}" --data "${body}" --header 'Content-Type: application/json')
+      exitCode=$?
+      if [ "$exitCode" -ne 0 ]; then
+          echo "Failed to register client: ${response}"
+          revokeIat
+          exit "$exitCode"
+      fi
       clientId=$(echo -n "$response" | jq -rj .client_id | base64)
       clientSecret=$(echo -n "$response" | jq -rj .client_secret | base64)
-      if [ -z "$clientId" ] || [ "$clientId" = "bnVsbA==" ] # bnVsbA== is 'null' base64encoded
-      then
-        echo "Failed to register client. Existing"
+      if [ -z "$clientId" ] || [ "$clientId" = "$(echo -n null | base64)" ]; then
+        echo "Invalid client value: ${clientId}"
+        revokeIat
         exit 1
       fi
     }
+
+    revokeIat () {
+      http_code=$(curl -s -o /dev/null -w "%{http_code}\\n" -X "DELETE" https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/initial-token --header "Authorization: Bearer {{ .Values.global.cp.secrets.iat }}" )
+      if [ "$http_code" -eq 200 ]; then
+          echo "Succesfully revoked IAT."
+      else
+          echo "Failed to revoke IAT!"
+      fi
+      return "$http_code"
+    }    
 
     getSecret () {
       http_code=$(curl -s -o /dev/null -w "%{http_code}\\n" https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/{{ template "oauth2-proxy.namespace" $ }}/secrets/{{ template "oauth2-proxy.secretName" $ }} \
         --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
         --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
         --header 'Content-Type: application/yaml')
-        return "$http_code"
+      return "$http_code"
     }
 
     updateSecret () {
@@ -64,7 +80,7 @@ data:
           client-secret: $clientSecret
           cookie-secret: $(head /dev/urandom | LC_ALL=C tr -dc A-Za-z0-9 | head -c32 | base64)
         ")
-        return "$http_code"
+      return "$http_code"
     }
 
     createSecret () {
@@ -105,18 +121,21 @@ data:
       getSecret
       if [ "$http_code" -eq 200 ]; then
           echo "Secret exists. We will not register new client."
+          revokeIat
           exit 0
       else
           echo "Registering new client.."
           exchangeIatForClientId
           createSecret
       fi
+      revokeIat
       if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 201 ]; then
           echo "Secret created. Initialized successfully."
           exit 0
+      else
+          echo "Client registration failed. Aborting!"
+          exit "$http_code"
       fi
-      echo "Client registration failed. Aborting!"
-      exit "$http_code"
     }
 
     # deletes the secret if it does not exist

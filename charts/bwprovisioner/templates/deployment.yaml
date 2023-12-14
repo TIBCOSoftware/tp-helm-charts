@@ -29,6 +29,7 @@ spec:
       labels:
         {{- include "bwprovisioner.selectorLabels" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-web: enable
     spec:
       imagePullSecrets:
       - name: {{ .Values.global.cp.containerRegistry.secret }}

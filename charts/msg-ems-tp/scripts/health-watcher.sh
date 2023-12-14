@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Copyright (c) 2023. Cloud Software Group, Inc.
-# This file is subject to the license terms contained 
-# in the license file that is distributed with this file.  
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 
 base="$(cd "${0%/*}" 2>/dev/null; echo "$PWD")"
@@ -91,6 +91,8 @@ function sts_check_health {
 function watcher {
     echo "# ===== $cmd ====="
     rotate_log "$csvfile"
+    oldrole=$(kubectl get pod/$MY_POD_NAME -o jsonpath='{.metadata.labels.tib-msg-stsrole}' )
+    log "INFO: Initial role is $role"
     # timestamp,health,quorum-strategy,replicas,leader,inquorum-count,missing-list
     echo  "datetime,health,quorum-strategy,replicas,qMin,leader,inquorum-count,missing-list" > $csvfile
     sts_get_config
@@ -102,6 +104,18 @@ function watcher {
         health="" leader="" inQuorumCount=0 missingList=
         sts_check_health
         echo  "$dtime,$health,$quorumStrategy,$replicas,$quorumMin,$leader,$inQuorumCount,$missingList" >> $csvfile
+        if [ "$leader" = "$MY_POD_NAME" ] ; then 
+            role=leader
+        else 
+            role=standby
+        fi
+        if [ -n "$oldrole" ] && [ "$role" != "$oldrole" ] ; then
+            log "INFO: updating role to $role"
+            spec=$(printf '{"metadata":{"labels":{"tib-msg-stsrole":"%s"}}}' "$role" )
+            echo "#+: " kubectl patch pod/$MY_POD_NAME --type=merge -p="$spec"
+            kubectl patch pod/$MY_POD_NAME --type=merge -p="$spec"
+            [ $? -eq 0 ] && oldrole="$role"
+        fi
     
         # Do not delay pod restarts!
         for x in $(seq $interval) ; do 

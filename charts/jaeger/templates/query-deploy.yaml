@@ -21,6 +21,7 @@ spec:
     metadata:
 {{- if or .Values.query.config .Values.query.podAnnotations }}
       annotations:
+        rollId: {{ randAlphaNum 5 | quote }}
       {{- if .Values.query.config }}
         checksum/ui-config: {{ include (print $.Template.BasePath "/query-configmap.yaml") . | sha256sum }}
       {{- end }}

@@ -453,7 +453,8 @@ collector:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  podAnnotations: {}
+  podAnnotations:
+    appName: "jaeger-collector"
   ## Additional pod labels
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   podLabels: {}
@@ -622,7 +623,8 @@ query:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  podAnnotations: {}
+  podAnnotations:
+    appName: "jaeger-query"
   ## Additional pod labels
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   podLabels: {}
