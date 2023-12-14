@@ -10,7 +10,6 @@ metadata:
   labels:
     {{- include "haproxy-ingress.selectorLabels" . | nindent 4 }}
     networking.platform.tibco.com/kubernetes-api: enable
-    egress.networking.platform.tibco.com/internet-web: enable
 {{- if .Values.controller.podLabels }}
     {{- toYaml .Values.controller.podLabels | nindent 4 }}
 {{- end }}
