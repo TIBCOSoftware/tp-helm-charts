@@ -77,13 +77,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $sa := (lookup "v1" "ServiceAccount" $ns_name .Values.global.tibco.serviceAccount) }}
 {{- if $sa }}
 {{- else }} 
-{{- fail (printf "sa %s/%s missing" .Release.Namespace .Values.global.tibco.serviceAccount  )}}
+{{- fail (printf "Service Acccount %s/%s is missing" .Release.Namespace .Values.global.tibco.serviceAccount  )}}
 {{- end }}
 {{- else }}
-{{- fail (printf "%s %s" "invalid label" (get $ns.metadata.labels "platform.tibco.com/dataplane-id")) }}
+{{- fail (printf "value of label platform.tibco.com/dataplane-id for namespace %s does not match with data plane id %s" .Release.Namespace (get $ns.metadata.labels "platform.tibco.com/dataplane-id")) }}
 {{- end }}
 {{- else }}
-{{- fail "labels platform.tibco.com/dataplane-id does not exists" }}
+{{- fail "label platform.tibco.com/dataplane-id does not exists" }}
 {{- end }}   
 {{- else }}
 {{- fail "labels not found"}}

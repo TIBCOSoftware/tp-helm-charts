@@ -3,16 +3,16 @@
 # in the license file that is distributed with this file.
 
 apiVersion: v2
-appVersion: 1.0.0
+appVersion: 1.0.1
 dependencies:
 - condition: tp-tibtunnel.enabled
   name: tp-tibtunnel
   repository: alias:tibco-platform
-  version: 1.0.*
+  version: 1.0.97
 - condition: tp-provisioner-agent.enabled
   name: tp-provisioner-agent
   repository: alias:tibco-platform
-  version: 1.0.*
+  version: 1.0.202
 - condition: haproxy-ingress.enabled
   name: haproxy-ingress
   repository: ""
@@ -24,4 +24,4 @@ dependencies:
 description: A Helm chart for TIBCO Platform Data Plane Infrastructure
 name: dp-core-infrastructure
 type: application
-version: 1.0.259
+version: 1.0.263

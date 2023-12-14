@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Copyright (c) 2023. Cloud Software Group, Inc.
-# This file is subject to the license terms contained 
-# in the license file that is distributed with this file.  
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 
 outfile=${1:-tibemsd-ftl.json}
@@ -18,6 +18,7 @@ pstoreData="/data"
 # export LD_LIBRARY_PATH=/opt/tibco/ftl/lib
 # /opt/tibco/ems/current-version/bin/tibemsjson2ftl -url "http://localhost:$ftlport" -json $initTibemsdJson
 export insideSvcHostPort="${svcname}.${namespace}.svc:${emsTcpPort}"
+export insideActiveHostPort="${svcname}active.${namespace}.svc:${emsTcpPort}"
 cat - <<EOF > $outfile
 {
   "acls":[],
@@ -27,56 +28,19 @@ cat - <<EOF > $outfile
   "factories": [ 
     {
       "jndinames":[],
-      "name":"ConnectionFactory",
-      "ssl":{
-        "ssl_issuer_list":[],
-        "ssl_trusted_list":[]
-      },
-      "type":"generic",
-      "url":"tcp:\/\/$emsTcpPort"
-    },
-    {
-      "jndinames":[],
       "name":"FTConnectionFactory",
       "ssl":{
         "ssl_issuer_list":[],
         "ssl_trusted_list":[]
       },
       "type":"generic",
-      "url":"tcp:\/\/$insideSvcHostPort,tcp:\/\/$insideSvcHostPort",
-      "reconnect_attempt_count":"100",
-      "reconnect_attempt_delay":"5000",
-      "reconnect_attempt_timeout":"5000"
-    },
-    {
-      "jndinames":[],
-      "name":"GenericConnectionFactory",
-      "ssl":{
-        "ssl_issuer_list":[],
-        "ssl_trusted_list":[]
-      },
-      "type":"generic",
-      "url":"tcp:\/\/$emsTcpPort"
-    },
-    {
-      "jndinames":[],
-      "name":"TopicConnectionFactory",
-      "ssl":{
-        "ssl_issuer_list":[],
-        "ssl_trusted_list":[]
-      },
-      "type":"topic",
-      "url":"tcp:\/\/$emsTcpPort"
-    },
-    {
-      "jndinames":[],
-      "name":"QueueConnectionFactory",
-      "ssl":{
-        "ssl_issuer_list":[],
-        "ssl_trusted_list":[]
-      },
-      "type":"queue",
-      "url":"tcp:\/\/$emsTcpPort"
+      "url":"tcp:\/\/$insideActiveHostPort,tcp:\/\/$insideSvcHostPort",
+      "connect_attempt_timeout": 5000,
+      "connect_attempt_count": 300,
+      "connect_attempt_delay": 850,
+      "reconnect_attempt_timeout": 5000,
+      "reconnect_attempt_count": 300,
+      "reconnect_attempt_delay": 850
     },
     {
       "jndinames":[],
@@ -86,7 +50,13 @@ cat - <<EOF > $outfile
         "ssl_trusted_list":[]
       },
       "type":"topic",
-      "url":"tcp:\/\/$insideSvcHostPort,tcp:\/\/$insideSvcHostPort"
+      "url":"tcp:\/\/$insideActiveHostPort,tcp:\/\/$insideSvcHostPort",
+      "connect_attempt_timeout": 5000,
+      "connect_attempt_count": 300,
+      "connect_attempt_delay": 850,
+      "reconnect_attempt_timeout": 5000,
+      "reconnect_attempt_count": 300,
+      "reconnect_attempt_delay": 850
     },
     {
       "jndinames":[],
@@ -96,7 +66,13 @@ cat - <<EOF > $outfile
         "ssl_trusted_list":[]
       },
       "type":"queue",
-      "url":"tcp:\/\/$insideSvcHostPort,tcp:\/\/$insideSvcHostPort"
+      "url":"tcp:\/\/$insideActiveHostPort,tcp:\/\/$insideSvcHostPort",
+      "connect_attempt_timeout": 5000,
+      "connect_attempt_count": 300,
+      "connect_attempt_delay": 850,
+      "reconnect_attempt_timeout": 5000,
+      "reconnect_attempt_count": 300,
+      "reconnect_attempt_delay": 850
     }
   ],
   "groups":[

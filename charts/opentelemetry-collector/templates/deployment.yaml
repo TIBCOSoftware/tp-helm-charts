@@ -32,6 +32,7 @@ spec:
   template:
     metadata:
       annotations:
+        rollId: {{ randAlphaNum 5 | quote }}
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- include "opentelemetry-collector.podAnnotations" . | nindent 8 }}
       labels:

@@ -1,0 +1,37 @@
+#
+# Copyright (c) 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+---
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
+{{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcProm := printf "%s-%s" $emsParams.ems.name "prom" -}}
+{{- $stsname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+#
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcEms }}active"
+  labels:
+    tib-dp-app: msg-ems-ftl
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
+    tib-msg-svcname: "{{ $svcEms }}active"
+    {{ include "msg.dp.labels" . | indent 4 }}
+spec:
+  ports:
+  - name: ems-tcp-port
+    port: {{ int $emsParams.ems.ports.tcpPort }}
+    protocol: TCP
+  - name: ems-ssl-port
+    port: {{ int $emsParams.ems.ports.sslPort }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-stsrole: "leader"
+...

@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        rollId: {{ randAlphaNum 5 | quote }}
         checksum/config-env: {{ include (print $.Template.BasePath "/collector-configmap.yaml") . | sha256sum }}
 {{- if .Values.collector.podAnnotations }}
         {{- toYaml .Values.collector.podAnnotations | nindent 8 }}

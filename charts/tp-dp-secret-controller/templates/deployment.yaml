@@ -19,6 +19,7 @@ spec:
       labels:
         {{- include "tp-dp-secret-controller.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-web: enable
     spec:
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}

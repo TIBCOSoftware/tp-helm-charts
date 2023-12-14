@@ -67,7 +67,7 @@ The steps are run with a Service Principal sign in.
 The Service Principal has:
 * Contributor role assigned over the scope of subscription used for the workshop
 * User Access Administrator role assigned over the scope of subscription used for the workshop
-* API permissions for Directory.Read.All and ServicePrincipalEndpoint.Read.All for the AAD role to propagate
+* Microsoft Graph API permission for Directory.Read.All of type Application for the AAD role to propagate
 
 You will need to [create a service principal with these role assignments](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?tabs=bash) with the above roles and permissions.
 
@@ -119,7 +119,7 @@ export DP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage clas
 export DP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities 
 export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 export DP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record sets
-export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "calico"
+export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "azure", "calico"
 export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure file shares
 export STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
 ```
@@ -410,10 +410,10 @@ managed-premium         disk.csi.azure.com   Delete          WaitForFirstConsume
 
 We will be using the following storage classes created with `dp-config-aks` helm chart.
 * `azure-disk-sc` is the storage class for Azure Disks. This is used for
-  * storage class for data when provision TIBCO Enterprise Message Service™ (EMS) capability
+  * storage class for data while provisioning TIBCO Enterprise Message Service™ (EMS) capability
 * `azure-files-sc` is the storage class for Azure Files. This is used for
-  * artifactmanager when we provision TIBCO BusinessWorks™ Container Edition capability
-  * storage class for log when we provision EMS capability
+  * artifactmanager while provisioning TIBCO BusinessWorks™ Container Edition capability
+  * storage class for log while provisioning provision EMS capability
 * `default` is the default storage class for AKS. Azure creates it by default and we don't recommend to use it.
 
 > [!IMPORTANT]
@@ -757,7 +757,7 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
 | VNET_CIDR             | 10.4.0.0/16                                                                    | from VNet address space                                      |
 | Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
-| Azure Files storage class    | azure-files-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition Azure Files storage                                         |
+| Azure Files storage class    | azure-files-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition and TIBCO Enterprise Message Service™ (EMS) Azure Files storage                                         |
 | Azure Disks storage class    | azure-disk-sc                                                                          | used for TIBCO Enterprise Message Service™ (EMS)                                             |
 | BW FQDN              | bwce.\<BASE_FQDN\>                                                               | Capability FQDN |
 | Elastic User app logs index   | user-app-1                                                                       | dp-config-es index template (value configured with o11y-data-plane-configuration in TIBCO® Control Plane)                               |

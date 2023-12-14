@@ -1,12 +1,13 @@
 #
 # Copyright (c) 2023. Cloud Software Group, Inc.
-# This file is subject to the license terms contained 
-# in the license file that is distributed with this file.  
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 
 {{- $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcEmsHost := printf "%s.%s.svc" $svcEms .Release.Namespace -}}
+{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
 {{- $emsRealmPort := $emsParams.ems.ports.realmPort -}}
@@ -36,9 +37,9 @@ data:
   EMS_ADMIN_PASSWORD: ""
   EMS_FTL_REALM_URL: "http://{{ $svcFtlHost }}:{{ $emsRealmPort }}"
   {{ if .Values.ems.sslEnable }}
-  EMS_SSL_URL: "ssl://{{ $svcEmsHost }}:{{ $emsSslPort }},ssl://{{ $svcEmsHost }}:{{ $emsSslPort }}"
+  EMS_SSL_URL: "ssl://{{ $svcEmsActiveHost }}:{{ $emsSslPort }},ssl://{{ $svcEmsHost }}:{{ $emsSslPort }}"
   {{ end }}
   {{ if .Values.ems.tcpEnable }}
-  EMS_TCP_URL: "tcp://{{ $svcEmsHost }}:{{ $emsTcpPort }},tcp://{{ $svcEmsHost }}:{{ $emsTcpPort }}"
+  EMS_TCP_URL: "tcp://{{ $svcEmsActiveHost }}:{{ $emsTcpPort }},tcp://{{ $svcEmsHost }}:{{ $emsTcpPort }}"
   {{ end }}
 ...

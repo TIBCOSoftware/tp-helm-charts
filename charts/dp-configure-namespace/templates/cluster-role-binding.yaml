@@ -9,7 +9,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "dp-configure-namespace.dataPlaneId" . }}
+  name: {{ include "dp-configure-namespace.dataPlaneId" . | quote }}
   labels:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
 roleRef:
@@ -18,7 +18,6 @@ roleRef:
   name: {{ include "dp-configure-namespace.dataPlaneId" . }}-cluster-scope
 subjects:
   - kind: ServiceAccount
-    name: {{ include "dp-configure-namespace.serviceAccount" . }}
-    namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . }}
-
+    name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+    namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
 {{- end -}}

@@ -3,8 +3,8 @@
 MSG DP EMS-on-FTL Helpers
 #
 # Copyright (c) 2023. Cloud Software Group, Inc.
-# This file is subject to the license terms contained 
-# in the license file that is distributed with this file.  
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 
 */}}
@@ -38,8 +38,8 @@ need.msg.ems.params
 {{- $memReq := "500Mi" -}}
 {{- $memLim := "4Gi" -}}
 {{- $stores := ternary "ftl" .Values.ems.stores ( not .Values.ems.stores ) -}}
-{{- $allowNodeSkew := "true" -}}
-{{- $allowZoneSkew := "true" -}}
+{{- $allowNodeSkew := "yes" -}}
+{{- $allowZoneSkew := "yes" -}}
 {{ $emsImage := ternary $emsDefaultFullImage .Values.ems.image ( not .Values.ems.image ) }}
 {{ $quorumStrategy := ternary "quorum-based" .Values.ems.quorumStrategy ( not .Values.ems.quorumStrategy ) }}
 {{ $msgStorageType := "emptyDir" }}
@@ -79,8 +79,8 @@ need.msg.ems.params
   {{- if $isProduction -}}
     {{- $cpuReq = $cpuLim -}}
     {{- $memReq = $memLim -}}
-    {{- $allowNodeSkew = "false" -}}
-    {{- $allowZoneSkew = "false" -}}
+    {{- $allowNodeSkew = "no" -}}
+    {{- $allowZoneSkew = "no" -}}
   {{ end }}
 {{ $pvcShareSize :=  $logStorageSize }}
   {{ if .Values.ems.msgData }}
@@ -128,7 +128,7 @@ ems:
     storageName: {{ $logStorageName }}
     storageSize: {{ $logStorageSize }}
   skipRedeploy: "{{ .Values.ems.skipRedeploy }}"
-  istioEnable: "{{.Values.ems.istioEnable | default "false" }}"
+  istioEnable: "{{ .Values.ems.istioEnable | default "false" }}"
   ports:
 {{ .Values.ems.ports | toYaml | indent 4 }}
   stores: {{ $stores }}
@@ -136,8 +136,8 @@ ems:
   quorumStrategy: {{ $quorumStrategy }}
   isLeader: {{ printf "http://localhost:%d/isReady" ( int .Values.ems.ports.httpPort ) }}
   isInQuorum: {{ printf "http://localhost:%d/api/v1/available" ( int .Values.ems.ports.realmPort ) }}
-  allowNodeSkew: "{{ $allowNodeSkew }}"
-  allowZoneSkew: "{{ $allowZoneSkew }}"
+  allowNodeSkew: "{{ .Values.ems.allowNodeSkew | default $allowNodeSkew }}"
+  allowZoneSkew: "{{ .Values.ems.allowZoneSkew | default $allowZoneSkew }}"
   resources:
     {{ if .Values.ems.resources }}
 {{ .Values.ems.resources | toYaml | indent 4 }}

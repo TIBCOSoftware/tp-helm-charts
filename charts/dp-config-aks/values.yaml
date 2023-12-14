@@ -67,14 +67,17 @@ storageClass:
     reclaimPolicy: "Delete"
     allowVolumeExpansion: true
     volumeBindingMode: WaitForFirstConsumer
+  # https://learn.microsoft.com/en-us/azure/storage/files/storage-files-how-to-mount-nfs-shares?tabs=powershell#mount-options
+  # https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/mountoptions-settings-azure-files
     # mountOptions:
-    #   - dir_mode=0640
-    #   - file_mode=0640
-    #   - uid=0
-    #   - gid=0
-    #   - mfsymlinks
-    #   - cache=strict # https://linux.die.net/man/8/mount.cifs
-    #   - nosharesock
+      # - mfsymlinks
+      # - nosharesock
+      # - dir_mode=0777
+      # - file_mode=0777
+      # - uid=0
+      # - gid=0
+      # - cache=strict
+      # - actimeo=30
 
 ingress-nginx:
   # chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
