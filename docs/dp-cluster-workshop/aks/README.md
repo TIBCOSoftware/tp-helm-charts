@@ -301,7 +301,7 @@ export DP_NAMESPACE="ns"
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ingress-system dp-config-aks dp-config-aks \
   --labels layer=1 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.13" -f - <<EOF
+  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
 global:
   dnsSandboxSubdomain: "${DP_SANDBOX_SUBDOMAIN}"
   dnsGlobalTopDomain: "${DP_TOP_LEVEL_DOMAIN}"
@@ -368,7 +368,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   -n storage-system dp-config-aks-storage dp-config-aks \
   --repo "${TIBCO_DP_HELM_CHART_REPO}" \
   --labels layer=1 \
-  --version "1.0.13" -f - <<EOF
+  --version "1.0.16" -f - <<EOF
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
@@ -379,13 +379,28 @@ storageClass:
   azuredisk:
     enabled: ${DP_DISK_ENABLED}
     name: ${DP_DISK_STORAGE_CLASS}
+    # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
+## uncomment following section, if you want to use TIBCO Enterprise Message Service™ (EMS) recommended production configuration
+    # parameters:
+    #   skuName: Premium_LRS # other values: Premium_ZRS, StandardSSD_LRS (default)
   azurefile:
     enabled: ${DP_FILE_ENABLED}
     name: ${DP_FILE_STORAGE_CLASS}
+    # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
 ## following section is required if you want to use an existing storage account. Otherwise, storage account is created in the same resource group.
-  # parameters:
-    # storageAccount: ${STORAGE_ACCOUNT_NAME}
-    # resourceGroup: ${STORAGE_ACCOUNT_RESOURCE_GROUP}
+    # parameters:
+    #   storageAccount: ${STORAGE_ACCOUNT_NAME}
+    #   resourceGroup: ${STORAGE_ACCOUNT_RESOURCE_GROUP}
+## uncomment following section, if you want to use TIBCO Enterprise Message Service™ (EMS) recommended production configuration for Azure Files
+    #   skuName: Premium_LRS # other values: Premium_ZRS, Standard_LRS (default)
+    ## TIBCO Enterprise Message Service™ (EMS) recommended production values for mountOptions
+    # mountOptions:
+    #   - soft
+    #   - timeo=300
+    #   - actimeo=1
+    #   - retrans=2
+    #   - vers=4.1
+    #   - _netdev
 ingress-nginx:
   enabled: false
 EOF
