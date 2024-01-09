@@ -59,7 +59,6 @@ RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.167.0"; } && \
     eksctl version
 
 # copy directories
-COPY ["cp-cluster", "/home/workshop/cp-cluster/"]
 COPY ["dp-cluster", "/home/workshop/dp-cluster/"]
 COPY ["scripts", "/home/workshop/scripts/"]
 
