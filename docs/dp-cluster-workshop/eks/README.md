@@ -50,7 +50,7 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * kubectl (v1.28.3)
 * helm (v3.13.1)
 
-For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
@@ -102,7 +102,7 @@ export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 > The scripts associated with the workshop are NOT idempotent.
 > It is recommended to clean-up the existing setup to create a new one.
 
-Change the directory to [eks/](../eks/) to proceed with the next steps.
+Change the directory to eks/ to proceed with the next steps.
 ```bash
 cd /eks
 ```
@@ -150,7 +150,7 @@ Before we deploy ingress or observability tools on an empty EKS cluster; we need
 
 <details>
 
-<summary>We can use the following commands to install these tools</summary>
+<summary>We can use the following commands to install these tools......</summary>
 
 ```bash
 # install cert-manager
@@ -203,7 +203,7 @@ EOF
 
 <details>
 
-<summary>Sample output of third party helm charts that we have installed in the EKS cluster</summary>
+<summary>Sample output of third party helm charts that we have installed in the EKS cluster...</summary>
 
 ```bash
 $ helm ls -A -a
@@ -243,9 +243,9 @@ Before deploy `dp-config-aws`; we need to set up AWS EFS. For more information a
 * create EFS in AWS console: [link](https://docs.aws.amazon.com/efs/latest/ug/gs-step-two-create-efs-resources.html)
 * create EFS with scripts: [link](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/docs/efs-create-filesystem.md)
 
-We provide an [EFS creation script](../../scripts/eks/create-efs.sh) to create EFS. 
+We provide an [EFS creation script](create-efs.sh) to create EFS. 
 ```bash
-./create-efs.sh "${DP_CLUSTER_NAME}"
+./create-efs.sh
 ```
 
 ### Storage Class
@@ -575,7 +575,7 @@ The username is `admin`. And Prometheus Operator use fixed password: `prom-opera
 
 <details>
 
-<summary>Use the following command to install Opentelemetry Collector for metrics</summary>
+<summary>Use the following command to install Opentelemetry Collector for metrics...</summary>
 
 ```bash
 ## create the values.yaml file with below contents
@@ -809,12 +809,8 @@ Network Policies Details for Data Plane Namespace | [Data Plane Network Policies
 Please delete the Data Plane from TIBCO® Control Plane UI.
 Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
 
-Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the next steps.
-```bash
-cd scripts/eks
-```
 
-For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/eks/clean-up-data-plane.sh).
+For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
 ```bash
-./clean-up-data-plane.sh
+./clean-up.sh
 ```

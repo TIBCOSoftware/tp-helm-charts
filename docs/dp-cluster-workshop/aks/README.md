@@ -46,7 +46,7 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * kubectl (v1.28.3)
 * helm (v3.13.1)
 
-For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
@@ -124,9 +124,9 @@ export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account t
 export STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
 ```
 
-Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the next steps.
+Change the directory to aks/ to proceed with the next steps.
 ```bash
-cd scripts/aks
+cd /aks
 ```
 
 ## Pre cluster creation scripts
@@ -791,7 +791,7 @@ Network Policies Details for Data Plane Namespace | [Data Plane Network Policies
 Please delete the Data Plane from TIBCO® Control Plane UI.
 Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
 
-For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/aks/clean-up-data-plane.sh).
+For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
 ```bash
-./clean-up-data-plane.sh
+./clean-up.sh
 ```

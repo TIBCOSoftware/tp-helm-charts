@@ -30,7 +30,7 @@ if [ "${EFS_ID}" != "" ]; then
   echo "detected EFS_ID: ${EFS_ID} now deleting EFS"
   aws efs describe-mount-targets --file-system-id ${EFS_ID} > mount_targets.json
   mount_target_ids=$(jq -r '.MountTargets[].MountTargetId' mount_targets.json)
-  for id in ${_mount_target_ids[@]}; do
+  for id in $mount_target_ids; do
     echo "Deleting Mount Target with ID: $id"
     aws efs delete-mount-target --mount-target-id $id
   done
