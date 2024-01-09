@@ -46,7 +46,7 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * kubectl (v1.28.3)
 * helm (v3.13.1)
 
-For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
@@ -124,9 +124,9 @@ export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account t
 export STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
 ```
 
-Change the directory to aks/ to proceed with the next steps.
+Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the next steps.
 ```bash
-cd /aks
+cd scripts/aks
 ```
 
 ## Pre cluster creation scripts
@@ -301,7 +301,7 @@ export DP_NAMESPACE="ns"
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ingress-system dp-config-aks dp-config-aks \
   --labels layer=1 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.13" -f - <<EOF
+  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
 global:
   dnsSandboxSubdomain: "${DP_SANDBOX_SUBDOMAIN}"
   dnsGlobalTopDomain: "${DP_TOP_LEVEL_DOMAIN}"
@@ -368,7 +368,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   -n storage-system dp-config-aks-storage dp-config-aks \
   --repo "${TIBCO_DP_HELM_CHART_REPO}" \
   --labels layer=1 \
-  --version "1.0.13" -f - <<EOF
+  --version "1.0.16" -f - <<EOF
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
@@ -379,13 +379,28 @@ storageClass:
   azuredisk:
     enabled: ${DP_DISK_ENABLED}
     name: ${DP_DISK_STORAGE_CLASS}
+    # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
+## uncomment following section, if you want to use TIBCO Enterprise Message Service™ (EMS) recommended production configuration
+    # parameters:
+    #   skuName: Premium_LRS # other values: Premium_ZRS, StandardSSD_LRS (default)
   azurefile:
     enabled: ${DP_FILE_ENABLED}
     name: ${DP_FILE_STORAGE_CLASS}
+    # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
 ## following section is required if you want to use an existing storage account. Otherwise, storage account is created in the same resource group.
-  # parameters:
-    # storageAccount: ${STORAGE_ACCOUNT_NAME}
-    # resourceGroup: ${STORAGE_ACCOUNT_RESOURCE_GROUP}
+    # parameters:
+    #   storageAccount: ${STORAGE_ACCOUNT_NAME}
+    #   resourceGroup: ${STORAGE_ACCOUNT_RESOURCE_GROUP}
+## uncomment following section, if you want to use TIBCO Enterprise Message Service™ (EMS) recommended production configuration for Azure Files
+    #   skuName: Premium_LRS # other values: Premium_ZRS, Standard_LRS (default)
+    ## TIBCO Enterprise Message Service™ (EMS) recommended production values for mountOptions
+    # mountOptions:
+    #   - soft
+    #   - timeo=300
+    #   - actimeo=1
+    #   - retrans=2
+    #   - vers=4.1
+    #   - _netdev
 ingress-nginx:
   enabled: false
 EOF
@@ -776,7 +791,7 @@ Network Policies Details for Data Plane Namespace | [Data Plane Network Policies
 Please delete the Data Plane from TIBCO® Control Plane UI.
 Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
 
-For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
+For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/aks/clean-up-data-plane.sh).
 ```bash
-./clean-up.sh
+./clean-up-data-plane.sh
 ```
