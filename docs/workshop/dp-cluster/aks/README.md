@@ -46,7 +46,7 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * kubectl (v1.28.3)
 * helm (v3.13.1)
 
-For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
@@ -57,9 +57,6 @@ A sample command on Linux AMD64 is
 ```bash
 docker buildx build --platform=${platform} --progress=plain \
   --build-arg AZURE_CLI_VERSION=${AZURE_CLI_VERSION} \
-  --build-arg KUBECTL_VERSION=${KUBECTL_VERSION} \
-  --build-arg HELM_VERSION=${HELM_VERSION} \
-  --build-arg YQ_VERSION=${YQ_VERSION} \
   -t workshop-cli-tools:latest --load .
 ```
 ## Recommended Roles and Permissions
@@ -79,39 +76,40 @@ You can optionally choose run the steps as a Azure Subscription user with above 
 ## Export required variables
 ```bash
 ## Azure specific variables
-export SUBSCRIPTION_ID=$(az account show --query id -o tsv) # subscription id
-export TENANT_ID=$(az account show --query tenantId -o tsv) # tenant id
-export AZURE_REGION="eastus" # region of resource group
+export DP_SUBSCRIPTION_ID=$(az account show --query id -o tsv) # subscription id
+export DP_TENANT_ID=$(az account show --query tenantId -o tsv) # tenant id
+export DP_AZURE_REGION="eastus" # region of resource group
 
 ## Cluster configuration specific variables
 export DP_RESOURCE_GROUP="dp-resource-group" # resource group name
 export DP_CLUSTER_NAME="dp-cluster" # name of the cluster to be prvisioned, used for chart deployment
-export USER_ASSIGNED_IDENTITY_NAME="${DP_CLUSTER_NAME}-identity" # user assigned identity to be associated with cluster
-export KUBECONFIG=${DP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
+export DP_USER_ASSIGNED_IDENTITY_NAME="${DP_CLUSTER_NAME}-identity" # user assigned identity to be associated with cluster
+export KUBECONFIG=`pwd`/${DP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
 ## Network specific variables
-export VNET_NAME="${DP_CLUSTER_NAME}-vnet" # name of VNet resource
-export VNET_CIDR="10.4.0.0/16" # CIDR of the VNet
-export AKS_SUBNET_NAME="aks-subnet" # name of AKS subnet resource
-export AKS_SUBNET_CIDR="10.4.0.0/20" # CIDR of the AKS subnet address space
-export APPLICATION_GW_SUBNET_NAME="appgw-subnet" # name of application gateway subnet
-export APPLICATION_GW_SUBNET_CIDR="10.4.17.0/24" # CIDR of the application gateway subnet address space
-export PUBLIC_IP_NAME="public-ip" # name of public ip resource
-export NAT_GW_NAME="nat-gateway" # name of NAT gateway resource
-export NAT_GW_SUBNET_NAME="natgw-subnet" # name of NAT gateway subnet
-export NAT_GW_SUBNET_CIDR="10.4.18.0/27" # CIDR of the NAT gateway subnet address space
-export APISERVER_SUBNET_NAME="apiserver-subnet" # name of api server subnet resource
-export APISERVER_SUBNET_CIDR="10.4.19.0/28" # CIDR of the kubernetes api server subnet address space
+export DP_VNET_NAME="${DP_CLUSTER_NAME}-vnet" # name of VNet resource
+export DP_VNET_CIDR="10.4.0.0/16" # CIDR of the VNet
+export DP_AKS_SUBNET_NAME="aks-subnet" # name of AKS subnet resource
+export DP_AKS_SUBNET_CIDR="10.4.0.0/20" # CIDR of the AKS subnet address space
+export DP_APPLICATION_GW_SUBNET_NAME="appgw-subnet" # name of application gateway subnet
+export DP_APPLICATION_GW_SUBNET_CIDR="10.4.17.0/24" # CIDR of the application gateway subnet address space
+export DP_PUBLIC_IP_NAME="public-ip" # name of public ip resource
+export DP_NAT_GW_NAME="nat-gateway" # name of NAT gateway resource
+export DP_NAT_GW_SUBNET_NAME="natgw-subnet" # name of NAT gateway subnet
+export DP_NAT_GW_SUBNET_CIDR="10.4.18.0/27" # CIDR of the NAT gateway subnet address space
+export DP_APISERVER_SUBNET_NAME="apiserver-subnet" # name of api server subnet resource
+export DP_APISERVER_SUBNET_CIDR="10.4.19.0/28" # CIDR of the kubernetes api server subnet address space
+export DP_NODE_VM_SIZE="Standard_D4s_v3" # VM Size of nodes
 
 ## By default, only your public IP will be added to allow access to public cluster
-export AUTHORIZED_IP=""  # declare additional IPs to be whitelisted for accessing cluster
+export DP_AUTHORIZED_IP=""  # declare additional IPs to be whitelisted for accessing cluster
 
 ## Tooling specific variables
-export TIBCO_DP_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
+export DP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
 export DP_DOMAIN="dp1.azure.example.com" # domain to be used
 export DP_SANDBOX_SUBDOMAIN="dp1" # hostname of DP_DOMAIN
 export DP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of DP_DOMAIN
-export MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
+export DP_MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
 export DP_DISK_ENABLED="true" # to enable azure disk storage class
 export DP_DISK_STORAGE_CLASS="azure-disk-sc" # name of azure disk storage class
 export DP_FILE_ENABLED="true" # to enable azure files storage class
@@ -119,14 +117,14 @@ export DP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage clas
 export DP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities 
 export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 export DP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record sets
-export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "azure", "calico"
-export STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure file shares
-export STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
+export DP_NETWORK_POLICY="" # possible values "" (to disable network policy), "calico"
+export DP_STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure file shares
+export DP_STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
 ```
 
-Change the directory to aks/ to proceed with the next steps.
+Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the next steps.
 ```bash
-cd /aks
+cd scripts/aks
 ```
 
 ## Pre cluster creation scripts
@@ -248,7 +246,7 @@ extraVolumeMounts:
   mountPath: /etc/kubernetes
   readOnly: true
 extraArgs:
-- --ingress-class=${MAIN_INGRESS_CLASS_NAME}
+- --ingress-class=${DP_MAIN_INGRESS_CLASS_NAME}
 EOF
 ```
 </details>
@@ -293,7 +291,7 @@ We are using the following services in this workshop:
 ### Ingress Controller
 
 ```bash
-export CLIENT_ID=$(az aks show --resource-group "${DP_RESOURCE_GROUP}" --name "${DP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
+export DP_CLIENT_ID=$(az aks show --resource-group "${DP_RESOURCE_GROUP}" --name "${DP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
 ## following section is required to send traces using nginx
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 export DP_NAMESPACE="ns"
@@ -301,24 +299,19 @@ export DP_NAMESPACE="ns"
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ingress-system dp-config-aks dp-config-aks \
   --labels layer=1 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
 global:
   dnsSandboxSubdomain: "${DP_SANDBOX_SUBDOMAIN}"
   dnsGlobalTopDomain: "${DP_TOP_LEVEL_DOMAIN}"
   azureSubscriptionDnsResourceGroup: "${DP_DNS_RESOURCE_GROUP}"
-  azureSubscriptionId: "${SUBSCRIPTION_ID}"
-  azureAwiAsoDnsClientId: "${CLIENT_ID}"
+  azureSubscriptionId: "${DP_SUBSCRIPTION_ID}"
+  azureAwiAsoDnsClientId: "${DP_CLIENT_ID}"
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
-  ingressClassName: ${MAIN_INGRESS_CLASS_NAME}
+  ingressClassName: ${DP_MAIN_INGRESS_CLASS_NAME}
   annotations:
     external-dns.alpha.kubernetes.io/hostname: "*.${DP_DOMAIN}"
-storageClass:
-  azuredisk:
-    enabled: false
-  azurefile:
-    enabled: false
 ingress-nginx:
   controller:
     config:
@@ -366,7 +359,7 @@ The `nginx` ingress class is the main ingress that DP will use. The `azure-appli
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n storage-system dp-config-aks-storage dp-config-aks \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" \
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
   --version "1.0.16" -f - <<EOF
 dns:
@@ -387,19 +380,20 @@ storageClass:
     enabled: ${DP_FILE_ENABLED}
     name: ${DP_FILE_STORAGE_CLASS}
     # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
-## following section is required if you want to use an existing storage account. Otherwise, storage account is created in the same resource group.
+## please note: to support nfs protocol the storage account tier should be Premium with kind FileStorage in supported regions: https://learn.microsoft.com/en-us/troubleshoot/azure/azure-storage/files-troubleshoot-linux-nfs?tabs=RHEL#unable-to-create-an-nfs-share
+## following section is required if you want to use an existing storage account. Otherwise, a new storage account is created in the same resource group.
     # parameters:
-    #   storageAccount: ${STORAGE_ACCOUNT_NAME}
-    #   resourceGroup: ${STORAGE_ACCOUNT_RESOURCE_GROUP}
+    #   storageAccount: ${DP_STORAGE_ACCOUNT_NAME}
+    #   resourceGroup: ${DP_STORAGE_ACCOUNT_RESOURCE_GROUP}
 ## uncomment following section, if you want to use TIBCO Enterprise Message Service™ (EMS) recommended production configuration for Azure Files
-    #   skuName: Premium_LRS # other values: Premium_ZRS, Standard_LRS (default)
+    #   skuName: Premium_LRS # other values: Premium_ZRS
+    #   protocol: nfs
     ## TIBCO Enterprise Message Service™ (EMS) recommended production values for mountOptions
     # mountOptions:
     #   - soft
     #   - timeo=300
     #   - actimeo=1
     #   - retrans=2
-    #   - vers=4.1
     #   - _netdev
 ingress-nginx:
   enabled: false
@@ -450,7 +444,7 @@ helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${DP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
 domain: ${DP_DOMAIN}
 es:
   version: "8.9.1"
@@ -791,7 +785,12 @@ Network Policies Details for Data Plane Namespace | [Data Plane Network Policies
 Please delete the Data Plane from TIBCO® Control Plane UI.
 Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
 
-For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
+Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the next steps.
 ```bash
-./clean-up.sh
+cd scripts/aks
+```
+
+For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/aks/clean-up-data-plane.sh).
+```bash
+./clean-up-data-plane.sh
 ```

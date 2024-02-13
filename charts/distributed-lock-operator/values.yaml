@@ -24,7 +24,13 @@ global:
 enableWebHooks: true
 
 replicaCount: 1
-
+resources:
+  requests:
+    cpu: 100m
+    memory: 100Mi
+  limits:
+    cpu: 500m
+    memory: 500Mi
 settingsConfigmap:
   - key: "LOG_LEVEL"
     value: "info"
@@ -40,3 +46,12 @@ fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
     tag: 2.1.6
+  # Resources
+  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources:
+    requests:
+      cpu: 10m
+      memory: 15Mi
+    limits:
+      cpu: 50m
+      memory: 30Mi

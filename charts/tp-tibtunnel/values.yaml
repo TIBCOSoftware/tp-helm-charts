@@ -39,8 +39,9 @@ resources:
   limits:
     cpu: 1000m
     memory: 512Mi
+
 # no of tibtunnel pods
-replicaCount: "1"
+replicaCount: "2"
 
 image:
   name: tp-tibtunnel
@@ -60,6 +61,15 @@ fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
     tag: 2.1.6
+  # Resources
+  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources:
+    requests:
+      cpu: 30m
+      memory: 20Mi
+    limits:
+      cpu: 100m
+      memory: 50Mi
 
 # probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
 provisionerAgentProbe:

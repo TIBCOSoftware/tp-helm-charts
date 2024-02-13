@@ -14,6 +14,9 @@ metadata:
 data:
   otel-recvservice-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.service.name }}
   otel-recvservice-port: {{ quote .Values.global.cp.resources.o11y.config.otel.receiver.service.port }}
+  otel-recv-logs-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.logs.name }}
+  otel-recv-metrics-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.metrics.name }}
+  otel-recv-traces-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.traces.name }}
   #logsserver
 {{- if eq .Values.global.cp.resources.o11y.logsServer.kind "elasticSearch" }}
   #logserver-app-logIndex: {{ .Values.global.cp.resources.o11y.logsServer.config.userapp.logindex }}

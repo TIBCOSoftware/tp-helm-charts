@@ -59,6 +59,7 @@ helm.sh/chart: {{ include "opentelemetry-collector.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{ include "opentelemetry-collector.additionalLabels" . }}
 {{- end }}
 
 {{/*
@@ -134,6 +135,12 @@ Create the name of the clusterRoleBinding to use
 {{- end }}
 {{- end }}
 
+{{- define "opentelemetry-collector.additionalLabels" -}}
+{{- if .Values.additionalLabels }}
+{{- tpl (.Values.additionalLabels | toYaml) . }}
+{{- end }}
+{{- end }}
+
 {{/*
 Return the appropriate apiVersion for podDisruptionBudget.
 */}}
@@ -144,19 +151,6 @@ Return the appropriate apiVersion for podDisruptionBudget.
     {{- print "policy/v1beta1" -}}
   {{- end -}}
 {{- end -}}
-
-
-{{/*
-Check if logs collection is enabled via deprecated "containerLogs" or "preset.logsCollection"
-*/}}
-{{- define "opentelemetry-collector.logsCollectionEnabled" }}
-  {{- if eq (toString .Values.containerLogs) "<nil>" }}
-    {{- print .Values.presets.logsCollection.enabled }}
-  {{- else }}
-    {{- print .Values.containerLogs.enabled }}
-  {{- end }}
-{{- end -}}
-
 
 {{/*
 Compute Service creation on mode
@@ -194,4 +188,38 @@ Allow the release namespace to be overridden
   {{- else -}}
     {{- .Release.Namespace -}}
   {{- end -}}
+{{- end -}}
+
+{{/*
+Convert memory value to numeric value in MiB to be used by otel memory_limiter processor.
+*/}}
+{{- define "opentelemetry-collector.convertMemToMib" -}}
+{{- $mem := lower . -}}
+{{- if hasSuffix "e" $mem -}}
+{{- trimSuffix "e" $mem | atoi | mul 1000 | mul 1000 | mul 1000 | mul 1000 -}}
+{{- else if hasSuffix "ei" $mem -}}
+{{- trimSuffix "ei" $mem | atoi | mul 1024 | mul 1024 | mul 1024 | mul 1024 -}}
+{{- else if hasSuffix "p" $mem -}}
+{{- trimSuffix "p" $mem | atoi | mul 1000 | mul 1000 | mul 1000 -}}
+{{- else if hasSuffix "pi" $mem -}}
+{{- trimSuffix "pi" $mem | atoi | mul 1024 | mul 1024 | mul 1024 -}}
+{{- else if hasSuffix "t" $mem -}}
+{{- trimSuffix "t" $mem | atoi | mul 1000 | mul 1000 -}}
+{{- else if hasSuffix "ti" $mem -}}
+{{- trimSuffix "ti" $mem | atoi | mul 1024 | mul 1024 -}}
+{{- else if hasSuffix "g" $mem -}}
+{{- trimSuffix "g" $mem | atoi | mul 1000 -}}
+{{- else if hasSuffix "gi" $mem -}}
+{{- trimSuffix "gi" $mem | atoi | mul 1024 -}}
+{{- else if hasSuffix "m" $mem -}}
+{{- div (trimSuffix "m" $mem | atoi | mul 1000) 1024 -}}
+{{- else if hasSuffix "mi" $mem -}}
+{{- trimSuffix "mi" $mem | atoi -}}
+{{- else if hasSuffix "k" $mem -}}
+{{- div (trimSuffix "k" $mem | atoi) 1000 -}}
+{{- else if hasSuffix "ki" $mem -}}
+{{- div (trimSuffix "ki" $mem | atoi) 1024 -}}
+{{- else -}}
+{{- div (div ($mem | atoi) 1024) 1024 -}}
+{{- end -}}
 {{- end -}}

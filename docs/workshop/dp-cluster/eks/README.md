@@ -50,7 +50,7 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * kubectl (v1.28.3)
 * helm (v3.13.1)
 
-For reference, [Dockerfile](../Dockerfile) with [apline 3.18](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
@@ -62,9 +62,6 @@ A sample command on Linux AMD64 is
 docker buildx build --platform=${platform} --progress=plain \
   --build-arg AWS_CLI_VERSION=${AWS_CLI_VERSION} \
   --build-arg EKSCTL_VERSION=${EKSCTL_VERSION} \
-  --build-arg KUBECTL_VERSION=${KUBECTL_VERSION} \
-  --build-arg HELM_VERSION=${HELM_VERSION} \
-  --build-arg YQ_VERSION=${YQ_VERSION} \
   -t workshop-cli-tools:latest --load .
 ```
 
@@ -79,21 +76,23 @@ Additionally, you will need to add the [AmazonElasticFileSystemFullAccess](https
 
 ## Export required variables
 ```bash
+## AWS specific values
+export DP_CLUSTER_REGION=us-west-2 # aws region to be used for deployment
+
 ## Cluster configuration specific variables
 export DP_VPC_CIDR="10.200.0.0/16" # vpc cidr for the cluster
-export AWS_REGION=us-west-2 # aws region to be used for deployment
 export DP_CLUSTER_NAME=dp-cluster # name of the cluster to be prvisioned, used for chart deployment
-export KUBECONFIG=${DP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
+export KUBECONFIG=`pwd`/${DP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
 ## Tooling specific variables
-export TIBCO_DP_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
+export DP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
 export DP_DOMAIN=dp1.aws.example.com # domain to be used
-export MAIN_INGRESS_CONTROLLER=alb # name of aws load balancer controller
+export DP_MAIN_INGRESS_CONTROLLER=alb # name of aws load balancer controller
 export DP_EBS_ENABLED=true # to enable ebs storage class
 export DP_STORAGE_CLASS=ebs-gp3 # name of ebs storge class
 export DP_EFS_ENABLED=true # to enable efs storage class
 export DP_STORAGE_CLASS_EFS=efs-sc # name of efs storge class
-export INSTALL_CALICO="true" # to deploy calico
+export DP_INSTALL_CALICO="true" # to deploy calico
 export DP_INGRESS_CLASS=nginx # name of main ingress class used by capabilities 
 export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 ```
@@ -102,7 +101,7 @@ export DP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 > The scripts associated with the workshop are NOT idempotent.
 > It is recommended to clean-up the existing setup to create a new one.
 
-Change the directory to eks/ to proceed with the next steps.
+Change the directory to [eks/](../eks/) to proceed with the next steps.
 ```bash
 cd /eks
 ```
@@ -126,7 +125,7 @@ It will take approximately 30 minutes to create an EKS cluster.
 
 We can use the following command to generate kubeconfig file.
 ```bash
-aws eks update-kubeconfig --region ${AWS_REGION} --name ${DP_CLUSTER_NAME} --kubeconfig ${DP_CLUSTER_NAME}.yaml
+aws eks update-kubeconfig --region ${DP_CLUSTER_REGION} --name ${DP_CLUSTER_NAME} --kubeconfig "${KUBECONFIG}"
 ```
 
 And check the connection to EKS cluster.
@@ -150,7 +149,7 @@ Before we deploy ingress or observability tools on an empty EKS cluster; we need
 
 <details>
 
-<summary>We can use the following commands to install these tools......</summary>
+<summary>We can use the following commands to install these tools</summary>
 
 ```bash
 # install cert-manager
@@ -174,7 +173,7 @@ serviceAccount:
   name: external-dns 
 extraArgs:
   # add filter to only sync only public Ingresses with this annotation
-  - "--annotation-filter=kubernetes.io/ingress.class=${MAIN_INGRESS_CONTROLLER}"
+  - "--annotation-filter=kubernetes.io/ingress.class=${DP_MAIN_INGRESS_CONTROLLER}"
 EOF
 
 # install aws-load-balancer-controller
@@ -203,7 +202,7 @@ EOF
 
 <details>
 
-<summary>Sample output of third party helm charts that we have installed in the EKS cluster...</summary>
+<summary>Sample output of third party helm charts that we have installed in the EKS cluster</summary>
 
 ```bash
 $ helm ls -A -a
@@ -243,9 +242,14 @@ Before deploy `dp-config-aws`; we need to set up AWS EFS. For more information a
 * create EFS in AWS console: [link](https://docs.aws.amazon.com/efs/latest/ug/gs-step-two-create-efs-resources.html)
 * create EFS with scripts: [link](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/docs/efs-create-filesystem.md)
 
-We provide an [EFS creation script](create-efs.sh) to create EFS. 
+Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the next steps.
 ```bash
-./create-efs.sh
+cd scripts/eks
+```
+
+We provide an [EFS creation script](../../scripts/eks/create-efs-data-plane.sh) to create EFS. 
+```bash
+./create-efs-data-plane.sh
 ```
 
 ### Storage Class
@@ -257,7 +261,7 @@ export DP_EFS_ID="fs-0ec1c745c10d523f6" # replace with the EFS ID created in you
 
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n storage-system dp-config-aws-storage dp-config-aws \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" \
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
   --version "1.0.23" -f - <<EOF
 dns:
@@ -307,7 +311,7 @@ export DP_NAMESPACE="ns" # Replace with your DP namespace
 
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ingress-system dp-config-aws dp-config-aws \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" \
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
   --version "1.0.23" -f - <<EOF
 dns:
@@ -318,11 +322,6 @@ httpIngress:
     external-dns.alpha.kubernetes.io/hostname: "*.${DP_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
-storageClass:
-  ebs:
-    enabled: false
-  efs:
-    enabled: false
 tigera-operator:
   enabled: false
 ingress-nginx:
@@ -385,7 +384,7 @@ We will be using the following values to deploy `dp-config-aws` helm chart.
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n tigera-operator dp-config-aws-calico dp-config-aws \
   --labels layer=1 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.23" -f - <<EOF
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "1.0.23" -f - <<EOF
 ingress-nginx:
   enabled: false
 httpIngress:
@@ -398,7 +397,7 @@ storageClass:
   efs:
     enabled: false
 tigera-operator:
-  enabled: ${INSTALL_CALICO}
+  enabled: ${DP_INSTALL_CALICO}
   installation:
     enabled: true
     kubernetesProvider: EKS
@@ -468,7 +467,7 @@ helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${DP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TIBCO_DP_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
 domain: ${DP_DOMAIN}
 es:
   version: "8.9.1"
@@ -575,7 +574,7 @@ The username is `admin`. And Prometheus Operator use fixed password: `prom-opera
 
 <details>
 
-<summary>Use the following command to install Opentelemetry Collector for metrics...</summary>
+<summary>Use the following command to install Opentelemetry Collector for metrics</summary>
 
 ```bash
 ## create the values.yaml file with below contents
@@ -809,8 +808,12 @@ Network Policies Details for Data Plane Namespace | [Data Plane Network Policies
 Please delete the Data Plane from TIBCO® Control Plane UI.
 Refer to [the steps to delete the Data Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-data-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
 
-
-For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](clean-up.sh).
+Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the next steps.
 ```bash
-./clean-up.sh
+cd scripts/eks
+```
+
+For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/eks/clean-up-data-plane.sh).
+```bash
+./clean-up-data-plane.sh
 ```
