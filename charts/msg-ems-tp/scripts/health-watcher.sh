@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -14,6 +14,7 @@ ENV OPTIONS:
     HEALTH_INTERVAL     - override default collection interval of 20s
     HEALTH_CSV          - override ./health.csv summary filename
     HEALTH_ACTION       - Choose action (watcher, redeploy )
+    LOG_ALERT_PORT      - Port for fluentbits alerting (default 8099)
 "
 csvfile="${HEALTH_CSV:-./health.csv}"
 stsdata="my-sts.json"
@@ -29,6 +30,19 @@ fmtTime="--rfc-3339=ns"
 # Set signal traps
 function log
 { echo "$(date "$fmtTime"): $*" ; }
+
+# SUPPORT SENDING FLUENTBITS ALERT MESSAGES
+#curl -i -d '{"message":"hello","level":"warn","caller":"alert"}' -XPOST -H "content-type: application/json" http://localhost:8099/dp.routable
+curl_h="content-type: application/json"
+curl_opts="-Ss -XPOST http://localhost:${LOG_ALERT_PORT-8099}/dp.routable"
+function alert
+{ 
+    log "ALERT: $*" 
+    payload="$(printf '{"message":"%s","level":"alert","caller":"%s"}' "$*" "health-watcher.sh" )"
+    if [ -n "$LOG_ALERT_PORT" ] ; then
+        curl -d "$payload" -H "$curl_h" $curl_opts || true
+    fi
+}
 
 function do_shutdown
 { log "-- Shutdown received (SIGTERM): host=$HOSTNAME" && exit 0 ; }
@@ -62,6 +76,7 @@ function sts_get_config {
     [ "$quorumStrategy" = "quorum-based" ] && quorumMin=$(( $replicas / 2 + 1 ))
 }
 
+export ALERT_ACTIVE=n
 function sts_check_health {
     inQuorumCount=0 leader="" missingList= health=bad
     maxReplica=$(( $replicas - 1 ))
@@ -80,11 +95,24 @@ function sts_check_health {
         [ "$quorumCode" -ne 200 ] && missingList="$missingList $podname($quorumCode)"
     done
     # Compute health : bad, ok, good, great 
-    [ -n "isLeader" ] && [ -z "$leader" ] && health=bad && return
-    [ $inQuorumCount -eq $replicas ] && health=great && return
-    [ $inQuorumCount -gt $quorumMin ] && health=good && return
-    [ $inQuorumCount -eq $quorumMin ] && health=ok && return
-    health=bad
+    if [ -n "$isLeader" ] && [ -z "$leader" ] ; then 
+        health=bad
+    elif [ $inQuorumCount -eq $replicas ] ; then
+        health=great
+    elif [ $inQuorumCount -gt $quorumMin ] ; then
+        health=good
+    elif [ $inQuorumCount -eq $quorumMin ] ; then
+        health=ok
+    else 
+        health=bad
+    fi
+    if [ "$health" != "great" ] ; then
+        ALERT_ACTIVE=y
+        alert "health-alert $STS_NAME: health = $health"
+    elif [ "$ALERT_ACTIVE" = "y" ] ; then
+        ALERT_ACTIVE=n
+        alert "health-alert $STS_NAME: health = $health , resumed healthy operation"
+    fi
     return
 }
 
@@ -133,7 +161,7 @@ function wait_for_release {
         log ".. Waiting ($hstatus : $relname)"
         sleep 3
     done
-    [ "$hstatus" != 'deployed' ] && log "Error: upgrade did not complete successfully, aborting" && return 1
+    [ "$hstatus" != 'deployed' ] && alert "$STS_NAME Error: upgrade did not complete successfully, aborting" && return 1
     log "INFO: helm upgrade Complete."
 }
 
@@ -143,9 +171,9 @@ function redeploy {
     log "#===== REDEPLOY STARTING ====="
     sts_get_config
     sts_check_health 
-    [ "$health" != 'great' ] && log "Warning: STS=$STS_NAME not healthy - aborting ($missingList)." && return 1
+    [ "$health" != 'great' ] && alert "Warning: STS=$STS_NAME not healthy - aborting ($missingList)." && return 1
     upgLeader="$leader"
-    [ -z "$upgLeader" ] && log "Warning: No leader for $STS_NAME - aborting upgrade ($missingList)." && return 1
+    [ -z "$upgLeader" ] && alert "Warning: No leader for $STS_NAME - aborting upgrade ($missingList)." && return 1
     podList=()
     for r in $(seq 0 $maxReplica ) ; do
         podname="$STS_NAME-$r"
@@ -164,7 +192,7 @@ function redeploy {
             sts_check_health
             log  "$dtime,$health,$leader,$inQuorumCount,$missingList" 
         done
-        [ "$health" != 'great' ] && log "Warning: did not recover health, aborting" && return 1
+        [ "$health" != 'great' ] && alert "$STS_NAME: did not recover health, aborting" && return 1
     done
     log "INFO: Success - Redeploy of $STS_NAME Complete."
     return 0

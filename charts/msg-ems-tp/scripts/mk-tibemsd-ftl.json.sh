@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -136,8 +136,8 @@ cat - <<EOF > $outfile
       "ssl_cert_user_specname":"CERTIFICATE_USER",
       "ssl_issuer_list":[],
       "ssl_password":"\$man\$WjtSRCpaXu7hoTkDlcEPr6KNKRr",
-      "ssl_server_identity":".\/certs\/samples\/server.cert.pem",
-      "ssl_server_key":".\/certs\/samples\/server.key.pem",
+      "ssl_server_identity":"\/data\/certs\/server.cert.pem",
+      "ssl_server_key":"\/data\/certs\/server.key.pem",
       "ssl_trusted_list":[
       ]
     },

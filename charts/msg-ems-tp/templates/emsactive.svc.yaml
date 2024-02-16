@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -23,6 +23,7 @@ metadata:
     tib-msg-ems-name: "{{ $emsParams.ems.name }}"
     tib-msg-svcname: "{{ $svcEms }}active"
     {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
 spec:
   ports:
   - name: ems-tcp-port

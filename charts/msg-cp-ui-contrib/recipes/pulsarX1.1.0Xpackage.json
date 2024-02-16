@@ -1,0 +1,51 @@
+{
+    "package": {
+        "allowMultipleInstances": true,
+        "capabilityResourceDependencies": [
+            {
+                "description": "Select a resource for the storage-class of Pulsar message storage",
+                "required": true,
+                "resourceId": "STORAGE",
+                "resourceType": "PLATFORM",
+                "type": "Message Storage"
+            },
+            {
+                "description": "Select a resource for the storage-class of Pulsar journal storage",
+                "required": false,
+                "resourceId": "STORAGE",
+                "resourceType": "PLATFORM",
+                "type": "Journal Storage"
+            },
+            {
+                "description": "Select a resource for the storage-class of Pulsar log storage",
+                "required": false,
+                "resourceId": "STORAGE",
+                "resourceType": "PLATFORM",
+                "type": "Log Storage"
+            }
+        ],
+        "dependsOn": [],
+        "eula": true,
+        "provisioningRoles": [
+            "DEV_OPS"
+        ],
+        "services": [
+            {
+                "description": "Pulsar Broker StatefulSet",
+                "name": "broker"
+            },
+            {
+                "description": "Pulsar bookie StatefulSet",
+                "name": "bookie"
+            },
+            {
+                "description": "Pulsar zookeeper StatefulSet",
+                "name": "zookeeper"
+            },
+            {
+                "description": "Pulsar proxy StatefulSet",
+                "name": "proxy"
+            }
+        ]
+    }
+}

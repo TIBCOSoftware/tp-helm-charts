@@ -1,10 +1,11 @@
 #!/bin/bash
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
+# TODO: MSGDP-316: Comment out redundant OUTPUT=stdout after testing is complete
 outfile=${1:-output.conf}
 cat - <<EOF > $outfile
 [OUTPUT]

@@ -1,0 +1,69 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $stsname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcPromServer := printf "%s-%s" $emsParams.ems.name "prom-server" -}}
+{{- $svcPromFull := printf "%s-%s" $emsParams.ems.name "prom-full" -}}
+#
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcPromServer }}"
+  labels:
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    tib-dp-app: msg-ems-ftl
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-svcname: "{{ $svcPromServer }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+    prometheus.io/scrape: "true"
+    platform.tibco.com/scrape_finops: "true"
+    prometheus.io/port: "{{ $emsParams.ems.ports.httpPort }}"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ $emsParams.ems.ports.httpPort }}"
+    prometheus.io/scheme: "http"
+    prometheus.io/path: /metrics/server
+    prometheus.io/insecure_skip_verify: "true"
+spec:
+  ports:
+  - name: ems-http-port
+    port: {{ int $emsParams.ems.ports.httpPort }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-stsrole: "leader"
+...
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcPromFull }}"
+  labels:
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-svcname: "{{ $svcPromServer }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+    platform.tibco.com/scrape_o11y: "true"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ $emsParams.ems.ports.httpPort }}"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ $emsParams.ems.ports.httpPort }}"
+    prometheus.io/scheme: "http"
+    prometheus.io/path: /metrics
+    prometheus.io/insecure_skip_verify: "true"
+spec:
+  ports:
+  - name: ems-http-port
+    port: {{ int $emsParams.ems.ports.httpPort }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-stsrole: "leader"

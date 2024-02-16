@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -33,7 +33,7 @@ cat - <<EOF > $outfile
     # Parsers_File
     # ============
     # Specify an optional 'Parsers' configuration file
-    Parsers_File /logs/${MY_POD_NAME}/boot/parsers.conf
+    Parsers_File /data/boot/parsers.conf
 
     # HTTP Server
     # ===========
@@ -42,6 +42,11 @@ cat - <<EOF > $outfile
     #HTTP_Listen  0.0.0.0
     #HTTP_Port    ${TCM_LOGGER_PORT}
 
+[INPUT]
+    Name http
+    listen 127.0.0.1
+    port ${LOG_ALERT_PORT}
+    Tag dp.routable
 [INPUT]
     Name tail
     Alias srv.stdout
@@ -52,6 +57,6 @@ cat - <<EOF > $outfile
     Mem_Buf_Limit 1M
     multiline.parser multiline-ems
 
-@INCLUDE /logs/${MY_POD_NAME}/boot/output.conf
+@INCLUDE /data/boot/output.conf
 @INCLUDE common.conf
 EOF

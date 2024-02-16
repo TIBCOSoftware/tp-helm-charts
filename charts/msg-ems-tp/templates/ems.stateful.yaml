@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -29,17 +29,14 @@ metadata:
     namespace: "{{ .Release.Namespace }}"
     labels:
       {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "ems.std.labels" $emsParams | indent 6 }}
       name: "{{ $stsname }}"
       # app.kubernetes.io/name must match CAP-DB services list for health monitoring
       # currently this is a fixed list per capability template, not instance customizable
       app.kubernetes.io/name: "ems"
       app: msg-ems-ftl
-      tib-dp-app: msg-ems-ftl
       tib-msg-stsname: "{{ $stsname }}"
       tib-msg-svcname: "{{ $emsParams.ems.name }}-ems"
-      tib-msg-ems-name: "{{ $emsParams.ems.name }}"
-      tib-msg-ems-sizing: "{{ $emsParams.ems.sizing }}"
-      tib-msg-ems-use: "{{ $emsParams.ems.use }}"
       sidecar.istio.io/inject: "{{ $emsParams.ems.istioEnable }}"
     annotations:
       {{ include "msg.dp.mon.annotations" . | indent 6 }}
@@ -62,19 +59,14 @@ spec:
                 tib-dp-name: "{{ $emsParams.dp.name }}"
                 {{ include "msg.dp.labels" . | indent 16 }}
                 {{ include "msg.dp.net.all" . | indent 16}}
+                {{ include "ems.std.labels" $emsParams | indent 16 }}
                 tib-msg-stsname: "{{ $stsname }}"
                 tib-msg-stsrole: "standby"
                 name: ems
                 app: msg-ems-ftl
-                app.kubernetes.io/name: "ems"
-                tib-msg-ems-name: "{{ $emsParams.ems.name }}"
-                tib-msg-ems-sizing: "{{ $emsParams.ems.sizing }}"
-                tib-msg-ems-use: "{{ $emsParams.ems.use }}"
                 "sidecar.istio.io/inject": "{{ $emsParams.ems.istioEnable }}"
             name: ems
             annotations:
-              prometheus.io/scrape: "true"
-              prometheus.io/port: "{{ $emsParams.ems.ports.promServerEP }}"
               cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         spec:
             {{- if ne "none" $emsParams.dp.pullSecret }}
@@ -121,13 +113,14 @@ spec:
               command: ['/compliance/check_eua', 'bash', '-c' ]
               args:
               - >
-                ( mkdir -p /logs/$MY_POD_NAME/boot ; cd /logs/$MY_POD_NAME/boot ;
+                ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee -a boot.out ) ;
-                ( mkdir -p /logs/$MY_POD_NAME/certs/samples ; cd /logs/$MY_POD_NAME/certs/samples ; 
+                ( mkdir -p /data/certs ; cd /data/certs ; 
+                    if [ -f $(echo /boot-certs/*.pem | cut -f1 -d' ' ) ] ; then
+                      cp /boot-certs/* ./ ; fi )
+                ( cd /data/certs ; 
                     for x in server.cert.pem server_root.cert.pem server.key.pem ; do 
-                      cp /opt/tibco/ems/current-version/samples/certs/$x $x ; done ) ;
-                ( if [ -f $(echo /boot-certs/*.pem | cut -f1 -d' ' ) ] ; then
-                    cd /logs/$MY_POD_NAME/ ; cp /boot-certs/* ./certs/ ; fi )
+                      [ ! -f "$x" ] && cp /opt/tibco/ems/current-version/samples/certs/$x $x ; done ) ;
                 exec /usr/local/watchdog/bin/watchdog  ; 
               ports:
               - name: http-port
@@ -144,15 +137,6 @@ spec:
                 protocol: TCP
               - name: admin-port
                 containerPort: {{ int $emsParams.ems.ports.adminPort }}
-                protocol: TCP
-              - name: ep-server
-                containerPort: {{ int $emsParams.ems.ports.promServerEP }}
-                protocol: TCP
-              - name: ep-queues
-                containerPort: {{ int $emsParams.ems.ports.promQueuesEP }}
-                protocol: TCP
-              - name: ep-topics
-                containerPort: {{ int $emsParams.ems.ports.promTopicsEP }}
                 protocol: TCP
               - name: watchdog-port
                 containerPort: {{ int $emsParams.ems.ports.watchdogPort }}
@@ -214,6 +198,8 @@ spec:
                 value: /logs/$(MY_POD_NAME)/watchdog.log
               - name: MY_RELEASE
                 value: "{{ .Release.Name }}"
+              - name: LOG_ALERT_PORT
+                value: "8099"
               - name: REALM_PORT
                 value: "{{ $emsParams.ems.ports.realmPort }}"
               - name: EMS_TCP_PORT
@@ -225,7 +211,7 @@ spec:
               - name: EMS_PROM_PORT
                 value: "{{ $emsParams.ems.ports.promServerEP }}"
               - name: EMS_INIT_JSON
-                value: "/logs/$(MY_POD_NAME)/boot/tibemsd-ftl.json"
+                value: "/data/boot/tibemsd-ftl.json"
               - name: EMS_HTTP_PORT
                 value: "{{ $emsParams.ems.ports.httpPort }}"
               - name: EMS_SERVICE
@@ -251,7 +237,7 @@ spec:
                 value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
               {{ end }}
               - name: TCM_WATCHDOG_CONFIG
-                value: "/logs/$(MY_POD_NAME)/boot/watchdog.yml"
+                value: "/data/boot/watchdog.yml"
               - name: TCM_WD_PORT
                 value: "{{ $emsParams.ems.ports.watchdogPort }}"
               - name: TCM_WATCHDOG_HOSTPORT

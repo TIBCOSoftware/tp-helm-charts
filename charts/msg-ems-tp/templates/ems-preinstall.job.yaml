@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -21,6 +21,7 @@ metadata:
     labels:
       name: "{{ $jobname }}"
       {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "ems.std.labels" $emsParams | indent 6 }}
       tib-dp-app: msg-ems-ftl
     namespace: "{{ .Release.Namespace }}"
     annotations:
@@ -41,6 +42,7 @@ spec:
                 tib-dp-app: msg-ems-ftl
                 {{ include "msg.dp.labels" . | indent 16 }}
                 {{ include "msg.dp.net.kubectl" . | indent 16}}
+                {{ include "ems.std.labels" $emsParams | indent 16 }}
         spec:
             enableServiceLinks: false
             nodeSelector:
@@ -95,7 +97,7 @@ spec:
                 - name: EMS_TCP_PORT
                   value: "{{ $emsParams.ems.ports.tcpPort }}"
                 - name: EMS_INIT_JSON
-                  value: "/logs/$(MY_POD_NAME)/boot/tibemsd-ftl.json"
+                  value: "/data/boot/tibemsd-ftl.json"
                 - name: EMS_HTTP_PORT
                   value: "{{ $emsParams.ems.ports.httpPort }}"
                 - name: FTL_REALM_URL

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -13,17 +13,17 @@
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcProm := printf "%s-%s" $emsParams.ems.name "prom" -}}
 {{- $stsname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+# NOTE: $svcProm is deprecated, use $name-metric-server starting in 1.1 in ems.prom.svc.yaml
 #
 kind: Service
 apiVersion: v1
 metadata:
   name: "{{ $svcFtl }}"
   labels:
-    tib-dp-app: msg-ems-ftl
-    tib-msg-stsname: "{{ $stsname }}"
-    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
-    tib-msg-svcname: "{{ $svcFtl }}"
     {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-svcname: "{{ $svcFtl }}"
 spec:
   ports:
   - name: ems-realm-port
@@ -41,11 +41,10 @@ apiVersion: v1
 metadata:
   name: "{{ $svcEms }}"
   labels:
-    tib-dp-app: msg-ems-ftl
-    tib-msg-stsname: "{{ $stsname }}"
-    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
-    tib-msg-svcname: "{{ $svcEms }}"
     {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-svcname: "{{ $svcEms }}"
 spec:
   ports:
   - name: ems-http-port
@@ -60,30 +59,3 @@ spec:
   selector:
     tib-msg-stsname: "{{ $stsname }}"
 ...
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: "{{ $svcProm }}"
-  labels:
-    tib-dp-app: msg-ems-ftl
-    tib-msg-stsname: "{{ $stsname }}"
-    tib-msg-ems-name: "{{ $emsParams.ems.name }}"
-    tib-msg-svcname: "{{ $svcEms }}"
-    {{ include "msg.dp.labels" . | indent 4 }}
-    prometheus.io/scrape: "true"
-    platform.tibco.com/scrape_finops: "true"
-    prometheus.io/port: "{{ ($emsParams.ems.ports.promServerEP | default 9091) }}"
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "{{ ($emsParams.ems.ports.promServerEP | default 9091) }}"
-    prometheus.io/scheme: "http"
-    prometheus.io/insecure_skip_verify: "true"
-spec:
-  ports:
-  - name: prom-port
-    port: {{ int $emsParams.ems.ports.promServerEP }}
-    protocol: TCP
-  selector:
-    tib-msg-stsname: "{{ $stsname }}"
-    tib-msg-stsrole: "leader"
