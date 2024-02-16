@@ -1,6 +1,6 @@
 {{- if .Release.IsInstall }}
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -23,6 +23,7 @@ metadata:
     labels:
       name: "{{ $emsParams.ems.name }}-emsinit"
       {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "ems.std.labels" $emsParams | indent 6 }}
       tib-dp-app: msg-ems-ftl
     namespace: "{{ .Release.Namespace }}"
     annotations:
@@ -40,6 +41,7 @@ spec:
                 tib-dp-app: msg-ems-ftl
                 {{ include "msg.dp.labels" . | indent 16 }}
                 {{ include "msg.dp.net.kubectl" . | indent 16}}
+                {{ include "ems.std.labels" $emsParams | indent 16 }}
             annotations:
                 rollme: {{ randAlphaNum 5 | quote }}
         spec:
@@ -69,7 +71,7 @@ spec:
                 command: ['/compliance/check_eua', 'bash', '-c' ]
                 args:
                 - >
-                  ( mkdir -p /logs/$MY_POD_NAME/boot ; cd /logs/$MY_POD_NAME/boot ;
+                  ( mkdir -p /data/boot ; cd /data/boot ;
                       for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
                   bash < /boot/load-ems-init-json.sh ; 
                 image: "{{ $emsParams.ems.image }}"
@@ -98,7 +100,7 @@ spec:
                 - name: EMS_TCP_PORT
                   value: "{{ $emsParams.ems.ports.tcpPort }}"
                 - name: EMS_INIT_JSON
-                  value: "/logs/$(MY_POD_NAME)/boot/tibemsd-ftl.json"
+                  value: "/data/boot/tibemsd-ftl.json"
                 - name: EMS_HTTP_PORT
                   value: "{{ $emsParams.ems.ports.httpPort }}"
                 - name: FTL_REALM_URL

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -50,8 +50,8 @@ cat - <<EOF > $outfile
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level ALERT
-    Set log.level ERROR
+    Condition Key_Value_Equals log.level alert
+    Set log.level ALERT
 
 [FILTER]
     Name modify
@@ -92,14 +92,14 @@ cat - <<EOF > $outfile
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level NOTICE
-    Set log.level INFO
-
-[FILTER]
-    Name modify
-    Match *
     Condition Key_Value_Equals log.level notice
-    Set log.level INFO
+    Set log.level NOTICE
+
+# [FILTER]
+#     Name modify
+#     Match *
+#     Condition Key_Value_Equals log.level NOTICE
+#     Set log.level INFO
 
 [FILTER]
     Name modify

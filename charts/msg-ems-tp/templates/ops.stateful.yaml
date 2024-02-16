@@ -1,6 +1,6 @@
 {{ if .Values.ems.opsEnable }}
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -97,7 +97,7 @@ spec:
               command: ['bash', '-c' ]
               args:
               - >
-                ( mkdir -p /logs/$MY_POD_NAME/boot ; cd /logs/$MY_POD_NAME/boot ;
+                ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
                 exec wait-for-shutdown.sh  ; 
               volumeMounts:
@@ -145,7 +145,7 @@ spec:
               - name: EMS_TCP_PORT
                 value: "{{ $emsParams.ems.ports.tcpPort }}"
               - name: EMS_INIT_JSON
-                value: "/logs/$(MY_POD_NAME)/boot/tibemsd-ftl.json"
+                value: "/data/boot/tibemsd-ftl.json"
               - name: EMS_HTTP_PORT
                 value: "{{ $emsParams.ems.ports.httpPort }}"
               - name: EMS_SERVICE
@@ -164,7 +164,7 @@ spec:
                 # the service load-balanced EMS SSL URL
                 value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
               - name: TCM_WATCHDOG_CONFIG
-                value: "/logs/$(MY_POD_NAME)/boot/watchdog.yml"
+                value: "/data/boot/watchdog.yml"
               - name: TCM_WD_PORT
                 value: "{{ $emsParams.ems.ports.watchdogPort }}"
               - name: TCM_WATCHDOG_HOSTPORT

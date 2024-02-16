@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -33,6 +33,19 @@ fmtTime="--rfc-3339=ns"
 # Set signal traps
 function log
 { echo "$(date "$fmtTime"): $*" ; }
+
+# SUPPORT SENDING FLUENTBITS ALERT MESSAGES
+#curl -i -d '{"message":"hello","level":"warn","caller":"alert"}' -XPOST -H "content-type: application/json" http://localhost:8099/dp.routable
+curl_h="content-type: application/json"
+curl_opts="-Ss -XPOST http://localhost:${LOG_ALERT_PORT-8099}/dp.routable"
+function alert
+{ 
+    log "ALERT: $*" 
+    payload="$(printf '{"message":"%s","level":"alert","caller":"%s"}' "$*" "health-watcher.sh" )"
+    if [ -n "$LOG_ALERT_PORT" ] ; then
+        curl -d "$payload" -H "$curl_h" $curl_opts || true
+    fi
+}
 
 function do_shutdown
 { log "-- Shutdown received (SIGTERM): host=$HOSTNAME" && exit 0 ; }
@@ -105,7 +118,7 @@ function df_usage_csv() {
         pstrip="${pused/\%/}"
         csvdata="${csvdata}$bused,$pstrip"
         if [ "$pstrip" -gt $podDiskThreshold ] ; then
-            log " WARN LOW-DISK: $data" >&2
+            alert " WARN LOW-DISK: $data" >&2
             [ -n "$podDiskAlert" ] && $podDiskAlert -d "$x" -b "$bused" -p "$pstrip" -f "$fsys"
         fi
     done
@@ -149,6 +162,7 @@ do
         totalFDs=$(( totalFDs + fdcount))
         totalPids=$(( totalPids + threadcount))
         if [ "$threadcount" -gt "$maxThreads" ] ; then
+            alert " ERROR ABORTING: pids=$threadcount - over max thread limit!"
             echo "$dtime: ERROR ABORTING: pids=$threadcount - over max thread limit!"
             echo "StackDump-start:---------------"
             jstack $pnum 
@@ -157,7 +171,8 @@ do
         fi
     done
     if [ "$totalPids" -gt "$maxThreads" ] ; then
-        echo "$dtime: ERROR ABORTING POD: pod pids=$totalPids - over max pid limit!"
+        alert "$dtime: ERROR ABORTING POD: pod pids=$totalPids - over max pid limit!"
+        sleep 2
         kill 1
     fi
     # std-Timestamp(like logs), cpu, ram, nFDs, nPids, <disk1-used>, <disk2-used> ...

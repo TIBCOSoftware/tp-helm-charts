@@ -1,8 +1,8 @@
 
 {{/*
-MSG DP EMS-on-FTL Helpers
+MSGDP EMS Helpers
 #
-# Copyright (c) 2023. Cloud Software Group, Inc.
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -14,8 +14,8 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.2.1-9" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $opsDefaultFullImage := printf "%s/%s/msg-dp-ops:1.0.0-2" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-7" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.1.0-2" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
 {{- $sizing := ternary  "small" .Values.ems.sizing ( not  .Values.ems.sizing ) -}}
@@ -33,9 +33,9 @@ need.msg.ems.params
     {{- fail "ERROR: at least one of TCP or SSL listen must be enabled." -}}
   {{- end -}}
 {{- $isProduction := false -}}
-{{- $cpuReq := "0.2" -}}
+{{- $cpuReq := "0.3" -}}
 {{- $cpuLim := "3" -}}
-{{- $memReq := "500Mi" -}}
+{{- $memReq := "1Gi" -}}
 {{- $memLim := "4Gi" -}}
 {{- $stores := ternary "ftl" .Values.ems.stores ( not .Values.ems.stores ) -}}
 {{- $allowNodeSkew := "yes" -}}
@@ -150,3 +150,17 @@ ems:
       cpu: {{ $cpuLim }}
     {{ end }}
 {{ end }}
+
+{{/*
+ems.std.labels prints the standard EMS group Helm labels.
+note: expects a $emsParams as its argument
+*/}}
+{{- define "ems.std.labels" }}
+tib-dp-app: msg-ems-ftl
+tib-msg-group-name: "{{ .ems.name }}"
+tib-msg-ems-name: "{{ .ems.name }}"
+tib-msg-ems-sizing: "{{ .ems.sizing }}"
+tib-msg-ems-use: "{{ .ems.use }}"
+app.kubernetes.io/name: "ems"
+platform.tibco.com/app-type: "msg-ems"
+{{- end }}
