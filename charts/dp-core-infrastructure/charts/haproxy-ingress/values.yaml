@@ -224,8 +224,6 @@ controller:
   ##
   updateStrategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
 
   # minReadySeconds to avoid killing pods before we are ready
   ##
@@ -237,20 +235,20 @@ controller:
   # PodDisruptionBudget
   minAvailable: 1
 
-  resources: {}
-  #  limits:
-  #    cpu: 100m
-  #    memory: 64Mi
-  #  requests:
-  #    cpu: 100m
-  #    memory: 64Mi
+  resources:
+   limits:
+     cpu: 200m
+     memory: 256Mi
+   requests:
+     cpu: 100m
+     memory: 128Mi
 
   autoscaling:
-    enabled: false
-    #  minReplicas: 1
-    #  maxReplicas: 11
-    #  targetCPUUtilizationPercentage: 50
-    #  targetMemoryUtilizationPercentage: 50
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 70
     customMetrics: []
 
   ## Node tolerations for server scheduling to nodes with taints
