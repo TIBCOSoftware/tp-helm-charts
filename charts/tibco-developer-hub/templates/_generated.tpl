@@ -10,4 +10,4 @@ in the license file that is distributed with this file.
 */}}
 
 {{/* The build number, also used as docker image image tag */}}
-{{- define "tibco-hub.generated.buildNumber" }}latest{{ end -}}
+{{- define "tibco-developer-hub.generated.buildNumber" }}latest{{ end -}}
