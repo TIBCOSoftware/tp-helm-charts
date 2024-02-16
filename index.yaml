@@ -2,6 +2,15 @@ apiVersion: v1
 entries:
   artifactmanager:
   - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:10.479227417Z"
+    description: Data Plane Core -- Artifact Manager
+    digest: 080694811c30f4bb701f84dd1a7011750233a8bab7cf02283b8b84ff2799fdf2
+    name: artifactmanager
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/artifactmanager-1.1.6/artifactmanager-1.1.6.tgz
+    version: 1.1.6
+  - apiVersion: v2
     appVersion: 1.0.1
     created: "2023-12-14T22:57:59.465216099Z"
     description: TIBCO Platform Dataplane Core -- Artifact Manager
@@ -60,6 +69,15 @@ entries:
     version: 1.0.30
   distributed-lock-operator:
   - apiVersion: v1
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:10.623467412Z"
+    description: Data Plane Infrastructre Core -- Distributed Lock operator
+    digest: 92317a0387c9801ddefb8e3415639d9eb18e94ff55211c9dcd826df1f418e334
+    name: distributed-lock-operator
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/distributed-lock-operator-1.1.4/distributed-lock-operator-1.1.4.tgz
+    version: 1.1.4
+  - apiVersion: v1
     appVersion: 1.0.1
     created: "2023-12-14T22:57:59.763497935Z"
     description: TIBCO Platform Dataplane Infrastructre Core -- Distributed Lock operator
@@ -88,6 +106,33 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/distributed-lock-operator-1.0.75/distributed-lock-operator-1.0.75.tgz
     version: 1.0.75
   dp-config-aks:
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
+          description: "Added kong"
+    apiVersion: v2
+    appVersion: 1.0.1
+    created: "2024-02-16T06:16:10.770895368Z"
+    dependencies:
+    - condition: traefik.enabled
+      name: traefik
+      repository: https://traefik.github.io/charts
+      version: 24.0.0
+    - condition: ingress-nginx.enabled
+      name: ingress-nginx
+      repository: https://kubernetes.github.io/ingress-nginx
+      version: 4.7.2
+    - condition: kong.enabled
+      name: kong
+      repository: https://charts.konghq.com
+      version: 2.33.3
+    description: dp-config-aks is used to config non-CIC2 TIBCO Dataplane
+    digest: a1ead8609fc584df727f777a68079c2965ec2363ebb4dc0b6850a68ab406a456
+    name: dp-config-aks
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-aks-1.0.19/dp-config-aks-1.0.19.tgz
+    version: 1.0.19
   - annotations:
       artifacthub.io/changes: |
         - kind: changed
@@ -200,6 +245,37 @@ entries:
   - annotations:
       artifacthub.io/changes: |
         - kind: changed
+          description: "added kong ingress as dependency"
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-02-16T06:16:11.141569184Z"
+    dependencies:
+    - condition: traefik.enabled
+      name: traefik
+      repository: https://traefik.github.io/charts
+      version: 24.0.0
+    - condition: ingress-nginx.enabled
+      name: ingress-nginx
+      repository: https://kubernetes.github.io/ingress-nginx
+      version: 4.7.2
+    - condition: tigera-operator.enabled
+      name: tigera-operator
+      repository: https://docs.tigera.io/calico/charts
+      version: v3.25.2
+    - condition: kong.enabled
+      name: kong
+      repository: https://charts.konghq.com
+      version: 2.33.3
+    description: dp-config-aws is used to config CIC2 TIBCO Dataplane
+    digest: 6e00be64912be76c1c6fc9f88a7b099b25a4871611d236b50a5abeafc9aa5cce
+    name: dp-config-aws
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-aws-1.0.27/dp-config-aws-1.0.27.tgz
+    version: 1.0.27
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
           description: "update traefik to 24.0.0"
     apiVersion: v2
     appVersion: 1.0.0
@@ -229,6 +305,21 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-aws-1.0.23/dp-config-aws-1.0.23.tgz
     version: 1.0.23
   dp-config-es:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-02-16T06:16:11.259681881Z"
+    dependencies:
+    - condition: eck-custom-resources-operator.enabled
+      name: eck-custom-resources-operator
+      repository: https://xco-sk.github.io/eck-custom-resources/
+      version: 0.5.6
+    description: dp-config-es
+    digest: e80dea9ee8dead51623125112deebb9ec6f01fde5793ce1f327922fcac11d120
+    name: dp-config-es
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-es-1.0.21/dp-config-es-1.0.21.tgz
+    version: 1.0.21
   - apiVersion: v2
     appVersion: 1.0.0
     created: "2023-11-28T04:37:20.776363899Z"
@@ -481,6 +572,42 @@ entries:
     version: 1.0.17
   jaeger:
   - apiVersion: v2
+    appVersion: 1.51.0
+    created: "2024-02-16T06:16:11.393051148Z"
+    dependencies:
+    - condition: provisionDataStore.cassandra
+      name: cassandra
+      repository: https://charts.helm.sh/incubator
+      version: 0.15.3
+    - condition: provisionDataStore.elasticsearch
+      name: elasticsearch
+      repository: https://helm.elastic.co
+      version: ^7.11.1
+    - condition: provisionDataStore.kafka
+      name: kafka
+      repository: https://charts.bitnami.com/bitnami
+      version: ^19.1.5
+    - name: common
+      repository: https://charts.bitnami.com/bitnami
+      version: 1.16.0
+    description: A Jaeger Helm chart for Kubernetes
+    digest: 43f203c2cc6143c011639d240c9087f45c155b683d11efecba801f0c3f20b2aa
+    home: https://jaegertracing.io
+    icon: https://camo.githubusercontent.com/afa87494e0753b4b1f5719a2f35aa5263859dffb/687474703a2f2f6a61656765722e72656164746865646f63732e696f2f656e2f6c61746573742f696d616765732f6a61656765722d766563746f722e737667
+    keywords:
+    - jaeger
+    - opentracing
+    - tracing
+    - instrumentation
+    kubeVersion: '>= 1.21-0'
+    name: jaeger
+    sources:
+    - https://hub.docker.com/u/jaegertracing/
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/jaeger-0.72.2/jaeger-0.72.2.tgz
+    version: 0.72.2
+  - apiVersion: v2
     appVersion: 1.45.0
     created: "2023-12-14T22:58:00.321653744Z"
     dependencies:
@@ -596,6 +723,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-ems-tp-1.0.22/msg-ems-tp-1.0.22.tgz
     version: 1.0.22
   o11yservice:
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:11.501791934Z"
+    description: Data Plane Infrastructre Core -- o11y-service
+    digest: 613e29ef3f84541a35b048f80ca2a104ebe473af05ed58ed4a7dd2d6b71edea8
+    name: o11yservice
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.1.67/o11yservice-1.1.67.tgz
+    version: 1.1.67
   - apiVersion: v2
     appVersion: 1.0.1
     created: "2023-12-14T22:58:00.609061692Z"
@@ -787,6 +923,24 @@ entries:
     version: 6.17.0-tibx-18
   opentelemetry-collector:
   - apiVersion: v2
+    appVersion: 0.91.0
+    created: "2024-02-16T06:16:11.617859329Z"
+    description: OpenTelemetry Collector Helm chart for Kubernetes
+    digest: a4123b7e25464cafde62c7b716ea00336bce120169d7ffc136af2b2452e9f9d4
+    home: https://opentelemetry.io/
+    icon: https://opentelemetry.io/img/logos/opentelemetry-logo-nav.png
+    maintainers:
+    - name: dmitryax
+    - name: TylerHelmuth
+    name: opentelemetry-collector
+    sources:
+    - https://github.com/open-telemetry/opentelemetry-collector
+    - https://github.com/open-telemetry/opentelemetry-collector-contrib
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/opentelemetry-collector-0.77.1/opentelemetry-collector-0.77.1.tgz
+    version: 0.77.1
+  - apiVersion: v2
     appVersion: 0.86.0
     created: "2023-12-14T22:58:00.934881306Z"
     description: OpenTelemetry Collector Helm chart for Kubernetes
@@ -896,6 +1050,18 @@ entries:
     version: 1.0.26
   tp-cp-proxy:
   - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:11.741817166Z"
+    description: Data Plane -- Control Plane Proxy
+    digest: 3172cedeb554d9cdc97aa6768177c59cf423029deebb15a2bed3c3a6ec6589b9
+    keywords:
+    - cp-proxy
+    - data-plane
+    name: tp-cp-proxy
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-proxy-1.1.4/tp-cp-proxy-1.1.4.tgz
+    version: 1.1.4
+  - apiVersion: v2
     appVersion: 1.0.0
     created: "2023-11-16T05:54:27.637840914Z"
     description: TIBCO Data Plane -- Control Plane Proxy
@@ -928,6 +1094,18 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.0.92/tp-dp-monitor-agent-1.0.92.tgz
     version: 1.0.92
   tp-dp-secret-controller:
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:11.870370088Z"
+    description: Data Plane -- Secret Controller
+    digest: 08b44a13b13d317d2654426f6caeb30587409c4f75804ce411fc00569bdcc41a
+    keywords:
+    - secret-controller
+    - data-plane
+    name: tp-dp-secret-controller
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-secret-controller-1.1.4/tp-dp-secret-controller-1.1.4.tgz
+    version: 1.1.4
   - apiVersion: v2
     appVersion: 1.0.1
     created: "2023-12-14T22:58:01.190618462Z"
@@ -963,6 +1141,18 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-secret-controller-1.0.41/tp-dp-secret-controller-1.0.41.tgz
     version: 1.0.41
   tp-provisioner-agent:
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:11.975485203Z"
+    description: Data Plane -- Provisioner Agent
+    digest: f9dd9083d1ae441724288b66cf17cd58e97a283ce3f81c7a4550e5d2e8000acb
+    keywords:
+    - provisioner-agent
+    - data-plane
+    name: tp-provisioner-agent
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-provisioner-agent-1.1.6/tp-provisioner-agent-1.1.6.tgz
+    version: 1.1.6
   - apiVersion: v2
     appVersion: 1.0.1
     created: "2023-12-14T22:58:01.315456471Z"
@@ -1016,6 +1206,19 @@ entries:
     version: 1.0.198
   tp-tibtunnel:
   - apiVersion: v1
+    appVersion: 1.1.0
+    created: "2024-02-16T06:16:12.095486167Z"
+    description: A Helm chart for TIBCO Tibtunnel
+    digest: 60a930cd194133b9b7177ccedc22d70dd93a4f8ea03d99d8ccefd729132ee81a
+    keywords:
+    - tibtunnel
+    - data-plane
+    - hybrid-connectivity
+    name: tp-tibtunnel
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.1.4/tp-tibtunnel-1.1.4.tgz
+    version: 1.1.4
+  - apiVersion: v1
     appVersion: 1.0.0
     created: "2023-11-16T05:48:17.826005144Z"
     description: A Helm chart for TIBCO Tibtunnel
@@ -1033,4 +1236,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-01-09T17:12:58.862553602Z"
+generated: "2024-02-16T06:16:12.095611711Z"
