@@ -57,6 +57,8 @@ haproxy-ingress:
       controllerClass: "{{ .Values.global.tibco.dataPlaneId }}"
     service:
       type: ClusterIP
-
+    extraArgs:
+      watch-namespace: $(POD_NAMESPACE)
+      force-namespace-isolation: true
 config:
   enabled: true
