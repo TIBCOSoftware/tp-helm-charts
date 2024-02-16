@@ -34,6 +34,7 @@ allInOne:
   enabled: false
   replicas: 1
   image: jaegertracing/all-in-one
+  imagePullSecrets: []
   pullPolicy: IfNotPresent
   extraEnv: []
   extraSecretMounts: []
@@ -153,6 +154,12 @@ storage:
     tls:
       enabled: false
       secretName: es-tls-secret
+      # The mount properties of the secret
+      mountPath: /es-tls/ca-cert.pem
+      subPath: ca-cert.pem
+      # How ES_TLS_CA variable will be set in the various components
+      ca: /es-tls/ca-cert.pem
+
   kafka:
     brokers:
       - kafka:9092

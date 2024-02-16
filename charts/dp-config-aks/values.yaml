@@ -31,10 +31,10 @@ clusterIssuer:
 
 httpIngress:
   enabled: true
-  name: nginx
+  name: nginx  # kong for kong
   ingressClassName: azure-application-gateway  # see: https://github.com/kubernetes-sigs/external-dns/blob/master/docs/faq.md
   backend:
-    serviceName: dp-config-aks-ingress-nginx-controller
+    serviceName: dp-config-aks-ingress-nginx-controller  # dp-config-aks-kong-proxy for kong
     servicePort: 80
   # more AGIC annotations: https://azure.github.io/application-gateway-kubernetes-ingress/annotations/#appgw-ssl-certificate
   annotations:
@@ -64,6 +64,7 @@ storageClass:
     default: false
     parameters:
       skuName: Standard_LRS
+    # protocol: nfs
     reclaimPolicy: "Delete"
     allowVolumeExpansion: true
     volumeBindingMode: WaitForFirstConsumer
@@ -114,6 +115,17 @@ traefik:
         secretName: cic-certificate-production-azure
   additionalArguments:
     - '--serversTransport.insecureSkipVerify=true'
+
+kong:
+  # chart values: https://github.com/Kong/charts/blob/main/charts/kong/values.yaml
+  enabled: false
+  ingressController:
+    env:
+      feature_gates: FillIDs=true,RewriteURIs=true
+  proxy:
+    type: ClusterIP
+    tls:
+      enabled: false
 
 global:
   dnsSandboxSubdomain: ""

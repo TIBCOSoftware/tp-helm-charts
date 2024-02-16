@@ -86,6 +86,12 @@ global:
               service:
                 name: "otel-userapp"
                 port: 4317
+              logs:
+                name: "otel-userapp-logs"
+              metrics:
+                name: "otel-userapp-metrics"
+              traces:
+                name: "otel-userapp-traces"
           finops:
             collector:
               endpoint: "finops-collector-endpoint"
@@ -151,7 +157,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 821
+      tag: 1090
 
 
 replicaCount: 1
@@ -208,9 +214,9 @@ resources: {}
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 

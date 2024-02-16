@@ -53,6 +53,10 @@ spec:
             value: "{{ .Values.enableWebHooks }}"
           - name: SETTINGS_PROPERTIES_VOLUME_PATH
             value: "/etc/config/settings.properties"
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
 {{- if .Values.enableWebHooks }}
           - mountPath: /tmp/k8s-webhook-server/serving-certs
@@ -84,6 +88,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        {{- with .Values.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
           - name: podlogs
             mountPath: /var/log/pods

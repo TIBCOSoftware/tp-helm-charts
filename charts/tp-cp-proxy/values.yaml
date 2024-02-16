@@ -6,11 +6,11 @@
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
-    cpu: 100m
-    memory: 150Mi
+    cpu: 50m
+    memory: 100Mi
   limits:
-    cpu: 200m
-    memory: 300Mi
+    cpu: 100m
+    memory: 200Mi
 
 # no of replicas
 replicaCount: "1"
@@ -50,3 +50,16 @@ fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
     tag: 2.1.6
+  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources:
+    requests:
+      cpu: 20m
+      memory: 20Mi
+    limits:
+      cpu: 100m
+      memory: 50Mi
+
+# horizontal pod autoscaler configuration to scale when the cpu and memory usage exceeds
+hpa:
+  minReplicas: 1
+  maxReplicas: 3

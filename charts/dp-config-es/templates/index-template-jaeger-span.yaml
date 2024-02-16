@@ -15,85 +15,123 @@ spec:
   body: |
     {
       "priority": 3,
+      "index_patterns": ["*jaeger-span-*"],
       "template": {
+        "aliases": {
+          "jaeger-span-read": {}
+        },
         "settings": {
-          "index": {
-            "mapping": {
-              "nested_fields": {
-                "limit": "50"
-              }
-            },
-            "requests": {
-              "cache": {
-                "enable": "true"
-              }
-            },
-            "number_of_shards": "6",
-            "number_of_replicas": "1",
-            "lifecycle.name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy",
-            "lifecycle.rollover_alias": "jaeger-span-write"
+          "index.number_of_shards": 6,
+          "index.number_of_replicas": 1,
+          "index.mapping.nested_fields.limit": 50,
+          "index.requests.cache.enable": true,
+          "lifecycle": {
+            "name": {{ .Release.Name }}-jaeger-index-30d-lifecycle-policy,
+            "rollover_alias": "*jaeger-span-write"
           }
         },
         "mappings": {
-          "_routing": {
-            "required": false
-          },
-          "numeric_detection": false,
-          "dynamic_date_formats": [
-            "strict_date_optional_time",
-            "yyyy/MM/dd HH:mm:ss Z||yyyy/MM/dd Z"
-          ],
-          "dynamic": true,
-          "_source": {
-            "excludes": [],
-            "includes": [],
-            "enabled": true
-          },
           "dynamic_templates": [
             {
               "span_tags_map": {
-                "path_match": "tag.*",
                 "mapping": {
-                  "ignore_above": 256,
-                  "type": "keyword"
-                }
+                  "type": "keyword",
+                  "ignore_above": 256
+                },
+                "path_match": "tag.*"
               }
             },
             {
               "process_tags_map": {
-                "path_match": "process.tag.*",
                 "mapping": {
-                  "ignore_above": 256,
-                  "type": "keyword"
-                }
+                  "type": "keyword",
+                  "ignore_above": 256
+                },
+                "path_match": "process.tag.*"
               }
             }
           ],
-          "date_detection": true,
           "properties": {
             "traceID": {
-              "type": "keyword"
+              "type": "keyword",
+              "ignore_above": 256
+            },
+            "parentSpanID": {
+              "type": "keyword",
+              "ignore_above": 256
+            },
+            "spanID": {
+              "type": "keyword",
+              "ignore_above": 256
+            },
+            "operationName": {
+              "type": "keyword",
+              "ignore_above": 256
+            },
+            "startTime": {
+              "type": "long"
+            },
+            "startTimeMillis": {
+              "type": "date",
+              "format": "epoch_millis"
+            },
+            "duration": {
+              "type": "long"
+            },
+            "flags": {
+              "type": "integer"
+            },
+            "logs": {
+              "type": "nested",
+              "dynamic": false,
+              "properties": {
+                "timestamp": {
+                  "type": "long"
+                },
+                "fields": {
+                  "type": "nested",
+                  "dynamic": false,
+                  "properties": {
+                    "key": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    },
+                    "value": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    },
+                    "tagType": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    }
+                  }
+                }
+              }
             },
             "process": {
-              "type": "object",
               "properties": {
+                "serviceName": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                },
                 "tag": {
                   "type": "object"
                 },
-                "serviceName": {
-                  "type": "keyword"
-                },
                 "tags": {
                   "type": "nested",
+                  "dynamic": false,
                   "properties": {
-                    "tagType": {
-                      "type": "keyword"
+                    "key": {
+                      "type": "keyword",
+                      "ignore_above": 256
                     },
                     "value": {
-                      "type": "keyword"
+                      "type": "keyword",
+                      "ignore_above": 256
                     },
-                    "key": {
-                      "type": "keyword"
+                    "tagType": {
+                      "type": "keyword",
+                      "ignore_above": 256
                     }
                   }
                 }
@@ -101,85 +139,45 @@ spec:
             },
             "references": {
               "type": "nested",
+              "dynamic": false,
               "properties": {
-                "spanID": {
-                  "type": "keyword"
+                "refType": {
+                  "type": "keyword",
+                  "ignore_above": 256
                 },
                 "traceID": {
-                  "type": "keyword"
+                  "type": "keyword",
+                  "ignore_above": 256
                 },
-                "refType": {
-                  "type": "keyword"
+                "spanID": {
+                  "type": "keyword",
+                  "ignore_above": 256
                 }
               }
             },
-            "startTimeMillis": {
-              "type": "date"
-            },
-            "flags": {
-              "type": "integer"
-            },
-            "operationName": {
-              "type": "keyword"
-            },
-            "parentSpanID": {
-              "type": "keyword"
+            "tag": {
+              "type": "object"
             },
             "tags": {
               "type": "nested",
+              "dynamic": false,
               "properties": {
-                "tagType": {
-                  "type": "keyword"
+                "key": {
+                  "type": "keyword",
+                  "ignore_above": 256
                 },
                 "value": {
-                  "type": "keyword"
+                  "type": "keyword",
+                  "ignore_above": 256
                 },
-                "key": {
-                  "type": "keyword"
-                }
-              }
-            },
-            "duration": {
-              "type": "long"
-            },
-            "spanID": {
-              "type": "keyword"
-            },
-            "startTime": {
-              "type": "long"
-            },
-            "tag": {
-              "type": "object",
-              "properties": {}
-            },
-            "logs": {
-              "type": "nested",
-              "properties": {
-                "fields": {
-                  "type": "nested",
-                  "properties": {
-                    "tagType": {
-                      "type": "keyword"
-                    },
-                    "value": {
-                      "type": "keyword"
-                    },
-                    "key": {
-                      "type": "keyword"
-                    }
-                  }
-                },
-                "timestamp": {
-                  "type": "long"
+                "tagType": {
+                  "type": "keyword",
+                  "ignore_above": 256
                 }
               }
             }
           }
         }
-      },
-      "index_patterns": [
-        "*jaeger-span-*"
-      ],
-      "composed_of": []
+      }
     }
 {{- end -}}

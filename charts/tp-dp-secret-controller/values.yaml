@@ -6,11 +6,11 @@
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
+    cpu: 50m
+    memory: 100Mi
+  limits:
     cpu: 100m
     memory: 150Mi
-  limits:
-    cpu: 200m
-    memory: 300Mi
 
 # no of replicas
 replicaCount: "1"
@@ -45,3 +45,12 @@ fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
     tag: 2.1.6
+  # Resources
+  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources:
+    requests:
+      cpu: 10m
+      memory: 15Mi
+    limits:
+      cpu: 50m
+      memory: 30Mi

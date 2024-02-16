@@ -57,6 +57,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        {{- with .Values.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
           - name: podlogs
             mountPath: /var/log/pods
@@ -76,10 +80,13 @@ spec:
               secretKeyRef:
                 key: ACCESS_KEY
                 name: {{ include "tp-tibtunnel.consts.appName" .}}
-        {{- with .Values.resources }}
         resources:
-          {{- toYaml . | nindent 10}}
-        {{- end }}
+          requests:
+            cpu: 10m
+            memory: 20Mi
+          limits:
+            cpu: 30m
+            memory: 40Mi
         volumeMounts:
         - name: config-dir
           mountPath: /etc/config
@@ -88,10 +95,13 @@ spec:
         image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         command: ["tp-tibtunnel","probe","--http","{{ tpl .Values.provisionerAgentProbe.url . }}","--interval","{{ .Values.provisionerAgentProbe.interval }}","--retries","{{.Values.provisionerAgentProbe.retries}}"]
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- with .Values.resources }}
         resources:
-          {{- toYaml . | nindent 10}}
-        {{- end }}
+          requests:
+            cpu: 20m
+            memory: 20Mi
+          limits:
+            cpu: 50m
+            memory: 40Mi
       {{- end }}
       imagePullSecrets:
         {{- if .Values.global.tibco.containerRegistry.username }}{{if .Values.global.tibco.containerRegistry.password }}

@@ -20,10 +20,19 @@ Merge user supplied config into memory limiter config.
 {{- if not $processorsConfig.memory_limiter }}
 {{-   $_ := set $processorsConfig "memory_limiter" (include "opentelemetry-collector.memoryLimiter" . | fromYaml) }}
 {{- end }}
-{{- $memoryBallastConfig := get .Values.config.extensions "memory_ballast" }}
-{{- if or (not $memoryBallastConfig) (not $memoryBallastConfig.size_in_percentage) }}
-{{-   $_ := set $memoryBallastConfig "size_in_percentage" 40 }}
+
+{{- if .Values.useGOMEMLIMIT }}
+  {{- if (((.Values.config).service).extensions) }}
+    {{- $_ := set .Values.config.service "extensions" (without .Values.config.service.extensions "memory_ballast") }}
+  {{- end}}
+  {{- $_ := unset (.Values.config.extensions) "memory_ballast" }}
+{{- else }}
+  {{- $memoryBallastConfig := get .Values.config.extensions "memory_ballast" }}
+  {{- if or (not $memoryBallastConfig) (not $memoryBallastConfig.size_in_percentage) }}
+  {{-   $_ := set $memoryBallastConfig "size_in_percentage" 40 }}
+  {{- end }}
 {{- end }}
+
 {{- .Values.config | toYaml }}
 {{- end }}
 
@@ -34,7 +43,7 @@ Build config file for daemonset OpenTelemetry Collector
 {{- $values := deepCopy .Values }}
 {{- $data := dict "Values" $values | mustMergeOverwrite (deepCopy .) }}
 {{- $config := include "opentelemetry-collector.baseConfig" $data | fromYaml }}
-{{- if eq (include "opentelemetry-collector.logsCollectionEnabled" .) "true" }}
+{{- if .Values.presets.logsCollection.enabled }}
 {{- $config = (include "opentelemetry-collector.applyLogsCollectionConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
 {{- if .Values.presets.hostMetrics.enabled }}
@@ -59,7 +68,7 @@ Build config file for deployment OpenTelemetry Collector
 {{- $values := deepCopy .Values }}
 {{- $data := dict "Values" $values | mustMergeOverwrite (deepCopy .) }}
 {{- $config := include "opentelemetry-collector.baseConfig" $data | fromYaml }}
-{{- if eq (include "opentelemetry-collector.logsCollectionEnabled" .) "true" }}
+{{- if .Values.presets.logsCollection.enabled }}
 {{- $config = (include "opentelemetry-collector.applyLogsCollectionConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
 {{- if .Values.presets.hostMetrics.enabled }}

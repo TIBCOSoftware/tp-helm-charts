@@ -15,12 +15,16 @@ global:
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
+    serviceLogs:
+      enabled: false
+    serviceTraces:
+      enabled: false
 
 nameOverride: ""
 fullnameOverride: ""
 
 # Valid values are "daemonset", "deployment", and "statefulset".
-mode: ""
+mode: "deployment"
 
 # Specify which namespace should be used to deploy the resources into
 namespaceOverride: ""
@@ -101,6 +105,9 @@ configMap:
 config:
   exporters:
     debug: {}
+    # Will be removed in a future release.
+    # Use the debug exporter instead.
+    logging: {}
   extensions:
     # The health_check extension is mandatory for this chart.
     # Without the health_check extension the collector will fail the readiness and liveliness probes.
@@ -305,6 +312,10 @@ resources: {}
 podAnnotations: {}
 
 podLabels: {}
+
+# Common labels to add to all otel-collector resources. Evaluated as a template.
+additionalLabels: {}
+#  app.kubernetes.io/part-of: my-app
 
 # Host networking requested for this pod. Use the host's network namespace.
 hostNetwork: false
@@ -574,3 +585,11 @@ networkPolicy:
   #    ports:
   #      - port: 1234
   #        protocol: TCP
+
+# When enabled, the chart will set the GOMEMLIMIT env var to 80% of the configured
+# resources.limits.memory and remove the memory ballast extension.
+# If no resources.limits.memory are defined enabling does nothing.
+# In a future release this setting will be enabled by default.
+# See https://github.com/open-telemetry/opentelemetry-helm-charts/issues/891
+# for more details.
+useGOMEMLIMIT: true

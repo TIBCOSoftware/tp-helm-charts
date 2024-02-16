@@ -16,11 +16,11 @@ dns:
 # this ingress object is used for AWS Load Balancer Controller to create ALB
 httpIngress:
   enabled: true
-  name: nginx   # traefik for traefik
+  name: nginx   # traefik for traefik, kong for kong
   ingressClassName: alb  # this is for AWS ingress controller
   backend:
-    serviceName: dp-config-aws-ingress-nginx-controller  # serviceName dp-config-aws-traefik for traefik
-    servicePort: 80    # port 443 for traefik
+    serviceName: dp-config-aws-ingress-nginx-controller  # serviceName dp-config-aws-traefik for traefik, dp-config-aws-kong-proxy for kong
+    servicePort: 80    # port 443 for traefik , 80 for kong
   # more AWS annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/ingress/annotations/
   annotations:
     alb.ingress.kubernetes.io/group.name: ""  # abc.<host-domain>
@@ -128,3 +128,14 @@ tigera-operator:
       type: AmazonVPC
     calicoNetwork:
       bgp: Disabled
+
+kong:
+  # chart values: https://github.com/Kong/charts/blob/main/charts/kong/values.yaml
+  enabled: false
+  ingressController:
+    env:
+      feature_gates: FillIDs=true,RewriteURIs=true
+  proxy:
+    type: ClusterIP
+    tls:
+      enabled: false

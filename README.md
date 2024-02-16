@@ -22,6 +22,12 @@ There are some charts that can help customers set up cluster ingress, storage cl
 1. [x] Helm **v3 > 3.12.0** [installed](https://helm.sh/docs/using_helm/#installing-helm): `helm version`
 2. [x] Chart repository: `helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts`
 
+### Deploy Data Plane components
+
+```bash
+helm upgrade --install --create-namespace -n <namespace> <release name> tibco-platform/<ingress chart> -f <ingress values file>
+```
+
 # Licenses
 
 This project (_Helm Charts for TIBCO® Platform_) is licensed under the [Apache 2.0 License](LICENSE).
@@ -32,7 +38,7 @@ When you use some of the Helm charts, you fetch and use other charts that might 
 A partial summary of the third party software and licenses used in this project is available [here](docs/third-party-software-licenses.md).
 
 ---
-Copyright 2023 Cloud Software Group, Inc.
+Copyright 2022-2024 Cloud Software Group, Inc.
 
 License. This project is Licensed under the Apache License, Version 2.0 (the "License").
 You may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0

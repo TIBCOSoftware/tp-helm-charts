@@ -4,14 +4,10 @@
 
 apiVersion: v2
 name: dp-config-aws
-version: "1.0.23"
+version: "1.0.27"
 appVersion: "1.0.0"
 description: dp-config-aws is used to config CIC2 TIBCO Dataplane
 type: application
-home: https://github.com/tibco/cicinfra-integration
-maintainers:
-  - name: TIBCO Cloud Dev Team
-    email: cloud@tibco.com
 dependencies:
   - name: traefik
     version: 24.0.0
@@ -25,7 +21,11 @@ dependencies:
     version: v3.25.2
     repository: https://docs.tigera.io/calico/charts
     condition: tigera-operator.enabled
+  - name: kong
+    version: 2.33.3
+    repository: https://charts.konghq.com
+    condition: kong.enabled
 annotations:
   artifacthub.io/changes: |
     - kind: changed
-      description: "update traefik to 24.0.0"
+      description: "added kong ingress as dependency"
