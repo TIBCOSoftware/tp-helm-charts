@@ -84,6 +84,10 @@ spec:
               value: "{{ .Values.publicApiService.port }}"
             - name: CP_DOMAIN
               value: {{ include "bwprovisioner.cp.domain" . }}
+            - name: CHART_VERSION
+              value: {{ .Chart.Version }}
+            - name: CHART_APP_VERSION
+              value: {{ .Chart.AppVersion }}
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -100,13 +104,25 @@ spec:
               value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}
             - name: FLUENT_BIT_SIDECAR_IMAGE
               value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}{{ .Values.global.bwprovisioner.logging.image.name }}:{{ .Values.global.bwprovisioner.logging.image.tag }}
-            - name: OTEL_SERVICE_NAME
+            - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:
                   name: {{ include "bwprovisioner.o11yservice.configmap" . }}
-                  key: otel-recvservice-name
+                  key: otel-recv-metrics-name
                   optional: true
-            - name: OTEL_SERVICE_PORT
+            - name: OTEL_METRICS_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bwprovisioner.o11yservice.configmap" . }}
+                  key: otel-recvservice-port
+                  optional: true
+            - name: OTEL_TRACES_SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bwprovisioner.o11yservice.configmap" . }}
+                  key: otel-recv-traces-name
+                  optional: true
+            - name: OTEL_TRACES_SERVICE_PORT
               valueFrom:
                 configMapKeyRef:
                   name: {{ include "bwprovisioner.o11yservice.configmap" . }}
