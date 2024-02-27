@@ -182,13 +182,13 @@ ingress:
     #   hosts:
     #     - chart-example.local
 
-resources: {}
-  # limits:
-  #   cpu: 100m
-  #   memory: 300Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 300Mi
+resources:
+  limits:
+    cpu: 100m
+    memory: 300Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
 
 extraVolumes: []
   # - name: ca-bundle-cert
