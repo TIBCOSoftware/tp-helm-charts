@@ -1,0 +1,246 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{- if .Values.global.tibco.createNetworkPolicy }}
+{{/* Default network policies applied to the namespace */}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-default
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  - Ingress
+  egress:
+  {{- /* Enable egress to all the pods within all namespaces of same control plane instance id on all ports */}}
+  {{- /* Enable egress to all the pods in the current namespace to allow pod-to-pod communication on all ports */}}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          platform.tibco.com/controlplane-instance-id: {{ include "tp-cp-bootstrap.cp-instance-id" . }}
+      podSelector: {}
+  {{- /* Enable egress to all the pods in a specifically labelled external namespace on all ports */}}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          networking.platform.tibco.com/non-cp-ns: enable
+      podSelector: {}
+  {{- /* Enable egress to kube-dns on all pods in release namespace on ports 53 with TCP and UDP */}}
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  ingress:
+  {{- /* Enable ingress from all the pods within all namespaces of same control plane instance id on all ports */}}
+  {{- /* Enable ingress from all the pods in the current namespace to allow pod-to-pod communication on all ports */}}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          platform.tibco.com/controlplane-instance-id: {{ include "tp-cp-bootstrap.cp-instance-id" . }}
+      podSelector: {}
+  {{- /* Enable ingress from all the pods in a specifically labelled external namespace on all ports */}}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          networking.platform.tibco.com/non-cp-ns: enable
+      podSelector: {}
+
+---
+
+{{/* Label based policies - pods need to have this label in order to establish the communication */}}
+{{/* Label based network policy to enable egress communication to cluster
+for accessing node cidr on all ports */}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-cluster-all
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      egress.networking.platform.tibco.com/cluster-all: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
+    {{- end }}
+
+---
+
+{{/* Label based network policy to enable egress communication to internet with exception 
+for accessing node cidr on all ports */}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-internet-all
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      egress.networking.platform.tibco.com/internet-all: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+        - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        {{- end }}
+
+---
+
+{{/* Label based network policy to enable egress communication to internet 
+with exception for accessing node cidr on port 80 and 443 */}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-internet-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      egress.networking.platform.tibco.com/internet-web: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+        - {{ include "tp-cp-bootstrap.podCIDR" . }}
+        {{- end }}
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+
+---
+
+{{/* Label based network policy to enable egress communication on port 443 and 6443 to kubernetes api server
+and ingress communication on all ports from kubernetes api server */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-kubernetes-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/kubernetes-api: enable
+  policyTypes:
+  - Egress
+  - Ingress
+  egress:
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-apiserver
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  ingress:
+  - from: 
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-apiserver
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
+    {{- end }}
+
+---
+
+{{/* Label based network policy to enable ingress communication on all ports to pods from internet */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-internet-access
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      ingress.networking.platform.tibco.com/internet-access: enable
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+        - {{ include "tp-cp-bootstrap.podCIDR" . }}
+        {{- end }}
+
+---
+
+{{/* Label based network policy to enable ingress communication on all ports to pods from node CIDR */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-cp-bootstrap.cp-instance-id" . }}-cluster-access
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      ingress.networking.platform.tibco.com/cluster-access: enable
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
+    {{- end }}
+{{- end -}}

@@ -1,5 +1,5 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -28,11 +28,11 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     {{- with .Values.ingress.annotations }}
-      {{- toYaml . | nindent 4 }}
+      {{- tpl (. | toYaml) $ | nindent 4 }}
     {{- end }}
 spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: haproxy-dp-{{ .Values.global.cp.dataplaneId }}
+  ingressClassName: tibco-dp-{{ .Values.global.cp.dataplaneId }}
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:

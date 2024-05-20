@@ -1,0 +1,157 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositereplicationgroups.cache.platform.tibco.com
+  labels:
+    provider: provider-aws-redis
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: cache.platform.tibco.com/v1alpha1
+    kind: CompositeReplicationGroup
+  patchSets:
+    - name: RegionParameter
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: securitygroup
+      base:
+        apiVersion: ec2.aws.crossplane.io/v1beta1
+        kind: SecurityGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            region: "us-west-2"
+            vpcId: ""
+            groupName: "cp-redis-sg"
+            description: "Security group for redis replication group"
+            ingress:
+              - fromPort: ""
+                toPort: ""
+                ipProtocol: tcp
+                ipRanges:
+                  - cidrIp: ""
+            egress:
+              - fromPort: -1
+                toPort: -1
+                ipProtocol: "-1"
+                ipRanges:
+                  - cidrIp: "0.0.0.0/0"
+            tags: []
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.groupName"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-redis-sg"
+        - fromFieldPath: "spec.parameters.vpcId"
+          toFieldPath: "spec.forProvider.vpcId"
+        - fromFieldPath: "spec.parameters.nodeCIDR"
+          toFieldPath: "spec.forProvider.ingress[0].ipRanges[0].cidrIp"
+        - fromFieldPath: "spec.parameters.port"
+          toFieldPath: "spec.forProvider.ingress[0].fromPort"
+        - fromFieldPath: "spec.parameters.port"
+          toFieldPath: "spec.forProvider.ingress[0].toPort"
+    - name: cachesubnetgroup
+      base:
+        apiVersion: cache.aws.crossplane.io/v1alpha1
+        kind: CacheSubnetGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            description: "Cache subnet group for redis replication group"
+            region: "us-west-2"
+            subnetIds: []
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.subnetIds"
+          toFieldPath: "spec.forProvider.subnetIds"
+    - name: replicationgroup
+      base:
+        apiVersion: cache.aws.crossplane.io/v1beta1
+        kind: ReplicationGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            applyModificationsImmediately: true # patched
+            cacheNodeType: "" # patched
+            cacheSubnetGroupNameSelector:
+              matchControllerRef: true
+            engine: "" # patched
+            replicationGroupDescription: "" # patched
+            securityGroupIDSelector:
+              matchControllerRef: true
+          writeConnectionSecretToRef:
+            namespace: "crossplane-system"
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "metadata.uid"
+          toFieldPath: "spec.writeConnectionSecretToRef.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-redis"
+        - fromFieldPath: "spec.parameters.applyModificationsImmediately"
+          toFieldPath: "spec.parameters.applyModificationsImmediately"
+        - fromFieldPath: "spec.parameters.atRestEncryptionEnabled"
+          toFieldPath: "spec.parameters.atRestEncryptionEnabled"
+        - fromFieldPath: "spec.parameters.authEnabled"
+          toFieldPath: "spec.parameters.authEnabled"
+        - fromFieldPath: "spec.parameters.cacheNodeType"
+          toFieldPath: "spec.forProvider.cacheNodeType"
+        - fromFieldPath: "spec.parameters.cacheParameterGroupName"
+          toFieldPath: "spec.forProvider.cacheParameterGroupName"
+        - fromFieldPath: "spec.parameters.engine"
+          toFieldPath: "spec.forProvider.engine"
+        - fromFieldPath: "spec.parameters.engineVersion"
+          toFieldPath: "spec.forProvider.engineVersion"
+        - fromFieldPath: "spec.parameters.multiAZEnabled"
+          toFieldPath: "spec.forProvider.multiAZEnabled"
+        - fromFieldPath: "spec.parameters.numNodeGroups"
+          toFieldPath: "spec.forProvider.numNodeGroups"
+        - fromFieldPath: "spec.parameters.replicasPerNodeGroup"
+          toFieldPath: "spec.forProvider.replicasPerNodeGroup"
+        - fromFieldPath: "spec.parameters.replicationGroupDescription"
+          toFieldPath: "spec.forProvider.prefix"
+          transforms:
+            - type: string
+              string:
+                fmt: "Redis replication group for prefix %s"
+        - fromFieldPath: "spec.parameters.port"
+          toFieldPath: "spec.forProvider.port"
+        - fromFieldPath: "spec.parameters.restoreFrom.snapshotName"
+          toFieldPath: "spec.forProvider.snapshotName"
+        - fromFieldPath: "spec.parameters.transitEncryptionEnabled"
+          toFieldPath: "spec.forProvider.transitEncryptionEnabled"
+      connectionDetails:
+        - fromConnectionSecretKey: endpoint
+          name: configuration_endpoint
+        - fromConnectionSecretKey: port
+          name: configuration_port

@@ -1,0 +1,59 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositeemailidentities.ses.platform.tibco.com
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  group: ses.platform.tibco.com
+  names:
+    kind: CompositeEmailIdentity
+    plural: compositeemailidentities
+    singular: compositeemailidentity
+  claimNames:
+    kind: TibcoEmailIdentity
+    plural: tibcoemailidentity
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          description: Tibco XRD for AWS SES Email Identity
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    assumeRolePolicyDocument:
+                      type: string
+                    emailIdentity: 
+                      type: string
+                    region:
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value: 
+                            type: string
+                      required:
+                        - key
+                        - value
+                  required:
+                    - region
+                    - emailIdentity
+              required:
+                - parameters

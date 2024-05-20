@@ -1,0 +1,72 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositerolessa.iam.platform.tibco.com
+  labels:
+    provider: provider-aws-role-sa
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: iam.platform.tibco.com/v1alpha1
+    kind: CompositeRoleSA
+  patchSets:
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: aws-role
+      base:
+        apiVersion: iam.platform.tibco.com/v1alpha1
+        kind: CompositeRole
+        spec:
+          compositionSelector:
+            matchLabels:
+              provider: provider-aws-role
+      patches:
+        - fromFieldPath: "spec.parameters.assumeRolePolicyDocument"
+          toFieldPath: "spec.parameters.assumeRolePolicyDocument"
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.parameters.prefix"
+        - fromFieldPath: "spec.parameters.tags"
+          toFieldPath: "spec.parameters.tags"
+        - type: ToCompositeFieldPath
+          fromFieldPath: "status.role.arn"
+          toFieldPath: "status.atProvider.arn"
+      connectionDetails:
+        - type: FromFieldPath
+          name: role_arn
+          fromFieldPath: "status.role.arn"
+    - name: service-account
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              kind: ServiceAccount
+              apiVersion: v1
+              metadata:
+                namespace: ""
+                name: ""
+                annotations:
+                  eks.amazonaws.com/role-arn: ""
+          providerConfigRef:
+            name: kubernetes-provider-config
+      patches:
+        - fromFieldPath: "spec.parameters.namespace"
+          toFieldPath: "spec.forProvider.manifest.metadata.namespace"
+        - fromFieldPath: "spec.parameters.name"
+          toFieldPath: "spec.forProvider.manifest.metadata.name"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "status.atProvider.arn"
+          toFieldPath: "spec.forProvider.manifest.metadata.annotations['eks.amazonaws.com/role-arn']"
+          policy:
+            fromFieldPath: Required

@@ -1,0 +1,52 @@
+#
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# Default values for o11y service.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  tibco:
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "fluentbit"
+          registry: ""
+          repo: ""
+          tag: 3.0.2
+          pullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+replicaCount: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+image:
+  pullPolicy: IfNotPresent
+  tag: 1721
+
+tibcoRouter:
+  path: /o11y
+  create: true

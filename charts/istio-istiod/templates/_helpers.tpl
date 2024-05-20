@@ -1,6 +1,36 @@
-# Copyright Â© 2023. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+{{/* 
+
+Copyright © 2023 - 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+
+*/}}
+
+
+{{/* Default Prometheus is enabled if its enabled and there are no config overrides set */}}
+{{ define "default-prometheus" }}
+{{- and
+  (not .Values.meshConfig.defaultProviders)
+  .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.prometheus.enabled
+}}
+{{- end }}
+
+{{/* SD has metrics and logging split. Default metrics are enabled if SD is enabled */}}
+{{ define "default-sd-metrics" }}
+{{- and
+  (not .Values.meshConfig.defaultProviders)
+  .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
+}}
+{{- end }}
+
+{{/* SD has metrics and logging split. */}}
+{{ define "default-sd-logs" }}
+{{- and
+  (not .Values.meshConfig.defaultProviders)
+  .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
+}}
+{{- end }}
+
 {{/*
 Create the name of the service account to use
 */}}
@@ -26,42 +56,6 @@ istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "") }}-{{ .Values.
 istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-reader
 {{- end -}}
 {{- end -}}
-
-{{/* Prometheus is enabled if its enabled and there are no config overrides set */}}
-{{ define "prometheus" }}
-{{- and
-  (not .Values.meshConfig.defaultProviders)
-  .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.prometheus.enabled
-  (not (or
-    .Values.telemetry.v2.prometheus.configOverride.gateway
-    .Values.telemetry.v2.prometheus.configOverride.inboundSidecar
-    .Values.telemetry.v2.prometheus.configOverride.outboundSidecar
-  )) }}
-{{- end }}
-
-{{/* SD has metrics and logging split. Metrics are enabled if SD is enabled and there are no config overrides set */}}
-{{ define "sd-metrics" }}
-{{- and
-  (not .Values.meshConfig.defaultProviders)
-  .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
-  (not (or
-    .Values.telemetry.v2.stackdriver.configOverride
-    .Values.telemetry.v2.stackdriver.disableOutbound ))
-}}
-{{- end }}
-
-{{/* SD has metrics and logging split. */}}
-{{ define "sd-logs" }}
-{{- and
-  (not .Values.meshConfig.defaultProviders)
-  .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
-  (not (or
-    .Values.telemetry.v2.stackdriver.configOverride
-    (has .Values.telemetry.v2.stackdriver.outboundAccessLogging (list "" "ERRORS_ONLY"))
-    (has .Values.telemetry.v2.stackdriver.inboundAccessLogging (list "" "ALL"))
-    .Values.telemetry.v2.stackdriver.disableOutbound ))
-}}
-{{- end }}
 
 {{- define "servicemesh.const.jfrogImageRepo" }}tibco-platform-local-docker/servicemesh{{end}}
 {{- define "servicemesh.const.ecrImageRepo" }}servicemesh{{end}}

@@ -1,0 +1,31 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "compositions.appName" . }}-cluster-scope
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["iam.platform.tibco.com"]
+  resources: ["compositepolicy", "compositeroles", "compositerolepolicyattachments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["filesystem.platform.tibco.com"]
+  resources: ["compositeefs.filesystem.platform.tibco.com"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["database.platform.tibco.com"]
+  resources: ["compositepostgresqlinstances"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["ses.platform.tibco.com"]
+  resources: ["compositeemailidentity"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["ses.platform.tibco.com"]
+  resources: ["compositeemailidentity"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["cache.platform.tibco.com"]
+  resources: ["compositereplicationgroups"]
+  verbs: ["get", "list", "watch"]

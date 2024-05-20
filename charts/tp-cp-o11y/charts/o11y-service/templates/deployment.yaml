@@ -1,0 +1,108 @@
+#
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "o11y-service.consts.appName" . }}
+  labels:
+    {{- include "o11y-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "o11y-service.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "o11y-service.shared.labels.standard" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 30
+{{- if (include "o11y-service.container-registry.secret" .) }}
+      imagePullSecrets:
+      - name: {{ include "o11y-service.container-registry.secret" . }}
+{{- end }}
+      serviceAccountName: {{ include "o11y-service.service-account-name" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tp-o11y-service
+          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}o11y-service:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 1024Mi
+          ports:
+            - containerPort: 7820
+              name: tp-o11yservice
+          env:
+            - name: IS_CP
+              value: "true"
+            - name: IS_ON_PREM
+              value: "true"
+            - name: CP_DP_URL
+              value: {{ include "o11y-service.cp-dp-url" . }}
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+  {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}
+        - name: fluentbit
+          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: tp-o11y-service
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: config-volume
+          configMap:
+            name: {{ include "o11y-service.consts.appName" . }}-fluentbit-config
+{{- end }}

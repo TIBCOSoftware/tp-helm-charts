@@ -1,0 +1,90 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+## NOTES
+
+## CONTEXT
+
+# Resources
+resources:
+  requests:
+    cpu: 500m
+    memory: 500Mi
+  limits:
+    cpu: 1000m
+    memory: 1000Mi
+
+enableWebHooks: true
+
+settingsConfigmap:
+  - key: "LOG_LEVEL"
+    value: "info"
+
+image:
+  name: resource-set-operator
+  registry: ""
+  repo: ""
+  tag: 202-distroless
+  pullPolicy: IfNotPresent
+
+# no of replicas
+replicaCount: "1"
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # This section of the configuration is for the Resource Set Operator.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  resourceSetOperator:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+        
+global:
+  tibco:
+    serviceAccount: ""
+    containerRegistry:
+      url: ""
+    # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
+    # lowercase alphanumeric string of max 5 chars
+    controlPlaneInstanceId: ""
+
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "fluentbit"
+          registry: ""
+          repo: ""
+          tag: 3.0.2
+          pullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL

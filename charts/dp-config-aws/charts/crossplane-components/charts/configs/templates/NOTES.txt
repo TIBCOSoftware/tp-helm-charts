@@ -1,0 +1,12 @@
+{{/*
+    Copyright © 2024. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{- if eq .Values.enabled true }}
+{{- include "configs.validate" . }}
+This chart installs following crossplane provider configs
+- provider-aws-config
+- provider-kubernetes-config
+{{- end }}

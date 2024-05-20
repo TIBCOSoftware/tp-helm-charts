@@ -1,0 +1,85 @@
+{{/*
+    Copyright © 2024. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.rbac.flogo}}
+{{- if .Values.global.tibco.enableClusterScopedPerm -}}
+{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo-cluster-scope
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+    platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["list"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["list", "get"]
+{{- end -}}
+{{- end }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["configmaps", "services", "secrets"]
+  verbs: ["create", "get", "delete", "update"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["create", "get", "delete", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "create", "delete", "update"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["list", "get", "create", "update", "delete"]
+- apiGroups: ["configuration.konghq.com"]
+  resources: ["kongplugins"]
+  verbs: ["list", "get", "create", "update", "delete"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "create", "update", "delete", "patch"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "delete", "update", "list", "watch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
+
+{{- end -}}

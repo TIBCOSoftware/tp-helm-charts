@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -219,8 +222,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            runAsUser: 1337
-            runAsGroup: 1337
             runAsNonRoot: true
             capabilities:
               drop:
@@ -256,49 +257,7 @@ spec:
           {{- with .Values.pilot.volumeMounts }}
             {{- toYaml . | nindent 10 }}
           {{- end }}
-{{- if .Values.enableLogging }}
-        - name: fluent-bit
-          image: "{{ .Values.fluentBit.repository }}/{{ .Values.fluentBit.image }}:{{ .Values.fluentBit.tag }}"
-          imagePullPolicy: "{{ .Values.fluentBit.pullPolicy }}"
-          ports:
-            - name: http
-              containerPort: 2020
-              protocol: TCP
-          env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            - name: CONTAINER_NAME
-              value: {{ .Chart.Name }}
-          volumeMounts:
-            - mountPath: /fluent-bit/etc/fluent-bit.conf
-              name: fluent-bit-config
-              subPath: fluent-bit.conf
-            - mountPath: /fluent-bit/etc/custom_parsers.conf
-              name: fluent-bit-config
-              subPath: custom_parsers.conf
-            - mountPath: /fluent-bit/etc/update_record.lua
-              name: fluent-bit-config
-              subPath: update_record.lua
-            - name: log-volume
-              mountPath: /var/log
-{{- end }}
       volumes:
-      - name: log-volume
-        hostPath:
-          path: /var/log
-      - name: fluent-bit-config
-        configMap:
-          name: {{ .Release.Name }}-fluent-bit-config
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
       - emptyDir:

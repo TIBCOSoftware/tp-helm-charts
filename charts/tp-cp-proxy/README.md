@@ -1,7 +1,10 @@
+### TP CP proxy
+Dataplane proxy to expose control plane endpoints to dataplane
+
 # Sample values
 global:
   tibco:
-    dataPlaneId: "abcd" # Mandatory
+    dataplaneId: "abcd" # Mandatory
     subscriptionId: "abcd" # Mandatory
 
 ## Installing the Chart

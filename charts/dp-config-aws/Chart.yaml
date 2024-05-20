@@ -1,12 +1,12 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
 apiVersion: v2
 name: dp-config-aws
-version: "1.0.27"
-appVersion: "1.0.0"
-description: dp-config-aws is used to config CIC2 TIBCO Dataplane
+version: "1.2.11"
+appVersion: "1.2.0"
+description: Helm chart to configure Dataplane on AWS
 type: application
 dependencies:
   - name: traefik
@@ -25,7 +25,16 @@ dependencies:
     version: 2.33.3
     repository: https://charts.konghq.com
     condition: kong.enabled
+  # crossplane charts
+  - name: crossplane
+    version: v1.13.2
+    repository: https://charts.crossplane.io/stable
+    condition: crossplane.enabled
+  - name: crossplane-components
+    version: 1.2.1
+    repository: file://charts/crossplane-components
+    condition: crossplane-components.enabled
 annotations:
   artifacthub.io/changes: |
     - kind: changed
-      description: "added kong ingress as dependency"
+      description: "added crossplane charts"

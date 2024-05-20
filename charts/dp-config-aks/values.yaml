@@ -1,6 +1,8 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
 
 # Name of chart
 name: dp-config-aks
@@ -33,12 +35,14 @@ httpIngress:
   enabled: true
   name: nginx  # kong for kong
   ingressClassName: azure-application-gateway  # see: https://github.com/kubernetes-sigs/external-dns/blob/master/docs/faq.md
+  path: /
   backend:
     serviceName: dp-config-aks-ingress-nginx-controller  # dp-config-aks-kong-proxy for kong
     servicePort: 80
   # more AGIC annotations: https://azure.github.io/application-gateway-kubernetes-ingress/annotations/#appgw-ssl-certificate
   annotations:
-    cert-manager.io/cluster-issuer: "cic-cert-subscription-scope-production"
+    # for kong we need to overwrite with cic-cert-subscription-scope-production-kong
+    cert-manager.io/cluster-issuer: "cic-cert-subscription-scope-production-nginx"
     external-dns.alpha.kubernetes.io/hostname: ""  # *.abc.<host-domain>
 
 # the dns value is actually use pattern:

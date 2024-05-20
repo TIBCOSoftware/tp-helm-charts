@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 ---
 {{- define "servicemesh.proxy.image" }}
   {{- if contains "jfrog.io" .Values.global.cp.containerRegistry.url }}
@@ -54,9 +57,9 @@ metadata:
     {{- if eq (index .ProxyConfig.ProxyMetadata "ISTIO_META_ENABLE_HBONE") "true" }}
     networking.istio.io/tunnel: {{ index .ObjectMeta.Labels `networking.istio.io/tunnel` | default "http"  | quote }}
     {{- end }}
-    service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
+    service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | trunc 63 | trimSuffix "-" | quote }}
     service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
-    prometheus.io/scrape: "true"
+    prometheus.io/scrape: "true" # added label to enable prometheus scraping
   annotations: {
     istio.io/rev: {{ .Revision | default "default" | quote }},
     {{- if ge (len $containers) 1 }}
@@ -87,7 +90,9 @@ metadata:
 {{- end }}
   }
 spec:
-  {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
+  {{- $holdProxy := and
+      (or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts)
+      (not $nativeSidecar) }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
   {{ if .Values.istio_cni.enabled -}}
@@ -107,7 +112,7 @@ spec:
     - "-z"
     - {{ .MeshConfig.ProxyInboundListenPort | default "15006" | quote }}
     - "-u"
-    - "1337"
+    - {{ .ProxyUID | default "1337" | quote }}
     - "-m"
     - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
     - "-i"
@@ -174,8 +179,8 @@ spec:
       runAsUser: 0
     {{- else }}
       readOnlyRootFilesystem: true
-      runAsGroup: 1337
-      runAsUser: 1337
+      runAsGroup: {{ .ProxyGID | default "1337" }}
+      runAsUser: {{ .ProxyUID | default "1337" }}
       runAsNonRoot: true
     {{- end }}
   {{ end -}}
@@ -245,6 +250,17 @@ spec:
           command:
           - pilot-agent
           - wait
+  {{- else if $nativeSidecar }}
+    {{- /* preStop is called when the pod starts shutdown. Initialize drain. We will get SIGTERM once applications are torn down. */}}
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - pilot-agent
+          - request
+          - --debug-port={{(annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort)}}
+          - POST
+          - drain
   {{- end }}
     env:
     {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
@@ -311,6 +327,10 @@ spec:
       valueFrom:
         resourceFieldRef:
           resource: limits.cpu
+    {{- if .CompliancePolicy }}
+    - name: COMPLIANCE_POLICY
+      value: "{{ .CompliancePolicy }}"
+    {{- end }}
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_NODE_NAME
@@ -358,11 +378,17 @@ spec:
     {{- end }}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
-  {{ if $nativeSidecar }}
+  {{ if .Values.global.proxy.startupProbe.enabled }}
     startupProbe:
-  {{ else }}
-    readinessProbe:
+      httpGet:
+        path: /healthz/ready
+        port: 15021
+      initialDelaySeconds: 0
+      periodSeconds: 1
+      timeoutSeconds: 3
+      failureThreshold: {{ .Values.global.proxy.startupProbe.failureThreshold }}
   {{ end }}
+    readinessProbe:
       httpGet:
         path: /healthz/ready
         port: 15021
@@ -381,7 +407,7 @@ spec:
         - ALL
       privileged: true
       readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-      runAsGroup: 1337
+      runAsGroup: {{ .ProxyGID | default "1337" }}
       runAsNonRoot: false
       runAsUser: 0
       {{- else }}
@@ -400,13 +426,13 @@ spec:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-      runAsGroup: 1337
+      runAsGroup: {{ .ProxyGID | default "1337" }}
       {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
       runAsNonRoot: true
-      runAsUser: 1337
+      runAsUser: {{ .ProxyUID | default "1337" }}
       {{- end }}
       {{- end }}
     resources:
@@ -544,10 +570,4 @@ spec:
     {{- range .Values.global.imagePullSecrets }}
     - name: {{ . }}
     {{- end }}
-  {{- else }}
-  {{- if not (eq .Values.global.cp.containerRegistry.secret "") }}
-  imagePullSecrets:
-    - name: {{ .Values.global.cp.containerRegistry.secret }}
   {{- end }}
-  {{- end }}
-

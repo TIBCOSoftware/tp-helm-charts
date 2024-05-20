@@ -1,0 +1,163 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "compute-services.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "compute-services.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "compute-services.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "compute-services.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-web: enable
+      annotations:
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+    {{- if .Values.global.tibco.serviceAccount }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount | quote }}
+    {{- else }}
+      serviceAccountName: {{ include "compute-services.consts.serviceAccount" . }}
+    {{- end }} 
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: compute-services
+        image: {{ include "compute-services.image.registry" .}}{{"/"}}{{ include "compute-services.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext.computeServices }}
+        securityContext:
+          {{- toYaml .Values.securityContext.computeServices | nindent 10 }}
+        {{- end }}  
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.dpHelmRepositories }}
+          - mountPath: /helm/config
+            name: helm-repo-config
+          - name: tibco-charts-dir
+            mountPath: /helm/tibcocharts
+          {{- end }}
+        ports:
+        - containerPort: 9979
+          name: server
+        env:
+          - name: SUBSCRIPTION_RESOURCE_SET_TEMPLATE
+            value: cp-subscription
+          - name: DATA_PLANE_RESOURCE_SET_TEMPLATE
+            value: cp-data-plane-registration
+          - name: SUBSCRIPTION_RESOURCE_SET_NAMESPACE
+            value: "{{ .Release.Namespace }}"
+          - name: DATAPLANE_RESOURCE_SET_NAMESPACE_PREFIX
+            value: "{{ .Release.Namespace }}"
+          - name: SUBSCRIPTION_RESOURCE_SET_NAME_PREFIX
+            value: "sub-"
+          - name: DATA_PLANE_RESOURCE_SET_NAME_PREFIX
+            value: "dp-"
+          - name: TUNNEL_DNS_DOMAIN_SUFFIX
+            value: "{{ .Values.global.external.dnsTunnelDomain}}"
+          - name: HYBRID_SERVER_SERVICE_NAMESPACE
+            value: "{{ .Release.Namespace }}"
+          - name: RELEASE_NAMESPACE
+            value: "{{ .Release.Namespace }}"
+          - name: HYBRID_SERVER_SERVICE_NAME
+            value: "hybrid-server-%s"
+          - name: CONTAINER_REGISTRY_URL
+            value: "{{ .Values.global.tibco.containerRegistry.url }}"
+          - name: CONTROL_PLANE_URL_SUFFIX
+            value: "{{ .Values.global.external.dnsDomain}}"
+          - name: QUERY_NODE_SERVICE
+            value: "{{ include "compute-services.consts.queryNodeService" .}}"
+          - name: QUERY_NODE_BASIC_AUTH_HEADER
+            value: {{ .Values.queryNodeBasicAuthHeader }}
+          - name: DP_CORE_INFRASTRUCTURE_CHART_VERSION
+            value: {{ .Values.dpMetadata.dpCoreInfrastructureChartVersion | quote }}
+          - name: DP_CORE_INFRASTRUCTURE_CHART_NAME
+            value: {{ .Values.dpMetadata.dpCoreInfrastructureChartName }}
+          - name: DP_CONFIGURE_NAMESPACE_CHART_NAME
+            value: {{ .Values.dpMetadata.dpConfigureNamespaceChartName }}
+          - name: DP_CONFIGURE_NAMESPACE_CHART_VERSION
+            value: {{ .Values.dpMetadata.dpConfigureNamespaceChartVersion | quote }}
+          - name: HELM_CLI_TIMEOUT_SECONDS
+            value: "60"
+        {{- if .Values.dpHelmRepositories }}
+          - name: HELM_REPO_CONFIG
+            value: /helm/config/repo.json
+          - name: TIBCO_CHARTS_DIR
+            value: /helm/tibcocharts
+          # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
+          - name: HELM_CACHE_HOME
+            value: /tmp/.cache/helm
+          {{- end }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "compute-services.image.registry" .}}{{"/"}}{{ include "compute-services.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 10 }}
+        {{- end }} 
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: compute-services
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+      {{- if .Values.dpHelmRepositories }}
+        - name: helm-repo-config
+          secret:
+            secretName: {{ include "compute-services.consts.appName" . }}-helm-repo-config
+        - name: tibco-charts-dir
+          emptyDir: {}
+      {{- end }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: config-volume
+          configMap:
+            name: {{ include "compute-services.consts.appName" . }}-fluentbit-config
+{{- end }}
+      imagePullSecrets:
+        - name: {{ include "compute-services.container-registry.secret" . }}

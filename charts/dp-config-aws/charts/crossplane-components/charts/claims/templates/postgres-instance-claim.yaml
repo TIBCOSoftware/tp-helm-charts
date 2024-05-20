@@ -1,0 +1,82 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.postgresInstance }}
+{{- if eq .Values.postgresInstance.create true }}
+apiVersion: database.platform.tibco.com/v1alpha1
+kind: TibcoPostgreSQLInstance
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-postgres
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" . }}
+    vpcId: {{ include "claims.net-vpc-identifier" . }}  
+    nodeCIDR: {{ include "claims.net-node-cidr" . }}
+    subnetIds: 
+    {{- if .Values.postgresInstance.publiclyAccessible }}
+    {{- $publicSubnets := include "claims.net-public-subnets" . }}
+    {{- range ( split "\n" $publicSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    {{- else }}
+    {{- $privateSubnets := (include "claims.net-private-subnets" .) }}
+    {{- range (split "\n" $privateSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    {{- end }}
+    prefix: {{ .Values.commonResourcePrefix }}
+    {{- with .Values.postgresInstance }}
+    {{- $mandatory_params := .mandatoryConfigurationParameters }}
+    {{- /* mandatory parameters */ -}}
+    {{- toYaml .mandatoryConfigurationParameters | nindent 4 }}
+    {{- /* additional parameters */ -}}
+    {{- if .additionalConfigurationParameters }}
+    {{- with .additionalConfigurationParameters }}
+    storageEncrypted: {{ .storageEncrypted }}
+    {{- if .storageEncrypted }}
+    {{- if .kmsKeyId }}
+    kmsKeyId: {{ .kmsKeyId }}
+    {{- end }}
+    {{- end }}
+    {{- if .restoreFrom }}
+    {{- with .restoreFrom }}
+    source: {{ .source }}
+    snapshotIdentifier: {{ .snapshotIdentifier }}
+    {{- end }}
+    {{- end }}
+    allocatedStorage: {{ .allocatedStorage }}
+    backupRetentionPeriod: {{ .backupRetentionPeriod }}
+    caCertificateIdentifier: {{ .caCertificateIdentifier }}
+    deletionProtection: {{ .deletionProtection }}
+    finalDBSnapshotIdentifier: {{ .finalDBSnapshotIdentifier }}
+    multiAZ: {{ .multiAZ }}
+    skipFinalSnapshotBeforeDeletion: {{ .skipFinalSnapshotBeforeDeletion }}
+    storageType: {{ .storageType }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if or .Values.commonTags .Values.postgresInstance.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.postgresInstance.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-rds"
+  writeConnectionSecretToRef:
+    name: {{ .Values.postgresInstance.connectionDetailsSecret }}
+{{- end }}
+{{- end }}

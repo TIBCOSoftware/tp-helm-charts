@@ -14,7 +14,8 @@ Table of Contents
   * [Install common third party tools](#install-common-third-party-tools)
   * [Install Ingress Controller, Storage class](#install-ingress-controller-storage-class)
     * [Setup DNS](#setup-dns)
-    * [Ingress Controller](#ingress-controller)
+    * [Nginx Ingress Controller](#install-nginx-ingress-controller)
+    * [Kong Ingress Controller [OPTIONAL]](#install-kong-ingress-controller-optional)
     * [Storage Class](#storage-class)
   * [Install Observability tools](#install-observability-tools)
     * [Install Elastic stack](#install-elastic-stack)
@@ -106,7 +107,11 @@ export DP_AUTHORIZED_IP=""  # declare additional IPs to be whitelisted for acces
 
 ## Tooling specific variables
 export DP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
+## If you want to use same domain for services and user apps
 export DP_DOMAIN="dp1.azure.example.com" # domain to be used
+## If you want to use different domain for services and user apps [OPTIONAL]
+export DP_DOMAIN="services.dp1.azure.example.com" # domain to be used for services and capabilities
+export DP_APPS_DOMAIN="apps.dp1.azure.example.com" # optional - apps dns domain if you want to use different IC for services and apps
 export DP_SANDBOX_SUBDOMAIN="dp1" # hostname of DP_DOMAIN
 export DP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of DP_DOMAIN
 export DP_MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
@@ -248,6 +253,31 @@ extraVolumeMounts:
 extraArgs:
 - --ingress-class=${DP_MAIN_INGRESS_CLASS_NAME}
 EOF
+
+# upgrade external-dns [OPTIONAL]
+# if you prefer to use different DNS for Services and User-App endpoints then you need to upgrade external-dns chart by adding the DP_APPS_DOMAIN in the domainFilters section
+helm upgrade --install --wait --timeout 1h --reuse-values \
+  -n external-dns-system external-dns external-dns \
+  --labels layer=0 \
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "^1.0.0" -f - <<EOF
+provider: azure
+sources:
+  - service
+  - ingress
+domainFilters:
+  - ${DP_DOMAIN}
+  - ${DP_APPS_DOMAIN}
+extraVolumes: # for azure.json
+- name: azure-config-file
+  secret:
+    secretName: azure-config-file
+extraVolumeMounts:
+- name: azure-config-file
+  mountPath: /etc/kubernetes
+  readOnly: true
+extraArgs:
+- --ingress-class=${DP_MAIN_INGRESS_CLASS_NAME}
+EOF
 ```
 </details>
 
@@ -281,6 +311,7 @@ It will create the following resources:
 * a storage class for Azure Files
 
 ### Setup DNS
+## If you want to use same domain for services and user apps
 For this workshop we will use `dp1.azure.example.com` as the domain name. We will use `*.dp1.azure.example.com` as the wildcard domain name for all the DP capabilities.
 We are using the following services in this workshop:
 * [DNS Zones](https://learn.microsoft.com/en-us/azure/dns/dns-zones-records): to manage DNS. We register `azure.example.com` in Azure DNS Zones.
@@ -288,7 +319,16 @@ We are using the following services in this workshop:
 * azure-application-gateway: to create Application Gateway. It will automatically create listeners and add SSL certificate to application gateway.
 * external-dns: to create DNS record in dns zone for the record set. It will automatically create DNS record for ingress objects.
 
-### Ingress Controller
+## If you want to use different domain for services and user apps [OPTIONAL]
+For this workshop we will use `services.dp1.azure.example.com` as the domain name. We will use `*.services.dp1.azure.example.com` as the wildcard domain name for all the DP servcies and capabilities. For user apps use `*.apps.dp1.azure.example.com` as the wildcard domain name.
+* [DNS Zones](https://learn.microsoft.com/en-us/azure/dns/dns-zones-records): to manage DNS. We register `azure.example.com` in Azure DNS Zones.  ###### need to test will azure.example.com will work or not ?
+* [Let's Encrypt](https://cert-manager.io/docs/configuration/acme/dns01/azuredns/): to manage SSL certificate. We will create a wildcard certificate for services `*.services.dp1.azure.example.com` and for user apps `*.apps.dp1.azure.example.com`.
+* azure-application-gateway: to create Application Gateway. It will automatically create listeners and add SSL certificate to application gateway.
+* external-dns: to create DNS record in dns zone for the record set. It will automatically create DNS record for ingress objects (Please udate the external-dns chart by adding the DNS record in domainFilters section).
+
+### Install Nginx Ingress Controller
+* This can be used for both Data Plane Services and Apps
+* Optionally, Nginx Ingress Controller can be used for Data Plane Services and Kong Ingress Controller for App Endpoints
 
 ```bash
 export DP_CLIENT_ID=$(az aks show --resource-group "${DP_RESOURCE_GROUP}" --name "${DP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
@@ -297,9 +337,9 @@ export DP_CLIENT_ID=$(az aks show --resource-group "${DP_RESOURCE_GROUP}" --name
 export DP_NAMESPACE="ns"
 
 helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aks dp-config-aks \
+  -n ingress-system dp-config-aks-nginx dp-config-aks \
   --labels layer=1 \
-  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "1.0.16" -f - <<EOF
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 global:
   dnsSandboxSubdomain: "${DP_SANDBOX_SUBDOMAIN}"
   dnsGlobalTopDomain: "${DP_TOP_LEVEL_DOMAIN}"
@@ -309,10 +349,16 @@ global:
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
+  enabled: true
+  name: nginx
+  backend:
+    serviceName: dp-config-aks-nginx-ingress-nginx-controller
   ingressClassName: ${DP_MAIN_INGRESS_CLASS_NAME}
   annotations:
+    cert-manager.io/cluster-issuer: "cic-cert-subscription-scope-production-nginx"
     external-dns.alpha.kubernetes.io/hostname: "*.${DP_DOMAIN}"
 ingress-nginx:
+  enabled: true
   controller:
     config:
       # required by apps swagger
@@ -331,7 +377,7 @@ ingress-nginx:
     # otel-sampler-ratio: "1.0"
     # otel-schedule-delay-millis: "5000"
     # otel-service-name: nginx-proxy
-    # otlp-collector-host: otel-userapp.${DP_NAMESPACE}.svc
+    # otlp-collector-host: otel-userapp-traces.${DP_NAMESPACE}.svc
     # otlp-collector-port: "4317"
   # opentelemetry:
     # enabled: true
@@ -351,6 +397,77 @@ The `nginx` ingress class is the main ingress that DP will use. The `azure-appli
 > [!IMPORTANT]
 > You will need to provide this ingress class name i.e. nginx to TIBCO® Control Plane when you deploy capability.
 
+### Install Kong Ingress Controller [OPTIONAL]
+* In this optional step, you can install the Kong Ingress Controller if you want to use it for User App Endpoints
+```bash
+export DP_CLIENT_ID=$(az aks show --resource-group "${DP_RESOURCE_GROUP}" --name "${DP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
+
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ingress-kong dp-config-aks-kong dp-config-aks \
+  --labels layer=1 \
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
+global:
+  dnsSandboxSubdomain: "${DP_SANDBOX_SUBDOMAIN}"
+  dnsGlobalTopDomain: "${DP_TOP_LEVEL_DOMAIN}"
+  azureSubscriptionDnsResourceGroup: "${DP_DNS_RESOURCE_GROUP}"
+  azureSubscriptionId: "${DP_SUBSCRIPTION_ID}"
+  azureAwiAsoDnsClientId: "${DP_CLIENT_ID}"
+dns:
+  domain: "${DP_APPS_DOMAIN}"
+httpIngress:
+  enabled: true
+  name: kong
+  backend:
+    serviceName: dp-config-aks-kong-kong-proxy
+  ingressClassName: ${DP_MAIN_INGRESS_CLASS_NAME}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "*.${DP_APPS_DOMAIN}"
+kong:
+  enabled: true
+## following environment section is required to send traces using kong
+## uncomment the below commented section to run/re-run the command
+  # env:
+  #   tracing_instrumentations: request,all
+  #   tracing_sampling_rate: 1
+EOF
+```
+
+#### Following extra configuration is required to send traces using kong
+We need to deploy the below KongClusterPlugin CR configurations for enabling the opentelemetry plugin on a service.
+Before applying the KongClusterPlugin, please modify the metadata.name & config.endpoint with the correct DP namespace.
+To enable the BWCE app traces, please set ```BW_OTEL_TRACES_ENABLED``` env variable to true.
+```bash
+kubectl apply -f - <<EOF
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: opentelemetry-example
+  annotations:
+    kubernetes.io/ingress.class: kong
+  labels:
+    global: "true"
+plugin: opentelemetry
+config:
+  endpoint: "http://otel-userapp-traces.${DP_NAMESPACE}.svc.cluster.local:4318/v1/traces"
+  resource_attributes:
+    service.name: "kong-dev"          # This service name will get listed as a service name in Jaeger Query UI
+  headers:
+    X-Auth-Token: secret-token
+  header_type: w3c                    # Must be one of: preserve, ignore, b3, b3-single, w3c, jaeger, ot, aws, gcp, datadog
+EOF
+```
+
+> Please refer the [Kong Documentation](https://docs.konghq.com/hub/kong-inc/opentelemetry/how-to/basic-example/) for more examples.
+Use the following command to get the ingress class name.
+```bash
+$ kubectl get ingressclass
+NAME                                    CONTROLLER                      PARAMETER        AGE
+azure-application-gateway        azure/application-gateway                 <none>        24m
+nginx                            k8s.io/ingress-nginx                      <none>       2m18s
+kong                             ingress-controllers.konghq.com/kong       <none>       4m10s
+```
+The `kong` ingress class is the ingress that DP will be used by user app endpoints.
+
 > [!IMPORTANT]
 > When creating a kubernetes service with type: loadbalancer, in cases where the virtual machine scale set has a network security group on the subnet level, additional inbound security rules may need to be created to the load balancer external IP address to ensure outside connectivity
 
@@ -361,7 +478,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   -n storage-system dp-config-aks-storage dp-config-aks \
   --repo "${DP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
-  --version "1.0.16" -f - <<EOF
+  --version "^1.0.0" -f - <<EOF
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
@@ -766,6 +883,7 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
 | VNET_CIDR             | 10.4.0.0/16                                                                    | from VNet address space                                      |
 | Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
+| Ingress class name (Optional)   | kong                                                                            | used for User App Endpoints                                                     |
 | Azure Files storage class    | azure-files-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition and TIBCO Enterprise Message Service™ (EMS) Azure Files storage                                         |
 | Azure Disks storage class    | azure-disk-sc                                                                          | used for TIBCO Enterprise Message Service™ (EMS)                                             |
 | BW FQDN              | bwce.\<BASE_FQDN\>                                                               | Capability FQDN |

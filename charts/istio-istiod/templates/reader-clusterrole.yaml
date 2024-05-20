@@ -1,13 +1,16 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 ---
 {{- if or (.Values.serviceAccount.create) (not (((.Values.global.cp).resources).serviceaccount).serviceAccountName) -}}
 {{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-reader-clusterrole
+  name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}

@@ -1,5 +1,5 @@
 {{/* 
-   Copyright (c) 2023 Cloud Software Group Inc.
+   Copyright (c) 2023 - 2024 Cloud Software Group Inc.
    This file is subject to the license terms contained
    in the license file that is distributed with this file.
 
@@ -23,8 +23,6 @@ Create image tag value which defaults to .Chart.AppVersion.
 {{- define "o11y-service.consts.appName" }}o11y-service{{ end -}}
 
 {{- define "o11y-service.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}
-
-{{- define "o11y-service.sa" }}tp-dp-{{ .Values.global.cp.dataplaneId }}-o11y-sa{{ end -}}
 
 {{- define "o11y-service.fullname" }}o11y-service{{ end -}}
 

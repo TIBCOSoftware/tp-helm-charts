@@ -1,0 +1,18 @@
+{{/*
+    Copyright © 2024. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{- if eq .Values.enabled true }}
+{{- include "claims.validate" . }}
+This chart creates crossplane claims (XRCs) for
+- EFS
+- RDS database instance
+- Redis replication group
+- IAM role, policies and role-policy attachments
+- SES email identity
+- kubernetes storage class
+- kubernetes service account
+depending on the helm values passed
+{{- end }}

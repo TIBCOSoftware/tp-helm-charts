@@ -1,0 +1,28 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "router-operator.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "router-operator.shared.labels.standard" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "router-operator.shared.labels.selector" . | nindent 4 }}
+  ports:
+  - name: api
+    port: 88
+    protocol: TCP
+    targetPort: api
+  - name: virtual
+    port: 100
+    protocol: TCP
+    targetPort: virtual
+  sessionAffinity: None
+  type: ClusterIP

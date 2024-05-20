@@ -1,0 +1,70 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositeroles.iam.platform.tibco.com
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  group: iam.platform.tibco.com
+  names:
+    kind: CompositeRole
+    plural: compositeroles
+    singular: compositerole
+  claimNames:
+    kind: TibcoRole
+    plural: tibcoroles
+  connectionSecretKeys:
+    - role_arn
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          description: Tibco XRD for AWS IAM Role
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    prefix:
+                      type: string
+                    assumeRolePolicyDocument:
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value: 
+                            type: string
+                      required:
+                        - key
+                        - value
+                  required:
+                    - assumeRolePolicyDocument
+                    - prefix
+              required:
+                - parameters
+            status:
+              description: RoleStatus defines the observed state of Role.
+              properties:
+                role:
+                  properties:
+                    arn:
+                      description: Amazon Resource Name (ARN) specifying the role.
+                      type: string
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+              type: object

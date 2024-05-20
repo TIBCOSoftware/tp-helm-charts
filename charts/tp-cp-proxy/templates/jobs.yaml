@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 
 apiVersion: batch/v1
 kind: Job
@@ -23,7 +26,7 @@ spec:
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName | default (printf "%s%s" (include "tp-cp-proxy.consts.appName" .) "-job-sa") }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       containers:
         - name: post-install-job
           image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
@@ -66,7 +69,7 @@ spec:
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName | default (printf "%s%s" (include "tp-cp-proxy.consts.appName" .) "-job-sa") }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       containers:
         - name: pre-delete-job
           image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}

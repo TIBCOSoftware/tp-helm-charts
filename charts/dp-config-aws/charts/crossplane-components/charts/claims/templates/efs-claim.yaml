@@ -1,0 +1,90 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.efs }}
+{{- if eq .Values.efs.create true }}
+apiVersion: filesystem.platform.tibco.com/v1alpha1
+{{- if eq .Values.efs.storageClass.create true }}
+kind: TibcoEFSSC
+{{- else }}
+kind: TibcoEFS
+{{- end }}
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-efs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    {{- if eq .Values.efs.storageClass.create true }}
+    claim-name: {{ .Values.commonResourcePrefix }}-efs-sc
+    {{- else }}
+    claim-name: {{ .Values.commonResourcePrefix }}-efs
+    {{- end }}
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" . }}
+    vpcId: {{ include "claims.net-vpc-identifier" . }}  
+    nodeCIDR: {{ include "claims.net-node-cidr" . }}
+    subnetIds:
+    {{- $privateSubnets := (include "claims.net-private-subnets" .) }}
+    {{- range (split "\n" $privateSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    prefix: {{ .Values.commonResourcePrefix }}
+    {{- with .Values.efs }}
+    {{- $mandatory_params := .mandatoryConfigurationParameters }}
+    {{- /* mandatory parameters */ -}}
+    {{- toYaml .mandatoryConfigurationParameters | nindent 4 }}
+    {{- /* additional parameters */ -}}
+    {{- if .additionalConfigurationParameters }}
+    {{- with .additionalConfigurationParameters }}
+    encrypted: {{ .encrypted }}
+    {{- if .encrypted }}
+    {{- if .kmsKeyID }}
+    kmsKeyId: {{ .kmsKeyId }}
+    {{- end }}
+    {{- end }}
+    {{- if eq $mandatory_params.throughputMode "provisioned" }}
+    provisionedThroughputInMibps: {{ .provisionedThroughputInMibps }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if or .Values.commonTags .Values.efs.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.efs.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+    {{- if eq .Values.efs.storageClass.create true }}
+    {{- with .Values.efs.storageClass }}
+    storageClassName: {{ .name }}
+    mountOptions:
+      {{- toYaml .mountOptions | nindent 4 }}
+    parameterOptions:
+    {{- range $key, $value := .parameters }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    allowVolumeExpansion: {{ .allowVolumeExpansion }}
+    reclaimPolicy: {{ .reclaimPolicy }}
+    volumeBindingMode: {{ .volumeBindingMode }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      {{- if eq .Values.efs.storageClass.create true }}
+      provider: "provider-aws-efs-sc"
+      {{- else }}
+      provider: "provider-aws-efs"
+      {{- end }}
+  writeConnectionSecretToRef:
+    name: {{ .Values.efs.connectionDetailsSecret }}
+{{- end }}
+{{- end }}

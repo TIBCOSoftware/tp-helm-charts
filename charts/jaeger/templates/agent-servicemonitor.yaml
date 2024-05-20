@@ -1,4 +1,10 @@
-{{- if and (.Values.agent.enabled) (.Values.agent.serviceMonitor.enabled)}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if and (.Values.agent.enabled) (.Values.agent.serviceMonitor.enabled)}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

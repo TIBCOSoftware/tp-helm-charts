@@ -1,4 +1,10 @@
-{{- if and .Values.serviceMonitor.enabled .Values.serviceMonitor.metricsEndpoints (or (eq .Values.mode "deployment") (eq .Values.mode "statefulset")) }}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if and .Values.serviceMonitor.enabled .Values.serviceMonitor.metricsEndpoints (or (eq .Values.mode "deployment") (eq .Values.mode "statefulset")) }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

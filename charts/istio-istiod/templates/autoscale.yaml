@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+---
 {{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 {{- if not .Values.global.autoscalingv2API }}
 apiVersion: autoscaling/v2beta1
@@ -26,6 +29,12 @@ spec:
     resource:
       name: cpu
       targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
+  {{- if .Values.pilot.memory.targetAverageUtilization }}
+  - type: Resource
+    resource:
+      name: memory
+      targetAverageUtilization: {{ .Values.pilot.memory.targetAverageUtilization }}
+  {{- end }}
 ---
 {{- else }}
 {{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
@@ -57,6 +66,14 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
+  {{- if .Values.pilot.memory.targetAverageUtilization }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.pilot.memory.targetAverageUtilization }}
+  {{- end }}
   {{- if .Values.pilot.autoscaleBehavior }}
   behavior: {{ toYaml .Values.pilot.autoscaleBehavior | nindent 4 }}
   {{- end }}

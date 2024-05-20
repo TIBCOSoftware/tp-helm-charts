@@ -1,0 +1,32 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v2
+name: crossplane-components
+version: "1.2.1"
+appVersion: "1.2.0"
+description: crossplane-charts are used to install crossplane, providers, provider-configs, compositions and claims
+type: application
+dependencies:
+  # crossplane charts
+  - name: providers
+    version: 1.2.0
+    repository: file://charts/providers
+    condition: providers.enabled
+  - name: configs
+    version: 1.2.0
+    repository: file://charts/configs
+    condition: configs.enabled
+  - name: compositions
+    version: 1.2.0
+    repository: file://charts/compositions
+    condition: compositions.enabled
+  - name: claims
+    version: 1.2.1
+    repository: file://charts/claims
+    condition: claims.enabled
+annotations:
+  artifacthub.io/changes: |
+    - kind: changed
+      description: "crossplane components charts"

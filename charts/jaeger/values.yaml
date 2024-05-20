@@ -1,3 +1,9 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
 # Default values for jaeger.
 # This is a YAML-formatted file.
 # Jaeger values are grouped by component. Cassandra values override subchart values
@@ -15,6 +21,10 @@ global:
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
+      o11y:
+        tracesServer:
+          kind: "jaeger"
+          enabled: true
 
 provisionDataStore:
   cassandra: true
@@ -218,8 +228,30 @@ schema:
     name:
   podAnnotations: {}
   podLabels: {}
-  securityContext: {}
-  podSecurityContext: {}
+
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   ## Deadline for cassandra schema creation job
   activeDeadlineSeconds: 300
   extraEnv: []
@@ -236,8 +268,28 @@ elasticsearch: {}
 
 ingester:
   enabled: false
-  podSecurityContext: {}
-  securityContext: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   annotations: {}
   image: jaegertracing/jaeger-ingester
   imagePullSecrets: []
@@ -291,8 +343,28 @@ ingester:
     metricRelabelings: []
 
 agent:
-  podSecurityContext: {}
-  securityContext: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   enabled: true
   annotations: {}
   image: jaegertracing/jaeger-agent
@@ -368,8 +440,29 @@ agent:
     metricRelabelings: []
 
 collector:
-  podSecurityContext: {}
-  securityContext: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   enabled: true
   annotations: {}
   image: jaegertracing/jaeger-collector
@@ -560,8 +653,31 @@ query:
   #   oidc_groups_claim = "groups"
   #   user_id_claim = "preferred_username"
   #   skip_provider_button = "true"
-  podSecurityContext: {}
-  securityContext: {}
+
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   agentSidecar:
     enabled: true
 #    resources:
@@ -718,10 +834,29 @@ spark:
 
 esIndexCleaner:
   enabled: false
-  securityContext:
-    runAsUser: 1000
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
   podSecurityContext:
+    runAsNonRoot: true
     runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   annotations: {}
   image: jaegertracing/jaeger-es-index-cleaner
   imagePullSecrets: []
@@ -760,9 +895,29 @@ esIndexCleaner:
 
 esRollover:
   enabled: false
-  securityContext: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
   podSecurityContext:
+    runAsNonRoot: true
     runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   annotations: {}
   image: jaegertracing/jaeger-es-rollover
   imagePullSecrets: []
@@ -809,9 +964,29 @@ esRollover:
 
 esLookback:
   enabled: false
-  securityContext: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
   podSecurityContext:
+    runAsNonRoot: true
     runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   annotations: {}
   image: jaegertracing/jaeger-es-rollover
   imagePullSecrets: []
@@ -853,8 +1028,29 @@ esLookback:
 
 hotrod:
   enabled: false
-  podSecurityContext: {}
-  securityContext: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
   replicaCount: 1
   # set the primary command(s) for the hotrod application
   args:

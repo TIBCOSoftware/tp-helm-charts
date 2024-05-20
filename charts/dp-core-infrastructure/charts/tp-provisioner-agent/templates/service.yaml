@@ -1,0 +1,30 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+    proxy.platform.tibco.com/enabled: "true"
+  annotations:
+    proxy.platform.tibco.com/path : "/tibco/agent/infra/provisioner-agent/(.*)"
+    proxy.platform.tibco.com/rewrite-target: "/$1"
+    proxy.platform.tibco.com/port: "80"
+
+spec:
+  selector:
+    {{- include "tp-provisioner-agent.shared.labels.selector" . | nindent 4 }}
+  ports:
+  - name: provisioner
+    port: 80
+    protocol: TCP
+    targetPort: provisioner
+  sessionAffinity: None
+  type: ClusterIP

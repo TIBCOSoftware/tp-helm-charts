@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -41,4 +44,13 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
     {{- end }}
+  {{- if .Values.pilot.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.pilot.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.pilot.ipFamilies }}
+  ipFamilies:
+  {{- range .Values.pilot.ipFamilies }}
+  - {{ . }}
+  {{- end }}
+  {{- end }}
 ---

@@ -1,0 +1,622 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-infra-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.2.0",
+      "minCPVersion": "1.1.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.o11y.default.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.0.0"
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "o11y-service",
+            "description": "o11y Service",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "jaeger-collector",
+            "description": "jaeger collector",
+            "monitoringPriority": "optional"
+          },
+          {
+            "name": "jaeger-query",
+            "description": "jaeger query",
+            "monitoringPriority": "optional"
+          },
+          {
+            "name": "otel-userapp",
+            "description": "otel userapp",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "otel-userapp-metrics",
+            "description": "otel userapp metrics",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "otel-finops",
+            "description": "otel finops",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "otel-services",
+            "description": "otel services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      deploymentStrategy: "weighted-concurrency"
+      helmCharts:
+        - name: o11yservice
+          namespace: ${NAMESPACE}
+          version: {{ .Values.capabilities.o11y.default.o11yservice.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+        - name: opentelemetry-collector
+          namespace: ${NAMESPACE}
+          releaseName: otel-userapp
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  cp:
+                    serviceLogs:
+                      enabled: true
+                    serviceTraces:
+                      enabled: true
+                mode: "deployment"
+                fullnameOverride: otel-userapp
+                podLabels:
+                  networking.platform.tibco.com/kubernetes-api: enable
+                  egress.networking.platform.tibco.com/internet-all: enable
+                serviceAccount:
+                  create: false
+                  name: ${SERVICE-ACCOUNT}
+                ports:
+                  otlp:
+                    enabled: true
+                    containerPort: 4317
+                    servicePort: 4317
+                    hostPort: 4317
+                    protocol: TCP
+                    # nodePort: 30317
+                    appProtocol: grpc
+                  otlp-http:
+                    enabled: true
+                    containerPort: 4318
+                    servicePort: 4318
+                    hostPort: 4318
+                    protocol: TCP
+                config:
+                  receivers:
+                    otlp:
+                      protocols:
+                        grpc:
+                          endpoint: 0.0.0.0:4317
+                        http:
+                          cors:
+                            allowed_origins:
+                              - http://*
+                              - https://*
+                          endpoint: 0.0.0.0:4318
+                  processors:
+                    memory_limiter: null
+                    batch: {}
+                    filter/devnull:
+                      error_mode: ignore
+                      traces:
+                        span:
+                          - 'name != ""'
+                      logs:
+                        log_record:
+                          - 'IsMatch(body, "")'
+                    memory_limiter:
+                      check_interval: 5s
+                      limit_percentage: 80
+                      spike_limit_percentage: 25
+                  exporters:
+                    logging: {}
+                  extensions:
+                    health_check: {}
+                    memory_ballast:
+                      size_in_percentage: 40
+                  service:
+                    telemetry:
+                      logs: {}
+                    extensions:
+                      - health_check
+                      - memory_ballast
+                    pipelines:
+                      logs:
+                        exporters:
+                          - logging
+                        processors:
+                          - filter/devnull
+                        receivers:
+                          - otlp
+                      traces:
+                        exporters:
+                          - logging
+                        processors:
+                          - filter/devnull
+                        receivers:
+                          - otlp
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+            isDevTesting: true
+        - name: opentelemetry-collector
+          namespace: ${NAMESPACE}
+          releaseName: otel-userapp-metrics
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                mode: "deployment"
+                fullnameOverride: otel-userapp-metrics
+                podLabels:
+                  networking.platform.tibco.com/kubernetes-api: enable
+                  egress.networking.platform.tibco.com/internet-all: enable
+                serviceAccount:
+                  create: false
+                  name: ${SERVICE-ACCOUNT}
+                ports:
+                  otlp:
+                    enabled: true
+                    containerPort: 4317
+                    servicePort: 4317
+                    hostPort: 4317
+                    protocol: TCP
+                    # nodePort: 30317
+                    appProtocol: grpc
+                  otlp-http:
+                    enabled: true
+                    containerPort: 4318
+                    servicePort: 4318
+                    hostPort: 4318
+                    protocol: TCP
+                  metrics:
+                    enabled: false
+                    containerPort: 8888
+                    servicePort: 8888
+                    protocol: TCP
+                  prometheus:
+                    enabled: true
+                    containerPort: 4319
+                    servicePort: 4319
+                    hostPort: 4319
+                    protocol: TCP
+                config:
+                  receivers:
+                    otlp:
+                      protocols:
+                        grpc:
+                          endpoint: 0.0.0.0:4317
+                        http:
+                          cors:
+                            allowed_origins:
+                              - http://*
+                              - https://*
+                          endpoint: 0.0.0.0:4318
+                  processors:
+                    memory_limiter: null
+                    batch: {}
+                    filter/devnull:
+                      error_mode: ignore
+                      metrics:
+                        metric:
+                          - 'name != ""'
+                        datapoint:
+                          - 'metric.name != ""'
+                    memory_limiter:
+                      check_interval: 5s
+                      limit_percentage: 80
+                      spike_limit_percentage: 25
+                  exporters:
+                    logging: {}
+                  extensions:
+                    health_check: {}
+                    memory_ballast:
+                      size_in_percentage: 40
+                  service:
+                    telemetry:
+                      logs: {}
+                    extensions:
+                      - health_check
+                      - memory_ballast
+                    pipelines:
+                      metrics:
+                        exporters:
+                          - logging
+                        processors:
+                          - filter/devnull
+                        receivers:
+                          - otlp
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+            isDevTesting: true
+        - name: opentelemetry-collector
+          namespace: ${NAMESPACE}
+          releaseName: otel-finops
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                mode: "deployment"
+                fullnameOverride: otel-finops
+                podLabels:
+                  networking.platform.tibco.com/kubernetes-api: enable
+                  egress.networking.platform.tibco.com/internet-all: enable
+                serviceAccount:
+                  create: false
+                  name: ${SERVICE-ACCOUNT}
+                extraEnvsFrom:
+                  - configMapRef:
+                      name: o11y-service
+                ports:
+                  otlp-http:
+                    enabled: true
+                    containerPort: 4318
+                    servicePort: 4318
+                    hostPort: 4318
+                    protocol: TCP
+                  metrics:
+                    enabled: false
+                    containerPort: 8888
+                    servicePort: 8888
+                    protocol: TCP
+                  prometheus:
+                    enabled: true
+                    containerPort: 4319
+                    servicePort: 4319
+                    hostPort: 4319
+                    protocol: TCP
+                config:
+                  receivers:
+                    prometheus/finops:
+                      config:
+                        scrape_configs:
+                          - job_name: monitoring-agent
+                            scrape_interval: 60s
+                            kubernetes_sd_configs:
+                            - role: service
+                              namespaces:
+                                names:
+                                  - ${env:app-namespace}
+                            relabel_configs:
+                            - action: keep
+                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_finops]
+                              regex: "true"
+                            - action: keep
+                              regex: "true"
+                              source_labels:
+                              - __meta_kubernetes_service_label_prometheus_io_scrape
+                            - action: keep
+                              regex: ${DATAPLANE-ID}
+                              source_labels:
+                              - __meta_kubernetes_service_label_platform_tibco_com_dataplane_id
+                            - action: replace
+                              regex: (.+)
+                              source_labels:
+                              - __meta_kubernetes_service_annotation_prometheus_io_path
+                              target_label: __metrics_path__
+                    prometheus/finops_pulsar:
+                      config:
+                        scrape_configs:
+                          - job_name: pulsar
+                            scrape_interval: 60s
+                            kubernetes_sd_configs:
+                            - role: pod
+                              namespaces:
+                                names:
+                                  - ${env:app-namespace}
+                            relabel_configs:
+                            - action: keep
+                              source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_scrape_finops]
+                              regex: "true"
+                            - action: keep
+                              regex: "true"
+                              source_labels:
+                              - __meta_kubernetes_pod_label_prometheus_io_scrape
+                            - action: keep
+                              regex: ${DATAPLANE-ID}
+                              source_labels:
+                              - __meta_kubernetes_pod_label_platform_tibco_com_dataplane_id
+                            - action: replace
+                              regex: (.+)
+                              source_labels:
+                              - __meta_kubernetes_pod_annotation_prometheus_io_path
+                              target_label: __metrics_path__
+                  processors:
+                    memory_limiter:
+                      check_interval: 1s
+                      limit_mib: 2000
+                    batch: {}
+                    attributes/finops:
+                      actions:
+                      - key: dataplane_id
+                        action: insert
+                        value: ${DATAPLANE-ID}
+                  exporters:
+                    logging: {}
+                    otlphttp/finops:
+                      metrics_endpoint: http://cp-proxy/finops/finops-service/api/v1/proxy
+                  service:
+                    telemetry:
+                      logs: {}
+                      metrics:
+                        address: :8888
+                    extensions:
+                      - health_check
+                      - memory_ballast
+                    pipelines:
+                      metrics:
+                        exporters:
+                          - logging
+                          - otlphttp/finops
+                        processors:
+                          - memory_limiter
+                          - batch
+                          - attributes/finops
+                        receivers:
+                          - prometheus/finops
+                          - prometheus/finops_pulsar
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+            isDevTesting: true
+        - name: opentelemetry-collector
+          namespace: ${NAMESPACE}
+          releaseName: otel-services
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                mode: "deployment"
+                fullnameOverride: otel-services
+                podLabels:
+                  networking.platform.tibco.com/kubernetes-api: enable
+                  egress.networking.platform.tibco.com/internet-all: enable
+                serviceAccount:
+                  create: false
+                  annotations: {}
+                  name: ${SERVICE-ACCOUNT}
+                ports:
+                  otlp:
+                    enabled: true
+                    containerPort: 4317
+                    servicePort: 4317
+                    hostPort: 4317
+                    protocol: TCP
+                    # nodePort: 30317
+                    appProtocol: grpc
+                  otlp-http:
+                    enabled: true
+                    containerPort: 4318
+                    servicePort: 4318
+                    hostPort: 4318
+                    protocol: TCP
+                  metrics:
+                    enabled: false
+                    containerPort: 8888
+                    servicePort: 8888
+                    protocol: TCP
+                  prometheus:
+                    enabled: true
+                    containerPort: 4319
+                    servicePort: 4319
+                    hostPort: 4319
+                    protocol: TCP
+                config:
+                  receivers:
+                    otlp:
+                      protocols:
+                        grpc:
+                          endpoint: 0.0.0.0:4317
+                        http:
+                          cors:
+                            allowed_origins:
+                              - http://*
+                              - https://*
+                          endpoint: 0.0.0.0:4318
+                  processors:
+                    memory_limiter:
+                      check_interval: 1s
+                      limit_mib: 2000
+                    batch: {}
+                  exporters:
+                    logging: {}
+                  service:
+                    telemetry:
+                      logs: {}
+                      metrics:
+                        address: :8888
+                    extensions:
+                      - health_check
+                      - memory_ballast
+                    pipelines:
+                      logs:
+                        exporters:
+                          - logging
+                        processors:
+                          - memory_limiter
+                          - batch
+                        receivers:
+                          - otlp
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+            isDevTesting: true
+        - name: jaeger
+          namespace: ${NAMESPACE}
+          releaseName: jaeger
+          version: {{ .Values.capabilities.o11y.default.jaeger.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  cp:
+                    resources:
+                      o11y:
+                        tracesServer:
+                          enabled: false
+                provisionDataStore:
+                  cassandra: false
+                  elasticsearch: false
+                storage:
+                  type: memory
+                agent:
+                  enabled: false
+                query:
+                  fullnameOverride: jaeger-query
+                  podLabels:
+                    networking.platform.tibco.com/kubernetes-api: enable
+                    egress.networking.platform.tibco.com/internet-all: enable
+                  serviceAccount:
+                    create: false
+                    name: ${SERVICE-ACCOUNT}
+                  oAuthSidecar:
+                    enabled: false
+                  agentSidecar:
+                    enabled: false
+                collector:
+                  fullnameOverride: jaeger-collector
+                  podLabels:
+                    networking.platform.tibco.com/kubernetes-api: enable
+                    egress.networking.platform.tibco.com/internet-all: enable
+                  serviceAccount:
+                    create: false
+                    name: ${SERVICE-ACCOUNT}
+                  service:
+                    otlp:
+                      grpc:
+                        name: otlp-grpc
+                        port: 4317
+                      http:
+                        name: otlp-http
+                        port: 4318
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+            isDevTesting: true
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-infra-recipes.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-infra-recipes.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: o11y
+        image: {{ include "tp-cp-infra-recipes.image.registry" .}}{{"/"}}{{ include "tp-cp-infra-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "o11y"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/infra"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.2.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.o11y.default.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.o11y.default.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y-volume
+          configMap:
+            name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "tp-cp-infra-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-infra-recipes.pvc-name" . }}
+      imagePullSecrets:
+        {{- if (include "tp-cp-infra-recipes.container-registry.secret" .) }}
+        - name: {{ include "tp-cp-infra-recipes.container-registry.secret" . }}
+        {{- end}}

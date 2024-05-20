@@ -1,0 +1,60 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+router:
+  # list of cluster envs that are expected to be overwritten by cloudops. Each item in this
+  # list will generate a TibcoClusterEnv CR. The fields are as follows:
+  #   name = the name of the TibcoClusterEnv CR that will be generated, in the router namespace
+  #   group = the group that the settings belong top
+  #   setting = the name of the cluster setting
+  #   value = the value to set for the given setting in the given group, as a string
+  configurationEnvs:
+    - name: "infra.router.log.level"
+      group: "infra.router"
+      setting: "LOG_LEVEL"
+      value: "info"
+
+image:
+  name: container-image-extractor
+  registry: ""
+  repo: ""
+  tag: 93-distroless
+  pullPolicy: IfNotPresent
+
+controlTower:
+  image:
+    name: "control-tower"
+    tag: 132
+    pullPolicy: IfNotPresent
+
+fluentbit:
+  image:
+    name: "fluentbit"
+    tag: 3.0.2
+    pullPolicy: IfNotPresent
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

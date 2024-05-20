@@ -1,5 +1,5 @@
 {{/*
-   Copyright (c) 2023 Cloud Software Group Inc.
+   Copyright (c) 2023 - 2024 Cloud Software Group Inc.
    This file is subject to the license terms contained
    in the license file that is distributed with this file.
 
@@ -72,13 +72,11 @@ Integration storage folder pvc name
 
 {{- define "artifactmanager.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}
 
-{{- define "artifactmanager.sa" }}tp-dp-{{ .Values.global.cp.dataplaneId }}-sa{{ end -}}
-
-{{- define "artifactmanager.const.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
-{{- define "artifactmanager.const.ecrImageRepo" }}piap{{end}}
-{{- define "artifactmanager.const.acrImageRepo" }}piap{{end}}
-{{- define "artifactmanager.const.harborImageRepo" }}piap{{end}}
-{{- define "artifactmanager.const.defaultImageRepo" }}piap{{end}}
+{{- define "artifactmanager.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
+{{- define "artifactmanager.const.ecrImageRepo" }}stratosphere{{end}}
+{{- define "artifactmanager.const.acrImageRepo" }}stratosphere{{end}}
+{{- define "artifactmanager.const.harborImageRepo" }}stratosphere{{end}}
+{{- define "artifactmanager.const.defaultImageRepo" }}stratosphere{{end}}
 
 {{- define "artifactmanager.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}

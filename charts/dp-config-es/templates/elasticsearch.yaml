@@ -1,7 +1,10 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 #
 apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
@@ -27,5 +30,8 @@ spec:
             storageClassName: {{ .Values.es.storage.name }}
   http:
     service:
+      metadata:
+        annotations:
+          konghq.com/protocol: https
       spec:
         type: ClusterIP

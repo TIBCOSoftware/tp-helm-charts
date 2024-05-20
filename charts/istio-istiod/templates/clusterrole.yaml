@@ -1,12 +1,15 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+---
 {{- if or (.Values.serviceAccount.create) (not (((.Values.global.cp).resources).serviceaccount).serviceAccountName) -}}
 {{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-runtime-clusterrole
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -32,6 +35,11 @@ rules:
     verbs: ["update"]
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
+
+  # Needed because status reporter sets the config map owner reference to the istiod pod
+  - apiGroups: [""]
+    verbs: ["update"]
+    resources: ["pods/finalizers"]
 {{- end }}
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
@@ -129,11 +137,12 @@ rules:
   - apiGroups: ["{{ $mcsAPIGroup }}"]
     resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
+---
 {{- if not (eq (toString .Values.pilot.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-gateway--clusterrole
+  name: istiod-gateway-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -148,4 +157,4 @@ rules:
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "serviceaccounts"]
 {{- end }}
-{{- end}}
+{{- end }}

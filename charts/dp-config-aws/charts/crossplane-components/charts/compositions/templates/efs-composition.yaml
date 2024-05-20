@@ -1,0 +1,169 @@
+{{/* 
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositeefs.filesystem.platform.tibco.com
+  labels:
+    provider: provider-aws-efs
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: filesystem.platform.tibco.com/v1alpha1
+    kind: CompositeEFS
+  patchSets:
+    - name: RegionParameter
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: securitygroup
+      base:
+        apiVersion: ec2.aws.crossplane.io/v1beta1
+        kind: SecurityGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            region: ""
+            vpcId: ""
+            groupName: "cp-efs-sg"
+            description: "Security group for EFS"
+            ingress:
+              - fromPort: 2049
+                toPort: 2049
+                ipProtocol: tcp
+                ipRanges:
+                  - cidrIp: ""
+            tags: []
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.groupName"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-efs-sg"
+        - fromFieldPath: "spec.parameters.vpcId"
+          toFieldPath: "spec.forProvider.vpcId"
+        - fromFieldPath: "spec.parameters.nodeCIDR"
+          toFieldPath: "spec.forProvider.ingress[0].ipRanges[0].cidrIp"
+    - name: efs-filesystem
+      base:
+        apiVersion: efs.aws.crossplane.io/v1alpha1
+        kind: FileSystem
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            region: "" # patched
+          writeConnectionSecretToRef:
+            namespace: "crossplane-system"
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.encrypted"
+          toFieldPath: "spec.forProvider.encrypted"
+        - fromFieldPath: "spec.parameters.kmsKeyId"
+          toFieldPath: "spec.forProvider.kmsKeyID"
+        - fromFieldPath: "spec.parameters.performanceMode"
+          toFieldPath: "spec.forProvider.performanceMode"
+        - fromFieldPath: "spec.parameters.throughputMode"
+          toFieldPath: "spec.forProvider.throughputMode"
+        - fromFieldPath: "spec.parameters.provisionedThroughputInMibps"
+          toFieldPath: "spec.forProvider.provisionedThroughputInMibps"
+        - fromFieldPath: "metadata.uid"
+          toFieldPath: "spec.writeConnectionSecretToRef.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-efs"
+        - type: ToCompositeFieldPath
+          fromFieldPath: "status.atProvider.fileSystemID"
+          toFieldPath: "status.filesystem.fileSystemID"
+        - type: ToCompositeFieldPath
+          fromFieldPath: "status.atProvider.fileSystemARN"
+          toFieldPath: "status.filesystem.fileSystemARN"
+      connectionDetails:
+        - type: FromFieldPath
+          name: efs_id
+          fromFieldPath: status.atProvider.fileSystemID
+        - type: FromFieldPath
+          name: efs_arn
+          fromFieldPath: status.atProvider.fileSystemARN
+    - name: efs-mounttarget0
+      base:
+        apiVersion: efs.aws.crossplane.io/v1alpha1
+        kind: MountTarget
+        spec:
+          deletionPolicy: Delete
+          forProvider:
+            region: ""
+            fileSystemIDSelector:
+              matchControllerRef: true
+            securityGroupsSelector:
+              matchControllerRef: true
+            subnetID: ""
+          providerConfigRef:
+            name: aws-provider-config
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.subnetIds[0]"
+          toFieldPath: "spec.forProvider.subnetID"
+    - name: efs-mounttarget1
+      base:
+        apiVersion: efs.aws.crossplane.io/v1alpha1
+        kind: MountTarget
+        spec:
+          deletionPolicy: Delete
+          forProvider:
+            region: ""
+            fileSystemIDSelector:
+              matchControllerRef: true
+            securityGroupsSelector:
+              matchControllerRef: true
+            subnetID: ""
+          providerConfigRef:
+            name: aws-provider-config
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.subnetIds[1]"
+          toFieldPath: "spec.forProvider.subnetID"
+    - name: efs-mounttarget2
+      base:
+        apiVersion: efs.aws.crossplane.io/v1alpha1
+        kind: MountTarget
+        spec:
+          deletionPolicy: Delete
+          forProvider:
+            region: ""
+            fileSystemIDSelector:
+              matchControllerRef: true
+            securityGroupsSelector:
+              matchControllerRef: true
+            subnetID: ""
+          providerConfigRef:
+            name: aws-provider-config
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.subnetIds[2]"
+          toFieldPath: "spec.forProvider.subnetID"

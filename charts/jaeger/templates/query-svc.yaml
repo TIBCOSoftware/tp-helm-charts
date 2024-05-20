@@ -1,4 +1,10 @@
-{{- if .Values.query.enabled -}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.query.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,10 +12,14 @@ metadata:
   labels:
     {{- include "jaeger.query.labels" . | nindent 4 }}
     app.kubernetes.io/component: query
-{{- if .Values.query.service.annotations }}
+    proxy.platform.tibco.com/enabled:  "true"
   annotations:
-    {{- toYaml .Values.query.service.annotations | nindent 4 }}
-{{- end }}
+    proxy.platform.tibco.com/path: "/tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/(.*)"
+    proxy.platform.tibco.com/port: "{{ .Values.query.service.port }}"
+    proxy.platform.tibco.com/rewrite-target: "/$1"
+    {{- if .Values.query.service.annotations }}
+      {{- toYaml .Values.query.service.annotations | nindent 4 }}
+    {{- end }}
 spec:
   ports:
   - name: query

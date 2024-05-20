@@ -14,7 +14,8 @@ Table of Contents
     * [Setup DNS](#setup-dns)
     * [Setup EFS](#setup-efs)
     * [Storage Class](#storage-class)
-    * [Ingress Controller](#ingress-controller)
+    * [Nginx Ingress Controller](#Install-Nginx-Ingress-Controller)
+    * [Kong Ingress Controller [OPTIONAL]](#install-kong-ingress-controller-optional)
   * [Install Calico [OPTIONAL]](#install-calico-optional)
     * [Pre Installation Steps](#pre-installation-steps)
     * [Chart Installation Step](#chart-installation-step)
@@ -86,7 +87,11 @@ export KUBECONFIG=`pwd`/${DP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster na
 
 ## Tooling specific variables
 export DP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
+## If you want to use same domain for services and user apps
 export DP_DOMAIN=dp1.aws.example.com # domain to be used
+## If you want to use different domain for services and user apps [OPTIONAL]
+export DP_DOMAIN=services.dp1.aws.example.com # domain to be used for services and capabilities
+export DP_APPS_DOMAIN=apps.dp1.aws.example.com # optional - apps dns domain if you want to use different IC for services and apps
 export DP_MAIN_INGRESS_CONTROLLER=alb # name of aws load balancer controller
 export DP_EBS_ENABLED=true # to enable ebs storage class
 export DP_STORAGE_CLASS=ebs-gp3 # name of ebs storge class
@@ -224,11 +229,14 @@ It will create the following resources:
 * EFS with Amazon Elastic File System (EFS)
 
 ### Setup DNS
-Please use an appropriate domain name in place of `dp1.aws.example.com`. You can use `*.dp1.aws.example.com` as the wildcard domain name for all the DP capabilities.
+## If you want to use same domain for services and user apps
+Please use an appropriate domain name in place of `dp1.aws.example.com`. You can use `*.dp1.aws.example.com` as the wildcard domain name for all the DP services and capabilities.
+## If you want to use different domain for services and user apps [OPTIONAL]
+Please use an appropriate domain name in place of `services.dp1.aws.example.com`. You can use `*.services.dp1.aws.example.com` as the wildcard domain name for all the DP services and capabilities and for user app endpoints (`*.apps.dp1.aws.example.com`).
 
 You can use the following services to register domain and manage certificates.
 * [Amazon Route 53](https://aws.amazon.com/route53/): to manage DNS. You can register your Data Plane domain in Route 53. And give permission to external-dns to add new record.
-* [AWS Certificate Manager (ACM)](https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html): to manage SSL certificate. You can create a wildcard certificate for `*.<DP_DOMAIN>` in ACM.
+* [AWS Certificate Manager (ACM)](https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html): to manage SSL certificate. You can create a wildcard certificate for `*.<DP_DOMAIN>` in ACM. Also if you want use another Domain for App endpoints you can create another wildcard certificate for `*.<DP_APPS_DOMAIN>` in ACM.
 * aws-load-balancer-controller: to create AWS ALB. It will automatically create AWS ALB and add SSL certificate to ALB.
 * external-dns: to create DNS record in Route 53. It will automatically create DNS record for ingress objects.
 
@@ -263,7 +271,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   -n storage-system dp-config-aws-storage dp-config-aws \
   --repo "${DP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
-  --version "1.0.23" -f - <<EOF
+  --version "^1.0.0" -f - <<EOF
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
@@ -303,28 +311,33 @@ We have some scripts in the recipe to create and setup EFS. The `dp-config-aws` 
 > [!IMPORTANT]
 > You will need to provide this storage class name to TIBCO® Control Plane when you deploy capability.
 
-### Ingress Controller
+### Install Nginx Ingress Controller
+* This can be used for both Data Plane Services and Apps
+* Optionally, Nginx Ingress Controller can be used for Data Plane Services and Kong Ingress Controller for App Endpoints
 ```bash
 ## following variable is required to send traces using nginx
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 export DP_NAMESPACE="ns" # Replace with your DP namespace
 
 helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aws dp-config-aws \
+  -n ingress-system dp-config-aws-nginx dp-config-aws \
   --repo "${DP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
-  --version "1.0.23" -f - <<EOF
+  --version "^1.0.0" -f - <<EOF
 dns:
   domain: "${DP_DOMAIN}"
 httpIngress:
+  enabled: true
+  name: nginx
+  backend:
+    serviceName: dp-config-aws-nginx-ingress-nginx-controller
   annotations:
     alb.ingress.kubernetes.io/group.name: "${DP_DOMAIN}"
     external-dns.alpha.kubernetes.io/hostname: "*.${DP_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
-tigera-operator:
-  enabled: false
 ingress-nginx:
+  enabled: true
   controller:
     config:
       # required by apps swagger
@@ -343,7 +356,7 @@ ingress-nginx:
 #       otel-sampler-ratio: "1.0"
 #       otel-schedule-delay-millis: "5000"
 #       otel-service-name: nginx-proxy
-#       otlp-collector-host: otel-userapp.${DP_NAMESPACE}.svc
+#       otlp-collector-host: otel-userapp-traces.${DP_NAMESPACE}.svc
 #       otlp-collector-port: "4317"
 #     opentelemetry:
 #       enabled: true
@@ -361,6 +374,77 @@ The `nginx` ingress class is the main ingress that DP will use. The `alb` ingres
 
 > [!IMPORTANT]
 > You will need to provide this ingress class name i.e. nginx to TIBCO® Control Plane when you deploy capability.
+
+### Install Kong Ingress Controller [OPTIONAL]
+> [!Note]
+> The IC will use the same ALB, if you want to use another ALB for DP_APPS_DOMAIN then we need to change the value of the "alb.ingress.kubernetes.io/group.name" annotation
+* In this optional step, you can install the Kong Ingress Controller if you want to use it for User App Endpoints
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ingress-kong dp-config-aws-kong dp-config-aws \
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" \
+  --labels layer=1 \
+  --version "^1.0.0" -f - <<EOF
+dns:
+  domain: "${DP_APPS_DOMAIN}"
+httpIngress:
+  enabled: true
+  name: kong
+  backend:
+    serviceName: dp-config-aws-kong-kong-proxy
+  annotations:
+    alb.ingress.kubernetes.io/group.name: "${DP_DOMAIN}"
+    external-dns.alpha.kubernetes.io/hostname: "*.${DP_APPS_DOMAIN}"
+    # this will be used for external-dns annotation filter
+    kubernetes.io/ingress.class: alb
+ingress-nginx:
+  enabled: false 
+kong:
+  enabled: true
+## following environment section is required to send traces using kong
+## uncomment the below commented section to run/re-run the command
+  # env:
+  #   tracing_instrumentations: request,all
+  #   tracing_sampling_rate: 1
+EOF
+```
+
+#### Following extra configuration is required to send traces using kong
+We need to deploy the below KongClusterPlugin CR configurations for enabling the opentelemetry plugin on a service.
+Before applying the KongClusterPlugin, please modify the metadata.name & config.endpoint with the correct DP namespace.
+To enable the BWCE app traces, please set ```BW_OTEL_TRACES_ENABLED``` env variable to true.
+```bash
+kubectl apply -f - <<EOF
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: opentelemetry-example
+  annotations:
+    kubernetes.io/ingress.class: kong
+  labels:
+    global: "true"
+plugin: opentelemetry
+config:
+  endpoint: "http://otel-userapp-traces.${DP_NAMESPACE}.svc.cluster.local:4318/v1/traces"
+  resource_attributes:
+    service.name: "kong-dev"          # This service name will get listed as a service name in Jaeger Query UI
+  headers:
+    X-Auth-Token: secret-token
+  header_type: w3c                    # Must be one of: preserve, ignore, b3, b3-single, w3c, jaeger, ot, aws, gcp, datadog
+EOF
+```
+
+> Please refer the [Kong Documentation](https://docs.konghq.com/hub/kong-inc/opentelemetry/how-to/basic-example/) for more examples.
+
+Use the following command to get the ingress class name.
+```bash
+$ kubectl get ingressclass
+NAME    CONTROLLER                              PARAMETERS     AGE
+alb     ingress.k8s.aws/alb                       <none>       7h12m
+nginx   k8s.io/ingress-nginx                      <none>       7h11m
+kong    ingress-controllers.konghq.com/kong       <none>       7h10m
+```
+The `kong` ingress class is the ingress that DP will be used by user app endpoints.
 
 ## Install Calico [OPTIONAL]
 For network policies to take effect in the EKS cluster, we will need to deploy [calico](https://www.tigera.io/project-calico/).
@@ -384,18 +468,7 @@ We will be using the following values to deploy `dp-config-aws` helm chart.
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n tigera-operator dp-config-aws-calico dp-config-aws \
   --labels layer=1 \
-  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "1.0.23" -f - <<EOF
-ingress-nginx:
-  enabled: false
-httpIngress:
-  enabled: false
-service:
-  enabled: false
-storageClass:
-  ebs:
-    enabled: false
-  efs:
-    enabled: false
+  --repo "${DP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 tigera-operator:
   enabled: ${DP_INSTALL_CALICO}
   installation:
@@ -789,6 +862,7 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
 | VPC_CIDR             | 10.200.0.0/16                                                                    | from EKS recipe                                         |
 | Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
+| Ingress class name (Optional)   | kong                                                                            | used for User App Endpoints                                            |
 | EFS storage class    | efs-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition and TIBCO Enterprise Message Service™ (EMS) EFS storage                                         |
 | EBS storage class    | ebs-gp3                                                                          | used for TIBCO Enterprise Message Service™ (EMS)|
 | BW FQDN              | bwce.\<BASE_FQDN\>                                                               | Capability FQDN |

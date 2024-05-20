@@ -1,5 +1,5 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -32,18 +32,20 @@ spec:
       - name: {{ .Values.global.cp.containerRegistry.secret }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
-      {{- else }}
-      serviceAccountName: {{ include "artifactmanager.sa" . }}
       {{- end }}
+      {{- if .Values.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           ports:
             - containerPort: {{ .Values.service.port }}
               name: server
+          {{- if .Values.securityContext.artifactManager }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext.artifactManager | nindent 12 }}
+          {{- end }}
           image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}artifactmanager:{{ .Values.global.artifactmanager.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
@@ -89,10 +91,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-        {{- if .Values.global.artifactmanager.logging.enabled }}
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
-          image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.fluentbit.image.tag }}
+          image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -108,13 +114,11 @@ spec:
                   fieldPath: metadata.uid
             - name: CONTAINER_NAME
               value: {{ .Chart.Name }}
-          {{- with .Values.fluentbit.resources }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}    
           volumeMounts:
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers/
             - name: podlogs
               mountPath: /var/log/pods
             - name: fluent-bit-config
@@ -124,11 +128,7 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "artifactmanager.storage.pvc.name" . }}
-{{- if .Values.global.artifactmanager.logging.enabled }}
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers/
-            type: DirectoryOrCreate
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: podlogs
           hostPath:
             path: /var/log/pods
