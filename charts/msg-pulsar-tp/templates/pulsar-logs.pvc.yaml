@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml -}}
+{{ if ne "none" ( $apdParams.apd.pvcShareName | default "none" ) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{ $apdParams.apd.pvcShareName }}"
+  labels:
+    {{ include "apd.std.labels" $apdParams | indent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: "{{ $apdParams.apd.pvcShareSize }}"
+  storageClassName: "{{ $apdParams.apd.scSharedName }}"
+{{ end }}

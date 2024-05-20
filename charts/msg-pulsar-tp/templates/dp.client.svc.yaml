@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml }}
+#
+# PULSAR GROUP MAIN EXTERNAL SERVICE PORTS
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ $apdParams.apd.name }}"
+  labels:
+    {{- include "apd.std.labels" $apdParams | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: tcp-clients
+    protocol: TCP
+    port: {{ int $apdParams.apd.ports.tcpPort }}
+    targetPort: "sts-{{ .Values.tcpPrefix }}pulsar"
+  selector:
+    {{- include "pulsar.matchLabels" . | nindent 4 }}
+    component: {{ .Values.proxy.component }}
+...

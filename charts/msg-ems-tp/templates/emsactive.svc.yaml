@@ -17,6 +17,11 @@ kind: Service
 apiVersion: v1
 metadata:
   name: "{{ $svcEms }}active"
+  annotations:
+    proxy.platform.tibco.com/path: "/tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/(.*)"
+    proxy.platform.tibco.com/rewrite-target: "/$1"
+    proxy.platform.tibco.com/port: "{{ $emsParams.ems.ports.adminPort }}"
+    proxy.platform.tibco.com/protocol: "http"
   labels:
     tib-dp-app: msg-ems-ftl
     tib-msg-stsname: "{{ $stsname }}"
@@ -24,13 +29,18 @@ metadata:
     tib-msg-svcname: "{{ $svcEms }}active"
     {{ include "msg.dp.labels" . | indent 4 }}
     {{ include "ems.std.labels" $emsParams | indent 4 }}
+    proxy.platform.tibco.com/enabled: "true"
 spec:
+  type: ClusterIP
   ports:
   - name: ems-tcp-port
     port: {{ int $emsParams.ems.ports.tcpPort }}
     protocol: TCP
   - name: ems-ssl-port
     port: {{ int $emsParams.ems.ports.sslPort }}
+    protocol: TCP
+  - name: ems-admin-port
+    port: {{ int $emsParams.ems.ports.adminPort }}
     protocol: TCP
   selector:
     tib-msg-stsname: "{{ $stsname }}"

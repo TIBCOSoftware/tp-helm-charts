@@ -9,7 +9,7 @@
 #
 {{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
-{{- $jobname := printf "%s-uninstall" $emsParams.ems.name -}}
+{{- $jobname := printf "%s-uninstall-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
@@ -31,7 +31,7 @@ metadata:
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 180
+    ttlSecondsAfterFinished: 360
     template:
         metadata:
             name: "{{ $jobname }}"
@@ -72,7 +72,14 @@ spec:
                 - >
                   echo "Cleaning up PVCs ... " ; 
                   kubectl get pvc -l=tib-dp-release={{ .Release.Name }} | egrep -v NAME | while read x o ; do 
-                    kubectl delete pvc $x ; done
+                    kubectl delete pvc $x || true ; done ;
+                  echo "Cleaning up Secrets ... " ; 
+                  kubectl get secrets -l=tib-dp-release={{ .Release.Name }} | egrep -v NAME | while read x o ; do 
+                    kubectl delete secret $x || true ; done ;
+                  echo "Cleaning up Jobs ... " ; 
+                  kubectl get jobs -l=tib-dp-release={{ .Release.Name }} | egrep -v 'NAME|uninstall' | while read x o ; do 
+                    kubectl delete job $x || true ; done
+                  exit 0
 
                 image: "{{ $emsParams.ems.image }}"
                 imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
@@ -86,11 +93,9 @@ spec:
                 #   {{ end }}
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
-                {{ include "msg.envStdPodRefs" . | indent  16 }}
+                {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
                 - name: ACCEPT_EUA
                   value: "y"
-                - name: MY_RELEASE
-                  value: "{{ .Release.Name }}"
                 - name: FTL_SERVICE
                   value: "{{ $emsParams.ems.name }}-ftl"
                 - name: EMS_SERVICE

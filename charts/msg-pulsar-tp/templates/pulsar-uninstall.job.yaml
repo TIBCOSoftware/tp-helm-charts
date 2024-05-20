@@ -1,0 +1,68 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# FOR UNINSTALLS: Remove any lingering PVCs
+
+#
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml -}}
+{{- $jobname := printf "%s-uninstall-%s" $apdParams.apd.name (randAlphaNum 4 | lower) -}}
+# Additional HELPER VARIABLE DEFINITIONS
+#
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: "{{ $jobname }}"
+    labels:
+      name: "{{ $jobname }}"
+      {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "apd.std.labels" $apdParams | indent 6 }}
+    namespace: "{{ .Release.Namespace }}"
+    annotations:
+      {{ include "msg.dp.mon.annotations" . | indent 6 }}
+      "helm.sh/hook": post-delete
+      "helm.sh/hook-weight": "5"
+      # "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+    backoffLimit: 0
+    #4hr limit -  activeDeadlineSeconds: 14400
+    ttlSecondsAfterFinished: 1440
+    template:
+        metadata:
+            name: "{{ $jobname }}"
+            namespace: "{{ .Release.Namespace }}"
+            labels:
+                name: "{{ $jobname }}"
+                {{ include "msg.dp.labels" . | indent 16 }}
+                {{ include "msg.dp.net.kubectl" . | indent 16}}
+                {{ include "apd.std.labels" $apdParams | indent 16 }}
+        spec:
+            enableServiceLinks: false
+            nodeSelector:
+                kubernetes.io/os: linux
+            {{- if ne "none" $apdParams.dp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $apdParams.dp.pullSecret }}
+            {{- end }}
+            serviceAccountName: "{{ $apdParams.dp.serviceAccount }}"
+            restartPolicy: Never
+            terminationGracePeriodSeconds: 10
+            containers:
+            -   name: "main"
+                command: ['/compliance/check_eua', 'bash', '-c' ]
+                ##  kubectl get pvc -l=tib-dp-release={{ .Release.Name }} | egrep -v NAME | while read x o ; do 
+                args:
+                - >
+                  echo "Cleaning up PVCs ... " ; 
+                  kubectl get pvc -l=release={{ .Release.Name }} | egrep -v NAME | while read x o ; do 
+                    kubectl delete pvc $x || echo "PVC $x gone." ; done ; exit 0
+
+                image: "{{ $apdParams.apd.imageFullName }}"
+                imagePullPolicy: "{{ $apdParams.dp.pullPolicy }}"
+                env:
+                # CAUTION! Setting Names here overrides envFrom values
+                {{ include "msg.dp.stdenv" $apdParams | indent  16 }}
+                - name: ACCEPT_EUA
+                  value: "y"

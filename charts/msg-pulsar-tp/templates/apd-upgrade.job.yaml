@@ -1,0 +1,76 @@
+{{ if .Release.IsUpgrade }}
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# FOR UPGRADES: Do safe pod-kills, leader last
+
+#
+{{- $apdParams := include "need.msg.apd.params" . | fromYaml -}}
+{{- $jobname := printf "%s-apdupgrade-%s" $apdParams.apd.name (randAlphaNum 4 | lower) -}}
+# Additional HELPER VARIABLE DEFINITIONS
+#
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: "{{ $jobname }}"
+    labels:
+      name: "{{ $jobname }}"
+      {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "apd.std.labels" $apdParams | indent 6 }}
+      tib-dp-app: msg-apd-ftl
+    namespace: "{{ .Release.Namespace }}"
+spec:
+    backoffLimit: 0
+    #4hr limit -  activeDeadlineSeconds: 14400
+    ttlSecondsAfterFinished: 1440
+    template:
+        metadata:
+            name: "{{ $jobname }}"
+            namespace: "{{ .Release.Namespace }}"
+            labels:
+                name: "{{ $jobname }}"
+                {{ include "msg.dp.labels" . | indent 16 }}
+                {{ include "msg.dp.net.kubectl" . | indent 16}}
+                {{ include "apd.std.labels" $apdParams | indent 16 }}
+        spec:
+            enableServiceLinks: false
+            nodeSelector:
+                kubernetes.io/os: linux
+            {{- if ne "none" $apdParams.dp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $apdParams.dp.pullSecret }}
+            {{- end }}
+            serviceAccountName: "{{ $apdParams.dp.serviceAccount }}"
+            restartPolicy: Never
+            volumes:
+            {{ include "msg.pv.vol.def" $apdParams.apd.boot | nindent 12 }}
+            terminationGracePeriodSeconds: 10
+            containers:
+            -   name: "main"
+                command: ['/compliance/check_eua', 'bash', '-c' ]
+                # FIXME: bash < /boot/pulsar-upgrade.sh
+                args:
+                - >
+                  bash < /boot/pulsar-upgrade.sh
+                image: "{{ $apdParams.apd.imageFullName }}"
+                imagePullPolicy: "{{ $apdParams.dp.pullPolicy }}"
+                volumeMounts:
+                - mountPath: /boot
+                  {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 18 }}
+                env:
+                # CAUTION! Setting Names here overrides envFrom values
+                {{ include "msg.dp.stdenv" $apdParams | indent  16 }}
+                - name: ACCEPT_EUA
+                  value: "y"
+                - name: MY_GROUP
+                  value: "{{ $apdParams.apd.name }}"
+                - name: HEALTH_ACTION
+                {{ if .Values.apd.skipRedeploy }}
+                  value: "skip-redeploy"
+                {{ else }}
+                  value: "redeploy"
+                {{ end }}
+{{ end }}

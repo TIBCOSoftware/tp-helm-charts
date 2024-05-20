@@ -5,12 +5,12 @@
 # in the license file that is distributed with this file.
 #
 
-# TODO: MSGDP-316: Comment out redundant OUTPUT=stdout after testing is complete
 outfile=${1:-output.conf}
-cat - <<EOF > $outfile
+if [ "$DP_LOGGING_FLUENTBIT_ENABLED" = "true" ] ; then
+    cat - <<EOF > $outfile
 [OUTPUT]
     Name                 opentelemetry
-    Match                dp.routable
+    Match                dp.routable*
     Host                 otel-services.${MY_NAMESPACE}.svc.cluster.local
     Port                 4318
     Logs_uri             /v1/logs
@@ -18,10 +18,10 @@ cat - <<EOF > $outfile
     Tls                  Off
     Tls.verify           Off
 EOF
-
-outfile=${1:-output-stdout.conf}
+else
 cat - <<EOF > $outfile
 [OUTPUT]
     Name stdout
-    Match dp.routable
+    Match dp.routable*
 EOF
+fi

@@ -8,7 +8,7 @@
 #
 {{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
-{{- $jobname := printf "%s-preinstall" $emsParams.ems.name -}}
+{{- $jobname := printf "%s-preinstall-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
@@ -25,14 +25,12 @@ metadata:
       tib-dp-app: msg-ems-ftl
     namespace: "{{ .Release.Namespace }}"
     annotations:
-      # "helm.sh/hook": pre-install,pre-upgrade
-      "helm.sh/hook": pre-install
+      "helm.sh/hook": pre-install,pre-upgrade
       "helm.sh/hook-weight": "5"
-      # "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 180
+    ttlSecondsAfterFinished: 300
     template:
         metadata:
             name: "{{ $jobname }}"
@@ -53,41 +51,30 @@ spec:
             {{- end }}
             serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
             restartPolicy: Never
-            # volumes:
-            # - name: scripts-vol
-            #   configMap:
-            #     name: "{{ $emsParams.ems.name }}-scripts"
-            # - name: "ems-log"
-            #   {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
-            #   persistentVolumeClaim:
-            #     claimName: "{{ $emsParams.ems.logs.storageName }}"
-            #   {{ else }}
-            #   emptyDir: {}
-            #   {{ end }}
             terminationGracePeriodSeconds: 10
             containers:
             -   name: "main"
                 command: ['/compliance/check_eua', 'bash', '-c' ]
                 args:
                 - >
-                  echo "Doing pre-install checks ... " ; 
+                  echo "Checking for tibadmin secret ... " ; 
+                  set -x ;
+                  secretName="{{ $emsParams.ems.name }}-tibadmin" ;
+                  if kubectl get secret $secretName -n {{ .Release.Namespace }} ; then
+                    echo "Secret $secretName exists" ;
+                  else
+                    echo "Secret $secretName does not exist" ;
+                    echo "Creating secret $secretName" ;
+                    kubectl create secret generic $secretName -n {{ .Release.Namespace }} --from-literal=EMS_ADMIN_USER=tibadmin --from-literal=EMS_ADMIN_PASSWORD={{ randAlphaNum 32 }} ; 
+                    kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE ; 
+                  fi ;
                 image: "{{ $emsParams.ems.image }}"
                 imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
-                # volumeMounts:
-                # - mountPath: /boot
-                #   name: scripts-vol
-                # - mountPath: /logs
-                #   name: "ems-log"
-                #   {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
-                #   subPathExpr: "$(MY_RELEASE)/logs"
-                #   {{ end }}
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
-                {{ include "msg.envStdPodRefs" . | indent  16 }}
+                {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
                 - name: ACCEPT_EUA
                   value: "y"
-                - name: MY_RELEASE
-                  value: "{{ .Release.Name }}"
                 - name: FTL_SERVICE
                   value: "{{ $emsParams.ems.name }}-ftl"
                 - name: EMS_SERVICE

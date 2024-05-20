@@ -1,0 +1,105 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{-  $cpParams := include "need.msg.cp.params" . | fromYaml }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tp-cp-msg-webserver
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: msg-webserver
+      app.kubernetes.io/component: msg
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: msg-webserver
+        app.kubernetes.io/component: msg
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.cloud.tibco.com/internet-all: enable
+        egress.networking.cloud.tibco.com/hybrid-server: enable
+    spec:
+      nodeSelector:
+          kubernetes.io/os: linux
+      {{- if $cpParams.cp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $cpParams.cp.pullSecret }}
+      {{- end }}
+      containers:
+      - name: msg-gems
+        image: "{{ $cpParams.cp.imageFullName }}"
+        imagePullPolicy: {{ $cpParams.cp.pullPolicy }}
+        command: ['/compliance/check_eua', 'bash', '-c' ]
+        #exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;  
+        args:
+        - >
+          ( mkdir -p /data/boot ; cd /data/boot ;
+              for x in /boot/mk-*.sh ; do bash < $x ; done | tee -a boot.out ) ;
+          mkdir -p /logs/msg-webserver ;
+          source /boot/msg-web-setup.sh >> /logs/msg-webserver/setup.log ;
+          exec /usr/local/watchdog/bin/watchdog ;
+        ports:
+          - containerPort: 7513
+        {{ include "msg.webserver.security.container" $cpParams | nindent 8 }}
+        volumeMounts:
+        - mountPath: /boot
+          {{ include "msg.pv.vol.mount" $cpParams.cp.boot | nindent 10 }}
+        - mountPath: /data
+          name: msg-webserver-data
+        - mountPath: /logs
+          name: msg-webserver-logs
+        - mountPath: /private/tsc
+          name: efs-vol
+          subPath: tsc
+        - mountPath: /cm/cp-env
+          {{ include "msg.pv.vol.mount" $cpParams.cp.cp_env | nindent 10 }}
+        - mountPath: /cm/cic-env
+          {{ include "msg.pv.vol.mount" $cpParams.cp.cic_env | nindent 10 }}
+        - mountPath: /cm/cp-dns
+          {{ include "msg.pv.vol.mount" $cpParams.cp.cp_dns | nindent 10 }}
+        - mountPath: /cm/cic-dns
+          {{ include "msg.pv.vol.mount" $cpParams.cp.cic_dns | nindent 10 }}
+        - mountPath: /cm/cp-extra
+          {{ include "msg.pv.vol.mount" $cpParams.cp.cp_extra | nindent 10 }}
+        env:
+        {{ include "msg.envStdPodRefs" . | indent  8 }}
+        - name: ACCEPT_EUA
+          value: "y"
+        - name: TCM_WATCHDOG_LOG_FILE
+          value: /logs/msg-webserver/watchdog.log
+        - name: TCM_WATCHDOG_CONFIG
+          value: "/data/boot/watchdog.yml"
+        - name: LOG_ALERT_PORT
+          value: "8099"
+        - name: ENV_TYPE
+          value: "{{ $cpParams.cp.ENV_TYPE }}"
+        - name: LOGGING_FLUENTBIT_ENABLED
+          value: "{{ $cpParams.cp.LOGGING_FLUENTBIT_ENABLED }}"
+        - name: OTEL_SERVICE
+          value: "{{ $cpParams.cp.OTEL_SERVICE }}"
+        - name: ACME_HOST
+          value: "{{ $cpParams.cp.ADMIN_DNS_DOMAIN }}"
+        - name: SUBSCRIPTION_SINGLE_NAMESPACE
+          value: "{{ $cpParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
+        - name: SYSTEM_WHO
+          value: "{{ $cpParams.cp.SYSTEM_WHO }}"
+      volumes:
+      {{ include "msg.pv.vol.def" $cpParams.cp.boot | nindent 6 }}
+      - name: msg-webserver-data
+        emptyDir: {}
+      - name: msg-webserver-logs
+        emptyDir: {}
+      - name: efs-vol
+        persistentVolumeClaim:
+          claimName: "{{ $cpParams.cp.CP_VOLUME_CLAIM }}"
+      {{ include "msg.pv.vol.def" $cpParams.cp.cp_env | nindent 6 }}
+      {{ include "msg.pv.vol.def" $cpParams.cp.cic_env | nindent 6 }}
+      {{ include "msg.pv.vol.def" $cpParams.cp.cp_dns | nindent 6 }}
+      {{ include "msg.pv.vol.def" $cpParams.cp.cic_dns | nindent 6 }}
+      {{ include "msg.pv.vol.def" $cpParams.cp.cp_extra | nindent 6 }}
+      {{ include "msg.webserver.security.pod" $cpParams | nindent 6 }}

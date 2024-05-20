@@ -4,7 +4,6 @@
 # in the license file that is distributed with this file.
 #
 
-export TCM_SUB_ID=${TCM_SUB_ID:-hello}
 export MY_POD_NAME="${MY_POD_NAME:-$(hostname)}"
 outfile=${1:-watchdog.yml}
 cat - <<EOF > $outfile
@@ -18,6 +17,14 @@ services:
         size: 200
         num: 50
         # debugfile: /logs/${MY_POD_NAME}/ftlserver.log
+        rotateonfirststart: true
+  - name: admin-api
+    config:
+      cmd: bash /boot/start-admin-api.sh
+      cwd: /logs/${MY_POD_NAME}/admin-api
+      log:
+        size: 10
+        num: 50
         rotateonfirststart: true
   - name: pod-stats
     config:

@@ -10,7 +10,7 @@
 #
 {{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
-{{- $jobname := printf "%s-emsupgrade" $emsParams.ems.name -}}
+{{- $jobname := printf "%s-emsupgrade-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
@@ -30,7 +30,7 @@ metadata:
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 300
+    ttlSecondsAfterFinished: 3600
     template:
         metadata:
             name: "{{ $jobname }}"
@@ -91,11 +91,9 @@ spec:
                   {{ end }}
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
-                {{ include "msg.envStdPodRefs" . | indent  16 }}
+                {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
                 - name: ACCEPT_EUA
                   value: "y"
-                - name: MY_RELEASE
-                  value: "{{ .Release.Name }}"
                 - name: MY_SVC_NAME
                   value: "{{ $stsname }}"
                 - name: FTL_SERVICE
