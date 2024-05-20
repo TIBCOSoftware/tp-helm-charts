@@ -1,0 +1,44 @@
+Configuration:
+  status: INFO
+  monitorInterval: 30
+  name: pulsar
+  packages: io.prometheus.client.log4j2
+  Properties:
+    Property:
+      - name: "pulsar.log.root.level"
+        value: "debug"
+      - name: "pulsar.log.level"
+        value: "info"
+  Appenders:
+    Console:
+      name: Console
+      target: SYSTEM_OUT
+      PatternLayout:
+        Pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"
+    Prometheus:
+      name: Prometheus
+  Loggers:
+    Root:
+      level: "${sys:pulsar.log.root.level}"
+      additivity: true
+      AppenderRef:
+        - ref: Console
+          level: "${sys:pulsar.log.level}"
+        - ref: Prometheus
+          level: info
+    Logger:
+      - name: org.apache.bookkeeper.mledger
+        level: warn
+        additivity: false
+        AppenderRef:
+          - ref: Console
+      - name: verbose
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: Console
+      - name: io.streamnative.pulsar.handlers.kop
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: Console

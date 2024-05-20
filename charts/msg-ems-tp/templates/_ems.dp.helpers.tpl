@@ -14,8 +14,8 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-7" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.1.0-2" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-24" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-3" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
 {{- $sizing := ternary  "small" .Values.ems.sizing ( not  .Values.ems.sizing ) -}}
@@ -149,6 +149,7 @@ ems:
       memory: {{ $memLim }}
       cpu: {{ $cpuLim }}
     {{ end }}
+securityProfile: "{{ .Values.ems.securityProfile | default "ems" }}"
 {{ end }}
 
 {{/*
@@ -156,6 +157,7 @@ ems.std.labels prints the standard EMS group Helm labels.
 note: expects a $emsParams as its argument
 */}}
 {{- define "ems.std.labels" }}
+release: "{{ .dp.release }}"
 tib-dp-app: msg-ems-ftl
 tib-msg-group-name: "{{ .ems.name }}"
 tib-msg-ems-name: "{{ .ems.name }}"
@@ -163,4 +165,8 @@ tib-msg-ems-sizing: "{{ .ems.sizing }}"
 tib-msg-ems-use: "{{ .ems.use }}"
 app.kubernetes.io/name: "ems"
 platform.tibco.com/app-type: "msg-ems"
+platform.tibco.com/app.resources.requests.cpu: {{ .ems.resources.requests.cpu | default "100m" | quote }}
+platform.tibco.com/app.resources.requests.memory: {{ .ems.resources.requests.memory | default "128Mi" | quote }}
+platform.tibco.com/app.resources.limits.cpu: {{ .ems.resources.limits.cpu | default "3" | quote }}
+platform.tibco.com/app.resources.limits.memory: {{ .ems.resources.limits.memory | default "4Gi" | quote }}
 {{- end }}

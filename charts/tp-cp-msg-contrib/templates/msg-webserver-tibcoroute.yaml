@@ -1,0 +1,50 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{-  $cpParams := include "need.msg.cp.params" . | fromYaml }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  labels:
+    app.kubernetes.io/name: msg-webserver
+    app.kubernetes.io/component: msg
+  name: tp-cp-msg-webserver
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  endpoints:
+  - internalPath: /
+    path: /msg
+    port: 7513
+    protocol: http
+    proxies:
+    - allowClientCache: true
+      allowXFrameOptions: true
+      config: secure
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      fqdn: "{{ $cpParams.cp.DNS_DOMAIN }}"
+      listener: virtual
+      methods:
+      - GET
+  - internalPath: /api
+    path: /msg/api
+    port: 7513
+    protocol: http
+    proxies:
+    - allowClientCache: false
+      allowXFrameOptions: false
+      config: secure
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      fqdn: "{{ $cpParams.cp.DNS_DOMAIN }}"
+      listener: virtual
+  serviceName: msg-webserver
+  serviceNamespace: "{{ .Release.Namespace }}"

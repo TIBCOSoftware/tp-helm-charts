@@ -1,0 +1,15 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tp-cp-msg-webserver-scripts
+  namespace: "{{ .Release.Namespace }}"
+data:
+{{ (.Files.Glob "scripts/*").AsConfig | indent 2 }}
+...

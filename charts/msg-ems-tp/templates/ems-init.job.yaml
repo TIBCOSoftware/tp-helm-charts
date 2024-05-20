@@ -84,13 +84,18 @@ spec:
                   {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
                   subPathExpr: "$(MY_RELEASE)/logs"
                   {{ end }}
+                envFrom:
+                  - secretRef:
+                      name: "{{ $emsParams.ems.name }}-tibadmin"
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
-                {{ include "msg.envStdPodRefs" . | indent  16 }}
+                {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
                 - name: ACCEPT_EUA
                   value: "y"
-                - name: MY_RELEASE
-                  value: "{{ .Release.Name }}"
+                - name: EMS_CP_JWKS
+                  value: {{ $emsParams.dp.jwks | toJson | quote }}
+                - name: EMS_CP_OWNER
+                  value: "{{ $emsParams.dp.adminUser }}"
                 - name: FTL_SERVICE
                   value: "{{ $emsParams.ems.name }}-ftl"
                 - name: EMS_SERVICE

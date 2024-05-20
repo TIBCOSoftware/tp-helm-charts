@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml -}}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $apdParams.apd.name }}-scripts
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    {{- include "pulsar.standardLabels" . | nindent 4 }}
+data:
+{{ (.Files.Glob "scripts/*").AsConfig | indent 2 }}
+...

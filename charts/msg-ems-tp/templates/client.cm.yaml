@@ -28,6 +28,8 @@ metadata:
     {{ include "msg.dp.labels" . | indent 4 }}
     {{ include "ems.std.labels" $emsParams | indent 4 }}
 data:
+  EMS_CAPABILITY_ID: "{{ $emsParams.dp.instanceId }}"
+  EMS_DATAPLANE_ID: "{{ $emsParams.dp.name }}"
   EMS_TCP_PORT: "{{ $emsTcpPort }}"
   EMS_SSL_PORT: "{{ $emsSslPort }}"
   EMS_REALM_PORT: "{{ $emsRealmPort }}"

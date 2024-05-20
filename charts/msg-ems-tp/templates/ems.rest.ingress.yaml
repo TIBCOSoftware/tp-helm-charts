@@ -1,0 +1,42 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
+{{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcProm := printf "%s-%s" $emsParams.ems.name "prom" -}}
+{{- $stsname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+# NOTE: $svcProm is deprecated, use $name-metric-server starting in 1.1 in ems.prom.svc.yaml
+#
+{{- if $emsParams.dp.enableHaproxy }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $svcEms }}-admin"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/(.*) /\1'
+  labels:
+    {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    app.kubernetes.io/name: ems-rest
+    app.kubernetes.io/component: msg-ems
+    app.kubernetes.io/part-of: msg
+spec:
+  ingressClassName: tibco-dp-{{ $emsParams.dp.name }}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/
+        backend:
+          service:
+            name: "{{ $svcEms }}active"
+            port:
+              number: {{ int $emsParams.ems.ports.adminPort }}
+{{- end }}

@@ -1,0 +1,27 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $apdParams := include "need.msg.apd.params" . | fromYaml -}}
+{{- $svcPulsar := printf "%s" $apdParams.apd.name -}}
+{{- $apdTcpPort := $apdParams.apd.ports.tcpPort -}}
+{{- $svcApdHost := printf "%s.%s.svc" $svcPulsar .Release.Namespace -}}
+
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $apdParams.apd.name }}-clients
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    tib-dp-msg-info: "pulsar-ew-clients"
+    {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "apd.std.labels" $apdParams | indent 4 }}
+data:
+  TIB_CAPABILITY_ID: "{{ $apdParams.dp.instanceId }}"
+  TIB_DATAPLANE_ID: "{{ $apdParams.dp.name }}"
+  PULSAR_TCP_PORT: "{{ $apdTcpPort }}"
+  PULSAR_TCP_URL: "pulsar://{{ $svcApdHost }}:{{ $apdTcpPort }}"
+...

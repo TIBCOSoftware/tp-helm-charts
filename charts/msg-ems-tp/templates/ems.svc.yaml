@@ -56,6 +56,9 @@ spec:
   - name: ems-ssl-port
     port: {{ int $emsParams.ems.ports.sslPort }}
     protocol: TCP
+  - name: ems-admin-port
+    port: {{ int $emsParams.ems.ports.adminPort }}
+    protocol: TCP
   selector:
     tib-msg-stsname: "{{ $stsname }}"
 ...

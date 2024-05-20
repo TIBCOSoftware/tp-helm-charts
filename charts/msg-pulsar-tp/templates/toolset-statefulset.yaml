@@ -1,0 +1,172 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+{{- if .Values.components.toolset }}
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+  namespace: {{ template "pulsar.namespace" . }}
+  annotations:
+    {{ include "msg.dp.mon.annotations" . | indent 4 }}
+    platform.tibco.com/quorum-min: "1"
+    platform.tibco.com/quorum-strategy: "active-active"
+  labels:
+    tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+    app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+    {{- include "pulsar.standardLabels" . | nindent 4 }}
+    component: {{ .Values.toolset.component }}
+spec:
+  serviceName: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+  replicas: {{ .Values.toolset.replicaCount | default (include "apd.sts.replicas" (dict "comp" "toolset" "param" $apdParams ))}}
+  updateStrategy:
+    type: OnDelete
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "pulsar.matchLabels" . | nindent 6 }}
+      component: {{ .Values.toolset.component }}
+  template:
+    metadata:
+      labels:
+        tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+        app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+        {{- include "pulsar.template.labels" . | nindent 8 }}
+        component: {{ .Values.toolset.component }}
+{{- include "apd.sts.size.labels" (dict "comp" "toolset" "param" $apdParams ) | nindent 8 }}
+      annotations:
+        {{- if .Values.toolset.restartPodsOnConfigMapChange }}
+        checksum/config: {{ include (print $.Template.BasePath "/toolset-configmap.yaml") . | sha256sum }}
+        {{- end }}
+{{- with .Values.toolset.annotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/os: linux
+    {{- if .Values.toolset.nodeSelector }}
+{{ toYaml .Values.toolset.nodeSelector | indent 8 }}
+    {{- end }}
+    {{- if .Values.toolset.tolerations }}
+      tolerations:
+{{ toYaml .Values.toolset.tolerations | indent 8 }}
+    {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.toolset.gracePeriod }}
+      serviceAccountName: "{{ $apdParams.apd.toolset.serviceAccount }}"
+      {{ include "msg.dp.security.pod" $apdParams | nindent 6 }}
+      containers:
+      - name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+        image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
+        imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+      {{- if .Values.toolset.resources }}
+        resources:
+{{ toYaml .Values.toolset.resources | indent 10 }}
+      {{- else }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "toolset" "param" $apdParams ) | nindent 10 }}
+      {{- end }}
+        command: ["bash", "-c"]
+        args:
+        - >
+          source /boot/pulsar-setup.bash /usr/local/watcdog/bin/wait-for-shutdown.sh ; 
+        {{- if .Values.toolset.additionalCommand }}
+          {{ .Values.toolset.additionalCommand }}
+        {{- end }}
+          bin/apply-config-from-env.py conf/client.conf;
+          bin/apply-config-from-env.py conf/bookkeeper.conf;
+          {{- include "pulsar.toolset.zookeeper.tls.settings" . | nindent 10 }}
+          exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
+        - name: STS_NAME
+          value: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+        envFrom:
+        - configMapRef:
+            name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+        volumeMounts:
+        - mountPath: /pulsar/logs
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
+        {{- if eq "sharedPvc" $apdParams.apd.logs.storageType }}
+        - mountPath: /logs
+          {{- $opsVol := (dict "volName" "ops" "subPath" "." "storageType" "sharedPvc" "storageName" $apdParams.apd.logs.storageName ) -}}
+          {{ include "msg.pv.vol.mount" $opsVol | nindent 10 }}
+        {{- end }}
+        - mountPath: /boot
+          {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 10 }}
+        - mountPath: /pulsar/conf
+          {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
+        - mountPath: /pulsar/conf/log4j2.yaml
+          {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 10 }}
+        {{- if .Values.auth.authentication.enabled }}
+        {{- if eq .Values.auth.authentication.provider "jwt" }}
+        - mountPath: "/pulsar/tokens"
+          name: client-token
+          readOnly: true
+        {{- end }}
+        {{- end }}
+        {{- if and .Values.tls.enabled (or .Values.tls.broker.enabled .Values.tls.proxy.enabled) }}
+        - mountPath: "/pulsar/certs/proxy-ca"
+          name: proxy-ca
+          readOnly: true
+        {{- end}}
+        {{- if .Values.toolset.extraVolumeMounts }}
+{{ toYaml .Values.toolset.extraVolumeMounts | indent 8 }}
+        {{- end }}
+        {{- include "pulsar.toolset.certs.volumeMounts" . | nindent 8 }}
+      volumes:
+      {{ include "msg.pv.vol.def" $apdParams.apd.boot | nindent 6 }}
+        {{- if eq "use-pulsar-data" $apdParams.apd.logs.storageType }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.msgData | nindent 6 }}
+        {{- else }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
+        {{- end }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{- if .Values.auth.authentication.enabled }}
+      {{- if eq .Values.auth.authentication.provider "jwt" }}
+      - name: client-token
+        secret:
+          secretName: "{{ .Release.Name }}-token-{{ .Values.auth.superUsers.client }}"
+          items:
+            - key: TOKEN
+              path: client/token
+      {{- end}}
+      {{- end}}
+      {{- if and .Values.tls.enabled (or .Values.tls.broker.enabled .Values.tls.proxy.enabled) }}
+      - name: proxy-ca
+        secret:
+          secretName: "{{ .Release.Name }}-{{ .Values.tls.ca_suffix }}"
+          items:
+            - key: ca.crt
+              path: ca.crt
+      {{- end}}
+      {{- if .Values.toolset.extraVolumes }}
+{{ toYaml .Values.toolset.extraVolumes | indent 6 }}
+      {{- end }}
+      {{- include "pulsar.toolset.certs.volumes" . | nindent 6 }}
+      {{- include "pulsar.imagePullSecrets" . | nindent 6}}
+  volumeClaimTemplates:
+        {{- if eq "use-pulsar-data" $apdParams.apd.logs.storageType }}
+  {{ include "msg.pv.vol.vct" $apdParams.apd.msgData | nindent 2 }}
+        {{- else }}
+  {{ include "msg.pv.vol.vct" $apdParams.apd.logs | nindent 2 }}
+        {{- end }}
+{{- end }}

@@ -129,7 +129,7 @@ spec:
               terminationMessagePath: /dev/termination-log
               terminationMessagePolicy: File
               env:
-              {{ include "msg.envStdPodRefs" . | indent  14 }}
+              {{ include "msg.dp.stdenv" $emsParams | indent  14 }}
               - name: ACCEPT_EUA
                 value: "y"
               - name: GOTRACEBACK
@@ -138,8 +138,6 @@ spec:
                 value: candidate
               - name: TCM_WATCHDOG_LOG_FILE
                 value: /logs/$(MY_POD_NAME)/watchdog.log
-              - name: MY_RELEASE
-                value: "{{ .Release.Name }}"
               - name: REALM_PORT
                 value: "{{ $emsParams.ems.ports.realmPort }}"
               - name: EMS_TCP_PORT

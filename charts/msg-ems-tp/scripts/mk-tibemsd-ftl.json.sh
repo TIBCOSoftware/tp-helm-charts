@@ -19,9 +19,29 @@ pstoreData="/data"
 # /opt/tibco/ems/current-version/bin/tibemsjson2ftl -url "http://localhost:$ftlport" -json $initTibemsdJson
 export insideSvcHostPort="${svcname}.${namespace}.svc:${emsTcpPort}"
 export insideActiveHostPort="${svcname}active.${namespace}.svc:${emsTcpPort}"
+
+# GET EMS ADMIN LIST
+adminList=""
+if [ -n "$EMS_CP_OWNER" ] ; then 
+    # adminList="$adminList"' {"name":"dmiller@tibco.com"},'
+    # adminList="$adminList"' {"name":"bhorst@tibco.com"},'
+    adminList="$adminList"' {"name":"'$EMS_CP_OWNER'"},'
+    msgGemsGrp='{"description":"CP Users with admin priviledges","members":[{"name":"'$EMS_CP_OWNER'"}],"name":"msg-gems-admin"},'
+fi
+if [ -n "$EMS_ADMIN_USER" ] ; then 
+    adminList="$adminList"' {"name":"'$EMS_ADMIN_USER'"},'
+    tibAdminUser='{ "description":"Tibco DP Admin credentials", "name":"'$EMS_ADMIN_USER'", "password":"'$EMS_ADMIN_PASSWORD'" },'
+fi
+
 cat - <<EOF > $outfile
 {
-  "acls":[],
+  "acls": [
+    {
+      "type": "admin",
+      "group": "msg-gems-admin",
+      "all": true
+    }
+  ],
   "bridges":[],
   "channels":[],
   "durables":[],
@@ -76,9 +96,11 @@ cat - <<EOF > $outfile
     }
   ],
   "groups":[
+    $msgGemsGrp
     {
       "description":"Administrators",
       "members":[
+        $adminList
         {
           "name":"admin"
         }
@@ -112,6 +134,10 @@ cat - <<EOF > $outfile
           }
         ],
   "tibemsd":{
+    "user_auth": "local,oauth2",
+    "oauth2_server_validation_key": "/data/boot/cp-oauth2.jwks.json",
+    "oauth2_user_claim": "email",
+    "oauth2_group_claim": "rolX",
     "always_exit_on_disk_error":true,
     "authorization":false,
     "console_trace": "DEFAULT,+CONNECT",
@@ -161,6 +187,7 @@ cat - <<EOF > $outfile
       "name":"admin",
       "password":null
     },
+    $tibAdminUser
     {
       "description":"server-user",
       "name":"$srvBase",

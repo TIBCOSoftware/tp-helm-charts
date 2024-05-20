@@ -8,11 +8,18 @@ global:
   cp:
     dataplaneId:
     instanceId:
+    enableClusterScopedPerm: true
+    logging:
+      fluentbit:
+        enabled: true
 
-dp:
+dp: {}
   # CAUTION:  Values set here will override .global.cp.*
   # See _dp.helpers.tpl to set defaults
   #
+cp:
+  jwks:
+  adminUser: no-cp-admin
 
 ems:
   stores: ftl

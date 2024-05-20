@@ -1,0 +1,310 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+{{- if .Values.components.broker }}
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+  namespace: {{ template "pulsar.namespace" . }}
+  annotations:
+    {{ include "msg.dp.mon.annotations" . | indent 4 }}
+    platform.tibco.com/quorum-min: "1"
+    platform.tibco.com/quorum-strategy: "active-active"
+    platform.tibco.com/is-in-quorum: "http://localhost:8080/admin/v2/brokers/health"
+  labels:
+    tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+    app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+    # DEBUG: app.kubernetes.io/name: "broker"
+    {{- include "pulsar.standardLabels" . | nindent 4 }}
+    component: {{ .Values.broker.component }}
+spec:
+  serviceName: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+  {{- if not .Values.broker.autoscaling.enabled }}
+  replicas: {{ .Values.broker.replicaCount | default (include "apd.sts.replicas" (dict "comp" "broker" "param" $apdParams ))}}
+  {{- end }}
+  selector:
+    matchLabels:
+      tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+      {{- include "pulsar.matchLabels" . | nindent 6 }}
+      component: {{ .Values.broker.component }}
+  updateStrategy:
+    type: OnDelete
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+        app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+        # DEBUG: app.kubernetes.io/name: "broker"
+        {{- include "pulsar.template.labels" . | nindent 8 }}
+        component: {{ .Values.broker.component }}
+        prometheus.io/scrape: "true"
+        platform.tibco.com/scrape_finops: "true"
+        platform.tibco.com/scrape_o11y: "true"
+{{- include "apd.sts.size.labels" (dict "comp" "broker" "param" $apdParams ) | nindent 8 }}
+      annotations:
+        {{ include "msg.dp.mon.annotations" . | indent 8 }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.broker.ports.http }}"
+        prometheus.io/path: /metrics/
+        prometheus.io/scheme: "http"
+        prometheus.io/insecure_skip_verify: "true"
+        {{- if .Values.broker.restartPodsOnConfigMapChange }}
+        checksum/config: {{ include (print $.Template.BasePath "/broker-configmap.yaml") . | sha256sum }}
+        {{- end }}
+{{- with .Values.broker.annotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: "{{ $apdParams.apd.broker.serviceAccount }}"
+      {{ include "msg.dp.security.pod" $apdParams | nindent 6 }}
+      nodeSelector:
+        kubernetes.io/os: linux
+    {{- if .Values.broker.nodeSelector }}
+{{ toYaml .Values.broker.nodeSelector | indent 8 }}
+    {{- end }}
+    {{- if .Values.broker.tolerations }}
+      tolerations:
+{{ toYaml .Values.broker.tolerations | indent 8 }}
+    {{- end }}
+      topologySpreadConstraints:
+{{ include "msg.node.skew" (dict "params" $apdParams.apd "comp" .Values.broker.component ) | indent 8}}
+{{ include "msg.zone.skew" (dict "params" $apdParams.apd "comp" .Values.broker.component ) | indent 8}}
+      terminationGracePeriodSeconds: {{ .Values.broker.gracePeriod }}
+      initContainers:
+      # This init container will wait for zookeeper to be ready before
+      # deploying the bookies
+      - name: wait-zookeeper-ready
+        image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
+        imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        command: ["bash", "-c"]
+        args:
+          - >-
+            {{- include "pulsar.broker.zookeeper.tls.settings" . | nindent 12 }}
+            {{- if .Values.pulsar_metadata.configurationStore }}
+            until bin/bookkeeper org.apache.zookeeper.ZooKeeperMain -server {{ template "pulsar.configurationStore.connect" . }} get {{ .Values.configurationStoreMetadataPrefix }}/admin/clusters/{{ template "pulsar.cluster.name" . }}; do
+            {{- end }}
+            {{- if not .Values.pulsar_metadata.configurationStore }}
+            until bin/bookkeeper org.apache.zookeeper.ZooKeeperMain -server {{ template "pulsar.zookeeper.connect" . }} get {{ .Values.metadataPrefix }}/admin/clusters/{{ template "pulsar.cluster.name" . }}; do
+            {{- end }}
+              echo "pulsar cluster {{ template "pulsar.cluster.name" . }} isn't initialized yet ... check in 3 seconds ..." && sleep 3;
+            done;
+        volumeMounts:
+        - mountPath: /boot
+          {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 10 }}
+        {{- include "pulsar.broker.certs.volumeMounts" . | nindent 8 }}
+      # This init container will wait for bookkeeper to be ready before
+      # deploying the broker
+      - name: wait-bookkeeper-ready
+        image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
+        imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        command: ["bash", "-c"]
+        args:
+          - >
+            {{- include "pulsar.broker.zookeeper.tls.settings" . | nindent 12 }}
+            bin/apply-config-from-env.py conf/bookkeeper.conf;
+            until bin/bookkeeper shell whatisinstanceid; do
+              echo "bookkeeper cluster is not initialized yet. backoff for 3 seconds ...";
+              sleep 3;
+            done;
+            echo "bookkeeper cluster is already initialized";
+            bookieServiceNumber="$(nslookup -timeout=10 {{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }} | grep Name | wc -l)";
+            until [ ${bookieServiceNumber} -ge {{ .Values.broker.configData.managedLedgerDefaultEnsembleSize }} ]; do
+              echo "bookkeeper cluster {{ template "pulsar.cluster.name" . }} isn't ready yet ... check in 10 seconds ...";
+              sleep 10;
+              bookieServiceNumber="$(nslookup -timeout=10 {{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }} | grep Name | wc -l)";
+            done;
+            echo "bookkeeper cluster is ready";
+        env:
+        - name: STS_NAME
+          value: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+        - name: POD_DISK_MON
+          value: "/pulsar/data,/pulsar/logs"
+        envFrom:
+          - configMapRef:
+              name: "{{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }}"
+        volumeMounts:
+        {{- include "pulsar.broker.certs.volumeMounts" . | nindent 10 }}
+      containers:
+      - name: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+        image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
+        imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        {{- if .Values.broker.probe.liveness.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /status.html
+            port: {{ .Values.broker.ports.http }}
+          initialDelaySeconds: {{ .Values.broker.probe.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.broker.probe.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.broker.probe.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.broker.probe.liveness.failureThreshold }}
+        {{- end }}
+        {{- if .Values.broker.probe.readiness.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /status.html
+            port: {{ .Values.broker.ports.http }}
+          initialDelaySeconds: {{ .Values.broker.probe.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.broker.probe.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.broker.probe.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.broker.probe.readiness.failureThreshold }}
+        {{- end }}
+        {{- if .Values.broker.probe.startup.enabled }}
+        startupProbe:
+          httpGet:
+            path: /status.html
+            port: {{ .Values.broker.ports.http }}
+          initialDelaySeconds: {{ .Values.broker.probe.startup.initialDelaySeconds }}
+          periodSeconds: {{ .Values.broker.probe.startup.periodSeconds }}
+          timeoutSeconds: {{ .Values.broker.probe.startup.timeoutSeconds }}
+          failureThreshold: {{ .Values.broker.probe.startup.failureThreshold }}
+        {{- end }}
+      {{- if .Values.broker.resources }}
+        resources:
+{{ toYaml .Values.broker.resources | indent 10 }}
+      {{- else }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "broker" "param" $apdParams ) | nindent 10 }}
+      {{- end }}
+        command: ["bash", "-c"]
+        args:
+        - >
+          source /boot/pulsar-setup.bash /pulsar/bin/pulsar broker ;
+        {{- if .Values.broker.additionalCommand }}
+          {{ .Values.broker.additionalCommand }}
+        {{- end }}
+          bin/apply-config-from-env.py conf/broker.conf;
+          bin/gen-yml-from-env.py conf/functions_worker.yml;
+          echo "OK" > status;
+          {{- include "pulsar.broker.zookeeper.tls.settings" . | nindent 10 }}
+          bin/pulsar zookeeper-shell -server {{ template "pulsar.zookeeper.connect" . }} get {{ template "pulsar.broker.znode" . }};
+          while [ $? -eq 0 ]; do
+            echo "broker {{ template "pulsar.broker.hostname" . }} znode still exists ... check in 10 seconds ...";
+            sleep 10;
+            bin/pulsar zookeeper-shell -server {{ template "pulsar.zookeeper.connect" . }} get {{ template "pulsar.broker.znode" . }};
+          done;
+          cat conf/pulsar_env.sh;
+          OPTS="${OPTS} -Dlog4j2.formatMsgNoLookups=true" exec /usr/local/watchdog/bin/watchdog
+        ports:
+        # prometheus needs to access /metrics endpoint
+        - name: http
+          containerPort: {{ .Values.broker.ports.http }}
+        {{- if or (not .Values.tls.enabled) (not .Values.tls.broker.enabled) }}
+        - name: "{{ .Values.tcpPrefix }}pulsar"
+          containerPort: {{ .Values.broker.ports.pulsar }}
+        {{- end }}
+        {{- if and .Values.tls.enabled .Values.tls.broker.enabled }}
+        - name: https
+          containerPort: {{ .Values.broker.ports.https }}
+        - name: "{{ .Values.tlsPrefix }}pulsarssl"
+          containerPort: {{ .Values.broker.ports.pulsarssl }}
+        {{- end }}
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
+        - name: STS_NAME
+          value: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+        - name: POD_DISK_MON
+          value: "/pulsar/data,/pulsar/logs"
+        - name: PULSAR_LOG_FILE
+          value: $(MY_POD_NAME).log
+        - name: PULSAR_LOG_DIR
+          value: /pulsar/logs
+        - name: PULSAR_LOG_APPENDER
+          value: Console
+{{- if .Values.broker.extreEnvs }}
+{{ toYaml .Values.broker.extreEnvs | indent 8 }}
+{{- end }}
+        envFrom:
+        - configMapRef:
+            name: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
+        volumeMounts:
+          - mountPath: /boot
+            {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 12 }}
+          - mountPath: /pulsar/logs
+            {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 12 }}
+          - mountPath: /pulsar/conf
+            {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 12 }}
+          - mountPath: /pulsar/conf/log4j2.yaml
+            {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 12 }}
+          {{- if .Values.auth.authentication.enabled }}
+          {{- if eq .Values.auth.authentication.provider "jwt" }}
+          - mountPath: "/pulsar/keys"
+            name: token-keys
+            readOnly: true
+          - mountPath: "/pulsar/tokens"
+            name: broker-token
+            readOnly: true
+          {{- end }}
+          {{- end }}
+          {{- if .Values.broker.extraVolumeMounts }}
+{{ toYaml .Values.broker.extraVolumeMounts | indent 10 }}
+          {{- end }}
+          {{- include "pulsar.broker.certs.volumeMounts" . | nindent 10 }}
+      volumes:
+      {{ include "msg.pv.vol.def" $apdParams.apd.boot | nindent 6 }}
+        {{- if eq "use-pulsar-data" $apdParams.apd.logs.storageType }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.msgData | nindent 6 }}
+        {{- else }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
+        {{- end }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{- if .Values.broker.extraVolumes }}
+{{ toYaml .Values.broker.extraVolumes | indent 6 }}
+      {{- end }}
+      {{- if .Values.auth.authentication.enabled }}
+      {{- if eq .Values.auth.authentication.provider "jwt" }}
+      - name: token-keys
+        secret:
+          {{- if not .Values.auth.authentication.jwt.usingSecretKey }}
+          secretName: "{{ .Release.Name }}-token-asymmetric-key"
+          {{- end}}
+          {{- if .Values.auth.authentication.jwt.usingSecretKey }}
+          secretName: "{{ .Release.Name }}-token-symmetric-key"
+          {{- end}}
+          items:
+            {{- if .Values.auth.authentication.jwt.usingSecretKey }}
+            - key: SECRETKEY
+              path: token/secret.key
+            {{- else }}
+            - key: PUBLICKEY
+              path: token/public.key
+            {{- end}}
+      - name: broker-token
+        secret:
+          secretName: "{{ .Release.Name }}-token-{{ .Values.auth.superUsers.broker }}"
+          items:
+            - key: TOKEN
+              path: broker/token
+      {{- end}}
+      {{- end}}
+      {{- include "pulsar.broker.certs.volumes" . | nindent 6 }}
+      {{- include "pulsar.imagePullSecrets" . | nindent 6}}
+  volumeClaimTemplates:
+        {{- if eq "use-pulsar-data" $apdParams.apd.logs.storageType }}
+  {{ include "msg.pv.vol.vct" $apdParams.apd.msgData | nindent 2 }}
+        {{- else }}
+  {{ include "msg.pv.vol.vct" $apdParams.apd.logs | nindent 2 }}
+        {{- end }}
+{{- end }}
