@@ -1,0 +1,121 @@
+{{/*
+    Copyright © 2024. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{/* all cluster roles are created at once during the deployment of the chart in primary namespace */}}
+{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-ha-proxy-cluster-scope
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+    platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
+rules:
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingressclasses"]
+  verbs: ["list"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["list"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list"]
+{{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-ha-proxy
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - pods
+  - services
+  - events
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "extensions"
+  - "networking.k8s.io"
+  resources:
+  - ingresses
+  - ingresses/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "extensions"
+  - "networking.k8s.io"
+  resources:
+  - ingresses/status
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.haproxy.org
+  resources:
+     - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ingress.v1.haproxy.org
+  - ingress.v1.haproxy.com
+  resources:
+    - "*"
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-ha-proxy
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-ha-proxy
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}

@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: "/tibco/agent/infra/provisioner-agent/(.*) /\\1"
+    "helm.sh/hook": post-install, post-upgrade # using post install hooks to create ingress rule. the post-upgrade hook is debatable as this would the ingress rule gets recreated in each upgrade.
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80

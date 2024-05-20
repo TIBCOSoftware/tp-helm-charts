@@ -1,0 +1,38 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositerolepolicyattachment.iam.platform.tibco.com
+  labels:
+    provider: provider-aws-attachment
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: iam.platform.tibco.com/v1alpha1
+    kind: CompositeRolePolicyAttachment
+  resources:
+    - name: rolePolicyAttachment
+      base:
+        apiVersion: iam.aws.crossplane.io/v1beta1
+        kind: RolePolicyAttachment
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            roleNameSelector:
+              matchLabels:
+                role-reference: ""
+      patches:
+        - fromFieldPath: "spec.parameters.roleReference"
+          toFieldPath: "spec.forProvider.roleNameSelector.matchLabels.role-reference"
+        - fromFieldPath: "spec.parameters.policyArn"
+          toFieldPath: "spec.forProvider.policyArn"
+        - fromFieldPath: "spec.parameters.policyReference"
+          toFieldPath: "spec.forProvider.policyArnSelector.matchLabels.policy-reference"

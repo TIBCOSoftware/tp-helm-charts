@@ -1,0 +1,71 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.redis }}
+{{- if eq .Values.redis.create true }}
+apiVersion: cache.platform.tibco.com/v1alpha1
+kind: TibcoReplicationGroup
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-redis
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" . }}
+    vpcId: {{ include "claims.net-vpc-identifier" . }}  
+    nodeCIDR: {{ include "claims.net-node-cidr" . }}
+    subnetIds:
+    {{- $privateSubnets := (include "claims.net-private-subnets" .) }}
+    {{- range (split "\n" $privateSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    prefix: {{ .Values.commonResourcePrefix }}
+    {{- with .Values.redis }}
+    {{- $mandatory_params := .mandatoryConfigurationParameters }}
+    {{- /* mandatory parameters */ -}}
+    {{- toYaml .mandatoryConfigurationParameters | nindent 4 }}
+    {{- /* additional parameters */ -}}
+    {{- if .additionalConfigurationParameters }}
+    {{- with .additionalConfigurationParameters }}
+    applyModificationsImmediately: {{ .applyModificationsImmediately }}
+    atRestEncryptionEnabled: {{ .atRestEncryptionEnabled }}
+    authEnabled: {{ .authEnabled }}
+    {{- if eq .multiAZEnabled true }}
+    automaticFailoverEnabled: true
+    {{- end }}
+    engine: {{ .engine }}
+    multiAZEnabled: {{ .multiAZEnabled }}
+    numNodeGroups: {{ .numNodeGroups }}
+    replicasPerNodeGroup: {{ .replicasPerNodeGroup }}
+    {{- if .restoreFrom }}
+    {{- with .restoreFrom }}
+    snapshotName: {{ .snapshotName }}
+    {{- end }}
+    {{- end }}
+    transitEncryptionEnabled: {{ .transitEncryptionEnabled }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if or .Values.commonTags .Values.redis.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.redis.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-redis"
+  writeConnectionSecretToRef:
+    name: {{ .Values.redis.connectionDetailsSecret }}
+{{- end }}
+{{- end }}

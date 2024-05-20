@@ -1,0 +1,60 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositeroles.iam.platform.tibco.com
+  labels:
+    provider: provider-aws-role
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: iam.platform.tibco.com/v1alpha1
+    kind: CompositeRole
+  patchSets:
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: role
+      base:
+        apiVersion: iam.aws.crossplane.io/v1beta1
+        kind: Role
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            assumeRolePolicyDocument: "" # patched
+            description: "AWS IAM Role"
+            tags: [] # patched
+      patches:
+        - fromFieldPath: "spec.parameters.assumeRolePolicyDocument"
+          toFieldPath: "spec.forProvider.assumeRolePolicyDocument"
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "metadata.labels['role-reference']"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-role"
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.description"
+          transforms:
+            - type: string
+              string:
+                fmt: "IAM Role for prefix %s"
+        - type: ToCompositeFieldPath
+          fromFieldPath: "status.atProvider.arn"
+          toFieldPath: "status.role.arn"
+      connectionDetails:
+        - type: FromFieldPath
+          name: role_arn
+          fromFieldPath: status.atProvider.arn

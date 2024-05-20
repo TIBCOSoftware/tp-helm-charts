@@ -1,0 +1,46 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositeemailidentity.ses.platform.tibco.com
+  labels:
+    provider: provider-aws-ses
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: ses.platform.tibco.com/v1alpha1
+    kind: CompositeEmailIdentity
+  patchSets:
+    - name: RegionParameter
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: emailIdentity
+      base:
+        apiVersion: sesv2.aws.crossplane.io/v1alpha1
+        kind: EmailIdentity
+        spec:
+          deletionPolicy: Delete
+          forProvider:
+            region: "" # patched
+            emailIdentity: "" # patched
+          providerConfigRef:
+            name: aws-provider-config
+      patches:
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.emailIdentity"
+          toFieldPath: "spec.forProvider.emailIdentity"

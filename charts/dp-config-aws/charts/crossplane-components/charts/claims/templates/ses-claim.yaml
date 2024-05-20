@@ -1,0 +1,41 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.ses }}
+{{- if eq .Values.ses.create true }}
+apiVersion: ses.platform.tibco.com/v1alpha1
+kind: TibcoEmailIdentity
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-ses
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-ses
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" . }}
+    {{ with .Values.ses.mandatoryConfigurationParameters }}
+    {{- /* mandatory parameters */ -}}
+    emailIdentity: {{ .emailIdentity }}
+    {{- end }}
+    {{- if or .Values.commonTags .Values.ses.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.ses.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-ses"
+  writeConnectionSecretToRef:
+    name: {{ .Values.ses.connectionDetailsSecret }}
+{{- end }}
+{{- end }}

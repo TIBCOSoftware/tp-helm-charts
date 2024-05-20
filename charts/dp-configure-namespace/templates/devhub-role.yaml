@@ -1,0 +1,47 @@
+{{/*
+    Copyright © 2024. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.rbac.devHub}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-devhub
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["statefulsets", "deployments"]
+  verbs: ["create", "delete", "get", "update", "patch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "update", "create", "delete"]
+- apiGroups: [""]
+  resources: ["configmaps", "services", "secrets"]
+  verbs: ["create", "delete", "get", "update"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["create", "delete", "get", "update", "list"]
+
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-devhub
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-devhub
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
+
+{{- end -}}

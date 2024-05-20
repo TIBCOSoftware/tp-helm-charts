@@ -1,0 +1,145 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositeefssc.filesystem.platform.tibco.com
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  group: filesystem.platform.tibco.com
+  names:
+    kind: CompositeEFSSC
+    plural: compositeefssc
+    singular: compositeefssc
+  claimNames:
+    kind: TibcoEFSSC
+    plural: tibcoefssc
+  connectionSecretKeys:
+    - efs_id
+    - efs_arn
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          description: Tibco XRD for AWS EFS and storage class
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    encrypted: 
+                      type: boolean
+                      default: false
+                    kmsKeyId:
+                      type: string
+                    performanceMode: 
+                      type: string
+                    region:
+                      type: string
+                    throughputMode: 
+                      type: string
+                    vpcId:
+                      type: string
+                    nodeCIDR:
+                      type: string
+                    subnetIds:
+                      type: array
+                      # items is required for array type
+                      items:
+                        type: string
+                    prefix:
+                      type: string
+                    provisionedThroughputInMibps:
+                      type: integer
+                    tags:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value: 
+                            type: string
+                      required:
+                        - key
+                        - value
+                    storageClassName:
+                      type: string
+                    mountOptions:
+                      type: array
+                      # items is required for array type
+                      items:
+                        type: string
+                    parameterOptions:
+                      type: object
+                      properties:
+                        provisioningMode:
+                          type: string
+                          default: "efs-ap"
+                        directoryPerms:
+                          type: string
+                          default: "700"
+                        fileSystemId:
+                          type: string
+                        basePath:
+                          type: string
+                        subPathPattern:
+                          type: string
+                        ensureUniqueDirectory:
+                          type: string
+                        gidRangeStart:
+                          type: string
+                        gidRangeEnd:
+                          type: string
+                        reuseAccessPoint:
+                          type: string
+                        az:
+                          type: string
+                        uid:
+                          type: string
+                        gid:
+                          type: string
+                      required:
+                        - provisioningMode
+                        - directoryPerms
+                    allowVolumeExpansion:
+                      type: boolean
+                      default: false
+                    reclaimPolicy:
+                      type: string
+                      default: "Delete"
+                    volumeBindingMode:
+                      type: string
+                      default: "Immediate"
+                  required:
+                    - region
+                    - vpcId
+                    - nodeCIDR
+                    - subnetIds
+                    - prefix
+                    - performanceMode
+                    - throughputMode
+                    - storageClassName
+                    - parameterOptions
+              required:
+                - parameters
+            status:
+              description: AccessPointStatus defines the observed state of AccessPoint.
+              type: object
+              properties:
+                atProvider:
+                  description: Freeform field containing information about the efs filesystem configured by this Controller.
+                  type: object
+                  properties:
+                    fileSystemID:
+                      type: string

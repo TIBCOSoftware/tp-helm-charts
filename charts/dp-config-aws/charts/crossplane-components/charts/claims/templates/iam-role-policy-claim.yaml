@@ -1,0 +1,138 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.iam }}
+{{- if eq .Values.iam.create true }}
+apiVersion: iam.platform.tibco.com/v1alpha1
+{{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true }}
+kind: TibcoRoleSA
+{{- else }}
+kind: TibcoRole
+{{- end }}
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    {{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true }}
+    claim-name: {{ .Values.commonResourcePrefix }}-role-sa
+    {{- else }}
+    claim-name: {{ .Values.commonResourcePrefix }}-role
+    {{- end }}
+spec:
+  parameters:
+    prefix: {{ .Values.commonResourcePrefix }}
+    {{- with .Values.iam.mandatoryConfigurationParameters }}
+    {{- /* mandatory parameters */ -}}
+    {{- if eq .serviceAccount.create true }}
+    name: {{ .serviceAccount.name }}
+    namespace: {{ .serviceAccount.namespace }}
+    {{- end }}
+    assumeRolePolicyDocument: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Federated": "{{ include "claims.oidc-provider-arn" . }}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+              "StringEquals": {
+                "{{ include "claims.oidc-issuer-hostpath" . }}:sub": "system:serviceaccount:{{ .serviceAccount.namespace }}:{{ .serviceAccount.name }}"
+              }
+            }
+          }
+        ]
+      }
+    {{- end }}
+    {{- if or .Values.commonTags .Values.iam.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.iam.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      {{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true }}
+      provider: "provider-aws-role-sa"
+      {{- else }}
+      provider: "provider-aws-role"
+      {{- end }}
+  writeConnectionSecretToRef:
+    name: {{ .Values.iam.connectionDetailsSecret }}
+
+---
+
+{{- if .Values.iam.mandatoryConfigurationParameters.policy }}
+{{- if .Values.iam.mandatoryConfigurationParameters.policy.document }}
+apiVersion: iam.platform.tibco.com/v1alpha1
+kind: TibcoPolicy
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-policy
+spec:
+  parameters:
+    prefix: {{ .Values.commonResourcePrefix }}
+    document: |
+      {{ .Values.iam.mandatoryConfigurationParameters.policy.document | toJson }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-policy"
+
+---
+
+apiVersion: iam.platform.tibco.com/v1alpha1
+kind: TibcoRolePolicyAttachment
+metadata:
+  name: {{ $.Values.commonResourcePrefix }}-doc-attch
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "claims.labels" $ | nindent 4 }}
+    claim-name: {{ $.Values.commonResourcePrefix }}-doc-attch
+spec:
+  parameters:
+    roleReference: {{ $.Values.commonResourcePrefix }}-role
+    policyReference: {{ $.Values.commonResourcePrefix }}-policy
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-attachment"
+{{- end }}
+{{- end }}
+
+---
+
+{{- if .Values.iam.mandatoryConfigurationParameters.policy.arns }}
+{{- range $index, $policyArn := .Values.iam.mandatoryConfigurationParameters.policy.arns }}
+---
+apiVersion: iam.platform.tibco.com/v1alpha1
+kind: TibcoRolePolicyAttachment
+metadata:
+  name: {{ $.Values.commonResourcePrefix }}-arn-attch-{{ $index }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "claims.labels" $ | nindent 4 }}
+    claim-name: {{ $.Values.commonResourcePrefix }}-attachment-{{ $index }}
+spec:
+  parameters:
+    roleReference: {{ $.Values.commonResourcePrefix }}-role
+    policyArn: {{ $policyArn }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-attachment"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

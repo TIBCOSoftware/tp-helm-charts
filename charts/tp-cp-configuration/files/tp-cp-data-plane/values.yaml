@@ -1,0 +1,29 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+# Default values for tp-control-plane-subscription
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# subscriptionId, uniquely identifies each subscription
+subscriptionId: subscription-id
+
+# dataPlaneId, uniquely identifies each data plane in a subscription. 
+dataPlaneId: dp-id
+
+# namespace prefix 
+namespacePrefix: ""
+
+# control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
+# lowercase alphanumeric string of max 5 chars
+controlPlaneInstanceId: ""
+
+accessKeyHash: ""
+path: "/sub-{{ .Values.subscriptionId }}-dp-{{ .Values.dataPlaneId }}"
+
+# fqdn
+fqdn: ""

@@ -1,0 +1,121 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+## CONTEXT
+
+global:
+  tibco:
+    dataPlaneId: "abcd"
+    subscriptionId: "sub1"
+    containerRegistry:
+      url: reldocker.tibco.com
+
+  logging:
+    fluentbit:
+      enabled: true
+
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+# tibtunnel cli flags
+connect:
+  debug: true  # Enable debug logging
+  payload: false  # Display payload data in the debug logs. Requires flag 'debug'. WARNING: Payload might contain sensitive data!
+  dataChunkSize: ""  # Set the max size(in KB) of data for a single read/write operation, default is 32
+  dataAckMode: true  # Enable/disable data ack
+  remoteDebug: true  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
+  logFile: ""  # Full path to the output log file. If not specified, the logs will be printed on stdout
+
+  networkCheckUrl: "https://www.google.com"  # Url to check for network connectivity
+  infiniteRetries: false  # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
+  url: ""  # Connect Url generated from TIBCO Cloud Control plane
+  onPremHost: "cp-proxy"  # service name of on prem host
+  onPremPort: "81"  # port number of the service.
+  profile: ""  # The name of the profile to create or update
+configure:
+  profile: ""  # The name of the profile to create or update
+  accessKey: "abc"  # Specify the TIBCO AccessKey secret to be used for authenticationd
+configDir: "/etc/config/tibtunnel"  # Full path to the directory where to store the configuration file(s) (default "~/.tibtunnel")
+# Resources
+# https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources:
+  requests:
+    cpu: 500m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# no of tibtunnel pods
+replicaCount: "2"
+
+image:
+  name: tp-tibtunnel
+  pullPolicy: IfNotPresent
+  tag: 149
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+
+tolerations: {}
+
+fluentbit:
+  image:
+    registry: cr.fluentbit.io/fluent/fluent-bit
+    tag: 3.0.2
+  # Resources
+  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources:
+    requests:
+      cpu: 30m
+      memory: 20Mi
+    limits:
+      cpu: 100m
+      memory: 50Mi
+
+# probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
+provisionerAgentProbe:
+  enable: true
+  url: "http://{{ tpl .Values.connect.onPremHost . }}:{{ tpl .Values.connect.onPremPort . }}/tibco/agent/infra/provisioner-agent/version"
+  interval: 3  # interval between two probes in seconds
+  retries: 15  # retry attempts
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # This section of the configuration is for the tibtunnel.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  tibtunnel:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL

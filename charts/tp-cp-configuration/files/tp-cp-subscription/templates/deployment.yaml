@@ -1,0 +1,116 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-subscription.consts.appName" . }}
+  namespace: {{ include "tp-cp-subscription.consts.namespace" . }} 
+  labels:
+    {{- include "tp-cp-subscription.shared.labels.standard" . | nindent 4 }}
+    tibcoresourceset.cloud.tibco.com/releaseName: {{ .Release.Name }}
+    tibcoresourceset.cloud.tibco.com/releaseNamespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-subscription.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "tp-cp-subscription.shared.labels.selector" . | nindent 8 }}
+        app.cloud.tibco.com/tunnel: enabled
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
+      containers:
+        - name: hybrid-server
+          {{- if .Values.securityContext.hybridServer }}
+          securityContext:
+            {{- toYaml .Values.securityContext.hybridServer | nindent 12 }}
+          {{- end }}
+          image: {{ include "tp-cp-subscription.image.registry" .}}{{"/"}}{{ include "tp-cp-subscription.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+          - containerPort: 7778
+            name: server
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: HYBRID_SERVER_APP_NAME
+            value: hybrid-server-{{ .Values.subscriptionId }}       
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: fluentbit
+          image: {{ include "tp-cp-subscription.image.registry" .}}{{"/"}}{{ include "tp-cp-subscription.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: hybrid-server
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+      volumes:
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: config-volume
+          configMap:
+            name: hybrid-server-fluentbit-config
+{{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{ toYaml . | nindent 8 }}
+      {{- end }}
+      imagePullSecrets:
+        {{- if (include "tp-cp-subscription.container-registry.secret" .) }}
+        - name: {{ include "tp-cp-subscription.container-registry.secret" . }}
+        {{- end }}

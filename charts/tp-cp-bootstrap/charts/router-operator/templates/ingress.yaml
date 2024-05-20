@@ -1,0 +1,41 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{/* ingress object for cloud or on-premises provider */}}
+{{- if eq .Values.global.external.provider "aws" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "router-operator.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "router-operator.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    {{- include "router-operator.ingress.annotations" . | nindent 4 }}
+    {{- with .Values.global.external.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.global.external.ingress }}
+  {{- if .Values.global.external.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.global.external.ingress.ingressClassName }}
+  {{- end }}
+  {{- end }}
+  rules:
+    - host: "*.{{ .Values.global.external.dnsDomain }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "router-operator.consts.appName" . }}
+                port:
+                  number: 100
+{{- end }}
+
+---

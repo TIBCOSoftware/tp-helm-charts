@@ -1,0 +1,86 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{/* service for webhook */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hybrid-proxy.consts.webhook" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hybrid-proxy.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    app.kubernetes.io/name: {{ include "hybrid-proxy.consts.appName" . }}
+
+---
+
+{{/* cluster ip service for provider local */}}
+{{- if eq .Values.global.external.provider "local" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hybrid-proxy.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hybrid-proxy.shared.labels.standard" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "hybrid-proxy.shared.labels.selector" . | nindent 4 }}
+  ports:
+  - name: api
+    port: 88
+    protocol: TCP
+    targetPort: api
+  - name: tunnel
+    port: 105
+    protocol: TCP
+    targetPort: tunnel
+  sessionAffinity: None
+  type: ClusterIP
+{{- end }}
+
+---
+
+{{/* ingress object for cloud or on-premises provider */}}
+{{- if eq .Values.global.external.provider "aws" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hybrid-proxy.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hybrid-proxy.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    {{- include "hybrid-proxy.aws.tunnelService.annotations" . | nindent 4 }}
+    {{- with .Values.global.external.aws.tunnelService.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.global.external.aws }}
+  {{- if .Values.global.external.aws.loadBalancer }}
+  {{- if .Values.global.external.aws.tunnelService.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.global.external.aws.tunnelService.loadBalancerClass }}
+  {{- else }}
+  loadBalancerClass: service.k8s.aws/nlb
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  allocateLoadBalancerNodePorts: false
+  ports:
+  - name: tunnel
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  sessionAffinity: None
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: {{ include "hybrid-proxy.consts.appName" . }}
+{{- end }}

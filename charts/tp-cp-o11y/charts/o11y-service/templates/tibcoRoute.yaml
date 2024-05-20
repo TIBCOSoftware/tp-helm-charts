@@ -1,0 +1,47 @@
+#
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{- if .Values.tibcoRouter.create }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  labels:
+    {{- include "o11y-service.shared.labels.standard" . | nindent 4 }}
+  name: {{ include "o11y-service.consts.appName" . }}-tibcoroute
+spec:
+  serviceName: {{ include "o11y-service.consts.appName" . }}
+  endpoints:
+    - protocol: http
+      path: {{ .Values.tibcoRouter.path }}
+      port: 7820
+      internalPath: /
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          methods:
+            - GET
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: false
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "o11y-service-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+    - name: TSC_ADMIN_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "o11y-service-dnsdomain-configmap" . }}
+          key: TSC_ADMIN_DNS_DOMAIN
+{{- end }}

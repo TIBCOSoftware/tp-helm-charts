@@ -1,0 +1,46 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{- if .Values.enableWebHooks }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "hybrid-proxy.consts.webhook" . }}
+  labels:
+     {{- include "hybrid-proxy.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "hybrid-proxy.consts.webhook" . }}-tls
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: {{ include "hybrid-proxy.consts.webhook" . }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-cloud-tibco-com-v1-tibcotunnelroute
+  failurePolicy: Fail
+  admissionReviewVersions: 
+  - v1
+  sideEffects: None
+  name: vtibcotunnelroute.kb.io
+  namespaceSelector:
+    matchLabels:
+      platform.tibco.com/controlplane-instance-id: {{ .Values.global.tibco.controlPlaneInstanceId }}
+  rules:
+  - apiGroups:
+    - cloud.tibco.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - tibcotunnelroutes
+
+{{/* DON'T PLACE ANYTHING AFTER THIS */}}
+{{- end }}

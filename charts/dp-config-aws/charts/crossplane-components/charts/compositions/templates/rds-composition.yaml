@@ -1,0 +1,164 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositepostgresqlinstances.database.platform.tibco.com
+  labels:
+    provider: provider-aws-rds
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: database.platform.tibco.com/v1alpha1
+    kind: CompositePostgreSQLInstance
+  patchSets:
+    - name: RegionParameter
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: securitygroup
+      base:
+        apiVersion: ec2.aws.crossplane.io/v1beta1
+        kind: SecurityGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            region: us-west-2
+            vpcId: ""
+            groupName: "cp-rds-sg"
+            description: "Security group for RDS DB instance"
+            ingress:
+              - fromPort: ""
+                toPort: ""
+                ipProtocol: tcp
+                ipRanges:
+                  - cidrIp: ""
+            egress:
+              - fromPort: -1
+                toPort: -1
+                ipProtocol: "-1"
+                ipRanges:
+                  - cidrIp: "0.0.0.0/0"
+            tags: []
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.groupName"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-rds-sg"
+        - fromFieldPath: "spec.parameters.vpcId"
+          toFieldPath: "spec.forProvider.vpcId"
+        - fromFieldPath: "spec.parameters.nodeCIDR"
+          toFieldPath: "spec.forProvider.ingress[0].ipRanges[0].cidrIp"
+        - fromFieldPath: "spec.parameters.port"
+          toFieldPath: "spec.forProvider.ingress[0].fromPort"
+        - fromFieldPath: "spec.parameters.port"
+          toFieldPath: "spec.forProvider.ingress[0].toPort"
+    - name: dbsubnetgroup
+      base:
+        apiVersion: database.aws.crossplane.io/v1beta1
+        kind: DBSubnetGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            description: "Subnet group for RDS DB instance"
+            region: "us-west-2"
+            subnetIds: []
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.subnetIds"
+          toFieldPath: "spec.forProvider.subnetIds"
+    - name: rdsinstance
+      base:
+        apiVersion: database.aws.crossplane.io/v1beta1
+        kind: RDSInstance
+        spec:
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            dbInstanceClass: "" # patched
+            engine: "" # patched
+            # matchControllerRef to use the dbSubnetGroup from same controller
+            dbSubnetGroupNameSelector:
+              matchControllerRef: true
+            # matchControllerRef to use the vpcSecurityGroup from same controller
+            vpcSecurityGroupIDSelector:
+              matchControllerRef: true
+            copyTagsToSnapshot: true
+            autoMinorVersionUpgrade: false
+            enableIAMDatabaseAuthentication: false
+            enablePerformanceInsights: false
+          writeConnectionSecretToRef:
+            namespace: "crossplane-system"
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "metadata.uid"
+          toFieldPath: "spec.writeConnectionSecretToRef.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-postgresql"
+        - fromFieldPath: "spec.parameters.dbInstanceClass"
+          toFieldPath: "spec.forProvider.dbInstanceClass"
+        - fromFieldPath: "spec.parameters.dbName"
+          toFieldPath: "spec.forProvider.dbName"
+        - fromFieldPath: "spec.parameters.engine"
+          toFieldPath: "spec.forProvider.engine"
+        - fromFieldPath: "spec.parameters.engineVersion"
+          toFieldPath: "spec.forProvider.engineVersion"
+        - fromFieldPath: "spec.parameters.masterUsername"
+          toFieldPath: "spec.forProvider.masterUsername"
+        - fromFieldPath: "spec.parameters.port"
+          toFieldPath: "spec.forProvider.port"
+        - fromFieldPath: "spec.parameters.publiclyAccessible"
+          toFieldPath: "spec.forProvider.publiclyAccessible"
+        - fromFieldPath: "spec.parameters.allocatedStorage"
+          toFieldPath: "spec.forProvider.allocatedStorage"
+        - fromFieldPath: "spec.parameters.backupRetentionPeriod"
+          toFieldPath: "spec.forProvider.backupRetentionPeriod"
+        - fromFieldPath: "spec.parameters.caCertificateIdentifier"
+          toFieldPath: "spec.forProvider.caCertificateIdentifier"
+        - fromFieldPath: "spec.parameters.deletionProtection"
+          toFieldPath: "spec.forProvider.deletionProtection"
+        - fromFieldPath: "spec.parameters.finalDBSnapshotIdentifier"
+          toFieldPath: "spec.forProvider.finalDBSnapshotIdentifier"
+        - fromFieldPath: "spec.parameters.kmsKeyId"
+          toFieldPath: "spec.forProvider.kmsKeyId"
+        - fromFieldPath: "spec.parameters.multiAZ"
+          toFieldPath: "spec.forProvider.multiAZ"
+        - fromFieldPath: "spec.parameters.skipFinalSnapshotBeforeDeletion"
+          toFieldPath: "spec.forProvider.skipFinalSnapshotBeforeDeletion"
+        - fromFieldPath: "spec.parameters.storageEncrypted"
+          toFieldPath: "spec.forProvider.storageEncrypted"
+        - fromFieldPath: "spec.parameters.storageType"
+          toFieldPath: "spec.forProvider.storageType"
+        - fromFieldPath: "spec.parameters.restoreFrom"
+          toFieldPath: "spec.forProvider.restoreFrom"
+      connectionDetails:
+        - fromConnectionSecretKey: username
+        - fromConnectionSecretKey: password
+        - fromConnectionSecretKey: endpoint
+        - fromConnectionSecretKey: port

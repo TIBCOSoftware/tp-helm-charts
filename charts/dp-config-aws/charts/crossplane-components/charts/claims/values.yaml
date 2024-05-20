@@ -1,0 +1,161 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# To install set enable to true
+enabled: false
+
+# This string provided a unique identifier to distinguish multiple resources created using crossplane claims
+# Value must be a string of MAXIMUM 10 lowercase alphanumeric characters (starting with an alphabet) which can include 1 hyphen (-), but not end with it
+# e.g. dev-1
+commonResourcePrefix: ""
+# Set the tags (key-value pairs) which are to be added to all AWS resources created from crossplane claims
+# commonTags:
+#   cluster-name: ""
+#   owner: ""
+efs:
+  # To create EFS claim set create to true
+  create: false
+  # Secret name in the same release namespace where the efs_id and efs_arn will be stored
+  connectionDetailsSecret: ""
+  # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html are supported
+  # Mandatory configuration parameters for EFS
+  mandatoryConfigurationParameters:
+    performanceMode: "generalPurpose"
+    throughputMode: "elastic"
+  # Additional configuration parameters for EFS
+  # additionalConfigurationParameters:
+  #   encrypted: false
+  #   kmsKeyId: ""
+  #   provisionedThroughputInMibps: 10
+  storageClass:
+    # To create kubernetes storage class set create to true
+    create: false
+    # Set the name of storage class
+    name: ""
+    # See: https://github.com/kubernetes-sigs/aws-efs-csi-driver for mount options, parameters
+    mountOptions:
+      - soft
+      - timeo=300
+      - actimeo=1
+    parameters:
+      provisioningMode: efs-ap
+      directoryPerms: "700"
+      # basePath: "/data"
+      # subPathPattern: "${.PVC.namespace}/${.PVC.name}" # optional
+      # gidRangeStart: "1000" # optional
+      # gidRangeEnd: "2000" # optional
+      # ensureUniqueDirectory: "true" # optional
+    # See: https://kubernetes.io/docs/concepts/storage/storage-classes/
+    allowVolumeExpansion: false
+    reclaimPolicy: "Delete"
+    volumeBindingMode: "Immediate"
+  # Set the tags (key-value pairs) which are to be added to EFS
+  # resourceTags:
+  #   resource-name: efs
+  #   cost-center: control-plane
+
+
+postgresInstance:
+  # To create RDS PostgreSQL instance claim set create to true
+  create: false
+  # Secret name in the same release namespace where the username, password, endpoint and port will be stored
+  connectionDetailsSecret: ""
+  # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html are supported
+  # Mandatory configuration parameters for RDS PostgreSQL instance
+  mandatoryConfigurationParameters:
+    dbInstanceClass: "db.t3.small"
+    dbName: "postgres"
+    engine: "postgres"
+    engineVersion: "14.8"
+    masterUsername: "useradmin"
+    port: 5432
+    publiclyAccessible: false
+  # Additional configuration parameters for RDS PostgreSQL instance
+  # additionalConfigurationParameters:
+  #   allocatedStorage: 20
+  #   backupRetentionPeriod: 0
+  #   caCertificateIdentifier: "rds-ca-rsa2048-g1"
+  #   deletionProtection: false
+  #   finalDBSnapshotIdentifier: ""
+  #   kmsKeyId: ""
+  #   multiAZ: false
+  #   skipFinalSnapshotBeforeDeletion: true
+  #   storageEncrypted: false
+  #   storageType: gp3
+  #   restoreFrom:
+  #     source: "Snapshot"
+  #     snapshotIdentifier: ""
+  # Set the tags (key-value pairs) which are to be added to RDS DB instance
+  # resourceTags:
+  #   resource-name: postgres-instance
+  #   cost-center: control-plane
+
+ses:
+  # To create SES email identity claim set create to true
+  create: false
+  # Secret name in the same release namespace where the secret will be stored
+  connectionDetailsSecret: ""
+  # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html are supported
+  # Mandatory configuration parameters for SES email identity
+  mandatoryConfigurationParameters:
+    emailIdentity: ""
+  # Set the tags (key-value pairs) which are to be added to SES email identity
+  # resourceTags:
+  #   resource-name: email-identity
+  #   cost-center: control-plane
+
+redis:
+  # To create Redis replication group claim set create to true
+  create: false
+  # Secret name in the same release namespace where the configuration_endpoint and configuration_port will be stored
+  connectionDetailsSecret: ""
+  # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html are supported
+  # Mandatory configuration parameters for Redis replication group
+  mandatoryConfigurationParameters:
+    cacheNodeType: "cache.t4g.medium"
+    cacheParameterGroupName: "default.redis6.x"
+    engineVersion: "6.x"
+    port: 6379
+  # Additional configuration parameters for Redis replication group
+  # additionalConfigurationParameters:
+  #   applyModificationsImmediately: true
+  #   atRestEncryptionEnabled: false
+  #   authEnabled: false
+  #   engine: "redis"
+  #   multiAZEnabled: false
+  #   numNodeGroups: 1
+  #   replicasPerNodeGroup: 0
+  #   restoreFrom:
+  #     snapshotName: ""
+  #   transitEncryptionEnabled: false
+  # Set the tags (key-value pairs) which are to be added to Redis replication group
+  # resourceTags:
+  #   resource-name: redis
+  #   cost-center: control-plane
+iam:
+  # To create IAM role claim set create to true
+  create: false
+  # Secret name in the same release namespace where the role_arn will be stored
+  connectionDetailsSecret: ""
+  # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html are supported
+  # Mandatory configuration parameters for IAM role
+  mandatoryConfigurationParameters:
+    serviceAccount:
+      # To create kubernetes service account set create to true
+      create: false
+      # Set the name of service account
+      name: ""
+      # Set the namespace in which service account to be created
+      namespace: ""
+    # IAM role policy attachments are created for document and ARNs mentioned below
+    policy:
+      # Set the document json for IAM policy
+      document: {}
+      # Set the IAM policy ARNs
+      arns:
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+  # Set the tags (key-value pairs) which are to be added to IAM role
+  # resourceTags:
+  #   resource-name: iam-role
+  #   cost-center: control-plane

@@ -1,0 +1,147 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provisioner-agent
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-provisioner-agent.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-web: enable
+    spec:
+      {{ if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.tibco.serviceAccount }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
+      {{- end }}
+      containers:
+      - name: provisioner-agent
+        image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext.provisionerAgent }}
+        securityContext:
+          {{- toYaml .Values.securityContext.provisionerAgent | nindent 10 }}
+        {{- end }}
+        env:
+          - name: NAMESPACE
+            value: {{ .Release.Namespace }}
+          - name: RELEASE_NAME
+            value: {{ .Release.Name }}
+          - name: DATAPLANE_ID
+            value: {{ .Values.global.tibco.dataPlaneId }}
+          # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
+          - name: HELM_CACHE_HOME
+            value: /tmp/.cache/helm
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+        ports:
+        - containerPort: 3124
+          name: provisioner
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /version
+            port: 3124
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /version
+            port: 3124
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 10
+          periodSeconds: 10
+{{- if .Values.global.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.global.logging.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.logging.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: provisioner-agent
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: NAMESPACE
+            value: {{ .Release.Namespace }}
+          - name: RELEASE_NAME
+            value: {{ .Release.Name }}
+          - name: DATAPLANE_ID
+            value: {{ .Values.global.tibco.dataPlaneId }}
+        {{- with .Values.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}            
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if .Values.global.logging.fluentbit.enabled }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}-fluentbit-config
+{{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      imagePullSecrets:
+        {{- if .Values.global.tibco.containerRegistry.username }}{{if .Values.global.tibco.containerRegistry.password }}
+        - name: {{ .Values.global.tibco.dataPlaneId }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+        {{- end }}{{ end }}

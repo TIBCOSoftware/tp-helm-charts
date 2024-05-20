@@ -1,0 +1,116 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositereplicationgroups.cache.platform.tibco.com
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  group: cache.platform.tibco.com
+  names:
+    kind: CompositeReplicationGroup
+    plural: compositereplicationgroups
+    singular: compositereplicationgroup
+  claimNames:
+    kind: TibcoReplicationGroup
+    plural: tibcoreplicationgroups
+  connectionSecretKeys:
+    - configuration_endpoint
+    - configuration_port
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          description: Tibco XRD for AWS Redis Replication Group
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    applyModificationsImmediately: 
+                      type: boolean
+                      default: true
+                    atRestEncryptionEnabled: 
+                      type: boolean
+                      default: false
+                    authEnabled:
+                      type: boolean
+                      default: false
+                    engine:
+                      type: string
+                      default: redis
+                    multiAZEnabled: 
+                      type: boolean
+                      default: false
+                    numNodeGroups:
+                      type: integer
+                      default: 1
+                    replicasPerNodeGroup: 
+                      type: integer
+                      default: 0
+                    restoreFrom:
+                      type: object
+                      properties:
+                        snapshot:
+                          type: object
+                          properties:
+                            snapshotName:
+                              type: string
+                    region:
+                      type: string
+                    vpcId:
+                      type: string
+                    nodeCIDR:
+                      type: string
+                    subnetIds:
+                      type: array
+                      # items is required for array type
+                      items:
+                        type: string
+                    cacheNodeType:
+                      type: string
+                    cacheParameterGroupName:
+                      type: string
+                    engineVersion:
+                      type: string
+                    port:
+                      type: integer
+                    prefix:
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value: 
+                            type: string
+                      required:
+                        - key
+                        - value
+                    transitEncryptionEnabled:
+                      type: boolean
+                      default: false
+                  required:
+                    - region
+                    - vpcId
+                    - nodeCIDR
+                    - subnetIds
+                    - port
+                    - prefix
+                    - cacheNodeType
+                    - cacheParameterGroupName
+                    - engineVersion
+              required:
+                - parameters

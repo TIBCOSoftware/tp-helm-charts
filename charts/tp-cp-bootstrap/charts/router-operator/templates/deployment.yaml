@@ -1,0 +1,203 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "router-operator.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "router-operator.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.replicaCount }}
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "router-operator.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "router-operator.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        ingress.networking.platform.tibco.com/internet-access: enable
+      annotations:
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      terminationGracePeriodSeconds: 120
+    {{- if .Values.global.tibco.serviceAccount }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount | quote }}
+    {{- else }}
+      serviceAccountName: {{ include "router-operator.consts.serviceAccount" . }}
+    {{- end }}       
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      {{- $root := . }}
+      {{- range $key, $value := .Values.topologySpreadConstraints }}
+        - maxSkew: {{ $value.maxSkew }}
+          topologyKey: {{ $value.topologyKey | quote }}
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "router-operator.shared.labels.selector" $root | nindent 14 }}
+      {{- end }}
+      containers:
+      - name: router
+        image: {{ include "router-operator.image.registry" .}}{{"/"}}{{ include "router-operator.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext.router }}
+        securityContext:
+          {{- toYaml .Values.securityContext.router | nindent 10 }}
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: 8080
+          name: metrics
+        - containerPort: 9876
+          name: webhook
+        - containerPort: 88
+          name: api
+        - containerPort: 8888
+          name: redirect
+        - containerPort: 89
+          name: tibcoapps
+        - containerPort: 90
+          name: intercom
+        - containerPort: 91
+          name: ops
+        - containerPort: 98
+          name: cloudops
+        - containerPort: 302
+          name: fallback
+        - containerPort: 100
+          name: virtual
+        # make sure that the readiness returns success as fast as possible, but
+        # wait up to 5 mins
+        # see https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 88
+          failureThreshold: 120 # 120 * 5sec = 10min
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        # liveness does not start after readiness passes. Instead it starts in parallel. Use initialDelaySeconds accordingly
+        # TODO: might need revisiting in future K8s versions. See https://github.com/kubernetes/kubernetes/issues/27114
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 88
+          failureThreshold: 2
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 601 # do not start for 10min 1sec, after max wait time from readiness probe
+          periodSeconds: 10
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/bash", "-c", "sleep 60"]  # allow some time to complete in-flight API calls and to have new NLB targets become healthy
+        env:
+        - name: REAL_IP_TRUSTED_CIDRS # needed for Real-IP calculations
+          value: "{{ .Values.global.external.clusterInfo.nodeCIDR }},{{ .Values.global.external.clusterInfo.podCIDR }}"
+        - name: ENABLE_WEBHOOKS
+          value: "{{ .Values.enableWebHooks }}"
+        - name: IS_CIC2_ENV
+          value: "true"
+        - name: IS_MULTI_CLUSTER_ENV
+          value: "false"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_APP_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app.kubernetes.io/name']
+        - name: WATCH_NAMESPACE_PREFIX
+          value: {{ .Release.Namespace }}
+        - name: WATCH_NAMESPACE
+          value: "{{ .Release.Namespace }}"
+        volumeMounts:
+        - name: router-basicauth-vol
+          mountPath: /usr/router/files/current/basicauth
+{{- if .Values.enableWebHooks }}
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+{{- end }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "router-operator.image.registry" .}}{{"/"}}{{ include "router-operator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: router
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: config-volume
+          configMap:
+            name: {{ include "router-operator.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: router-basicauth-vol
+          configMap:
+            name: router-basicauth
+{{- if .Values.enableWebHooks }}
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: {{ include "router-operator.consts.webhook" . }}-tls
+{{- end }}
+      imagePullSecrets:
+        - name: {{ include "router-operator.container-registry.secret" . }}

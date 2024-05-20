@@ -1,0 +1,127 @@
+{{/*
+    Copyright © 2024. Cloud Software Group, Inc.
+    This file is subject to the license terms contained
+    in the license file that is distributed with this file.
+*/}}
+
+{{/* all cluster roles are created at once during the deployment of the chart in primary namespace */}}
+{{- if .Values.global.tibco.enableClusterScopedPerm -}}
+{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-cluster-scope
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+    platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
+rules:
+# monitoring
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["list", "watch", "get"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["list", "get"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["list", "watch", "get"]
+# observability
+- apiGroups: [""]
+  resources: ["namespaces", "events", "namespaces/status", "nodes", "nodes/spec", "nodes/stats"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"] 
+  verbs: ["list", "watch"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"] 
+  verbs: ["list", "get"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"] 
+  verbs: ["list", "watch", "get"]
+- apiGroups: ["extensions"]
+  resources: ["daemonsets"] 
+  verbs: ["list", "watch", "get"]
+# otel-finops requires services
+- apiGroups: [""]
+  resources: ["services"] 
+  verbs: ["list", "watch"]
+{{- end -}}
+{{- end }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+# required by provisioner agent
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch", "create", "delete", "patch", "update"]
+# secrets change - helm
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["list", "watch", "create", "get", "update", "delete", "patch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "delete"]
+# get services is required by cp-proxy
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch", "create", "delete", "patch", "update"]
+# required by cp-proxy
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["create"]
+# below are required by observability
+- apiGroups: [""]
+  resources: ["pods/log"] 
+  verbs: ["get"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"] 
+  verbs: ["list", "get"]
+- apiGroups: [""]
+  resources: ["pods", "pods/status", "replicationcontrollers", "replicationcontrollers/status", "resourcequotas", "services"] 
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["apps"]
+  resources: ["replicasets", "statefulsets", "deployments"] 
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["extensions"]
+  resources: ["replicasets", "deployments"] 
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "create", "delete", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}

@@ -1,0 +1,14 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: aws.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: aws-provider-config
+spec:
+  assumeRoleARN: "arn:aws:iam::{{ include "configs.cloud-account-id" . }}:role/{{ .Values.iamRoleName }}"
+  credentials:
+    source: InjectedIdentity

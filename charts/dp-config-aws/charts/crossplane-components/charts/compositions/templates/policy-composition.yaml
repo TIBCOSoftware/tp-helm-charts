@@ -1,0 +1,58 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositepolicy.iam.platform.tibco.com
+  labels:
+    provider: provider-aws-policy
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: iam.platform.tibco.com/v1alpha1
+    kind: CompositePolicy
+  patchSets:
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+  resources:
+    - name: policy
+      base:
+        apiVersion: iam.aws.crossplane.io/v1beta1
+        kind: Policy
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            name: "" # patched
+            document: "" # patched
+      patches:
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "metadata.labels['policy-reference']"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-policy"
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-policy"
+        - fromFieldPath: spec.parameters.document
+          toFieldPath: spec.forProvider.document
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.description"
+          transforms:
+            - type: string
+              string:
+                fmt: "IAM Policy for %s prefix"
+        - patchSetName: TagsParameter
+          type: PatchSet
