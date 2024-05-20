@@ -15,7 +15,7 @@ in the license file that is distributed with this file.
 
 {{/* Team we're a part of. */}}
 {{- define "tp-dp-monitor-agent.consts.team" }}tp-finops{{ end -}}
-{{- define "tp-dp-monitor-agent.consts.fluentbit.buildNumber" }}2.1.6{{ end -}}
+{{- define "tp-dp-monitor-agent.consts.fluentbit.buildNumber" }}2.2.2{{ end -}}
 
 {{- define "tp-dp-monitor-agent.const.jfrogImageRepo" }}tibco-platform-local-docker/finops{{end}}
 {{- define "tp-dp-monitor-agent.const.ecrImageRepo" }}pdp{{end}}

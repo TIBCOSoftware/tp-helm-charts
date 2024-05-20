@@ -1,0 +1,154 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "finops-prometheus.consts.appName" . }}
+  namespace: {{ include "finops-prometheus.consts.namespace" . }}
+  labels:
+    {{- include "finops-prometheus.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    {{- include "finops-prometheus.shared.labels.selector" . | nindent 4 }}
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ include "finops-prometheus.consts.appName" . }}
+  namespace: {{ include "finops-prometheus.consts.namespace" . }}
+  labels:
+    {{- include "finops-prometheus.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "finops-prometheus.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "finops-prometheus.shared.labels.standard" . | nindent 8 }}
+      annotations:
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        checksum/fluentbit-config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}    
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+        - name: {{ include "finops-prometheus.consts.appName" . }}
+          {{- if .Values.global.containerSecurityContext.finopsPrometheus }}
+          securityContext:
+            {{- toYaml .Values.global.containerSecurityContext.finopsPrometheus | nindent 12 }}
+          {{- end }}        
+          image: {{ include "finops-prometheus.image.registry" .}}{{"/"}}{{ include "finops-prometheus.image.repository" .}}{{"/tp-cp-finops-prometheus"}}:{{ include "finops-prometheus.generated.buildNumber" . }}
+          resources:
+            requests:
+              cpu: {{ .Values.finopsprometheus.resources.requests.cpu }}
+              memory: {{ .Values.finopsprometheus.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.finopsprometheus.resources.limits.cpu }}
+              memory: {{ .Values.finopsprometheus.resources.limits.memory }}
+          volumeMounts:
+            - name: config-vol
+              mountPath: /etc/prometheus/conf
+            - name: store-vol
+              mountPath: /private/finops/prometheus
+              subPath: finops/prometheus
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: "/version"
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: "/version"
+              port: 9090
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        - name: fluentbit
+          image: {{ include "finops-prometheus.image.registry" .}}{{"/"}}{{ include "finops-prometheus.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+          {{- if .Values.global.containerSecurityContext.fluentbit }}
+          securityContext:
+            {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 12 }}
+          {{- end }}  
+          resources:
+            requests:
+              cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+              memory: {{ .Values.fluentbit.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+              memory: {{ .Values.fluentbit.resources.limits.memory }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: {{ include "finops-prometheus.consts.appName" . }}
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: dockercontainerlogs
+              mountPath: /var/lib/docker/containers
+            - name: fluentbit-config
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: fluentbit-config
+          configMap:
+            name: {{ include "finops-prometheus.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: config-vol
+          configMap:
+            defaultMode: 420
+            name: {{ include "finops-prometheus.consts.appName" . }}-config
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}

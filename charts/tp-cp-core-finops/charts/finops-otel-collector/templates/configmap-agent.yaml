@@ -1,0 +1,12 @@
+{{- if and (eq .Values.mode "daemonset") (.Values.configMap.create) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "finops-otel-collector.fullname" . }}-agent
+  namespace: {{ template "finops-otel-collector.namespace" . }}
+  labels:
+    {{- include "finops-otel-collector.labels" . | nindent 4 }}
+data:
+  relay: |
+    {{- include "finops-otel-collector.daemonsetConfig" . | nindent 4 -}}
+{{- end }}

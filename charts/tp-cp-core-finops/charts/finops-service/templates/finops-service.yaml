@@ -1,0 +1,326 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+# exposes the service on targetPorts 7831 ,8831 and 9831
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "finops-service.consts.appName" . }}
+  namespace: {{ include "finops-service.consts.namespace" . }}
+  labels:
+    {{- include "finops-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 7831
+    protocol: TCP
+    targetPort: 7831
+  - name: proxy-server
+    port: 8831
+    protocol: TCP
+    targetPort: 8831
+  - name: monitor-server
+    port: 9831
+    protocol: TCP
+    targetPort: 9831
+  selector:
+    {{- include "finops-service.shared.labels.selector" . | nindent 4 }}
+---
+# Finops Service Deployment definition; this is similar to k8s Deployment
+# apart from some tibco specific specificiations,
+# this defines the resources for the pod, liveness and readiness probes
+# along with the environment variables required by the microservice
+#Deployment CR:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "finops-service.consts.appName" . }}
+  namespace: {{ include "finops-service.consts.namespace" . }}
+  labels:
+    {{- include "finops-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "finops-service.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "finops-service.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}    
+      nodeSelector:
+        kubernetes.io/os: linux
+      terminationGracePeriodSeconds: 10
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: {{ include "finops-service.consts.appName" . }}
+        {{- if .Values.global.containerSecurityContext.finopsService }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.finopsService | nindent 10 }}
+        {{- end }}        
+        image: {{ include "finops-service.image.registry" .}}{{"/"}}{{ include "finops-service.image.repository" .}}{{"/tp-cp-finops-service"}}:{{ include "finops-service.generated.buildNumber" . }}
+        resources:
+          requests:
+            cpu: {{ .Values.finopsservice.resources.requests.cpu }}
+            memory: {{ .Values.finopsservice.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.finopsservice.resources.limits.cpu }}
+            memory: {{ .Values.finopsservice.resources.limits.memory }}
+        ports:
+        - containerPort: 7831
+          name: server
+        - containerPort: 9831
+          name: proxy-server
+        - containerPort: 9831
+          name: monitor-server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9831
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9831
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: FINOPS_FOLDER
+          value: /private/finops
+        - name: LOG_LEVEL
+          value: {{ .Values.global.finops.svcloglevel }}
+        - name: FINOPS_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_FINOPS_SERVICE_HOST
+        - name: WEB_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_WEB_SERVICE_HOST
+        - name: CP_USER_SUBSCRIPTIONS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_USER_SUBSCRIPTIONS_HOST      
+        - name: SERVER_PORT
+          value: {{ include "finops-service.consts.http.serverport" . | quote }}
+        - name: MONITOR_SERVER_PORT
+          value: {{ include "finops-service.consts.http.monitorserverport" . | quote }}
+        - name: SYSTEM_INTERNAL_FINOPS_OTEL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.tp-finops-dnsdomains-configmap" . }}
+              key: SYSTEM_INTERNAL_FINOPS_OTEL_HOST
+        - name: SYSTEM_INTERNAL_FINOPS_OTEL_PORT
+          value: "4318"
+        - name: CP_USER_SUBSCRIPTION_SERVER_PORT
+          value: "8832"
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.tp-finops-dnsdomains-configmap" . }}
+              key: SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_PORT
+          value: "9681"
+        - name: FINOPS_PROMETHEUS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.tp-finops-dnsdomains-configmap" . }}
+              key: FINOPS_PROMETHEUS_HOST
+        - name: FINOPS_PROMETHEUS_PORT
+          value: "9090"
+        - name: REGION
+          valueFrom:
+              configMapKeyRef:
+                key: REGION
+                name: {{ include "finops-service.tp-env-configmap" . }}
+        # Env varaibles for Postgres DB connection
+        - name: TABLE_NAME_PREFIX
+          value: V2_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: READ_PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: READ_PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: WRITE_POSTGRES_ENDPOINT_URL
+          value: "$(PGHOST):$(PGPORT)"
+        - name: READ_POSTGRES_ENDPOINT_URL
+          value: "$(READ_PGHOST):$(READ_PGPORT)"
+        - name: PSQL_MAX_OPEN_CONNECTIONS
+          value: {{ .Values.finopsservice.psql.maxopenconnections | quote }}
+        - name: PSQL_MAX_IDLE_CONNECTIONS
+          value: {{ .Values.finopsservice.psql.maxidleconnections | quote }}
+        - name: PSQL_CONNECTION_MAX_LIFE_TIME
+          value: {{ .Values.finopsservice.psql.maxconnectionlifetime | quote }}
+        - name: POSTGRES_USERNAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_monitoringuser
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_monitoringdb
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: monitoringdb-postgres-credential
+              key: PGPASSWORD
+        - name: POSTGRES_DATABASE_DRIVER
+          value: postgres
+        - name: WRITE_POSTGRES_DATABASE_SSL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBSSLMode
+        - name: WRITE_POSTGRES_DATABASE_SSL_CERT
+          value: ""
+        - name: WRITE_POSTGRES_DATABASE_SSL_KEY
+          value: ""
+        - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBSSLRootCert
+        - name: READ_POSTGRES_DATABASE_SSL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBSSLMode
+        - name: READ_POSTGRES_DATABASE_SSL_CERT
+          value: ""
+        - name: READ_POSTGRES_DATABASE_SSL_KEY
+          value: ""
+        - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBSSLRootCert
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/finops/certificates
+          subPath: finops/certificates
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      - name: fluentbit
+        image: {{ include "finops-service.image.registry" .}}{{"/"}}{{ include "finops-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: {{ include "finops-service.consts.appName" . }}
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP                                          
+        volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: dockercontainerlogs
+              mountPath: /var/lib/docker/containers
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "finops-service.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+---
+#TibcoRoute CR:
+kind: TibcoRoute
+apiVersion: cloud.tibco.com/v1
+metadata:
+  name: {{ include "finops-service.consts.appName" . }}
+  namespace: {{ include "finops-service.consts.namespace" . }}
+spec:
+  serviceName: {{ include "finops-service.consts.appName" . }}
+  serviceNamespace: {{ include "finops-service.consts.namespace" . }}
+  env:
+    - name: CONTROL_PLANE_HOME_URL
+      valueFrom:
+        configMapKeyRef:
+          key: TSC_DNS_DOMAIN
+          name: {{ include "finops-service.tp-env-configmap" . }}
+  endpoints:
+  - path: /finops/finops-service/api/v1/proxy
+    protocol: http
+    port: 8831
+    internalPath: /api/v1/proxy
+    proxies:
+    - listener: virtual
+      config: secure
+      methods:
+      - POST
+      fqdn: ${CONTROL_PLANE_HOME_URL}

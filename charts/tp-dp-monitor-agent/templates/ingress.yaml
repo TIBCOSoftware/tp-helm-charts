@@ -9,7 +9,7 @@ metadata:
   name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
   namespace: {{ .Release.Namespace}}
   annotations:
-    ingress.kubernetes.io/rewrite-target: /
+    ingress.kubernetes.io/path-rewrite: "/tibco/agent/infra/tp-dp-monitor-agent/(.*) /\\1"
     {{- with .Values.ingress.annotations }}
     {{- tpl (toYaml .) $ | nindent 4}}
     {{- end }}
