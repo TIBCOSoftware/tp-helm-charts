@@ -38,8 +38,10 @@ spec:
       {{- else }}
       serviceAccountName: {{ include "bwprovisioner.sa" . }}
       {{- end }}
+      {{- if .Values.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           ports:
@@ -47,8 +49,10 @@ spec:
               name: server
             - containerPort: {{ .Values.publicApiService.port }}
               name: publicapiserver
+          {{- if .Values.securityContext.bwprovisioner }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext.bwprovisioner | nindent 12 }}
+          {{- end }}
           image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}bw-provisioner:{{ .Values.global.bwprovisioner.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
@@ -102,8 +106,10 @@ spec:
               value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}
             - name: SOURCE_REGISTRY
               value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}
+            - name: LOGGING_FLUENT_BIT_ENABLED
+              value: "{{ .Values.global.cp.logging.fluentbit.apps.enabled }}"
             - name: FLUENT_BIT_SIDECAR_IMAGE
-              value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}{{ .Values.global.bwprovisioner.logging.image.name }}:{{ .Values.global.bwprovisioner.logging.image.tag }}
+              value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:
@@ -128,10 +134,18 @@ spec:
                   name: {{ include "bwprovisioner.o11yservice.configmap" . }}
                   key: otel-recvservice-port
                   optional: true
-        {{- if .Values.global.bwprovisioner.logging.enabled }}
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
-          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}{{ .Values.global.bwprovisioner.logging.image.name }}:{{ .Values.global.bwprovisioner.logging.image.tag }}
+          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -148,19 +162,13 @@ spec:
             - name: CONTAINER_NAME
               value: {{ .Chart.Name }}
           volumeMounts:
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers/
             - name: podlogs
               mountPath: /var/log/pods
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
         {{- end }}
-{{- if .Values.global.bwprovisioner.logging.enabled }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
       volumes:
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers/
-            type: DirectoryOrCreate
         - name: podlogs
           hostPath:
             path: /var/log/pods

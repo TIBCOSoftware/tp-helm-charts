@@ -1,0 +1,216 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# TP iApp BW5 WebServer Deployment definition;
+# this defines the resources for the pod, liveness and readiness probes
+# along with the environment variables required by the microservice
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bw5-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw5-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bw5-webserver.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "bw5-webserver.shared.labels.standard" . | nindent 8 }}
+        egress.networking.cloud.tibco.com/internet-web: enable
+        egress.networking.cloud.tibco.com/router-intercom: enable
+        ingress.networking.cloud.tibco.com/tiblet-all: enable
+        egress.networking.cloud.tibco.com/compute-services: enable
+        egress.networking.cloud.tibco.com/hybrid-server: enable
+        egress.networking.cloud.tibco.com/monitoring-service: enable
+        egress.networking.cloud.tibco.com/hawk-service: enable
+        egress.networking.cloud.tibco.com/open-telemetry-collector: enable
+{{- if .Values.global.enableLogging }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "bw5-webserver.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "bw5-webserver.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      serviceAccountName: {{ include "bw5-webserver.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: tp-iapp-bw5-server
+        image: {{ include "bw5-webserver.image.registry" . }}{{"/"}}{{ include "bw5-webserver.bwce.image.repository" . }}{{"/"}}tp-iapp-bw5-webserver:{{ .Values.global.cic.data.BW5_WEBSERVER_IMAGE_TAG }}
+        imagePullPolicy: IfNotPresent
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+        {{- toYaml .Values.bw5webserver.resources | nindent 10 }}
+        ports:
+        - containerPort: 3001
+          name: server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/api/v1/version"
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/api/v1/version"
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
+        - name: SYSTEM_WHO
+          value: {{ include "bw5-webserver.cp-instance-id" . }}
+        - name: TP_CP_QUERYNODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: CP_INSTANCE_ID
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "bw5-webserver.cp-env-configmap" . }}
+              key: CP_INSTANCE_ID
+        - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "bw5-webserver.cp-env-configmap" . }}
+              key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: HTTP_REQUEST_TIMEOUT
+          value: "120000"
+        - name: IDLE_TIME_SECONDS
+          value: "1800"
+        - name: WEB_SERVER_LOG_ENABLED
+          value: "true"
+        # FIXME: check what it is referring to in code
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+        - name: DEPLOYMENT_REGION
+          value: {{ .Values.global.cic.data.SYSTEM_REGION }}
+{{- if eq (include "bw5-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+      - name: fluentbit
+        image: {{ include "bw5-webserver.image.registry" . }}{{"/"}}{{ include "bw5-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.fluentbit.image.name }}:{{ .Values.global.fluentbit.image.tag }}
+        {{- with $.Values.global.fluentbit.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.global.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+        {{- toYaml $.Values.fluentbit.resources | nindent 10 }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tp-iapp-bw5-server
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: REGION
+            value: {{ .Values.global.cic.data.SYSTEM_REGION }}
+{{- if .Values.global.cp }}
+{{- if .Values.global.cp.logServer }}
+{{- if .Values.global.cp.logServer.services }}
+          - name: LOG_SERVER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: username
+          - name: LOG_SERVER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: password
+{{- end }}
+{{- end }}
+{{- end }}
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: dockercontainerlogs
+            mountPath: /var/lib/docker/containers
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if eq (include "bw5-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "bw5-webserver.consts.appName" . }}-fluentbit-config
+{{- end }}
+{{- if (include "bw5-webserver.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "bw5-webserver.container-registry.secret" . }}
+{{- end }}
+
