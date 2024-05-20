@@ -1,4 +1,10 @@
-{{- if .Values.query.enabled -}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if and (eq .Values.global.cp.resources.o11y.tracesServer.kind "jaeger") (.Values.global.cp.resources.o11y.tracesServer.enabled) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

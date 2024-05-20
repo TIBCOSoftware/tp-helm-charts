@@ -1,5 +1,5 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -31,8 +31,6 @@ spec:
       - name: {{ .Values.global.cp.containerRegistry.secret }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
-      {{- else }}
-      serviceAccountName: {{ include "o11y-service.sa" . }}
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
@@ -40,6 +38,10 @@ spec:
         - name: tp-o11y-service
           image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}o11y-service:{{- .Values.global.o11yservice.image.tag | default (include "o11y-service.image.tag" .) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
           resources:
             requests:
               cpu: 100m
@@ -66,10 +68,14 @@ spec:
             - name: o11y-secrets
               readOnly: true
               mountPath: "/o11y/secrets"
-{{- if .Values.enableLogging }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluentbit
-          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -92,21 +98,15 @@ spec:
           volumeMounts:
             - name: podlogs
               mountPath: /var/log/pods
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers
             - name: config-volume
               mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
-{{- if .Values.enableLogging }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: podlogs
           hostPath:
             path: /var/log/pods
             type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
         - name: config-volume
           configMap:
             name: {{ include "o11y-service.consts.appName" . }}-fluentbit-config

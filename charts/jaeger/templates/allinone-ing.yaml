@@ -1,4 +1,10 @@
-{{- if and (.Values.allInOne.enabled) (.Values.allInOne.ingress.enabled) -}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if and (.Values.allInOne.enabled) (.Values.allInOne.ingress.enabled) -}}
 {{- $ingressSupportsIngressClassName := eq (include "common.ingress.supportsIngressClassname" .) "true" }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress

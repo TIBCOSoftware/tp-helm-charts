@@ -1,6 +1,9 @@
-# Copyright Â© 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 ---
 {{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
@@ -8,10 +11,10 @@ kind: Service
 metadata:
   {{- if .Values.pilot.enabled }}
   # when local istiod is enabled, we can't use istiod service name to reach the remote control plane
-  name: istiod-remote
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
   # when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
-  name: istiod
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:
@@ -28,5 +31,14 @@ spec:
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}
   {{- end }}
+{{- if .Values.global.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.ipFamilyPolicy }}
+{{- end }}
+{{- if .Values.global.ipFamilies }}
+  ipFamilies:
+{{- range .Values.global.ipFamilies }}
+  - {{ . }}
+{{- end }}
+{{- end }}
 ---
 {{- end }}

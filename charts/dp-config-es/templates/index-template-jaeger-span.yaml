@@ -1,7 +1,10 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 #
 {{ if .Values.index.enabled -}}
 apiVersion: es.eck.github.com/v1alpha1
@@ -26,7 +29,7 @@ spec:
           "index.mapping.nested_fields.limit": 50,
           "index.requests.cache.enable": true,
           "lifecycle": {
-            "name": {{ .Release.Name }}-jaeger-index-30d-lifecycle-policy,
+            "name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy",
             "rollover_alias": "*jaeger-span-write"
           }
         },

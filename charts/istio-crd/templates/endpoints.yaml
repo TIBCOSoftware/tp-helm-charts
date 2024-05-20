@@ -1,6 +1,9 @@
-# Copyright Â© 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 ---
 {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
 # if the remotePilotAddress is an IP addr
@@ -8,9 +11,9 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   {{- if .Values.pilot.enabled }}
-  name: istiod-remote
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
-  name: istiod
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- end }}
   namespace: {{ .Release.Namespace }}
 subsets:

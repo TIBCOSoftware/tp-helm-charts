@@ -1,3 +1,9 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
 # Default values for opentelemetry-collector.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -19,6 +25,20 @@ global:
       enabled: false
     serviceTraces:
       enabled: false
+    service:
+      pipelines:
+        logs:
+          receivers: ""
+          processors: ""
+          exporters: ""
+        metrics:
+          receivers: ""
+          processors: ""
+          exporters: ""
+        traces:
+          receivers: ""
+          processors: ""
+          exporters: ""
 
 nameOverride: ""
 fullnameOverride: ""
@@ -147,9 +167,9 @@ config:
 #    telemetry:
 #      metrics:
 #        address: ${env:MY_POD_IP}:8888
-#    extensions:
-#      - health_check
-#      - memory_ballast
+    extensions:
+      - health_check
+      - memory_ballast
 #    pipelines:
 #      logs:
 #        exporters:
@@ -237,8 +257,27 @@ clusterRole:
     # Can be used in combination with presets that create a cluster role binding.
     name: ""
 
-podSecurityContext: {}
-securityContext: {}
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 nodeSelector: {}
 tolerations: []
@@ -320,6 +359,13 @@ additionalLabels: {}
 # Host networking requested for this pod. Use the host's network namespace.
 hostNetwork: false
 
+# Adding entries to Pod /etc/hosts with HostAliases
+# https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/
+hostAliases: []
+  # - ip: "1.2.3.4"
+  #   hostnames:
+  #     - "my.host.com"
+
 # Pod DNS policy ClusterFirst, ClusterFirstWithHostNet, None, Default, None
 dnsPolicy: ""
 
@@ -334,7 +380,8 @@ revisionHistoryLimit: 10
 
 annotations: {}
 
-# List of extra sidecars to add
+# List of extra sidecars to add.
+# This also supports template content, which will eventually be converted to yaml.
 extraContainers: []
 # extraContainers:
 #   - name: test
@@ -349,6 +396,7 @@ extraContainers: []
 #         mountPath: /test
 
 # List of init container specs, e.g. for copying a binary to be executed as a lifecycle hook.
+# This also supports template content, which will eventually be converted to yaml.
 # Another usage of init containers is e.g. initializing filesystem permissions to the OTLP Collector user `10001` in case you are using persistence and the volume is producing a permission denied error for the OTLP Collector container.
 initContainers: []
 # initContainers:
@@ -503,7 +551,7 @@ podDisruptionBudget:
 #   minAvailable: 2
 #   maxUnavailable: 1
 
-# autoscaling is used only if deployment enabled
+# autoscaling is used only if mode is "deployment" or "statefulset"
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -533,6 +581,11 @@ statefulset:
   # volumeClaimTemplates for a statefulset
   volumeClaimTemplates: []
   podManagementPolicy: "Parallel"
+  # Controls if and how PVCs created by the StatefulSet are deleted. Available in Kubernetes 1.23+.
+  persistentVolumeClaimRetentionPolicy:
+    enabled: false
+    whenDeleted: Retain
+    whenScaled: Retain
 
 networkPolicy:
   enabled: false

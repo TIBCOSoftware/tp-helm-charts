@@ -1,6 +1,12 @@
-{{- if .Values.collector.enabled -}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.collector.enabled -}}
 {{- if eq .Values.storage.type "cassandra" -}}
-{{- if .Values.storage.cassandra.schemaJobEnabled -}}
+{{- if .Values.storage.cassandra.schemaJobEnabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:

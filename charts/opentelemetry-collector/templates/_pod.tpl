@@ -1,13 +1,26 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
 {{- define "opentelemetry-collector.pod" -}}
 imagePullSecrets:
 - name: {{ .Values.global.cp.containerRegistry.secret }}
 serviceAccountName: {{ include "opentelemetry-collector.serviceAccountName" . }}
 securityContext:
   {{- toYaml .Values.podSecurityContext | nindent 2 }}
+{{- with .Values.hostAliases }}
+hostAliases:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 containers:
   - name: {{ include "opentelemetry-collector.lowercase_chartname" . }}
+    {{- if .Values.command.name }}
     command:
       - /{{ .Values.command.name }}
+    {{- end }}
+    args:
       {{- if .Values.configMap.create }}
       - --config=/conf/relay.yaml
       {{- end }}
@@ -22,12 +35,12 @@ containers:
       {{- toYaml .Values.securityContext | nindent 6 }}
       {{- end }}
     {{- if .Values.image.digest }}
-    image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+    image: "{{ ternary "" (print (.Values.global).imageRegistry "/") (empty (.Values.global).imageRegistry) }}{{ .Values.image.repository }}@{{ .Values.image.digest }}"
     {{- else }}
     image: "{{ include "opentelemetry-collector.image.registry" .}}{{"/"}}{{ include "opentelemetry-collector.image.repository" .}}{{"/"}}opentelemetry-collector-contrib:{{ .Values.image.tag | default .Chart.AppVersion }}"
     {{- end }}
     imagePullPolicy: {{ .Values.image.pullPolicy }}
-    
+
     {{- $ports := include "opentelemetry-collector.podPortsConfig" . }}
     {{- if $ports }}
     ports:
@@ -47,7 +60,7 @@ containers:
       {{- end }}
       {{- if and (.Values.useGOMEMLIMIT) ((((.Values.resources).limits).memory))  }}
       - name: GOMEMLIMIT
-        value: {{ div (mul (include "opentelemetry-collector.convertMemToMib" .Values.resources.limits.memory) 80) 100 }}MiB
+        value: {{ include "opentelemetry-collector.gomemlimit" .Values.resources.limits.memory | quote }}
       {{- end }}
       {{- with .Values.extraEnvs }}
       {{- . | toYaml | nindent 6 }}
@@ -128,8 +141,8 @@ containers:
       {{- if .Values.extraVolumeMounts }}
       {{- toYaml .Values.extraVolumeMounts | nindent 6 }}
       {{- end }}
-{{- with .Values.extraContainers }}
-{{- toYaml . | nindent 2 }}
+{{- if .Values.extraContainers }}
+  {{- tpl (toYaml .Values.extraContainers) . | nindent 2 }}
 {{- end }}
 {{- if .Values.initContainers }}
 initContainers:

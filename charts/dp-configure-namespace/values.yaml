@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -11,10 +11,21 @@ global:
     # Provide the name of the service account from primary namespace
     # This will be used for dp-core-infrastrcuture, capability provisioning, application deployment
     # serviceAccount: "sa"
+    # enableClusterScopedPerm flag creates ClusterRole and ClusterRole binding in the primary namespace, disabling this will create only role and rolebinding
+    enableClusterScopedPerm: true
 
-# Use an already existing service account present in the primary namespace
-# Default value is true. Possible values are true, false
-createServiceAccount: true
+rbac:
+  # Use an already existing service account present in the primary namespace
+  # Default value is true. Possible values are true, false
+  createServiceAccount: true
+  # RBACs for different capabilities
+  # Default value is true. Possible values are true, false
+  bwce: true
+  flogo: true
+  ems: true
+  serviceMesh: true
+  pulsar: true
+  devHub: true
 
 networkPolicy:
   # Flag to enable or disable creating default network policies for a namespace

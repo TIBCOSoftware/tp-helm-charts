@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -17,7 +20,7 @@ replicaCount: "1"
 
 image:
   name: tp-cp-proxy
-  tag: 107
+  tag: 137
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -43,23 +46,58 @@ global:
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
       iat: ""  # initial access token used to generate client credentials
-
-enableLogging: true
-
-fluentbit:
-  image:
-    registry: cr.fluentbit.io/fluent/fluent-bit
-    tag: 2.1.6
-  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-  resources:
-    requests:
-      cpu: 20m
-      memory: 20Mi
-    limits:
-      cpu: 100m
-      memory: 50Mi
-
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        enabled: true
+        image:
+          registry: cr.fluentbit.io/fluent/fluent-bit
+          tag: 3.0.2
+        # Resources
+        # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 # horizontal pod autoscaler configuration to scale when the cpu and memory usage exceeds
 hpa:
   minReplicas: 1
   maxReplicas: 3
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # This section of the configuration is for the cp proxy.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  cpProxy:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL

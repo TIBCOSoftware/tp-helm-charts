@@ -1,6 +1,8 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
 
 {{if .Values.httpIngress.enabled  -}}
 kind: Ingress
@@ -17,12 +19,12 @@ spec:
   tls:
   - hosts:
     - "{{ .Values.dns.vanity }}.{{ .Values.dns.domain }}" 
-    secretName: "{{.Values.tls.certificateSecretName}}"
+    secretName: "{{.Values.tls.certificateSecretName}}-{{ .Values.httpIngress.name }}"
   rules:
     - host: "{{ .Values.dns.vanity }}.{{ .Values.dns.domain }}"
       http:
         paths:
-          - path: /
+          - path: {{ .Values.httpIngress.path }}
             pathType: Prefix
             backend:
               service:

@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 
 # Default values for dp-core-infrastructure.
 # This is a YAML-formatted file.
@@ -10,13 +13,29 @@ global:
   tibco:
     dataPlaneId: "abcd"
     subscriptionId: "sub1"
-    controlPlaneUrl: "https://account.local.cic2.pro"  # Control Plane DNS domain
+    cpHostName: "https://account.local.cic2.pro"  # Control Plane DNS domain
     serviceAccount: ""                                 # customer provided service account
     containerRegistry:
       url: "reldocker.tibco.com"
       # username: "test" # [optional] Create a imagePullSecret named <dpId> for private container registry.
       # password: "test"
       # email: "tibco-plt@cloud.com"
+  logging:
+    fluentbit:
+      enabled: true
+
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
 
 tp-tibtunnel:
   enabled: true
@@ -31,7 +50,7 @@ tp-tibtunnel:
     networkCheckUrl: "https://www.google.com"  # Url to check for network connectivity
     infiniteRetries: false  # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
     url: ""  # Connect Url generated from TIBCO Cloud Control plane
-    onPremHost: "haproxy-dp-{{ .Values.global.tibco.dataPlaneId }}.{{ .Release.Namespace }}.svc.cluster.local"  # service name of on prem host
+    onPremHost: "cpdpproxy"  # service name of on prem host
     onPremPort: "80"  # port number of the service.
   configure:
     profile: ""  # The name of the profile to create or update
@@ -39,26 +58,28 @@ tp-tibtunnel:
 
 tp-provisioner-agent:
   enabled: true
-  serviceAccount: ""
-  ingress:
-    annotations: {}
-      # nginx custom annotation example
-      # nginx.org/rewrites: "serviceName={{ include \"tp-provisioner-agent.consts.appName\" . }} rewrite=/" #https://github.com/nginxinc/kubernetes-ingress/tree/v2.4.2/examples/ingress-resources/rewrites
-    pathPrefix: /tibco/agent/infra/provisioner-agent/
-    className: "haproxy-dp-{{ .Values.global.tibco.dataPlaneId}}"
 
-haproxy-ingress:
+haproxy:
+  nameOverride: haproxy
+  fullnameOverride: cpdpproxy
   enabled: true
-  fullnameOverride: "haproxy-dp-{{ .Values.global.tibco.dataPlaneId}}"
+  rbac:
+    create: false
+  serviceAccount:
+    create: false
+    name: "{{ .Values.global.tibco.serviceAccount }}"
   controller:
-    ingressClass: "haproxy-dp-{{ .Values.global.tibco.dataPlaneId}}"
     ingressClassResource:
-      enabled: true
-      controllerClass: "{{ .Values.global.tibco.dataPlaneId }}"
+      name: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
+    ingressClass: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
+    extraArgs:
+    - --namespace-whitelist={{ .Release.Namespace }}
     service:
       type: ClusterIP
-    extraArgs:
-      watch-namespace: $(POD_NAMESPACE)
-      force-namespace-isolation: true
+      enabled: true
+    existingImagePullSecret: "{{ .Values.global.tibco.dataPlaneId }}"
+    podLabels:
+      # allow k8s api access
+      networking.platform.tibco.com/kubernetes-api: enable
 config:
   enabled: true

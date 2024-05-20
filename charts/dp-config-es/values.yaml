@@ -1,8 +1,9 @@
-#  /*
-#    Copyright © 2023. Cloud Software Group, Inc.
-#    This file is subject to the license terms contained
-#    in the license file that is distributed with this file.
-# */
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
 # name of chart
 name: dp-config-es
 # label indicating which project this pipeline belongs to (Don't change)
@@ -23,7 +24,7 @@ storage:
   name: gp3enc
   reclaimPolicy: Delete
 
-domain: ""  # dp-platform.<host-domain>
+domain: ""
 
 es:
   version: "8.9.0"
@@ -38,6 +39,7 @@ es:
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+      konghq.com/https-redirect-status-code: "302"
 
 kibana:
   version: "8.9.0"
@@ -50,6 +52,7 @@ kibana:
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+      konghq.com/https-redirect-status-code: "302"
 
 apm:
   enabled: true
@@ -63,8 +66,10 @@ apm:
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+      konghq.com/https-redirect-status-code: "302"
 
 index:
   enabled: true
+  elasticsearchUrl: ""
   patterns:
     userApps: ["user-app-*"]

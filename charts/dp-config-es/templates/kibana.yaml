@@ -1,7 +1,10 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 #
 apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
@@ -20,5 +23,8 @@ spec:
     namespace: {{ .Release.Namespace }}
   http:
     service:
+      metadata:
+        annotations:
+          konghq.com/protocol: https
       spec:
         type: ClusterIP

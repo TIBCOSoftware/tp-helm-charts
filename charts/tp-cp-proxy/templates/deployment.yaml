@@ -1,6 +1,9 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 
 apiVersion: apps/v1
 kind: Deployment
@@ -21,10 +24,18 @@ spec:
         egress.networking.platform.tibco.com/internet-web: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
+      {{ if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
       containers:
       - name: cp-proxy
         image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext.cpProxy }}
+        securityContext:
+          {{- toYaml .Values.securityContext.cpProxy | nindent 10 }}
+        {{- end }}
         env:
           - name: CLIENT_ID
             valueFrom:
@@ -51,10 +62,14 @@ spec:
         ports:
         - containerPort: 3125
           name: proxy
-{{- if .Values.enableLogging }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+        image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -74,15 +89,13 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
-        {{- with .Values.fluentbit.resources }}
+        {{- with .Values.global.cp.logging.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}    
         volumeMounts:
           - name: podlogs
             mountPath: /var/log/pods
-          - name: dockercontainerlogs
-            mountPath: /var/lib/docker/containers
           - name: config-volume
             mountPath: /fluent-bit/etc/
       volumes:
@@ -90,10 +103,6 @@ spec:
           hostPath:
             path: /var/log/pods
             type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
         - name: config-volume
           configMap:
             name: tp-cp-proxy-fluentbit-config

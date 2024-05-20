@@ -52,13 +52,14 @@ RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws
 COPY --from=builder-azure /azure /azure
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /usr/local/bin/az
 
-RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.167.0"; } && \
+RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.176.0"; } && \
     echo "EKSCTL_VERSION=${EKSCTL_VERSION}" && \
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/v${EKSCTL_VERSION}/eksctl_$(uname -s)_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/eksctl && mv /tmp/eksctl /usr/local/bin/eksctl && \
     eksctl version
 
 # copy directories
+COPY ["cp-cluster", "/home/workshop/cp-cluster/"]
 COPY ["dp-cluster", "/home/workshop/dp-cluster/"]
 COPY ["scripts", "/home/workshop/scripts/"]
 

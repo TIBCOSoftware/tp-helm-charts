@@ -1,4 +1,10 @@
-{{- if .Values.query.ingress.enabled -}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.query.ingress.enabled }}
 {{- $ingressSupportsIngressClassName := eq (include "common.ingress.supportsIngressClassname" .) "true" }}
   {{- $servicePort := .Values.query.service.port -}}
   {{- $basePath := .Values.query.basePath -}}

@@ -1,45 +1,57 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
+
 
 serviceAccount:
   create: false
   annotations: {}
   name:
 
-global:
+defaults:
+  global:
 
-  # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
-  # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any cluster configured with private docker registry.
-  imagePullSecrets: []
+    # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
+    # to use for pulling any images in pods that reference this ServiceAccount.
+    # Must be set for any cluster configured with private docker registry.
+    imagePullSecrets: []
 
-  # Used to locate istiod.
-  istioNamespace: istio-system
+    # Used to locate istiod.
+    istioNamespace: istio-system
 
-  istiod:
-    enableAnalysis: false
+    istiod:
+      enableAnalysis: false
 
-  externalIstiod: false
-  remotePilotAddress: ""
+    configValidation: true
+    externalIstiod: false
+    remotePilotAddress: ""
 
-  # Platform where Istio is deployed. Possible values are: "openshift", "gcp".
-  # An empty value means it is a vanilla Kubernetes distribution, therefore no special
-  # treatment will be considered.
-  platform: ""
+    # Platform where Istio is deployed. Possible values are: "openshift", "gcp".
+    # An empty value means it is a vanilla Kubernetes distribution, therefore no special
+    # treatment will be considered.
+    platform: ""
 
-base:
-  # Used for helm2 to add the CRDs to templates.
-  enableCRDTemplates: false
+    # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+    # This is intended only for use with external istiod.
+    ipFamilyPolicy: ""
+    ipFamilies: []
 
-  # Validation webhook configuration url
-  # For example: https://$remotePilotAddress:15017/validate
-  validationURL: ""
+    cp:
+      dataplaneId:
+  base:
+    # Used for helm2 to add the CRDs to templates.
+    enableCRDTemplates: false
 
-  # For istioctl usage to disable istio config crds in base
-  enableIstioConfigCRDs: true
+    # Validation webhook configuration url
+    # For example: https://$remotePilotAddress:15017/validate
+    validationURL: ""
 
-defaultRevision: "default"
+    # For istioctl usage to disable istio config crds in base
+    enableIstioConfigCRDs: true
 
-# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
-revision: ""
+  defaultRevision: "default"
+
+  # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+  revision: ""

@@ -16,6 +16,46 @@ created but the Memory Ballast Extension will still be removed.
 Depending on the progress made in [Issue 891](https://github.com/open-telemetry/opentelemetry-helm-charts/issues/891),
 the use of `GOMEMLIMIT` may completely replace the Memory Ballast Extension in the future.
 
+## 0.88.0 to 0.89.0
+
+> [!WARNING]  
+> Critical content demanding immediate user attention due to potential risks.
+
+As part of working towards using the [OpenTelemetry Collector Kubernetes Distro](https://github.com/open-telemetry/opentelemetry-collector-releases/tree/main/distributions/otelcol-k8s) by default, the chart now requires users to explicitly set an image repository. If you are already explicitly setting an image repository this breaking change does not affect you.
+
+If you are using a OpenTelemetry Community distribution of the Collector we recommend you use `otel/opentelemetry-collector-k8s`, but carefully review the [components included in this distribution](https://github.com/open-telemetry/opentelemetry-collector-releases/blob/main/distributions/otelcol-k8s/manifest.yaml) to make sure it includes all the components you use in your configuration. In the future this distribution will become the default image used for the chart.
+
+You can use the OpenTelemetry Collector Kubernetes Distro by adding these lines to your values.yaml:
+
+```yaml
+image:
+  repository: "otel/opentelemetry-collector-k8s"
+```
+
+If you want to stick with using the Contrib distribution, add these lines to your values.yaml:
+
+```yaml
+image:
+  repository: "otel/opentelemetry-collector-contrib"
+```
+
+For more details see [#1135](https://github.com/open-telemetry/opentelemetry-helm-charts/issues/1135).
+
+## 0.84.0 to 0.85.0
+
+The `loggingexporter` has been removed from the default configuration. Use the `debugexporter` instead.
+
+## 0.78.2 to 0.78.3
+
+[Update Health Check Extension's endpoints to use Pod IP Instead of 0.0.0.0](https://github.com/open-telemetry/opentelemetry-helm-charts/pull/1012)
+
+The [Collector's security guidelines were updated](https://github.com/open-telemetry/opentelemetry-collector/pull/6959) to include containerized environments when discussing safeguards against denial of service attacks.
+To be in compliance with the Collector's security best practices the chart has been updated to use the Collector's pod IP in place of `0.0.0.0`.
+
+The chart will continue to allow complete configuration of the Collector via the `config` field in the values.yaml.  If pod IP does not suite your needs you can use `config` to set something different.
+
+See [Security Best Practices docummentation](https://github.com/open-telemetry/opentelemetry-collector/blob/main/docs/security-best-practices.md#safeguards-against-denial-of-service-attacks) for more details.
+
 ## 0.75.1 to 0.76.0
 
 Enable the `useGOMEMLIMIT` feature flag by default. This means by default the chart now does not use the Memory Ballast Extension and any custom configuraiton applied to the Memory Ballast Extension is ignored.

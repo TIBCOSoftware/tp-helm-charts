@@ -1,4 +1,10 @@
-{{- if eq .Values.mode "statefulset" -}}
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if eq .Values.mode "statefulset" }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -17,6 +23,11 @@ spec:
   podManagementPolicy: {{ .Values.statefulset.podManagementPolicy }}
 {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+{{- end }}
+{{- if .Values.statefulset.persistentVolumeClaimRetentionPolicy.enabled }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.statefulset.persistentVolumeClaimRetentionPolicy.whenDeleted }}
+    whenScaled: {{ .Values.statefulset.persistentVolumeClaimRetentionPolicy.whenScaled }}
 {{- end }}
   selector:
     matchLabels:

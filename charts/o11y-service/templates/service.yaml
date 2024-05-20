@@ -1,5 +1,5 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -9,6 +9,10 @@ metadata:
   name: {{ include "o11y-service.consts.appName" . }}
   labels:
     {{- include "o11y-service.shared.labels.standard" . | nindent 4 }}
+    prometheus.io/scrape: "true"
+  annotations:
+    prometheus.io/path: /v1/metrics/server
+    prometheus.io/port: "{{ .Values.service.port }}"
 spec:
   ports:
     - name: server

@@ -1,18 +1,20 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+#
 
 {{ if .Values.clusterIssuer.create -}}
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: cic-cert-subscription-scope-production
+  name: cic-cert-subscription-scope-production-{{ .Values.httpIngress.name }}
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
     email: cloud@tibco.com
     privateKeySecretRef:
-      name: cic-cert-subscription-scope-production
+      name: cic-cert-subscription-scope-production-{{ .Values.httpIngress.name }}
     solvers:
       - dns01:
           azureDNS:

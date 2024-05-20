@@ -1,5 +1,5 @@
 #
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -15,7 +15,11 @@ global:
     containerRegistry:
       secret: ""
       url: reldocker.tibco.com
+    enableClusterScopedPerm: true
     environmentType: ""
+    appNamespaces:
+      - app-ns1
+      - app-ns2
     resources:
       serviceaccount:
         namespace: ""
@@ -26,10 +30,12 @@ global:
           config:
             exporter:
               services:
+                enabled: true
                 logindex:
                   endpoint: "logsServer-config-exporter-services-logindex-endpoint"
                   username: "logsServer-config-exporter-services-logindex-username"
               userapp:
+                enabled: true
                 logindex:
                   endpoint: "logsServer-config-exporter-userapp-logindex-endpoint"
                   username: "logsServer-config-exporter-userapp-logindex-username"
@@ -45,17 +51,21 @@ global:
           secret:
             exporter:
               services:
+                headers: {}
                 logindex:
                   password: "logsServer-secret-exporter-services-logindex-password"
               userapp:
+                headers: {}
                 logindex:
                   password: "logsServer-secret-exporter-userapp-logindex-password"
             proxy:
               userapp:
+                headers: {}
                 logindex:
                   password: "logsServer-secret-proxy-userapp-logindex-password"
         tracesServer:
           kind: "jaeger"
+          enabled: true
           config:
             collector:
               host: "dummy"
@@ -69,6 +79,7 @@ global:
               password: "tracesServer-secret-es-password"
         metricsServer:
           kind: "prometheus"
+          enabled: true
           config:
             exporter:
               endpoint: "metricsServer-config-exporter-endpoint"
@@ -79,6 +90,7 @@ global:
             exporter:
               token: "metricsServer-secret-exporter-token"
             proxy:
+              headers: {}
               password: "metricsServer-secret-proxy-password"
         config:
           otel:
@@ -147,6 +159,25 @@ global:
           jaeger:
             es:
               password: "pwd-jaeger-es"
+
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        enabled: true
+        image:
+          tag: 3.0.2
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
   otel:
     finops:
       exporters:
@@ -157,7 +188,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 1090
+      tag: 1721
 
 
 replicaCount: 1
@@ -176,16 +207,28 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
 
 service:
   type: ClusterIP
@@ -277,11 +320,10 @@ ingress:
           pathType: Prefix
   # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
   annotations:
-    ingress.kubernetes.io/rewrite-target: /
+    ingress.kubernetes.io/path-rewrite: "/tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/o11y-service/(.*) /\\1"
     haproxy.org/cors-enable: "true"
     haproxy.org/load-balance: leastconn
     haproxy.org/src-ip-header: X-Real-IP
-    haproxy.org/timeout-http-request: 600s
 
   tls: []
   #  - secretName: chart-example-tls
@@ -304,18 +346,12 @@ jaeger:
             pathType: Prefix
     # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
     annotations:
-      ingress.kubernetes.io/rewrite-target: /
+      ingress.kubernetes.io/path-rewrite: "/tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/(.*) /\\1"
       haproxy.org/cors-enable: "true"
       haproxy.org/load-balance: leastconn
       haproxy.org/src-ip-header: X-Real-IP
-      haproxy.org/timeout-http-request: 600s
 
     tls: []
     #  - secretName: chart-example-tls
     #    hosts:
     #      - chart-example.local
-
-enableLogging: true
-fluentbit:
-  image:
-    tag: 2.1.6
