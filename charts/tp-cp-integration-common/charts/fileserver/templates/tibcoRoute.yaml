@@ -1,0 +1,36 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.tibcoRouter.create }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  labels:
+    {{- include "fileserver.labels" . | nindent 4 }}
+  name: {{ include "fileserver.fullname" . }}-tibcoroute
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ include "fileserver.fullname" . }}
+  serviceNamespace: {{ .Release.Namespace }}
+  endpoints:
+    - protocol: http
+      path: {{ .Values.tibcoRouter.path }}
+      port: 80
+      internalPath: /
+      proxies:
+        - listener: virtual
+          config: secure #Config will change, authn is not implemented yet. So please keep it empty for testing purpose we will public the config soon.
+          methods:
+            - GET
+          fqdn: ${TSC_DNS_DOMAIN}
+          allowClientCache: true
+          allowXFrameOptions: true
+          enableRedirects: true
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+{{- end }}

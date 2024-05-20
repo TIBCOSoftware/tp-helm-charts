@@ -1,0 +1,82 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.bwStudioExtract }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bwce-utilities.fullname" $dot }}-studio-extract-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "bwce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bwce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      {{- range $studio := .Values.bwStudioImages }}
+      - name: {{ $studio.image }}-{{ randAlphaNum 5 | lower }}
+        image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: SOURCE_DOCKER_IMAGE
+          value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $studio.image }}:{{ $studio.tag }}"
+        - name: IMAGE_TEMP_DIR
+          value: "/tmp/{{ $studio.image }}/"
+        - name: SOURCE_DIRS
+          value: "{{ $studio.path }}"
+        - name: TARGET_DIRS
+          value: "/downloads/tools/{{ $studio.target_location }}"
+        - name: LOG_LEVEL
+          value: debug
+        - name: CLEAN_UP_TARGET_DIRS
+          value: "true"
+        volumeMounts:
+        - mountPath: {{ $.Values.toolsMountPath }}
+          name: store-vol
+          subPath: {{ $.Values.toolsSubPath }}
+# mount this secret only if private container registry is configured for CP.
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+        - mountPath: /tibco/containerregistry
+          name: container-registry-secret
+{{- end }}
+      {{- end }}
+      volumes:
+      - name: store-vol
+        persistentVolumeClaim:
+          claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+      - name: container-registry-secret
+        secret:
+          secretName: {{ include "bwce-utilities.container-registry.secret" $dot }}
+      imagePullSecrets:
+        - name: {{ include "bwce-utilities.container-registry.secret" $dot }}
+{{- end }}
+{{- end }}

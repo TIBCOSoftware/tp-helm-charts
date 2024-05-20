@@ -23,6 +23,34 @@ global:
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
+
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        apps:
+          enabled: true
+        enabled: true
+        image:
+          tag: 3.0.2
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
   bwprovisioner:
     serviceAccount: ""
     data:
@@ -35,13 +63,6 @@ global:
         enabled: false
         registry: ""
         tag: ""
-        resources: {}
-    logging:
-      enabled: true
-      image:
-        registry: "cr.fluentbit.io/fluent/"
-        name: "fluent-bit"
-        tag: "2.1.6"
         resources: {}
 
 replicaCount: 1
@@ -68,16 +89,29 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  # This section of the configuration is for the artifact manager.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  bwprovisioner:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
 
 service:
   type: ClusterIP
@@ -114,11 +148,10 @@ ingress:
           pathType: Prefix
   # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
   annotations:
-    ingress.kubernetes.io/rewrite-target: /
     haproxy.org/cors-enable: "true"
     haproxy.org/load-balance: leastconn
     haproxy.org/src-ip-header: X-Real-IP
-    haproxy.org/timeout-http-request: 600s
+    # haproxy.org/timeout-http-request: 600s
 
   tls: []
   #  - secretName: chart-example-tls
@@ -147,9 +180,9 @@ resources: {}
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 
@@ -199,7 +232,7 @@ config:
   #  DP_INTERNAL_URL: ""
   DP_INTERNAL_URL: "***NOT AVAILABLE***"
   ARTIFACT_MANAGER_PORT: "7813"
-  APP_INIT_IMAGE_TAG: "18"
+  APP_INIT_IMAGE_TAG: "20"
 
 oauth2proxy:
   ingress:

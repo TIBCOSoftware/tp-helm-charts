@@ -1,0 +1,13 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v2
+name: tp-cp-bwce-utilities
+version: 1.2.11
+appVersion: 1.2.0
+description: TIBCO Platform Control Plane -- BWCE Utilities
+dependencies:
+  - name: bwce-utilities
+    version: "1.2.*"
+    condition: bwce-utilities.enabled

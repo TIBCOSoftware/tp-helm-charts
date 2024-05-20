@@ -1,0 +1,79 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ $fullName := include "fileserver.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fileserver.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fileserver.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "fileserver.selectorLabels" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "fileserver.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "fileserver.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: server
+          {{- with $.Values.securityContext }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          image: {{ include "fileserver.image.registry" . }}{{"/"}}{{ include "fileserver.integration.image.repository" . }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - mountPath: /usr/share/nginx/html
+              name: shared-volume
+              subPath: {{ .Values.volumes.fileserver.subPath }}
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: {{ include "fileserver.pvc-name" . }}
+        - name: nginx-config
+          configMap:
+            name: {{ include "fileserver.fullname" . }}-serviceconfig
+{{- if (include "fileserver.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "fileserver.container-registry.secret" . }} 
+{{- end }}
+

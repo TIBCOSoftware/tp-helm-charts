@@ -1,0 +1,104 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.buildtypesExtract }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bwce-utilities.fullname" $dot }}-buildtype-extract-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "bwce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bwce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      {{- range $name, $image := .Values.images }}
+      {{- if $image.delete_image  }}
+      - name: {{ $name }}-{{ $image.tag | replace "." "-" | lower }}-delete
+        image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        command:
+          - "sh"
+          - "-c"
+          - |
+            path=/usr/share/nginx/html/{{ $image.target_location }}/{{ $image.tag }}
+            rm -rf "${path}"
+            echo "Deleted buildtype from location: $path"
+        volumeMounts:
+          - name: store-vol
+            mountPath: {{ $.Values.volumes.plugins.mountPath }}
+            subPath: {{ $.Values.volumes.plugins.subPath }}
+      {{- end }}
+      {{- if $image.extract_image  }}
+      - name: {{ $name }}-{{ randAlphaNum 5 | lower }}
+        image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+        imagePullPolicy: Always
+        {{- if $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: SOURCE_DOCKER_IMAGE
+          value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $image.tag }}"
+        - name: IMAGE_TEMP_DIR
+          value: "/tmp/{{ $name }}/"
+        - name: SOURCE_DIRS
+          value: "{{ $image.path }}"
+        - name: TARGET_DIRS
+          value: "/usr/share/nginx/html/{{ $image.target_location }}/{{ $image.tag }}"
+        - name: LOG_LEVEL
+          value: debug
+        - name: CLEAN_UP_TARGET_DIRS
+          value: "true"
+        volumeMounts:
+        - mountPath: {{ $.Values.volumes.plugins.mountPath }}
+          subPath: {{ $.Values.volumes.plugins.subPath }}
+          name: store-vol
+# mount this secret only if private container registry is configured for CP.
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+        - mountPath: /tibco/containerregistry
+          name: container-registry-secret
+{{- end }}
+      {{- end }}
+      {{- end }}
+      volumes:
+      - name: store-vol
+        persistentVolumeClaim:
+          claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+      - name: container-registry-secret
+        secret:
+          secretName: {{ include "bwce-utilities.container-registry.secret" $dot }}
+      imagePullSecrets:
+        - name: {{ include "bwce-utilities.container-registry.secret" $dot }}          
+{{- end }}
+{{- end }}

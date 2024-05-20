@@ -1,0 +1,108 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.bwStudioExtract }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bwce-utilities.fullname" . }}-post-bw-studio-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "bwce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bwce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: post-extractor
+          image: {{ include "bwce-utilities.image.registry" .}}{{"/"}}{{ include "bwce-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              cd /downloads/tools/bwce-studio
+              basePath="/downloads/tools/bwce-studio/"
+
+              # Delete old BWCE version to keep only N-2 on CP for downloads
+              if [ "${DELETE_BWSTUDIO}" = "true" ] ; then
+              echo "Deleting BWCE studio versions..."
+              if [[ "${DELETE_BWSTUDIO_VERSIONS}" != "" ]] ; then
+                echo "BWCE versions to delete :"$DELETE_BWSTUDIO_VERSIONS
+                for version in ${DELETE_BWSTUDIO_VERSIONS//,/ }
+                do
+                  echo "Deleting BWCE Version : $version from location $basePath$version"
+                  rm -rf "${basePath}""${version}"
+                done
+              else 
+                echo "No BWCE version specified for deletion.."
+              fi
+              fi
+
+              # Generate download json file for UI
+              finalStr=""
+              finalStr=$finalStr"["
+              bwceversionStr=""
+              for d in */ ; do
+                  bwceversion=$(echo "$d")
+                  bwceversionStr=$bwceversionStr"   {"
+                  bwceversionStr=$bwceversionStr"   \"Version\": \"${bwceversion%%/*}\","
+                  bwceversionStr=$bwceversionStr"   \"Platforms\": ["
+                  platformStr=""
+                  for platform in $(ls "$bwceversion") ; do
+                    installer=$(find "$bwceversion""$platform"  -name '*.zip')
+                    installer=$basePath$installer
+                    arch=${platform#*-}
+                    arch=$(echo $arch | tr 'a-z' 'A-Z')
+                    platformStr=$platformStr"     {\"Platform\": \"${platform%%-*}\",\"Architecture\": \"${arch}\",\"DownloadFolder\": \"${installer}\" },"
+                  done
+                  bwceversionStr=$bwceversionStr${platformStr%?}
+                  bwceversionStr=$bwceversionStr"    ],"
+                  bwceversionStr=$bwceversionStr"\"BuildDate\":\"$(date -u -r "$installer" "+%Y-%m-%dT%H:%M:%S%Z")\""
+                  bwceversionStr=$bwceversionStr"   },"
+              done
+              finalStr=$finalStr${bwceversionStr%?}
+              finalStr=$finalStr"]"
+
+              echo $finalStr > bwce_studio_download.json
+          env:
+          - name: DELETE_BWSTUDIO
+            value: "{{ $.Values.bwStudioDelete }}"
+          - name: DELETE_BWSTUDIO_VERSIONS
+            value: "{{ $.Values.bwStudioDeleteVersions }}"
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.toolsMountPath }}
+              subPath: {{ $.Values.toolsSubPath }}
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: {{ include "bwce-utilities.pvc-name" . }}
+{{- if (include "bwce-utilities.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "bwce-utilities.container-registry.secret" . }}
+{{- end }}
+{{- end }}
+

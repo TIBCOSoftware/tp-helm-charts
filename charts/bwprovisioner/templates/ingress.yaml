@@ -26,12 +26,13 @@ metadata:
   annotations:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
+    ingress.kubernetes.io/path-rewrite: /tibco/agent/integration/{{ .Values.global.cp.instanceId }}/bwprovisioner/(.*) /\1
     {{- with .Values.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: haproxy-dp-{{ .Values.global.cp.dataplaneId }}
+  ingressClassName: tibco-dp-{{ .Values.global.cp.dataplaneId }}
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:

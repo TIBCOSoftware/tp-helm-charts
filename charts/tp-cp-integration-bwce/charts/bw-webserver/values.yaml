@@ -1,0 +1,104 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+## CONTEXT
+
+# set to false if you want to skip deploying this chart
+enabled: true
+
+# Global section will apply to this chart and all of its subcharts.
+global:
+  cic:
+    data:
+      SYSTEM_CLUSTER_NAME: "tibco-cic"
+      SYSTEM_INSTALLATION_NAME: "tibco"
+      SYSTEM_CLUSTER_ID: "cic"
+      SYSTEM_AWS_ACCOUNT_ID: ""
+      BW_WEBSERVER_IMAGE_TAG: "261"
+  cp:
+    data:
+  external:
+    region: ""
+    environment: ""
+  # In local vagrant setup,
+  # .Values.global.enableLogging variable can be set to false to disable starting fluentbit side-car containers
+  enableLogging: true
+  
+  VALID_TIBCO_DOMAIN_LIST: .tibco.com, .cloud.tibco.com, .tcie.pro, .cic2.pro
+
+  fluentbit:
+    image:
+      name: "fluent-bit"
+      tag: "3.0.2"
+    securityContext:
+      runAsNonRoot: false
+      runAsUser: 0
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+replicaCount: 1
+
+hpa:
+  cpu: 70
+  memory: 70
+  maxReplicas: 3
+  minReplicas: 1  
+  
+  # Set this to mimic the multi-regional TSC setup. This way we do not need to deploy TSC in three different physical (AWS) regions.
+  # We can mimic multi-regions in the one region only.
+  #mimicMultiregion: true
+
+  # Optional "parent" WHO.
+  # Set this to point to the WHO that contains your onboarding chart which has the shared resources deployed.
+  # This chart will then copy the output configurations for those resources, without having to re-deploy them.
+  #primaryWho: null
+volumes:
+  bwwebserver:
+    mountPath: /usr/share/nginx/html
+    subPath: integration
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+bwwebserver:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 500m
+      memory: 4Gi
+fluentbit:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+    limits:
+      cpu: 150m
+      memory: 150Mi
+
+image:
+  registry: ""
+  repo: ""

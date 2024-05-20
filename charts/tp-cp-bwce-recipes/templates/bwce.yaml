@@ -1,0 +1,171 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dp-bwce-recipes.appName" . }}-bwce
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-bwce-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.2.0",
+      "minCPVersion": "1.2.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.1.0"
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "bwprovisioner",
+            "description": "BW Provisioner Service",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "oauth2-proxy",
+            "description": "OAuth2 Proxy",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [
+          {
+            "version": [
+              1,
+              2,
+              0
+            ],
+            "capabilityId": "INTEGRATIONCORE",
+            "capabilityType": "INFRA"
+          },
+          {
+            "version": [
+              1,
+              2,
+              0
+            ],
+            "capabilityId": "OAUTH2PROXY",
+            "capabilityType": "INFRA_SIDECAR"
+          }
+        ],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": [
+          {
+            "type": "Ingress Controller",
+            "required": true,
+            "resourceId": "INGRESS",
+            "resourceType": "PLATFORM"
+          }
+        ]
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: bwprovisioner
+          namespace: ${NAMESPACE}
+          version: "1.2.9"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  bwprovisioner:
+                    image:
+                      tag: 427
+                config:
+                  APP_INIT_IMAGE_TAG: "29"
+                publicApi:
+                  ingress:
+                    controllerName: ${INGRESS_CONTROLLER_NAME}
+                    nginx:
+                      className: ${INGRESS_CLASS_NAME}
+                      pathPrefix: ${INGRESS_PATH_PREFIX}
+                      fqdn: ${INGRESS_FQDN}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "dp-bwce-recipes.appName" . }}-bwce-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-bwce-recipes.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "dp-bwce-recipes.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: bwce
+        image: {{ include "dp-bwce-recipes.image.registry" .}}{{"/"}}{{ include "dp-bwce-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "bwce"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/platform"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.2.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.bwce.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.bwce.isLatest | quote }}          
+        volumeMounts:
+        - name: {{ include "dp-bwce-recipes.appName" .  }}-bwce-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "dp-bwce-recipes.appName" . }}-bwce-volume
+          configMap:
+            name: {{ include "dp-bwce-recipes.appName" . }}-bwce
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "dp-bwce-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "dp-bwce-recipes.pvc-name" . }}
+{{- if (include "dp-bwce-recipes.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "dp-bwce-recipes.container-registry.secret" . }}
+{{- end }}

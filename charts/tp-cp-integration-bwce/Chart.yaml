@@ -1,0 +1,13 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v2
+name: tp-cp-integration-bwce
+version: 1.2.21
+appVersion: 1.2.0
+description: TIBCO Platform Control Plane -- Integration for BWCE
+dependencies:
+  - name: bw-webserver
+    version: "1.2.*"
+    condition: bw-webserver.enabled
