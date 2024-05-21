@@ -1,0 +1,101 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}
+  namespace: {{ include "tp-hawk-infra-prometheus.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra-prometheus.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-prometheus
+  selector:
+    matchLabels:
+      {{- include "tp-hawk-infra-prometheus.shared.labels.selector" . | nindent 6 }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        {{- include "tp-hawk-infra-prometheus.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "tp-hawk-infra-prometheus.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-hawk-infra-prometheus.container-registry.secret" . }}
+      {{- end }}
+      containers:
+        - name: prometheus
+          {{- if .Values.global.containerSecurityContext.prometheus }}
+          securityContext:
+            {{- toYaml .Values.global.containerSecurityContext.prometheus | nindent 12 }}
+          {{- end }}
+          image: {{ include "tp-hawk-infra-prometheus.image.registry" .}}{{"/"}}{{ include "tp-hawk-infra-prometheus.image.repository" . }}{{"/"}}{{ .Values.images.prometheus.image.name }}:{{ include "tp-hawk-infra-prometheus.consts.buildNumber" . }}
+          imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus/'
+            - '--log.level=debug'
+          resources:
+            requests:
+              cpu: {{ .Values.prometheus.resources.requests.cpu }}
+              memory: {{ .Values.prometheus.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.prometheus.resources.limits.cpu }}
+              memory: {{ .Values.prometheus.resources.limits.memory }}
+          ports:
+            - containerPort: 9090
+              name: prometheus
+          volumeMounts:
+            - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-prom-volume
+              mountPath: /etc/prometheus/
+            - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
+              mountPath: /etc/prometheus/discovery
+              readOnly: true
+              subPath: hawk/discovery
+            - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
+              mountPath: /prometheus/
+              subPath: hawk/prometheus
+        - name: prom-discoveryservice
+          {{- if .Values.global.containerSecurityContext.prometheusds }}
+          securityContext:
+            {{- toYaml .Values.global.containerSecurityContext.prometheusds | nindent 12 }}
+          {{- end }}
+          image: {{ include "tp-hawk-infra-prometheus.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-prometheusds.image.repository" . }}{{"/"}}{{ .Values.images.prometheusds.image.name }}:{{ .Values.images.prometheusds.image.tag }}
+          imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          ports:
+            - containerPort: 9000
+              name: prometheus-ds
+          env:
+            - name: hawkconsole_target_input_file
+              value: /etc/prometheus-discovery/hawkconsoletargets.json
+            - name: rest_api_server_port
+              value: "9000"
+            - name: target_output_file
+              value: /etc/prometheus-discovery/metrictargets.json
+            - name: log_level
+              value: DEBUG
+            - name: metric_auth_token
+              valueFrom:
+                secretKeyRef:
+                  name: metric-token-query-secret
+                  key: metric_auth_token
+          volumeMounts:
+            - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
+              mountPath: /etc/prometheus-discovery
+              readOnly: false
+              subPath: hawk/discovery
+      volumes:
+        - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-hawk-infra-prometheus.pvc-name" . }}
+        - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-prom-volume
+          configMap:
+            defaultMode: 420
+            name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-prom-server-conf

@@ -1,0 +1,111 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-hawk-infra-querynode.consts.appName" . }}
+  namespace: {{ include "tp-hawk-infra-querynode.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra-querynode.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-hawk-infra-querynode.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tp-hawk-infra-querynode.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "tp-hawk-infra-querynode.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-hawk-infra-querynode.container-registry.secret" . }}
+      {{- end }}
+      containers:
+        - name: querynode
+          {{- if .Values.global.containerSecurityContext.querynode }}
+          securityContext:
+            {{- toYaml .Values.global.containerSecurityContext.querynode | nindent 12 }}
+          {{- end }}
+          image: {{ include "tp-hawk-infra-querynode.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-querynode.image.repository" . }}{{"/"}}{{ .Values.images.querynode.image.name }}:{{ .Values.images.querynode.image.tag }}
+          imagePullPolicy: {{ .Values.images.querynode.image.pullPolicy }}
+          env:
+            - name: waitForServices
+              value: prometheus-ds-service:9000,prometheus-service:9090
+            - name: unity.services.rest.host
+              value: 0.0.0.0
+            - name: unity.services.rest.port
+              value: "9681"
+            - name: JDK_JAVA_OPTIONS
+              value: -Xms1g -Xmx2g
+            - name: PROMETHEUS_SERVER_HOST
+              value: prometheus-service
+            - name: PROMETHEUS_SERVER_PORT
+              value: "9090"
+            - name: PROMETHEUS_SERVER_TLS_ENABLED
+              value: "false"
+            - name: PROMETHEUS_DISCOVERY_SERVICE_HOST
+              value: prometheus-ds-service
+            - name: PROMETHEUS_DISCOVERY_SERVICE_PORT
+              value: "9000"
+            - name: datasource_password
+              valueFrom:
+                secretKeyRef:
+                  name: rtmon-postgres-credential
+                  key: PGPASSWORD
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+                  key: DBHost
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: datasource_base_url
+              value: "jdbc:postgresql://$(PGHOST):$(PGPORT)"
+            - name: datasource_url
+              value: "jdbc:postgresql://$(PGHOST):$(PGPORT)/{{ include "tp-hawk-infra-querynode.consts.hawkDbPrefix" . }}rtmon"
+            - name: datasource_username
+              value: {{ include "tp-hawk-infra-querynode.consts.hawkDbPrefix" . }}rtmonadm
+            - name: HAWK_QUERYNODE_DATABASE_ENDPOINT_URL
+              value: "$(PGHOST):$(PGPORT)"
+            {{- if eq .Values.global.external.db_ssl_mode "verify-full" }}
+            - name: datasource_tls_cacert_file
+              value: {{ .Values.global.external.db_ssl_root_cert }}
+            - name: DATASOURCE_TLS_SKIP_HOSTNAME_VERIFICATION
+              value: "false"
+            {{- end }}
+            - name: METRIC_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: metric-token-query-secret
+                  key: metric_auth_token
+          resources:
+            requests:
+              cpu: {{ .Values.querynode.resources.requests.cpu }}
+              memory: {{ .Values.querynode.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.querynode.resources.limits.cpu }}
+              memory: {{ .Values.querynode.resources.limits.memory }}
+          ports:
+            - containerPort: 9681
+              protocol: TCP
+              name: rest-querynode
+          volumeMounts:
+            - name: store-vol
+              mountPath: /private/tsc/certificates
+              subPath: tsc/certificates
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+          claimName: {{ include "tp-hawk-infra-querynode.pvc-name" . }}
