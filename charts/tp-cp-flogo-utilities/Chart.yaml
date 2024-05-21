@@ -1,0 +1,13 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v2
+name: tp-cp-flogo-utilities
+version: 1.2.20
+appVersion: 1.2.0
+description: TIBCO Platform Control Plane -- FLOGO Utilities
+dependencies:
+  - name: flogo-utilities
+    version: "1.2.*"
+    condition: flogo-utilities.enabled

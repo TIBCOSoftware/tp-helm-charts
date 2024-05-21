@@ -23,6 +23,32 @@ global:
       serviceaccount:
         nameSpace: ""
         serviceAccountName: ""
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        enabled: true
+        apps:
+          enabled: true
+        image:
+          tag: 3.0.2
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
   flogoprovisioner:
     serviceAccount: ""
     data:
@@ -35,13 +61,6 @@ global:
         enabled: false
         registry: ""
         tag: ""
-        resources: {}
-    logging:
-      enabled: true
-      image:
-        registry: "cr.fluentbit.io/fluent/"
-        name: "fluent-bit"
-        tag: "2.1.6"
         resources: {}
 
 replicaCount: 1
@@ -68,16 +87,29 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  # This section of the configuration is for the flogo Provisioner.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  flogoprovisioner:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
 
 service:
   type: ClusterIP
@@ -88,19 +120,6 @@ publicApiService:
   type: ClusterIP
   port: 7816
   targetPort: 7816
-
-# ingress:
-#  enabled: false
-#  annotations: {}
-#    # kubernetes.io/ingress.class: nginx
-#    # kubernetes.io/tls-acme: "true"
-#  hosts:
-#    - host: chart-example.local
-#      paths: []
-#  tls: []
-#  #  - secretName: chart-example-tls
-#  #    hosts:
-#  #      - chart-example.local
 
 ingress:
   # -- Enables configuration of ingress to expose flogo provisioner. Requires ingress support in the Kubernetes cluster.
@@ -114,11 +133,10 @@ ingress:
           pathType: Prefix
   # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
   annotations:
-    ingress.kubernetes.io/rewrite-target: /
     haproxy.org/cors-enable: "true"
     haproxy.org/load-balance: leastconn
     haproxy.org/src-ip-header: X-Real-IP
-    haproxy.org/timeout-http-request: 600s
+    # haproxy.org/timeout-http-request: 600s
 
   tls: []
   #  - secretName: chart-example-tls
@@ -126,30 +144,13 @@ ingress:
   #      - chart-example.local
 
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-# resources:
-#  requests:
-#    cpu: 50m
-#    memory: 128Mi
-#  limits:
-#    cpu: "2"
-#    memory: 2048Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 
@@ -163,37 +164,6 @@ probes:
     failureThreshold: 10
     periodSeconds: 10
     timeoutSeconds: 10
-
-# -- Additional environment variables.
-extraEnvVars: []
-#  - name: NAME
-#    value: value
-
-# The name of ConfigMap containing additional environment variables.
-extraEnvVarsCM: ""
-
-# The name of Secret containing extra additional environment variables.
-extraEnvVarsSecret: ""
-
-# -- Extra volumeMounts for the integration services container.
-# More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
-extraVolumeMounts: []
-  # - name: example
-  #   mountPath: /opt/tibco/example.txt
-#   subPath: example.txt
-
-# -- Extra volumes for the integration services container.
-# More info: `kubectl explain deployment.spec.template.spec.volumes`.
-extraVolumes: []
-  # - name: example
-  #   persistentVolumeClaim:
-#     claimName: exampleClaim
-
-# -- Additional init containers to add to the automationservices pod.
-extraInitContainers: []
-  # - name: dummy-init
-  #   image: busybox
-#   command: ['echo', "hey"]
 
 config:
   #  DP_INTERNAL_URL: ""

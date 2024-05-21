@@ -1,0 +1,19 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flogo-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flogo-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: server
+      port: 3002
+      protocol: TCP
+      targetPort: 3002
+  selector:
+    {{- include "flogo-webserver.shared.labels.selector" . | nindent 4 }}

@@ -38,8 +38,10 @@ spec:
       {{- else }}
       serviceAccountName: {{ include "flogoprovisioner.sa" . }}
       {{- end }}
+      {{- if .Values.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           ports:
@@ -47,8 +49,10 @@ spec:
               name: server
             - containerPort: {{ .Values.publicApiService.port }}
               name: publicapiserver
+          {{- if .Values.securityContext.flogoprovisioner }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
           image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}flogo-provisioner:{{ .Values.global.flogoprovisioner.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
@@ -102,8 +106,10 @@ spec:
               value: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}
             - name: SOURCE_REGISTRY
               value: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}
+            - name: LOGGING_FLUENT_BIT_ENABLED
+              value: "{{ .Values.global.cp.logging.fluentbit.apps.enabled }}"
             - name: FLUENT_BIT_SIDECAR_IMAGE
-              value: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}{{ .Values.global.flogoprovisioner.logging.image.name }}:{{ .Values.global.flogoprovisioner.logging.image.tag }}
+              value: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:
@@ -128,10 +134,18 @@ spec:
                   name: {{ include "flogoprovisioner.o11yservice.configmap" . }}
                   key: otel-recvservice-port
                   optional: true
-        {{- if .Values.global.flogoprovisioner.logging.enabled }}
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
-          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}{{ .Values.global.flogoprovisioner.logging.image.name }}:{{ .Values.global.flogoprovisioner.logging.image.tag }}
+          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -148,19 +162,13 @@ spec:
             - name: CONTAINER_NAME
               value: {{ .Chart.Name }}
           volumeMounts:
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers/
             - name: podlogs
               mountPath: /var/log/pods
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
         {{- end }}
-{{- if .Values.global.flogoprovisioner.logging.enabled }}
+      {{- if .Values.global.cp.logging.fluentbit.enabled }}
       volumes:
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers/
-            type: DirectoryOrCreate
         - name: podlogs
           hostPath:
             path: /var/log/pods

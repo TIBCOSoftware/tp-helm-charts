@@ -1,0 +1,83 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.flogoVSCodeExtensionExtract }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogo-utilities.fullname" $dot }}-vscode-extension-extract-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "flogo-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-web: enable
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      imagePullSecrets:
+        {{- if (include "flogo-utilities.container-registry.secret" .) }}
+        - name: {{ include "flogo-utilities.container-registry.secret" . }}
+        {{- end }}
+      containers:
+      {{- range $extension := .Values.flogoVSCodeExtensionImages }}
+      - name: {{ $extension.image }}-{{ randAlphaNum 5 | lower }}
+        image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: SOURCE_DOCKER_IMAGE
+          value: "{{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.flogo.image.repository" $dot }}{{"/"}}{{ $extension.image }}:{{ $extension.tag }}"
+        - name: IMAGE_TEMP_DIR
+          value: "/tmp/{{ $extension.image }}/"
+        - name: SOURCE_DIRS
+          value: "{{ $extension.path }}"
+        - name: TARGET_DIRS
+          value: "/downloads/tools/{{ $extension.target_location }}"
+        - name: LOG_LEVEL
+          value: debug
+        - name: CLEAN_UP_TARGET_DIRS
+          value: "true"
+        volumeMounts:
+        - mountPath: {{ $.Values.toolsMountPath }}
+          name: store-vol
+          subPath: {{ $.Values.toolsSubPath }}
+        # mount this secret only if private container registry is configured for CP.
+        {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
+        - name: container-registry-secret
+          mountPath: /tibco/containerregistry
+        {{- end }}
+      {{- end }}
+      volumes:
+      - name: store-vol
+        persistentVolumeClaim:
+          claimName: {{ include "flogo-utilities.pvc-name" $dot }}
+      {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
+      - name: container-registry-secret
+        secret:
+          secretName: {{ include "flogo-utilities.container-registry.secret" $dot }}
+      {{- end }}
+{{- end }}
