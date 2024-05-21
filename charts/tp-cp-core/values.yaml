@@ -1,0 +1,70 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+cp:
+  ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
+  ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
+  deleteDBOnUninstall: "false"
+
+# Global section will apply to this chart and all of its subcharts.
+global:
+  tibco:
+    region: "global"
+    region_to_prefix: '{"TSC":{"global":""},"ADMIN":{"global":""}}'
+    logging:
+      fluentbit:
+        image:
+          name: "fluentbit"
+          tag: 3.0.2
+
+  external:
+    db_host: ""
+    db_name: ""
+    db_port: ""
+    db_username: ""
+    db_password: ""
+    db_secret_name: ""
+    environment: "production"
+    db_ssl_mode: "disable"
+    db_ssl_root_cert: ""
+    fromAndReplyToEmailAddress: "not-set-yet"
+    cronJobReportsEmailAlias: ""
+    platformEmailNotificationCcAddresses: ""
+    emailServerType: "smtp"
+    emailServer:
+      ses:
+        arn: ""
+      smtp:
+        server: ""
+        port: "25"
+        username: ""
+        password: ""
+      sendgrid:
+        apiKey: ""
+
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  # The sysctls configuration allows the platform hybrid proxy to bind to low ports (below 1024) as a non-root user.
+  # This is achieved by setting the 'net.ipv4.ip_unprivileged_port_start' sysctl to 0.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    tpcpcoreJob:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL

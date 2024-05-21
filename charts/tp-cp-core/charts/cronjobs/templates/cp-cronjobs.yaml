@@ -1,0 +1,369 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-cronjobs.consts.appName" . }}
+  namespace: {{ include "tp-cp-cronjobs.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 9601
+    protocol: TCP
+    targetPort: 9601
+  - name: monitor-server
+    port: 9602
+    protocol: TCP
+    targetPort: 9602
+  selector:
+    {{- include "tp-cp-cronjobs.shared.labels.selector" . | nindent 4 }}
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-cronjobs.consts.appName" . }}
+  namespace: {{ include "tp-cp-cronjobs.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-cronjobs.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      initContainers:
+      - name: check-pod-dependencies
+        image: {{ include "tp-cp-cronjobs.image.registry" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+        {{- if .Values.global.containerSecurityContext.cronjobs }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.cronjobs | nindent 10 }}
+        {{- end }}
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
+        env:
+          - name: TP_CP_IDM_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_IDM_HOST
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: cpcronjobservice
+        image: {{ include "tp-cp-cronjobs.image.registry" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.repository" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.name" .}}:{{ include "cronjobs.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.global.containerSecurityContext.cronjobs }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.cronjobs | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.cpcronjobservice.resources.requests.cpu }}
+            memory: {{ .Values.cpcronjobservice.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.cpcronjobservice.resources.limits.cpu }}
+            memory: {{ .Values.cpcronjobservice.resources.limits.memory }}
+        ports:
+        - containerPort: 9601
+          name: server
+        - containerPort: 9602
+          name: monitor-server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9602
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9602
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+        - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: TP_CP_EMAIL_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMAIL_SERVICE_HOST
+        - name: TP_CP_IDM_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDM_HOST
+        - name: TSC_SCHEDULER_PORT
+          value: {{ include "tp-cp-cronjobs.consts.tscSchedulerPort" . | quote }}
+        - name: TSC_SCHEDULER_MONITOR_PORT
+          value: {{ include "tp-cp-cronjobs.consts.tscSchedulerMonitorPort" . | quote }}
+        - name: TSC_SCHEDULER_TROPOSPHERE_LOG_LEVEL
+          value: {{ include "tp-cp-cronjobs.consts.tscSchedulerTroposphereLogLevel" . }}
+        - name: MAX_RETRY_COUNT_FOR_REST_CLIENT
+          value: {{ include "tp-cp-cronjobs.consts.maxRetryCountForResetClient" . | quote }}
+        - name: SCHEDULE_FREQUENCY_FOR_PROVISION_INFRA_CAPABILITIES_JOB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.scheduleFrequencyForProvisionInfraCapabilitiesJob
+        - name: TSC_BILLING_EMAIL_ALIAS
+          value: {{ (.Values.global.external.cronJobReportsEmailAlias) }}
+        - name: TIBCO_INTERNAL_IAAS_VENDOR
+          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: TSC_SCHEDULER_AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TIME_TO_SCHEDULE_JOBS_AT
+          value: {{ include "tp-cp-cronjobs.consts.timeToScheduleJobsAt" . | quote }}
+        - name: TSC_CONFIGURATION_LOCATION_SCHEDULER
+          value: {{ include "tp-cp-cronjobs.consts.tscConfigurationLocationScheduler" . | quote }}
+        - name: DISABLE_CONFIGURATION_REFRESH
+          value: {{ include "tp-cp-cronjobs.consts.disableConfigurationRefresh" . | quote }}
+        - name: DEPLOYMENT_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-cronjobs.consts.cpDbConfiguration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-cronjobs.consts.cpDbConfiguration" . }}
+              key: DBPort
+        - name: READ_PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-cronjobs.consts.cpDbConfiguration" . }}
+              key: DBHost
+        - name: READ_PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-cronjobs.consts.cpDbConfiguration" . }}
+              key: DBPort
+        - name: WRITE_POSTGRES_ENDPOINT_URL
+          value: "$(PGHOST):$(PGPORT)"
+        - name: READ_POSTGRES_ENDPOINT_URL
+          value: "$(READ_PGHOST):$(READ_PGPORT)"
+        - name: PSQL_MAX_OPEN_CONNECTIONS
+          value: {{ include "tp-cp-cronjobs.consts.psqlMaxOpenConnections" . | quote }}
+        - name: PSQL_MAX_IDLE_CONNECTIONS
+          value: {{ include "tp-cp-cronjobs.consts.psqlMaxIdleConnections" . | quote }}
+        - name: PSQL_CONNECTION_MAX_LIFE_TIME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlConnectionMaxLifeTime
+        - name: POSTGRES_USERNAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_tscscheduleruser
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tscscheduler-postgres-credential
+              key: PGPASSWORD
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_tscschedulerdb
+        - name: POSTGRES_DATABASE_DRIVER
+          value: postgres
+        - name: WRITE_POSTGRES_DATABASE_SSL_MODE
+          value: {{ .Values.global.external.db_ssl_mode }}
+        - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
+          value: {{ .Values.global.external.db_ssl_root_cert }}
+        - name: READ_POSTGRES_DATABASE_SSL_MODE
+          value: {{ .Values.global.external.db_ssl_mode }}
+        - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
+          value: {{ .Values.global.external.db_ssl_root_cert }}
+        - name: TSC_CONFIG_LOCATION
+          value: {{ include "tp-cp-cronjobs.consts.tscConfigLocation" . }}
+        - name: TSC_CONFIGURATION_LOCATION_COMMON
+          value: {{ include "tp-cp-cronjobs.consts.tscConfigLocationCommon" . }}
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: DISABLE_PROVISION_INFRA_CAPABILITIES_JOB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.disableProvisionInfraCapabilitiesJob
+        - name: DISABLE_GDPR_PURGE_HISTORY_JOB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.disableGdprPurgeHistoryJob
+        - name: DISABLE_IDM_CLEAN_UP_JOB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.disableIdmCleanUpJob
+        - name: DISABLE_IDM_NOTIFY_CERTIFICATES_EXPIRY_JOB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.disableIdmNotifyCertificatesExpiryJob
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+        - name: POSTGRES_UTD_DATABASE_NAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_tscutdb
+        - name: POSTGRES_UTD_DATABASE_USERNAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_tscutuser
+        volumeMounts:
+          - name: store-vol
+            mountPath: /private/tsc/config
+            subPath: tsc/config
+          - name: store-vol
+            mountPath: /private/tsc/certificates
+            subPath: tsc/certificates
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      - name: fluentbit
+        image: {{ include "tp-cp-cronjobs.image.registry" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: cpcronjobservice
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .)}}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-cronjobs.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+
+---
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-cronjobs.consts.appName" . }}
+  namespace: {{ include "tp-cp-cronjobs.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-cronjobs.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+  - path: /cp-cronjobs/v1/version$
+    internalPath: /v1/version
+    port: 9601
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
