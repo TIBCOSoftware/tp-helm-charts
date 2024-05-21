@@ -678,6 +678,20 @@ entries:
     version: 1.0.258
   flogoprovisioner:
   - apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-21T08:26:15.431170578Z"
+    description: TIBCO Platform Dataplane Capabilty -- Flogo Provisioner
+    digest: 6a5b831dedc8523b2a4adbf944605ba56f7c8c38f3010164ecf4ce8506097dc0
+    home: https://github.com/tibco/tp-iapp-flogo-provisioner.git
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO Platform Dev Team
+    name: flogoprovisioner
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/flogoprovisioner-1.2.9/flogoprovisioner-1.2.9.tgz
+    version: 1.2.9
+  - apiVersion: v2
     appVersion: 1.1.0
     created: "2024-02-19T05:39:59.990209791Z"
     description: TIBCO Platform Dataplane Capabilty -- Flogo Provisioner
@@ -1630,6 +1644,38 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-configuration-1.2.15/tp-cp-configuration-1.2.15.tgz
     version: 1.2.15
+  tp-cp-flogo-recipes:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-flogo-recipes
+    apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-21T08:26:15.56153262Z"
+    description: TIBCO Platform Flogo Data Plane recipes
+    digest: c0d9f14541426ecc1da73bcd61a49e31216083d7f5e4519511bc165ca7930f4d
+    keywords:
+    - tibco-platform
+    - control-plane
+    name: tp-cp-flogo-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-flogo-recipes-1.2.20/tp-cp-flogo-recipes-1.2.20.tgz
+    version: 1.2.20
+  tp-cp-flogo-utilities:
+  - apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-21T08:26:15.665204286Z"
+    dependencies:
+    - condition: flogo-utilities.enabled
+      name: flogo-utilities
+      repository: ""
+      version: 1.2.*
+    description: TIBCO Platform Control Plane -- FLOGO Utilities
+    digest: 1e28963bbc7fd1f96ade13647ada4b5b5db63798265d71f2ddb9452b131fd361
+    name: tp-cp-flogo-utilities
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-flogo-utilities-1.2.20/tp-cp-flogo-utilities-1.2.20.tgz
+    version: 1.2.20
   tp-cp-infra-recipes:
   - annotations:
       app.helm.sh/component: control-plane
@@ -1694,6 +1740,21 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-common-1.2.5/tp-cp-integration-common-1.2.5.tgz
     version: 1.2.5
+  tp-cp-integration-flogo:
+  - apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-21T08:26:15.769957824Z"
+    dependencies:
+    - condition: flogo-webserver.enabled
+      name: flogo-webserver
+      repository: ""
+      version: 1.2.*
+    description: TIBCO Platform Control Plane -- Integration for Flogo
+    digest: 7be382e132a7a34bc1f6dd3560f2ed1addb02f2fadfe054793add0111ceddee4
+    name: tp-cp-integration-flogo
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-flogo-1.2.13/tp-cp-integration-flogo-1.2.13.tgz
+    version: 1.2.13
   tp-cp-msg-contrib:
   - apiVersion: v2
     appVersion: 1.2.0-30
@@ -1963,4 +2024,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-20T16:26:15.491756334Z"
+generated: "2024-05-21T08:26:15.770153921Z"
