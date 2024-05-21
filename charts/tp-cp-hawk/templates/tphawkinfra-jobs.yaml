@@ -1,0 +1,439 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-setup
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-hawk-infra.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-setup
+      labels:
+        {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "tp-hawk-infra.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-hawk-infra.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: hawk-setup
+        {{- if .Values.global.containerSecurityContext.hawkinfrajobs }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.hawkinfrajobs | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-hawk-infra.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra.image.repository" . }}{{"/"}}{{ .Values.images.hawkscripts.image.name }}:{{ .Values.images.hawkscripts.image.tag }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.hawkinfrajobs.resources.requests.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.hawkinfrajobs.resources.limits.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.limits.memory }}
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-hawk-infra.consts.hawkDbPrefix" . }}
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: IAAS_VENDOR
+          value: {{ include "tp-hawk-infra.cp-provider" . }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/hawk/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: HAWK_CONFIG_LOCATION
+          value: /opt/tibco/hawk/config
+        - name: HAWK_CERTIFICATES_LOCATION
+          value: /opt/tibco/hawk/certificates
+        - name: HAWK_VOLUME_LOCATION
+          value: /private/hawk
+        - name: SECURITY
+          value: {{ .Values.global.cp.data.security }}
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/hawk/scripts/init.sh install"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/hawk
+          subPath: hawk
+        - name: secret-volume
+          mountPath: /private/hawk/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-hawk-infra.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-hawk-infra.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade
+      labels:
+        {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "tp-hawk-infra.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-hawk-infra.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: hawk-upgrade
+        {{- if .Values.global.containerSecurityContext.hawkinfrajobs }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.hawkinfrajobs | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-hawk-infra.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra.image.repository" . }}{{"/"}}{{ .Values.images.hawkscripts.image.name }}:{{ .Values.images.hawkscripts.image.tag }}
+        imagePullPolicy: {{ .Values.images.hawkscripts.image.pullPolicy }}
+        resources:
+          requests:
+            cpu: {{ .Values.hawkinfrajobs.resources.requests.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.hawkinfrajobs.resources.limits.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.limits.memory }}
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-hawk-infra.consts.hawkDbPrefix" . }}
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: IAAS_VENDOR
+          value: {{ include "tp-hawk-infra.cp-provider" . }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/hawk/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: HAWK_CERTIFICATES_LOCATION
+          value: /opt/tibco/hawk/certificates
+        - name: HAWK_VOLUME_LOCATION
+          value: /private/hawk
+        - name: SECURITY
+          value: {{ .Values.global.cp.data.security }}
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/hawk/scripts/init.sh upgrade"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/hawk
+          subPath: hawk
+        - name: secret-volume
+          mountPath: /private/hawk/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-hawk-infra.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+
+---
+
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-hawk-infra.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup
+      labels:
+        {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/kubernetes-api: enablee
+    spec:
+      serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "tp-hawk-infra.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-hawk-infra.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: hawk-cleanup
+        {{- if .Values.global.containerSecurityContext.hawkinfrajobs }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.hawkinfrajobs | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-hawk-infra.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra.image.repository" . }}{{"/"}}{{ .Values.images.hawkscripts.image.name }}:{{ .Values.images.hawkscripts.image.tag }}
+        imagePullPolicy: {{ .Values.images.hawkscripts.image.pullPolicy }}
+        resources:
+          requests:
+            cpu: {{ .Values.hawkinfrajobs.resources.requests.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.hawkinfrajobs.resources.limits.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.limits.memory }}
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-hawk-infra.consts.hawkDbPrefix" . }}
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: IAAS_VENDOR
+          value: {{ include "tp-hawk-infra.cp-provider" . }}
+        - name: DeleteDBOnUninstall
+          value: {{ .Values.hawk.deleteDBOnUninstall | quote }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/hawk/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: HAWK_CERTIFICATES_LOCATION
+          value: /opt/tibco/hawk/certificates
+        - name: HAWK_VOLUME_LOCATION
+          value: /private/hawk
+        - name: SECURITY
+          value: {{ .Values.global.cp.data.security }}
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/hawk/scripts/init.sh delete"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/hawk
+          subPath: hawk
+        - name: secret-volume
+          mountPath: /private/hawk/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-hawk-infra.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback
+  annotations:
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-hawk-infra.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback
+      labels:
+        {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "tp-hawk-infra.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-hawk-infra.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: hawk-rollback
+        {{- if .Values.global.containerSecurityContext.hawkinfrajobs }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.hawkinfrajobs | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-hawk-infra.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra.image.repository" . }}{{"/"}}{{ .Values.images.hawkscripts.image.name }}:{{ .Values.images.hawkscripts.image.tag }}
+        imagePullPolicy: {{ .Values.images.hawkscripts.image.pullPolicy }}
+        resources:
+          requests:
+            cpu: {{ .Values.hawkinfrajobs.resources.requests.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.hawkinfrajobs.resources.limits.cpu }}
+            memory: {{ .Values.hawkinfrajobs.resources.limits.memory }}
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-hawk-infra.consts.hawkDbPrefix" . }}
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: IAAS_VENDOR
+          value: {{ include "tp-hawk-infra.cp-provider" . }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/hawk/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: HAWK_CERTIFICATES_LOCATION
+          value: /opt/tibco/hawk/certificates
+        - name: HAWK_VOLUME_LOCATION
+          value: /private/hawk
+        - name: SECURITY
+          value: {{ .Values.global.cp.data.security }}
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/hawk/scripts/init.sh rollback"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/hawk
+          subPath: hawk
+        - name: secret-volume
+          mountPath: /private/hawk/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-hawk-infra.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD

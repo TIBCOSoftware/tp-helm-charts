@@ -1,0 +1,30 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Configmap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-prom-server-conf
+  namespace: {{ include "tp-hawk-infra-prometheus.consts.namespace" . }}
+  labels:
+    {{- include "tp-hawk-infra-prometheus.shared.labels.standard" . | nindent 4 }}
+data:
+  prometheus.yml: |-
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'redtailmetrics'
+        scheme: https
+        basic_auth:
+          username: mtuser
+          password: QPuf6#2$A
+        honor_labels: true
+        tls_config:
+          insecure_skip_verify: true
+        file_sd_configs:
+          - files:
+            - /etc/prometheus/discovery/metrictargets.json
