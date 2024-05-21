@@ -1,0 +1,118 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if .Values.flogoVSCodeExtensionExtract }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogo-utilities.fullname" . }}-post-flogo-vscode-extension-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "flogo-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "flogo-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      imagePullSecrets:
+        {{- if (include "flogo-utilities.container-registry.secret" .) }}
+        - name: {{ include "flogo-utilities.container-registry.secret" . }}
+        {{- end }}
+      containers:
+      - name: post-extractor
+        image: {{ include "flogo-utilities.image.registry" .}}{{"/"}}{{ include "flogo-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        command:
+          - "sh"
+          - "-c"
+          - |
+            cd /downloads/tools/flogo-vscode-extension
+            basePath="/downloads/tools/flogo-vscode-extension/"
+
+            # Delete old version to keep only N-2 on CP for downloads
+            if [ "${DELETE_FLOGO_VSCODE_EXTENSION}" = "true" ] ; then
+            echo "Deleting FLOGO VSCode extension versions..."
+            if [[ "${DELETE_FLOGO_VSCODE_EXTENSION_VERSIONS}" != "" ]] ; then
+              echo "FLOGO VSCode extension versions to delete :"$DELETE_FLOGO_VSCODE_EXTENSION_VERSIONS
+              for version in ${DELETE_FLOGO_VSCODE_EXTENSION_VERSIONS//,/ }
+              do
+                echo "Deleting FLOGO VSCode extension version : $version from location $basePath$version"
+                rm -rf "${basePath}""${version}"
+              done
+            else 
+              echo "No FLOGO VSCode extension version specified for deletion.."
+            fi
+            fi
+
+            # Generate download json file for UI
+            finalStr=""
+            finalStr=$finalStr"["
+            flogoVSCExtnVersionStr=""
+            for d in */ ; do
+                flogoVSCExtnVer=$(echo "$d")
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   {"
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   \"Version\": \"${flogoVSCExtnVer%%/*}\","
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   \"Platforms\": ["
+                platformStr=""
+                for platform in $(ls "$flogoVSCExtnVer") ; do
+                  installer=$(find "$flogoVSCExtnVer""$platform"  -name '*.vsix')
+                  installer=$basePath$installer
+                  arch=${platform#*-}
+                  arch=$(echo $arch | tr 'a-z' 'A-Z')
+                  platformStr=$platformStr"   {\"Platform\": \"${platform%%-*}\",\"Architecture\": \"${arch}\",\"DownloadFolder\": \"${installer}\" },"
+                done
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr${platformStr%?}
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"    ],"
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"\"BuildDate\":\"$(date -u -r "$installer" "+%Y-%m-%dT%H:%M:%S%Z")\""
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   },"
+            done
+            finalStr=$finalStr${flogoVSCExtnVersionStr%?}
+            finalStr=$finalStr"]"
+
+            echo $finalStr > flogo_vscode_extension_download.json
+        env:
+        - name: DELETE_FLOGO_VSCODE_EXTENSION
+          value: "{{ $.Values.flogoVSCodeExtensionDelete }}"
+        - name: DELETE_FLOGO_VSCODE_EXTENSION_VERSIONS
+          value: "{{ $.Values.flogoVSCodeExtensionDeleteVersions }}"
+        volumeMounts:
+          - name: shared-vol
+            mountPath: {{ $.Values.toolsMountPath }}
+            subPath: {{ $.Values.toolsSubPath }}
+          # mount this secret only if private container registry is configured for CP.
+          {{- if (include "flogo-utilities.container-registry.secret" .) }}
+          - name: container-registry-secret
+            mountPath: /tibco/containerregistry
+          {{- end }}
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: {{ include "flogo-utilities.pvc-name" . }}
+        {{- if (include "flogo-utilities.container-registry.secret" .) }}
+        - name: container-registry-secret
+          secret:
+            secretName: {{ include "flogo-utilities.container-registry.secret" . }}
+        {{- end }}
+{{- end }}

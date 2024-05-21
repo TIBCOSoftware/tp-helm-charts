@@ -1,0 +1,192 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "flogo-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flogo-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "flogo-webserver.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "flogo-webserver.shared.labels.standard" . | nindent 8 }}
+        egress.networking.cloud.tibco.com/internet-web: enable
+        egress.networking.cloud.tibco.com/router-intercom: enable
+        ingress.networking.cloud.tibco.com/tiblet-all: enable
+        egress.networking.cloud.tibco.com/compute-services: enable
+        egress.networking.cloud.tibco.com/hybrid-server: enable
+        egress.networking.cloud.tibco.com/open-telemetry-collector: enable
+      {{- if eq (include "flogo-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "flogo-webserver.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "flogo-webserver.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "flogo-webserver.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      imagePullSecrets:
+        {{- if (include "flogo-webserver.container-registry.secret" .) }}
+        - name: {{ include "flogo-webserver.container-registry.secret" . }}
+        {{- end }}
+      containers:
+      - name: tp-iapp-flogo-server
+        image: {{ include "flogo-webserver.image.registry" . }}{{"/"}}{{ include "flogo-webserver.image.repository" . }}{{"/"}}tp-iapp-flogo-webserver:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.flogowebserver.resources | nindent 10 }}
+        ports:
+        - containerPort: 3002
+          name: server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/v1/version"
+            port: 3002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/v1/version"
+            port: 3002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
+        - name: HTTP_REQUEST_TIMEOUT
+          value: "120000"       
+        - name: TSC_CONFIG_LOCATION
+          value: {{ .Values.volumes.flogowebserver.mountPath }}
+        - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+        volumeMounts:
+          - name: store-vol
+            mountPath: {{ .Values.volumes.flogowebserver.mountPath }}
+            subPath: {{ .Values.volumes.flogowebserver.subPath }}
+      
+      {{- if eq (include "flogo-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+      - name: fluentbit
+        image: {{ include "flogo-webserver.image.registry" . }}{{"/"}}{{ include "flogo-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.fluentbit.image.name }}:{{ .Values.global.fluentbit.image.tag }}
+        
+        {{- if .Values.global.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.fluentbit.resources | nindent 10 }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tp-iapp-flogo-server
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          # - name: REGION
+          # {{- if eq .Values.global.IS_STANDALONE_DEPLOYMENT "true" }}
+          #   value: {{ .Values.global.STANDALONE_REGION }}
+          # {{- else }}
+          #   value: {{ .Values.global.cic.data.SYSTEM_REGION }}
+          # {{- end }}
+          {{- if .Values.global.cp }}
+          {{- if .Values.global.cp.logServer }}
+          {{- if .Values.global.cp.logServer.services }}
+          - name: LOG_SERVER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: username
+          - name: LOG_SERVER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: password
+          {{- end }}
+          {{- end }}
+          {{- end }}
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: dockercontainerlogs
+            mountPath: /var/lib/docker/containers
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+      {{- end }}
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "flogo-webserver.pvc-name" . }}
+        {{- if eq (include "flogo-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "flogo-webserver.consts.appName" . }}-fluentbit-config
+        {{- end }}
+        
+

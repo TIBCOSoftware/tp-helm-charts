@@ -1,0 +1,85 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+# set to false if you want to skip deploying this chart
+enabled: true
+
+# Global section will apply to this chart and all of its subcharts.
+global:
+  enableLogging: true
+  #TODO: Remove the cic section, confirmation pending from Ben on how to replace the following variables
+  cic:
+    data:
+      SYSTEM_CLUSTER_NAME: "tibco-cic"
+      SYSTEM_INSTALLATION_NAME: "tibco"
+      SYSTEM_CLUSTER_ID: "cic"
+      SYSTEM_AWS_ACCOUNT_ID: ""
+  # The fluentbit configuration section.
+  # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+  # Privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+  fluentbit:
+    image:
+      name: "fluent-bit"
+      tag: "3.0.2"
+    securityContext:
+      runAsNonRoot: false
+      runAsUser: 0
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+image:
+  registry: ""
+  repo: ""
+  tag: "184-platform-1.2.0"
+
+flogowebserver:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 500m
+      memory: 4Gi
+
+fluentbit:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+    limits:
+      cpu: 150m
+      memory: 150Mi
+
+securityContext:
+  # This section of the configuration is for the distributed lock operator.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+volumes:
+  flogowebserver:
+    mountPath: /usr/share/nginx/html
+    subPath: integration
+
+hpa:
+  cpu: 70
+  memory: 70
+  maxReplicas: 3
+  minReplicas: 1
