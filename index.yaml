@@ -1676,6 +1676,32 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-flogo-utilities-1.2.20/tp-cp-flogo-utilities-1.2.20.tgz
     version: 1.2.20
+  tp-cp-hawk:
+  - apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-21T18:10:20.545453256Z"
+    dependencies:
+    - condition: tp-cp-hawk-infra-querynode.enabled
+      name: tp-cp-hawk-infra-querynode
+      repository: ""
+      version: 1.2.*
+    - condition: tp-cp-hawk-infra-prometheus.enabled
+      name: tp-cp-hawk-infra-prometheus
+      repository: ""
+      version: 1.2.*
+    description: TIBCO Platform Control Plane - Hawk Infra Bundle
+    digest: 4d712c11224660ad09897031e24ddd15050c1108360af42400213da5782b9e55
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    keywords:
+    - tibco-platform
+    - control-plane
+    - hawk
+    maintainers:
+    - name: TIBCO Cloud Hawk Team
+    name: tp-cp-hawk
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-1.2.13/tp-cp-hawk-1.2.13.tgz
+    version: 1.2.13
   tp-cp-infra-recipes:
   - annotations:
       app.helm.sh/component: control-plane
@@ -2082,4 +2108,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-21T10:52:28.072996362Z"
+generated: "2024-05-21T18:10:20.545667005Z"
