@@ -1644,6 +1644,63 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-configuration-1.2.15/tp-cp-configuration-1.2.15.tgz
     version: 1.2.15
+  tp-cp-core:
+  - apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-22T03:47:35.457444938Z"
+    dependencies:
+    - condition: admin-webserver.enabled
+      name: admin-webserver
+      repository: ""
+      version: 1.2.*
+    - condition: web-server.enabled
+      name: web-server
+      repository: ""
+      version: 1.2.*
+    - condition: orchestrator.enabled
+      name: orchestrator
+      repository: ""
+      version: 1.2.*
+    - condition: user-subscriptions.enabled
+      name: user-subscriptions
+      repository: ""
+      version: 1.2.*
+    - condition: email-service.enabled
+      name: email-service
+      repository: ""
+      version: 1.2.*
+    - condition: cronjobs.enabled
+      name: cronjobs
+      repository: ""
+      version: 1.2.*
+    - condition: identity-management.enabled
+      name: identity-management
+      repository: ""
+      version: 1.2.*
+    - condition: identity-provider.enabled
+      name: identity-provider
+      repository: ""
+      version: 1.2.*
+    - condition: pengine.enabled
+      name: pengine
+      repository: ""
+      version: 1.2.*
+    description: A Helm chart for -- tp-cp-core
+    digest: 9fd012922dde14c68dc4d761a9292d4f745cede848209283c7d3a824d2625bed
+    name: tp-cp-core
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-1.2.7806/tp-cp-core-1.2.7806.tgz
+    version: 1.2.7806
+  tp-cp-core-ops:
+  - apiVersion: v1
+    appVersion: 1.2.0
+    created: "2024-05-22T03:47:35.566494011Z"
+    description: TIBCO Platform Control Plane -- Bundle
+    digest: da78646668977d1b87fc2dedc4afcb81e962f64a4a8ad3cc0fe4bd08ec96cd47
+    name: tp-cp-core-ops
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-ops-1.2.7806/tp-cp-core-ops-1.2.7806.tgz
+    version: 1.2.7806
   tp-cp-flogo-recipes:
   - annotations:
       app.helm.sh/component: control-plane
@@ -2108,4 +2165,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-21T18:10:20.545667005Z"
+generated: "2024-05-22T03:47:35.566925906Z"
