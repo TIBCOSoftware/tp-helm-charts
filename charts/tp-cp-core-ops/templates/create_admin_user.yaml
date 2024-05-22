@@ -1,0 +1,91 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- if .Values.global.external.admin }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-control-plane-ops.consts.appName" . }}-create-admin-user
+  annotations:
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-control-plane-ops.consts.namespace" . }}
+  labels:
+    app.cloud.tibco.com/created-by: tp-cp
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      name: tp-control-plane-create-admin-user
+      labels:
+        app.cloud.tibco.com/created-by: tp-cp
+        egress.networking.cloud.tibco.com/router-intercom: enable
+        app.kubernetes.io/name: {{ include "tp-control-plane-ops.consts.appName" . }}-create-admin-user
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}      
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: tp-control-plane-create-admin-user
+        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+        {{- end }}        
+        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core-ops.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ENVIRONMENT_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-ops.consts.cp-env-configmap" . }}
+              key: CP_PROVIDER
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: EMAIL_ID
+          value: {{ .Values.global.external.admin.email }}
+        - name: FIRSTNAME
+          value: {{ .Values.global.external.admin.firstname }}
+        - name: LASTNAME
+          value: {{ .Values.global.external.admin.lastname }}
+        - name: EXTERNAL_ACCOUNT_ID
+          value: {{ .Values.global.external.admin.customerID }}
+        - name: EXTERNAL_SUBSCRIPTION_ID
+          value: {{ .Values.global.external.admin.customerID }}
+        command:
+          - "/bin/sh"
+          - "-ec"
+          - |
+            set -o nounset
+            set -o errexit
+            if [ "${ENVIRONMENT_TYPE}" == "local" ]; then region="global"; else region=${REGION}; fi
+            echo "Provisioning the Admin Subscription for ${EMAIL_ID}.."
+            curl -sS -XPOST -H 'x-atmosphere-for-user: ProvisioningUser' -H "Content-type: application/json" -H "Host: ${TSC_DNS_DOMAIN}" -H "x-real-ip: 0.0.0.0" -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"admin","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' 'http://'${TP_CP_ORCH_HOST}:8833'/v1/tibco-subscriptions'
+            echo "Subscription for ${EMAIL_ID} provisioned successfully."
+
+
+{{- end }}
