@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -24,8 +24,28 @@ data:
       "backchannel_logout_secondary_key_required": true
     }'
 
+    bodyIat='{
+      "tenantId": "CP",
+      "comment": "oauth2-proxy iat",
+      "expiryTime": "600"
+    }'
+
+    obtainIat () {
+      response=$(curl --fail-with-body -s {{ .Values.global.idm.svc.name }}.{{ template "oauth2-proxy.namespace" $ }}:{{ .Values.global.idm.svc.port }}/v1/management/oauth2/clients/initial-token --header "X-TENANT: TSC" --header "X-ATMOSPHERE-for-USER: CP" --header "Content-Type: application/json" --data "${bodyIat}")
+      exitCode=$?
+      if [ "$exitCode" -ne 0 ]; then
+          echo "Failed to obtain initial access token: ${response}"
+          exit "$exitCode"
+      fi
+      iat=$(echo -n "$response" | jq -rj .accessToken)
+    }
+
     exchangeIatForClientId () {
-      response=$(curl --fail-with-body -s https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/register --header "Authorization: Bearer {{ .Values.global.cp.secrets.iat }}" --data "${body}" --header 'Content-Type: application/json')
+      if [[ -z "$iat" ]]; then
+        echo "We are running in Control Plane. Obtaining Initial Access Token.."
+        obtainIat
+      fi
+      response=$(curl --fail-with-body -s https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/register --header "Authorization: Bearer ${iat}" --data "${body}" --header 'Content-Type: application/json')
       exitCode=$?
       if [ "$exitCode" -ne 0 ]; then
           echo "Failed to register client: ${response}"
@@ -42,7 +62,7 @@ data:
     }
 
     revokeIat () {
-      http_code=$(curl -s -o /dev/null -w "%{http_code}\\n" -X "DELETE" https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/initial-token --header "Authorization: Bearer {{ .Values.global.cp.secrets.iat }}" )
+      http_code=$(curl -s -o /dev/null -w "%{http_code}\\n" -X "DELETE" https://{{ .Values.global.cp.cpHostname }}/idm/v1/oauth2/clients/initial-token --header "Authorization: Bearer ${iat}" )
       if [ "$http_code" -eq 200 ]; then
           echo "Succesfully revoked IAT."
       else
@@ -118,6 +138,7 @@ data:
     # creates the secret if it does not exist
     initialize () {
       echo "Initializing Oauth2 Proxy.."
+      iat="{{ (((.Values.global).cp).secrets).iat }}"
       getSecret
       if [ "$http_code" -eq 200 ]; then
           echo "Secret exists. We will not register new client."

@@ -1,3 +1,7 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -68,9 +72,17 @@ spec:
           mountPath: /etc/config/script/iat_to_clienid.sh
           subPath: iat_to_clienid.sh            
       containers:
-{{- if .Values.enableLogging }}
+{{- if (((.Values.global.cp).logging).fluentbit).enabled }}
       - name: fluentbit
         image: "{{ template "tibco.image.repository.fluentbit" .}}"
+        {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if .Values.global.cp.logging.fluentbit.resources }}
+        resources:
+          {{- toYaml .Values.global.cp.logging.fluentbit.resources | nindent 10 }}
+        {{- end }}        
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -383,7 +395,7 @@ spec:
       - name: shell-script-volume
         configMap:
           name: {{ template "oauth2-proxy.fullname" . }}-shell-script-cm
-{{- if .Values.enableLogging }}
+{{- if (((.Values.global.cp).logging).fluentbit).enabled }}
       - name: podlogs
         hostPath:
           path: /var/log/pods
