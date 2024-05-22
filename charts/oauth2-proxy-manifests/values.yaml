@@ -1,3 +1,7 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
 ## Override the deployment namespace
 ##
 namespaceOverride: ""
@@ -429,6 +433,10 @@ tibco:
     tag: 2.1.6
 
 global:
+  idm:
+    svc:
+      name: tp-identity-management
+      port: 7831
   cp:
     cpHostName: ""   # CP HOST NAME
     # dataplaneId: "abcd"   # DP ID
@@ -450,3 +458,27 @@ global:
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
       iat: ""  # initial access token used to generate client credentials
+
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+
+    logging:
+      fluentbit:
+        enabled: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
