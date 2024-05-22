@@ -88,11 +88,15 @@ spec:
       labels:
         networking.platform.tibco.com/kubernetes-api: enable
         {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 8 }}
-{{- if .Values.global.enableLogging }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
+      {{ if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
       serviceAccountName:  {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       nodeSelector:
         kubernetes.io/os: linux
@@ -102,6 +106,10 @@ spec:
       containers:
       - name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
         image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tp-dp-monitor-agent:{{ include "tp-dp-monitor-agent.generated.buildNumber" . }}
+        {{- if .Values.securityContext.monitorAgent }}
+        securityContext:
+          {{- toYaml .Values.securityContext.monitorAgent | nindent 10 }}
+        {{- end }}
         resources:
           requests:
             cpu: 125m
@@ -145,9 +153,13 @@ spec:
           value: {{ .Values.global.cp.dataplaneId }}
         - name: DP_SUBSCRIPTION_ID
           value: {{ .Values.global.cp.subscriptionId }}
-{{- if .Values.global.enableLogging }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tp-dp-monitor-fluentbit:{{ include "tp-dp-monitor-agent.consts.fluentbit.buildNumber" . }}
+        {{- if .Values.global.cp.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.cp.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -192,7 +204,7 @@ spec:
               mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
-{{- if .Values.global.enableLogging }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: podlogs
           hostPath:
             path: /var/log/pods
