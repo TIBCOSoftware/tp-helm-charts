@@ -217,10 +217,7 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "finops-service.consts.cp.db.configuration" . }}
-              key: DBSSLRootCert
+          value: /private/finops/certificates/global-bundle.pem
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           valueFrom:
             configMapKeyRef:
@@ -231,10 +228,7 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "finops-service.consts.cp.db.configuration" . }}
-              key: DBSSLRootCert
+          value: /private/finops/certificates/global-bundle.pem
         volumeMounts:
         - name: store-vol
           mountPath: /private/finops/certificates
