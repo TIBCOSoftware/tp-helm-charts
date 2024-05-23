@@ -534,6 +534,11 @@ As part of claims, we will create following resources:
 This also creates the secrets in the namespace where the chart will be deployed.
 TIBCO® Control Plane services can access these resources using the secrets.
 
+> [!IMPORTANT]
+> Please note that the RDS DB instance of PostgreSQL created using below crossplane claim does not enforce SSL by default.
+> To enforce SSL connection, please check [Requiring an SSL connection to a PostgreSQL DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html#PostgreSQL.Concepts.General.SSL.Requiring)
+
+
 ```bash
 export CP_RESOURCE_PREFIX="platform" # unique id to add to AWS resources as prefix (alphanumeric string of max 10 chars)
 
