@@ -1,0 +1,180 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-tibcohub-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.2.0",
+      "minCPVersion": "1.1.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.0.0"
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "postgresql",
+            "description": "Postgres Database",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "tibco-developer-hub",
+            "description": "NodeJs backend and UI hosting service",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "oauth2-proxy",
+            "description": "OAuth2 Proxy",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [
+          {
+            "version": [
+              1,
+              2,
+              0
+            ],
+            "capabilityId": "OAUTH2PROXY",
+            "capabilityType": "INFRA_SIDECAR"
+          }
+        ],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": [
+          {
+            "type": "Ingress Controller",
+            "required": true,
+            "resourceId": "INGRESS",
+            "resourceType": "PLATFORM"
+          },
+          {
+            "type": "Storage Class",
+            "required": true,
+            "resourceId": "STORAGE",
+            "resourceType": "PLATFORM"
+          }
+        ]
+      }
+    }
+
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+      - name: tibco-developer-hub
+        version: 1.2.11
+        namespace: ${NAMESPACE}
+        repository:
+          chartMuseum:
+            host: ${HELM_REPO}
+        values:
+          - content: |
+              baseUrlKeyPath: backstage.appConfig.app.baseUrl
+              backstage:
+                appConfig:
+                  app:
+                    baseUrl: ${PUBLIC_URL}
+                  backend:
+                    baseUrl: ${PUBLIC_URL}
+                  auth:
+                    providers:
+                      oauth2Proxy:
+                        development: {}
+                    enableAuthProviders: [oauth2Proxy]
+                # only if user provides a secrets reference
+                # extraEnvVarsSecrets:
+                #  - ${SECRETS_NAME}
+              postgresql:
+                enabled: true
+              ingress:
+                enabled: true
+                className: ${INGRESS_CLASSNAME}
+                host: ${HOSTNAME}
+        flags:
+          install: true
+          createNamespace: false
+          dependencyUpdate: true
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-tibcohub-recipes.labels" . | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-tibcohub-recipes.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      containers:
+      - name: tibcohub
+        image: {{ include "tp-cp-tibcohub-recipes.image.registry" .}}{{"/"}}{{ include "tp-cp-tibcohub-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "tibcohub"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/platform"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.2.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.tibcohub.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.tibcohub.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub-volume
+          configMap:
+            name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-tibcohub-recipes.pvc-name" . }}
+      imagePullSecrets:
+        {{- if (include "tp-cp-tibcohub-recipes.container-registry.secret" .) }}
+        - name: {{ include "tp-cp-tibcohub-recipes.container-registry.secret" . }}
+        {{- end}}
+      

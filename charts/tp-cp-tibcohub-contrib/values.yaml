@@ -1,0 +1,53 @@
+capability:
+  name: tibco-hub
+
+source:
+  directory: /app
+
+tibcoHub:
+  image:
+    name: "tibco-hub-cp-contrib"
+    tag: 118
+    pullPolicy: IfNotPresent
+
+containerImageExtractor:
+  image:
+    name: "container-image-extractor"
+    registry: ""
+    repo: ""
+    tag: 93-distroless
+    pullPolicy: IfNotPresent
+
+image:
+  registry: ""
+  repo: ""
+
+target:
+  directory: /efs/tibcohub
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# global values used by the chart. These values gets propagated to sub-charts.
+global:
+  tibco:
+    enableLogging: true
