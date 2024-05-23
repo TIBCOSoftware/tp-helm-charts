@@ -1,0 +1,70 @@
+{{- $targetTag := (.Values.tibcoHub.image).tag | required ".Values.tibcoHub.image.tag is required." }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: capability-contribution-{{ .Values.capability.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.cloud.tibco.com/created-by: {{ .Values.capability.name }}
+    app.kubernetes.io/name: capability-contribution-{{ .Values.capability.name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600 # wait for 1 hour before deleting the pod and job
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: capability-contribution-{{ .Values.capability.name }}
+        egress.networking.cloud.tibco.com/internet-web: enable
+        egress.networking.cloud.tibco.com/cloud-web: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.podSecurityContext}}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end}}
+      containers:
+      - name: container-image-extractor
+        image: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}{{"/"}}{{ include "tp-cp-tibcohub-contrib.image.repository" .}}{{"/"}}{{ .Values.containerImageExtractor.image.name }}:{{ .Values.containerImageExtractor.image.tag}}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: DOCKER_REGISTRY
+          value: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}           # docker registry where source image is present
+        - name: SOURCE_DOCKER_IMAGE
+          value: "{{ include "tp-cp-tibcohub-contrib.image.registry" .}}/{{ include "tp-cp-tibcohub-contrib.tibcoHub.image.repository" .}}/{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"               # source docker image name
+        - name: IMAGE_TEMP_DIR
+          value: "/efs/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
+        - name: SOURCE_DIRS 
+          value: {{ .Values.source.directory | quote }}               # directory in SOURCE_DOCKER_IMAGE which needs to be copied to TARGET_DIRS 
+        - name: TARGET_DIRS
+          value: {{ .Values.target.directory | quote }}         # directory in CP EFS  
+        - name: LOG_LEVEL
+          value: debug
+        volumeMounts:
+        - mountPath: /efs
+          name: store-vol
+          subPath: tsc/contributors
+# mount this secret only if private container registry is configured for CP.
+{{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
+        - mountPath: /tibco/containerregistry
+          name: container-registry-secret
+{{- end }}
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-tibcohub-contrib.pvc-name" . }}
+{{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
+        - name: container-registry-secret
+          secret:
+            secretName: {{ include "tp-cp-tibcohub-contrib.container-registry.secret" . }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-tibcohub-contrib.container-registry.secret" . }}
+{{- end }}

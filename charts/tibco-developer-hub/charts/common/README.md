@@ -19,9 +19,9 @@ helm dependency update
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "common.names.fullname" . }}
+  name: { { include "common.names.fullname" . } }
 data:
-  myvalue: "Hello World"
+  myvalue: 'Hello World'
 ```
 
 ## Introduction
@@ -73,7 +73,6 @@ debug:
   type: boolean
   description: Set to true if you would like to see extra information on logs
   example: false
-
 ## An instance would be:
 # registry: docker.io
 # repository: bitnami/nginx
@@ -128,7 +127,6 @@ name:
 keyMapping:
   description: Mapping between the expected key name and the name of the key in the existing secret.
   type: object
-
 ## An instance would be:
 # name: mySecret
 # keyMapping:
@@ -145,24 +143,34 @@ When we store sensitive data for a deployment in a secret, some times we want to
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ include "common.names.fullname" . }}
+  name: { { include "common.names.fullname" . } }
   labels:
-    app: {{ include "common.names.fullname" . }}
+    app: { { include "common.names.fullname" . } }
 type: Opaque
 data:
-  password: {{ .Values.password | b64enc | quote }}
+  password: { { .Values.password | b64enc | quote } }
 
 # templates/dpl.yaml
 ---
-...
-      env:
-        - name: PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "common.secrets.name" (dict "existingSecret" .Values.existingSecret "context" $) }}
-              key: {{ include "common.secrets.key" (dict "existingSecret" .Values.existingSecret "key" "password") }}
-...
 
+---
+env:
+  - name: PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name:
+          {
+            {
+              include "common.secrets.name" (dict "existingSecret" .Values.existingSecret "context" $),
+            },
+          }
+        key:
+          {
+            {
+              include "common.secrets.key" (dict "existingSecret" .Values.existingSecret "key" "password"),
+            },
+          }
+...
 # values.yaml
 ---
 name: mySecret
@@ -204,7 +212,7 @@ helm install test mychart --set path.to.value00="",path.to.value01=""
 
 - Previous versions of this Helm Chart use `apiVersion: v1` (installable by both Helm 2 and 3), this Helm Chart was updated to `apiVersion: v2` (installable by Helm 3 only). [Here](https://helm.sh/docs/topics/charts/#the-apiversion-field) you can find more information about the `apiVersion` field.
 - Use `type: library`. [Here](https://v3.helm.sh/docs/faq/#library-chart-support) you can find more information.
-- The different fields present in the *Chart.yaml* file has been ordered alphabetically in a homogeneous way for all the Bitnami Helm Charts
+- The different fields present in the _Chart.yaml_ file has been ordered alphabetically in a homogeneous way for all the Bitnami Helm Charts
 
 #### Considerations when upgrading to this version
 
