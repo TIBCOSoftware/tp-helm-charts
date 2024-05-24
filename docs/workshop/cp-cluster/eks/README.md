@@ -14,7 +14,6 @@ Table of Contents
     * [Using AWS CLI](#using-aws-cli)
       * [Create EFS](#setup-efs)
       * [Create RDS instance](#create-rds-instance)
-      * [Create Redis replication group](#create-redis-replication-group)
     * [Using Crossplane](#using-crossplane)
       * [Pre-requisites](#pre-requisites)
       * [Install Crossplane](#install-crossplane)
@@ -110,10 +109,6 @@ export CP_RDS_USERNAME="cp_rdsadmin" # replace with desired username
 export CP_RDS_MASTER_PASSWORD="cp_DBAdminPassword" # replace with desired username
 export CP_RDS_INSTANCE_CLASS="db.t3.medium" # replace with desired db instance class
 export CP_RDS_PORT="5432" # replace with desired db port
-
-## TIBCO® Control Plane Redis specific details
-export CP_REDIS_CACHE_NODE_TYPE="cache.t4g.medium" # replace with desired redis cache node type
-export CP_REDIS_PORT="6379" # replace with desired redis port
 
 ## Required by external-dns chart
 export CP_MAIN_INGRESS_CONTROLLER=alb
@@ -474,7 +469,6 @@ EOF
 We will create [crossplane composite resource definitions (XRDs)](https://docs.crossplane.io/v1.13/concepts/composite-resource-definitions/) and [crossplane compositions](https://docs.crossplane.io/v1.13/concepts/compositions/) for
 - EFS
 - RDS database instance
-- Redis replication group
 - IAM role, policies and role-policy attachments
 - SES email identity
 - kubernetes storage class
@@ -533,6 +527,11 @@ As part of claims, we will create following resources:
 
 This also creates the secrets in the namespace where the chart will be deployed.
 TIBCO® Control Plane services can access these resources using the secrets.
+
+> [!IMPORTANT]
+> Please note that the RDS DB instance of PostgreSQL created using below crossplane claim does not enforce SSL by default.
+> To enforce SSL connection, please check [Requiring an SSL connection to a PostgreSQL DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html#PostgreSQL.Concepts.General.SSL.Requiring)
+
 
 ```bash
 export CP_RESOURCE_PREFIX="platform" # unique id to add to AWS resources as prefix (alphanumeric string of max 10 chars)
@@ -663,7 +662,7 @@ The `alb` ingress class is used by AWS ALB ingress controller.
 | EFS storage class    | efs-sc                                                                           | used for TIBCO® Control Plane                                                                   |
 | RDS DB instance resource arn (if created using script) | arn:aws:rds:\<CP_CLUSTER_REGION\>:\<AWS_ACCOUNT_ID\>:db:${CP_CLUSTER_NAME}-db   | used for TIBCO® Control Plane |
 | RDS DB details (if created using crossplane) | Secret `${CP_INSTANCE_ID}-rds-details` in `${CP_INSTANCE_ID}-ns` namespace Refer [Install claims](#install-claims) section  | used for TIBCO® Control Plane |
-| Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/UserGuide/controlling-traffic-with-network-policies.htm) | 
+| Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/emp/platform-cp/1.2.0/doc/html/Default.htm#Installation/control-plane-network-policies.htm) |
 
 
 # Control Plane Deployment
@@ -740,6 +739,7 @@ ingress-nginx:
   controller:
     config:
       use-forwarded-headers: "true"
+      proxy-body-size: "150m"
 EOF
 ```
 Use the following command to get the ingress class name.
@@ -812,7 +812,7 @@ Please proceed with deployment of TIBCO® Control Plane on your EKS cluster as p
 
 # Clean up
 
-Refer to [the steps to delete the Control Plane](https://docs.tibco.com/emp/platform-cp/1.0.0/doc/html/Default.htm#UserGuide/deleting-control-planes.htm?TocPath=Managing%2520Data%2520Planes%257C_____2).
+Refer to [the steps to delete the Control Plane](https://docs.tibco.com/emp/platform-cp/1.2.0/doc/html/Default.htm#Installation/uninstalling-tibco-control-plane.htm).
 
 Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the next steps.
 ```bash

@@ -43,6 +43,9 @@ data:
         - name: istio-crd
           namespace: ${NAMESPACE}
           version: {{ .Values.capabilities.servicemesh.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
           values:
             - content: |
                 serviceAccount:
@@ -55,6 +58,9 @@ data:
         - name: istio-istiod
           namespace: ${NAMESPACE}
           version: {{ .Values.capabilities.servicemesh.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
           values:
             - content: |
                 serviceAccount:
