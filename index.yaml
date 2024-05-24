@@ -1637,6 +1637,45 @@ entries:
       app.helm.sh/name: tp-cp-bootstrap
     apiVersion: v2
     appVersion: 1.2.0
+    created: "2024-05-24T10:10:07.595104896Z"
+    dependencies:
+    - condition: hybrid-proxy.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.2.*
+    - condition: resource-set-operator.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.2.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.2.*
+    - condition: compute-services.enabled
+      name: compute-services
+      repository: ""
+      version: 1.2.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.89.*
+    description: TIBCO Platform Control Plane bootstrap chart
+    digest: 75454f85c1944ce9387e0995f4ee39b9285330262895cbd43efca931d779432c
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - bootstrap
+    name: tp-cp-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bootstrap-1.2.27/tp-cp-bootstrap-1.2.27.tgz
+    version: 1.2.27
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-bootstrap
+    apiVersion: v2
+    appVersion: 1.2.0
     created: "2024-05-20T07:27:20.150828925Z"
     dependencies:
     - condition: hybrid-proxy.enabled
@@ -1704,6 +1743,24 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bwce-utilities-1.2.11/tp-cp-bwce-utilities-1.2.11.tgz
     version: 1.2.11
   tp-cp-configuration:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-configuration
+    apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-24T10:10:07.819006202Z"
+    description: TIBCO Platform Control Plane Configuration chart
+    digest: 947f7dca11bd9d2249bf320124666e0a4bb47e4aab0fede530111d636d24f276
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - configuration
+    name: tp-cp-configuration
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-configuration-1.2.16/tp-cp-configuration-1.2.16.tgz
+    version: 1.2.16
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-configuration
@@ -2109,6 +2166,24 @@ entries:
       app.helm.sh/name: tp-cp-servicemesh-recipes
     apiVersion: v2
     appVersion: 1.2.0
+    created: "2024-05-24T10:10:08.009119829Z"
+    description: TIBCO Platform Infrastructure Data Plane recipes
+    digest: b0913eb55ec57f20ff7c5f9b534f0175aa56b9b43d2d58a62f5d58905cc7251a
+    keywords:
+    - tibco-platform
+    - control-plane
+    - servicemesh
+    - recipes
+    name: tp-cp-servicemesh-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-servicemesh-recipes-1.2.13/tp-cp-servicemesh-recipes-1.2.13.tgz
+    version: 1.2.13
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-servicemesh-recipes
+    apiVersion: v2
+    appVersion: 1.2.0
     created: "2024-05-20T08:30:39.345829212Z"
     description: TIBCO Platform Infrastructure Data Plane recipes
     digest: 543ec079d28932b51bb6fd867f7da3ab87bc6239839e15443a3faad9a5e38e4c
@@ -2335,4 +2410,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-24T09:46:15.410575644Z"
+generated: "2024-05-24T10:10:08.009351805Z"
