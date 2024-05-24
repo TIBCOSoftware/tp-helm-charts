@@ -246,3 +246,6 @@ The capitalization is important for StatefulSet.
 {{- print "StatefulSet" -}}
 {{- end -}}
 {{- end }}
+
+
+{{- define "otel-collector.container-registry.secret" }}tibco-container-registry-credentials{{end}}

@@ -7,10 +7,8 @@ in the license file that is distributed with this file.
 */}}
 
 {{- define "otel-collector.pod" -}}
-{{- with .Values.imagePullSecrets }}
 imagePullSecrets:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
+- name: {{ include "otel-collector.container-registry.secret" . }}
 serviceAccountName: {{ include "otel-collector.serviceAccountName" . }}
 securityContext:
   {{- toYaml .Values.podSecurityContext | nindent 2 }}

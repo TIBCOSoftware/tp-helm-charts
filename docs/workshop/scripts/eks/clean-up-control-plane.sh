@@ -56,8 +56,8 @@ if [ "${CP_CROSSPLANE_ENABLED}" == "false" ]; then
   echo "Deleting RDS db instance"
   aws rds delete-db-instance --db-instance-identifier ${CP_CLUSTER_NAME}-db --skip-final-snapshot --no-paginate
 
-  echo "Deleting Redis"
-  aws elasticache delete-replication-group --replication-group-id ${CP_CLUSTER_NAME}-redis --no-retain-primary-cluster --no-paginate
+  # echo "Deleting Redis"
+  # aws elasticache delete-replication-group --replication-group-id ${CP_CLUSTER_NAME}-redis --no-retain-primary-cluster --no-paginate
 
   echo "Waiting to delete RDS db instance"
   aws rds wait db-instance-deleted --db-instance-identifier ${CP_CLUSTER_NAME}-db
@@ -84,36 +84,36 @@ if [ "${CP_CROSSPLANE_ENABLED}" == "false" ]; then
     done
   fi
 
-  echo "Waiting to delete Redis"
-  aws elasticache wait replication-group-deleted --replication-group-id ${CP_CLUSTER_NAME}-redis
-  _deleted=$?
-  [ ${_deleted} -eq 0 ] || { echo "### ERROR: Failed to delete Redis replication group ${CP_CLUSTER_NAME}-redis after 10 minutes (15 seconds, 40 checks)"; echo "Error code ${_deleted}"; }
-  if [ ${_deleted} -ne 0 ]; then
-    echo "Waiting additional 5 minutes to delete Redis replication group"
-    for n in {1..5};
-    do
-      _status=$(aws elasticache describe-replication-groups --replication-group-id ${CP_CLUSTER_NAME}-redis --query ReplicationGroups[0].Status --output text)
-      _ret=$?
-      if [ ${_ret} -eq 0 -o "${_status}" -eq "deleting" ]; then
-        # sleep for a minute
-        echo "Redis replication group ${CP_CLUSTER_NAME}-redis is in ${_status} state; Waiting for 1 more minute to check status"
-        sleep 60
-      elif [ ${_ret} -eq 254 -o "${_status}" -eq "" ]; then
-        # return code 254 indicates that db instance is not found
-        break
-      else
-        echo "### ERROR: deleting ${CP_CLUSTER_NAME}-redis operation did not finish correctly; Exiting!"
-        echo "### ### Please check AWS Console and re-run the script when ${CP_CLUSTER_NAME}-redis is deleted"
-        exit ${_ret}
-      fi
-    done
-  fi
+  # echo "Waiting to delete Redis"
+  # aws elasticache wait replication-group-deleted --replication-group-id ${CP_CLUSTER_NAME}-redis
+  # _deleted=$?
+  # [ ${_deleted} -eq 0 ] || { echo "### ERROR: Failed to delete Redis replication group ${CP_CLUSTER_NAME}-redis after 10 minutes (15 seconds, 40 checks)"; echo "Error code ${_deleted}"; }
+  # if [ ${_deleted} -ne 0 ]; then
+  #   echo "Waiting additional 5 minutes to delete Redis replication group"
+  #   for n in {1..5};
+  #   do
+  #     _status=$(aws elasticache describe-replication-groups --replication-group-id ${CP_CLUSTER_NAME}-redis --query ReplicationGroups[0].Status --output text)
+  #     _ret=$?
+  #     if [ ${_ret} -eq 0 -o "${_status}" -eq "deleting" ]; then
+  #       # sleep for a minute
+  #       echo "Redis replication group ${CP_CLUSTER_NAME}-redis is in ${_status} state; Waiting for 1 more minute to check status"
+  #       sleep 60
+  #     elif [ ${_ret} -eq 254 -o "${_status}" -eq "" ]; then
+  #       # return code 254 indicates that db instance is not found
+  #       break
+  #     else
+  #       echo "### ERROR: deleting ${CP_CLUSTER_NAME}-redis operation did not finish correctly; Exiting!"
+  #       echo "### ### Please check AWS Console and re-run the script when ${CP_CLUSTER_NAME}-redis is deleted"
+  #       exit ${_ret}
+  #     fi
+  #   done
+  # fi
 
   echo "Deleting RDS db subnet group"
   aws rds delete-db-subnet-group --db-subnet-group-name ${CP_CLUSTER_NAME}-subnet-group
 
-  echo "Deleting Cache subnet group"
-  aws elasticache delete-cache-subnet-group --cache-subnet-group-name ${CP_CLUSTER_NAME}-cache-subnet-group --no-paginate
+  # echo "Deleting Cache subnet group"
+  # aws elasticache delete-cache-subnet-group --cache-subnet-group-name ${CP_CLUSTER_NAME}-cache-subnet-group --no-paginate
 
   echo "Deleting RDS security group"
   _rds_sg_id=$(aws ec2 describe-security-groups --filters Name=tag:Resource,Values=${CP_CLUSTER_NAME}-rds --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" | yq eval '.[].ID  // ""')
@@ -122,12 +122,24 @@ if [ "${CP_CROSSPLANE_ENABLED}" == "false" ]; then
     aws ec2 delete-security-group --group-id ${_rds_sg_id}
   fi
 
-  echo "Deleting Redis security group"
-  _redis_sg_id=$(aws ec2 describe-security-groups --filters Name=tag:Resource,Values=${CP_CLUSTER_NAME}-redis --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" | yq eval '.[].ID  // ""')
-  if [ "${_redis_sg_id}" != "" ]; then
-    echo "Detected Redis security group id: ${_redis_sg_id}; Now deleting"
-    aws ec2 delete-security-group --group-id ${_redis_sg_id}
-  fi
+  # echo "Deleting Redis security group"
+  # _redis_sg_id=$(aws ec2 describe-security-groups --filters Name=tag:Resource,Values=${CP_CLUSTER_NAME}-redis --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" | yq eval '.[].ID  // ""')
+  # if [ "${_redis_sg_id}" != "" ]; then
+  #   echo "Detected Redis security group id: ${_redis_sg_id}; Now deleting"
+  #   aws ec2 delete-security-group --group-id ${_redis_sg_id}
+  # fi
+fi
+
+if [ "${CP_CROSSPLANE_ENABLED}" == "true" ]; then
+  echo "Detaching role policy to IAM role ${CP_CROSSPLANE_ROLE}"
+  aws iam detach-role-policy --policy-arn arn:aws:iam::aws:policy/AdministratorAccess --role-name ${CP_CROSSPLANE_ROLE}
+  _ret=$?
+  [ ${_ret} -eq 0 ] || { echo "### ERROR: failed to detach policy to IAM role for crossplane. Please re-run the script"; exit ${_ret}; }
+
+  echo "Deleting crossplane role"
+  aws iam delete-role --role-name ${CP_CROSSPLANE_ROLE}
+  _ret=$?
+  [ ${_ret} -eq 0 ] || { echo "### ERROR: failed to delete IAM role for crossplane. Please re-run the script"; exit ${_ret}; }
 fi
 
 echo "Deleting cluster"

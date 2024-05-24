@@ -100,6 +100,14 @@ spec:
             value: {{ .Values.dpMetadata.dpConfigureNamespaceChartVersion | quote }}
           - name: HELM_CLI_TIMEOUT_SECONDS
             value: "60"
+          {{- if .Values.global.tibco.containerRegistry.username }}
+          - name: CONTAINER_REGISTRY_USERNAME
+            value: {{ .Values.global.tibco.containerRegistry.username }}
+          {{- end }}
+          {{- if .Values.global.tibco.containerRegistry.password }}
+          - name: CONTAINER_REGISTRY_PASSWORD
+            value: {{ .Values.global.tibco.containerRegistry.password }}
+          {{- end }}
         {{- if .Values.dpHelmRepositories }}
           - name: HELM_REPO_CONFIG
             value: /helm/config/repo.json
