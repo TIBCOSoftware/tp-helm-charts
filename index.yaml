@@ -1536,6 +1536,83 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/opentelemetry-collector-0.69.6/opentelemetry-collector-0.69.6.tgz
     version: 0.69.6
+  platform-base:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-24T10:54:09.754737583Z"
+    dependencies:
+    - name: tp-cp-configuration
+      repository: alias:tibco-platform
+      version: 1.2.16
+    - name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.2.52
+    - name: tp-cp-o11y
+      repository: alias:tibco-platform
+      version: 1.2.12
+    - name: tp-cp-core
+      repository: alias:tibco-platform
+      version: 1.2.7808
+    - name: tp-cp-core-ops
+      repository: alias:tibco-platform
+      version: 1.2.7808
+    - name: tp-cp-core-finops
+      repository: alias:tibco-platform
+      version: 1.2.372
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.2.36
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.2.9
+    - condition: tp-cp-msg-contrib.enabled
+      name: tp-cp-msg-contrib
+      repository: alias:tibco-platform
+      version: 1.2.24
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.2.14
+    description: TIBCO Platform base chart
+    digest: 21684fffc53578d695f3b122b2d2046c445e72761c02d0cfd1e71eb2fff3c616
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.2.137/platform-base-1.2.137.tgz
+    version: 1.2.137
+  platform-bootstrap:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-bootstrap
+    apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-24T10:54:09.882490411Z"
+    dependencies:
+    - name: tp-cp-bootstrap
+      repository: alias:tibco-platform
+      version: 1.2.27
+    description: TIBCO Platform bootstrap chart
+    digest: 6d49f3b6e28cb9a368fe5a2ec264e961d6df537f82a6bf60e1db08a986c10d38
+    keywords:
+    - tibco-platform
+    - platform
+    - bootstrap
+    name: platform-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-bootstrap-1.2.23/platform-bootstrap-1.2.23.tgz
+    version: 1.2.23
   servicemesh-contrib:
   - apiVersion: v2
     appVersion: 1.0.0
@@ -2519,4 +2596,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-24T10:36:45.516554818Z"
+generated: "2024-05-24T10:54:09.88264548Z"
