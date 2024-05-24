@@ -69,7 +69,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 
-{{- define "dp-oauth2proxy-recipes.consts.jfrogImageRepo" }}tibco-platform-local-docker/oauth2proxy{{end}}
+{{- define "dp-oauth2proxy-recipes.consts.jfrogImageRepo" }}tibco-platform-local-docker/core{{end}}
 {{- define "dp-oauth2proxy-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "dp-oauth2proxy-recipes.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "dp-oauth2proxy-recipes.consts.harborImageRepo" }}stratosphere{{end}}

@@ -37,7 +37,7 @@ data:
           \"${INGRESS_FQDN}\"\n        ingressClassName: \"${INGRESS_CLASSNAME}\"\n
           \       secrets:\n          iat: \"${SECRETS_IAT}\"\nserviceAccount:\n  enabled:
           false\n  name: ${SERVICE_ACCOUNT_NAME}   #CP global var? \nimage:\n  repository:
-          \"${IMAGE_REPOSITORY}/stratosphere/tp-oauth-proxy\"\n  tag: \"v1.2.1\"\nconfig:\n
+          \"${IMAGE_REPOSITORY}/stratosphere/tp-oauth-proxy\"\n  tag: \"v1.2.2\"\nconfig:\n
           \ existingSecret: \"oauth2proxy-${CP_CAPABILITY_INSTANCE_ID}\" ### can be
           the release name to make it unique\nextraArgs:\n  oidc-issuer-url: \"https://${CP_HOST_NAME}\"\n
           \ cookie-path: ${CAPABILITY_PATH_PREFIX}      ### ${global.cp.capability.pathPrefix}\n
