@@ -1,0 +1,123 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-oauth2proxy-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.2.0",
+      "minCPVersion": "1.1.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.oauth2proxy.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.oauth2proxy.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.1.1"        
+    }
+  package.json: |
+    {}
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+      - name: oauth2-proxy
+        flags:
+          install: true
+          createNamespace: false
+          dependencyUpdate: true
+        values:
+          - content: "global:     #global section can be removed once CP is having these
+          values passed down through capability\n  cp:\n    cpHostName: \"${CP_HOST_NAME}\"\n
+          \   instanceId: \"${CP_CAPABILITY_INSTANCE_ID}\"\n    capability:\n      pathPrefix:
+          \"${CAPABILITY_PATH_PREFIX}\"\n    resources:\n      ingress:\n        fqdn:
+          \"${INGRESS_FQDN}\"\n        ingressClassName: \"${INGRESS_CLASSNAME}\"\n
+          \       secrets:\n          iat: \"${SECRETS_IAT}\"\nserviceAccount:\n  enabled:
+          false\n  name: ${SERVICE_ACCOUNT_NAME}   #CP global var? \nimage:\n  repository:
+          \"${IMAGE_REPOSITORY}/stratosphere/tp-oauth-proxy\"\n  tag: \"v1.2.1\"\nconfig:\n
+          \ existingSecret: \"oauth2proxy-${CP_CAPABILITY_INSTANCE_ID}\" ### can be
+          the release name to make it unique\nextraArgs:\n  oidc-issuer-url: \"https://${CP_HOST_NAME}\"\n
+          \ cookie-path: ${CAPABILITY_PATH_PREFIX}      ### ${global.cp.capability.pathPrefix}\n
+          \ proxy-prefix: ${CAPABILITY_PATH_PREFIX}/oauth2   ### ${global.cp.capability.pathPrefix}/oauth2\ningress:\n
+          \ className: ${INGRESS_CLASSNAME} ### ${global.cp.resources.ingress.ingressClassName}\n
+          \ hosts: \n    - ${INGRESS_FQDN} ### ${global.cp.resources.ingress.fqdn}\n
+          \ path: \"${CAPABILITY_PATH_PREFIX}/oauth2\" ### ${global.cp.capability.pathPrefix}/oauth2\nenableLogging:
+          true\n"
+        version: {{ .Values.capabilities.oauth2proxy.version | quote }}
+        namespace: "${NAMESPACE}"
+        repository:
+          chartMuseum:
+            host: "${HELM_REPO}"
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-oauth2proxy-recipes.labels" . | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: oauth2proxy
+        image: {{ include "dp-oauth2proxy.image.registry" .}}{{"/"}}{{ include "dp-oauth2proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "oauth2proxy"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/infra_sidecar"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.2.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.oauth2proxy.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.oauth2proxy.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy-volume
+          configMap:
+            name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "dp-oauth2proxy-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "dp-oauth2proxy-recipes.pvc-name" . }}
+      imagePullSecrets:
+        {{- if (include "dp-oauth2proxy-recipes.container-registry.secret" .) }}
+        - name: {{ include "dp-oauth2proxy-recipes.container-registry.secret" . }}
+        {{- end}}
