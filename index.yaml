@@ -2232,6 +2232,43 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-proxy-1.0.110/tp-cp-proxy-1.0.110.tgz
     version: 1.0.110
+  tp-cp-recipes:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-recipes
+    apiVersion: v2
+    appVersion: 1.2.0
+    created: "2024-05-24T10:36:45.516403216Z"
+    dependencies:
+    - name: tp-cp-infra-recipes
+      repository: alias:tibco-platform
+      version: 1.2.29
+    - name: tp-cp-bwce-recipes
+      repository: alias:tibco-platform
+      version: 1.2.14
+    - name: tp-cp-flogo-recipes
+      repository: alias:tibco-platform
+      version: 1.2.20
+    - name: tp-cp-tibcohub-recipes
+      repository: alias:tibco-platform
+      version: 1.2.13
+    - name: dp-oauth2proxy-recipes
+      repository: alias:tibco-platform
+      version: 1.2.7
+    - name: tp-cp-servicemesh-recipes
+      repository: alias:tibco-platform
+      version: 1.2.13
+    description: TIBCO Platform recipe chart
+    digest: eadb91241b65de799062304e2378035bae4d13d470757ada76586139d8c49ec2
+    keywords:
+    - tibco-platform
+    - platform
+    - recipes
+    name: tp-cp-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-recipes-1.2.52/tp-cp-recipes-1.2.52.tgz
+    version: 1.2.52
   tp-cp-servicemesh-recipes:
   - annotations:
       app.helm.sh/component: control-plane
@@ -2482,4 +2519,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-24T10:30:34.790642402Z"
+generated: "2024-05-24T10:36:45.516554818Z"
