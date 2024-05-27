@@ -738,8 +738,10 @@ ingress-nginx:
   enabled: true
   controller:
     config:
-      use-forwarded-headers: "true"
+      # to set maximum allowed size of the client request body to support large file upload
       proxy-body-size: "150m"
+      # to passes the incoming X-Forwarded-* headers to upstreams
+      use-forwarded-headers: "true"
 EOF
 ```
 Use the following command to get the ingress class name.
@@ -818,6 +820,12 @@ Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the ne
 ```bash
 cd scripts/eks
 ```
+
+> [!NOTE]
+> The clean-up script deletes the role created for crossplane, as well.
+> You have to set the value of the variable `CP_CROSSPLANE_ROLE` again, if it is unset before running clean-up script.
+> Don't set it, if you are using the default value formulated by the script which is in the format
+> `${CP_CLUSTER_NAME}-crossplane-${CP_CLUSTER_REGION}`
 
 For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/eks/clean-up-control-plane.sh).
 ```bash

@@ -7,8 +7,11 @@ _status=''
 
 echo "Export Global variables"
 export CP_CLUSTER_NAME=${CP_CLUSTER_NAME:-"cp-cluster-infra"}
+export CP_CLUSTER_REGION=${CP_CLUSTER_REGION:-"us-west-2"}
 export CP_STORAGE_CLASS_EFS=${CP_STORAGE_CLASS_EFS:-"efs-sc"}
 export CP_CROSSPLANE_ENABLED=${CP_CROSSPLANE_ENABLED:-"true"}
+_role_name="${CP_CLUSTER_NAME}-crossplane-${CP_CLUSTER_REGION}"
+export CP_CROSSPLANE_ROLE="${CP_CROSSPLANE_ROLE:-${_role_name}}"
 
 # need to output empty string otherwise will output null
 _efs_id=$(kubectl get sc ${CP_STORAGE_CLASS_EFS} -oyaml | yq eval '.parameters.fileSystemId // ""')
