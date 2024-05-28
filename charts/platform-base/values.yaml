@@ -13,24 +13,29 @@ global:
     db_username: ""
     db_password: ""
     db_secret_name: ""
-    environment: "vagrant"
+    environment: "production"
     db_ssl_mode: "disable"
     db_ssl_root_cert: ""
-    tscBillingEmailAlias: ""
-    fromAndReplyToEmailAddress: "not-set-yet"
-    IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "not-set-yet"
-    IDENTITY_MANAGEMENT_TA_PASS: "not-set-yet"
-    IDENTITY_MANAGEMENT_TA_CLIENT_ID: "not-set-yet"
-    IDENTITY_MANAGEMENT_CLIENT_ID_SECRET_KEY: "not-set-yet"
-    IDENTITY_MANAGEMENT_TIBCOACCOUNT_TSC_SECRET_KEY: "not-set-yet"
-    SENDGRID_SERVICE_API_KEY: "not-set-yet"
-    REGION_SECRET: "not-set-yet"
-    IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEY_STORE_PASSWORD: "not-set-yet"
-    CP_ENCRYPTION_SECRET: "not-set-yet"
+    fromAndReplyToEmailAddress: ""
+    cronJobReportsEmailAlias: ""
+    platformEmailNotificationCcAddresses: ""
+    emailServerType: "smtp"
+    emailServer:
+      ses:
+        arn: ""
+      smtp:
+        server: ""
+        port: "25"
+        username: ""
+        password: ""
+      sendgrid:
+        apiKey: ""
     admin:
       email: ""
       firstname: ""
       lastname: ""
+      customerID: ""
+
 
 # Default values for tp-cp-integration.
 tp-cp-integration:
