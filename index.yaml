@@ -1542,6 +1542,60 @@ entries:
       app.helm.sh/name: platform-base
     apiVersion: v2
     appVersion: 1.2.0
+    created: "2024-05-28T10:54:30.475308293Z"
+    dependencies:
+    - name: tp-cp-configuration
+      repository: alias:tibco-platform
+      version: 1.2.16
+    - name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.2.52
+    - name: tp-cp-o11y
+      repository: alias:tibco-platform
+      version: 1.2.12
+    - name: tp-cp-core
+      repository: alias:tibco-platform
+      version: 1.2.7808
+    - name: tp-cp-core-ops
+      repository: alias:tibco-platform
+      version: 1.2.7808
+    - name: tp-cp-core-finops
+      repository: alias:tibco-platform
+      version: 1.2.372
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.2.36
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.2.9
+    - condition: tp-cp-msg-contrib.enabled
+      name: tp-cp-msg-contrib
+      repository: alias:tibco-platform
+      version: 1.2.24
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.2.14
+    description: TIBCO Platform base chart
+    digest: 12f90fc4f0768ceaddafc6797b550de4738255f33323a6e0a1343c7646cf9dc1
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.2.138/platform-base-1.2.138.tgz
+    version: 1.2.138
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
+    appVersion: 1.2.0
     created: "2024-05-24T10:54:09.754737583Z"
     dependencies:
     - name: tp-cp-configuration
@@ -2596,4 +2650,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-05-24T10:54:09.88264548Z"
+generated: "2024-05-28T10:54:30.475475945Z"
