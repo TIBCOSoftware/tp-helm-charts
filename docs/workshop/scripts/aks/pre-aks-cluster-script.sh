@@ -32,6 +32,11 @@ az group create --location "${DP_AZURE_REGION}" --name "${DP_RESOURCE_GROUP}"
 _ret=$?
 verify_error "${_ret}" "resource_group"
 
+# create dns resource group
+az group create --location "${DP_AZURE_REGION}" --name "${DP_DNS_RESOURCE_GROUP}"
+_ret=$?
+verify_error "${_ret}" "resource_group"
+
 # create user-assigned identity
 az identity create --name "${DP_USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${DP_RESOURCE_GROUP}"
 _ret=$?
