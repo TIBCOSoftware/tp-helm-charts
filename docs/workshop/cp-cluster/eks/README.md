@@ -842,7 +842,7 @@ cd scripts/eks
 
 > [!NOTE]
 > The clean-up script deletes the role created for crossplane, as well.
-> You have to set the value of the variable `CP_CROSSPLANE_ROLE` again, if it is unset before running clen-up script.
+> You have to set the value of the variable `CP_CROSSPLANE_ROLE` again, if it is unset before running clean-up script.
 > Don't set it, if you are using the default value formulated by the script which is in the format
 > `${CP_CLUSTER_NAME}-crossplane-${CP_CLUSTER_REGION}`
 
