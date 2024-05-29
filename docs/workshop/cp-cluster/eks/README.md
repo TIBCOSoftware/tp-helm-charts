@@ -87,7 +87,8 @@ Additionally, you will need to add the [AmazonElasticFileSystemFullAccess](https
 ```bash
 ## AWS specific values
 export AWS_PAGER=""
-export CP_CLUSTER_REGION=us-west-2 # aws region to be used for deployment
+export AWS_REGION="us-west-2" # aws region to be used for deployment
+export CP_CLUSTER_REGION="${AWS_REGION}" # aws region to be used for deployment
 export WAIT_FOR_RESOURCE_AVAILABLE="false"
 
 ## Cluster configuration specific variables
@@ -353,9 +354,19 @@ We have provided a [RDS creation script](../../scripts/eks/create-rds.sh) to cre
 export ${WAIT_FOR_RESOURCE_AVAILABLE}="false" # set to true to wait for resources to be available, before proceeding
 ./create-rds.sh
 ```
+
+> [!IMPORTANT]
+> Please note that the RDS DB instance of PostgreSQL created using below crossplane claim does not enforce SSL by default.
+> To enforce SSL connection, please check [Requiring an SSL connection to a PostgreSQL DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html#PostgreSQL.Concepts.General.SSL.Requiring)
+
 ### Using Crossplane
 
 #### Pre-requisites
+
+Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the next steps.
+```bash
+cd scripts/eks
+```
 
 Execute the following script which creates a configmap in the kube-system namespace with the name tibco-platform-infra to store
   1. AWS Account ID
@@ -597,6 +608,12 @@ EOF
 )
 ```
 
+> [!IMPORTANT]
+> To use the parameter group with rds.force_ssl value "1" for the PostgreSQL DB instance, you need to set the value
+> of spec.forProvider.dbParameterGroupName of the RDSInstance.database.aws.crossplane.io resource created using crossplane with this 
+> parameter group name.
+> You will also need to apply the modification for the RDS DB instance for it to come into effect from AWS console.
+
 ### Storage Class
 > [!IMPORTANT]
 > If you have used crossplane to create storage class, please skip running below script.
@@ -717,7 +734,7 @@ It will create the following resources:
 
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ingress-system dp-config-aws-nginx dp-config-aws \
-  --repo "${DP_TIBCO_HELM_CHART_REPO}" \
+  --repo "${CP_TIBCO_HELM_CHART_REPO}" \
   --labels layer=1 \
   --version "^1.0.0" -f - <<EOF
 dns:
@@ -776,15 +793,17 @@ global:
       username: "${CP_CONTAINER_REGISTRY_USER}"
       password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
     controlPlaneInstanceId: "${CP_INSTANCE_ID}"
-    enableLogging: false # set to true to enable logging
+    logging:
+      fluentbit:
+        enabled: false # set to true to enable logging
     serviceAccount: "${CP_INSTANCE_ID}-sa"
+  external:
     # uncomment following section if logging is enabled
     # logserver:
     #   endpoint: ${CP_LOGSERVER_ENDPOINT}
     #   index: ${CP_LOGSERVER_INDEX}
     #   username: ${CP_LOGSERVER_USERNAME}
     #   password: ${CP_LOGSERVER_PASSWORD}
-  external:
     ingress:
       ingressClassName: "${CP_INGRESS_CONTROLLER}"
       certificateArn: "${CP_DOMAIN_CERT_ARN}"
