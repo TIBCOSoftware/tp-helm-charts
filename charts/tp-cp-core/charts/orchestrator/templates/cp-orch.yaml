@@ -349,6 +349,8 @@ spec:
           value: {{ (.Values.global.external.cronJobReportsEmailAlias) }}
         - name: TRANSACTIONAL_EMAIL_CC_ADDRESSES
           value: {{ (.Values.global.external.platformEmailNotificationCcAddresses) }}
+        - name: CP_HELM_REPO
+          value: {{ .Values.global.external.helmRepo }}
         volumeMounts:
         - name: store-vol
           mountPath: /private/tsc/config
