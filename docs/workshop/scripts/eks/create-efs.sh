@@ -23,9 +23,9 @@ _mount_target_group_name="${_cluster_name}-EFS-SG"
 _mount_target_group_description="NFS access to EFS from EKS worker nodes"
 _mount_target_group_id=$(aws ec2 describe-security-groups --filters Name=group-name,Values="${_mount_target_group_name}" Name=vpc-id,Values="${_vpc_id}" --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" |  jq --raw-output '.[].ID')
 if [ -z "${_mount_target_group_id}" ]; then
-  echo "Creating SecurityGroup \"${_mount_target_group_id}\" for EFS"
+  echo "Creating SecurityGroup \"${_mount_target_group_name}\" for EFS"
   _mount_target_group_id=$(aws ec2 create-security-group --group-name "${_mount_target_group_name}" --description "${_mount_target_group_description}" --vpc-id "${_vpc_id}" | jq --raw-output '.GroupId')
-  aws ec2 create-tags --resources "${_mount_target_group_id}" Key=Cluster,Value="${_cluster_name}" Key=Resource,Value=${_cluster_name}-efs
+  aws ec2 create-tags --resources "${_mount_target_group_id}" --tags Key=Cluster,Value="${_cluster_name}" Key=Resource,Value=${_cluster_name}-efs
   aws ec2 authorize-security-group-ingress --group-id "${_mount_target_group_id}" --protocol tcp --port 2049 --cidr "${_cidr_block}"
 else
   echo "SecurityGroup for EFS ${_mount_target_group_name} already created"

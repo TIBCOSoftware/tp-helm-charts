@@ -60,7 +60,7 @@ aws rds create-db-instance \
   --db-subnet-group-name ${CP_CLUSTER_NAME}-subnet-group${_flag_publicly_accessible} \
   --allocated-storage 20 \
   --no-multi-az \
-  --engine-version 14.8 \
+  --engine-version 14.11 \
   --vpc-security-group-ids ${_rds_group_id} \
   --no-paginate
 
