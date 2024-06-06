@@ -109,6 +109,7 @@ export CP_RDS_AVAILABILITY="public" # public or private
 export CP_RDS_USERNAME="cp_rdsadmin" # replace with desired username
 export CP_RDS_MASTER_PASSWORD="cp_DBAdminPassword" # replace with desired username
 export CP_RDS_INSTANCE_CLASS="db.t3.medium" # replace with desired db instance class
+export CP_RDS_ENGINE_VERSION="14.11" # replace with desired RDS postgres version supported by aws
 export CP_RDS_PORT="5432" # replace with desired db port
 
 ## Required by external-dns chart
@@ -552,7 +553,7 @@ helm upgrade --install --wait --timeout 1h \
   --render-subchart-notes \
   --labels layer=4 \
   --repo "${CP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" \
-  -f <(envsubst '${CP_INSTANCE_ID}, ${CP_RESOURCE_PREFIX}, ${CP_CLUSTER_NAME}, ${CP_STORAGE_CLASS_EFS}' <<'EOF'
+  -f <(envsubst '${CP_INSTANCE_ID}, ${CP_RESOURCE_PREFIX}, ${CP_CLUSTER_NAME}, ${CP_RDS_ENGINE_VERSION}, ${CP_STORAGE_CLASS_EFS}' <<'EOF'
 crossplane-components:
   enabled: true
   claims:
@@ -583,7 +584,7 @@ crossplane-components:
         dbInstanceClass: "db.t3.medium"
         dbName: "postgres"
         engine: "postgres"
-        engineVersion: "14.11"
+        engineVersion: "${CP_RDS_ENGINE_VERSION}"
         masterUsername: "useradmin"
         port: 5432
         publiclyAccessible: false

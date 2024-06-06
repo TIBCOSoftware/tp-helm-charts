@@ -9,6 +9,7 @@ export CP_RDS_PORT=${CP_RDS_PORT:-"5432"}
 export CP_RDS_INSTANCE_CLASS=${CP_RDS_INSTANCE_CLASS:-"db.t3.medium"}
 export CP_RDS_USERNAME=${CP_RDS_USERNAME:-"cp_rdsadmin"}
 export CP_RDS_MASTER_PASSWORD=${CP_RDS_MASTER_PASSWORD:-"cp_DBAdminPassword"}
+export CP_RDS_ENGINE_VERSION=${CP_RDS_ENGINE_VERSION:-"14.11"}
 export WAIT_FOR_RESOURCE_AVAILABLE"="${WAIT_FOR_RESOURCE_AVAILABLE:-"false"}
 
 _ret=''
@@ -60,7 +61,7 @@ aws rds create-db-instance \
   --db-subnet-group-name ${CP_CLUSTER_NAME}-subnet-group${_flag_publicly_accessible} \
   --allocated-storage 20 \
   --no-multi-az \
-  --engine-version 14.8 \
+  --engine-version ${CP_RDS_ENGINE_VERSION} \
   --vpc-security-group-ids ${_rds_group_id} \
   --no-paginate
 
