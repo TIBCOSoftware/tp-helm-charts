@@ -422,6 +422,8 @@ httpIngress:
   ingressClassName: ${DP_MAIN_INGRESS_CLASS_NAME}
   annotations:
     external-dns.alpha.kubernetes.io/hostname: "*.${DP_APPS_DOMAIN}"
+ingress-nginx:
+  enabled: false
 kong:
   enabled: true
 ## following environment section is required to send traces using kong
