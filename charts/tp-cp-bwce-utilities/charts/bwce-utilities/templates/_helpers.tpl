@@ -47,26 +47,26 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "bwce-utilities.consts.infra.ecrImageRepo" }}stratosphere{{end}}
 {{- define "bwce-utilities.consts.infra.acrImageRepo" }}stratosphere{{end}}
 {{- define "bwce-utilities.consts.infra.harborImageRepo" }}stratosphere{{end}}
-{{- define "bwce-utilities.consts.infra.defaultImageRepo" }}stratosphere{{end}}
+{{- define "bwce-utilities.consts.infra.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 
 {{- define "bwce-utilities.consts.bwce.jfrogImageRepo" }}tibco-platform-local-docker/bwce{{end}}
 {{- define "bwce-utilities.consts.bwce.ecrImageRepo" }}piap{{end}}
 {{- define "bwce-utilities.consts.bwce.acrImageRepo" }}piap{{end}}
 {{- define "bwce-utilities.consts.bwce.harborImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.bwce.defaultImageRepo" }}piap{{end}}
+{{- define "bwce-utilities.consts.bwce.defaultImageRepo" }}tibco-platform-local-docker/bwce{{end}}
 
 {{- define "bwce-utilities.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
 {{- define "bwce-utilities.consts.integration.ecrImageRepo" }}piap{{end}}
 {{- define "bwce-utilities.consts.integration.acrImageRepo" }}piap{{end}}
 {{- define "bwce-utilities.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.integration.defaultImageRepo" }}piap{{end}}
+{{- define "bwce-utilities.consts.integration.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 {{- define "bwce-utilities.consts.plugins.jfrogImageRepo" }}tibco-platform-local-docker/bwce{{end}}
 {{- define "bwce-utilities.consts.plugins.ecrImageRepo" }}tci{{end}}
 {{- define "bwce-utilities.consts.plugins.acrImageRepo" }}tci{{end}}
 {{- define "bwce-utilities.consts.plugins.harborImageRepo" }}tci{{end}}
-{{- define "bwce-utilities.consts.plugins.defaultImageRepo" }}tci{{end}}
+{{- define "bwce-utilities.consts.plugins.defaultImageRepo" }}tibco-platform-local-docker/bwce{{end}}
 
 {{- define "bwce-utilities.image.registry" }}
   {{- if .Values.image.registry }} 

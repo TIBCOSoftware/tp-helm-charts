@@ -14,7 +14,7 @@ MSG DP Common Helpers
 {{- define "msgdp.ecrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.acrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.reldockerImageRepo" -}}"messaging"{{ end }}
-{{- define "msgdp.defaultImageRepo" -}}"messaging"{{ end }}
+{{- define "msgdp.defaultImageRepo" -}}"tibco-platform-local-docker/msg"{{ end }}
 
 {{/*
 need.msg.dp.params

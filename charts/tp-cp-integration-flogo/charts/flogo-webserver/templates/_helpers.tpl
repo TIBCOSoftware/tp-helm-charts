@@ -61,13 +61,13 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- define "flogo-webserver.consts.ecrImageRepo" }}piap{{end}}
 {{- define "flogo-webserver.consts.acrImageRepo" }}piap{{end}}
 {{- define "flogo-webserver.consts.harborImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.defaultImageRepo" }}piap{{end}}
+{{- define "flogo-webserver.consts.defaultImageRepo" }}tibco-platform-local-docker/flogo{{end}}
 
 {{- define "flogo-webserver.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
 {{- define "flogo-webserver.consts.integration.ecrImageRepo" }}piap{{end}}
 {{- define "flogo-webserver.consts.integration.acrImageRepo" }}piap{{end}}
 {{- define "flogo-webserver.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.integration.defaultImageRepo" }}piap{{end}}
+{{- define "flogo-webserver.consts.integration.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 
 {{- define "flogo-webserver.image.registry" }}

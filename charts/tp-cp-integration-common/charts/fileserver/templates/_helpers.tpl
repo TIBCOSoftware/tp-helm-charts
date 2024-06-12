@@ -53,7 +53,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "fileserver.consts.integration.ecrImageRepo" }}piap{{end}}
 {{- define "fileserver.consts.integration.acrImageRepo" }}piap{{end}}
 {{- define "fileserver.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "fileserver.consts.integration.defaultImageRepo" }}piap{{end}}
+{{- define "fileserver.consts.integration.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 
 {{- define "fileserver.image.registry" }}

@@ -21,7 +21,7 @@ in the license file that is distributed with this file.
 {{- define "tp-dp-monitor-agent.const.ecrImageRepo" }}pdp{{end}}
 {{- define "tp-dp-monitor-agent.const.acrImageRepo" }}pdp{{end}}
 {{- define "tp-dp-monitor-agent.const.harborImageRepo" }}pdp{{end}}
-{{- define "tp-dp-monitor-agent.const.defaultImageRepo" }}pdp{{end}}
+{{- define "tp-dp-monitor-agent.const.defaultImageRepo" }}tibco-platform-local-docker/finops{{end}}
  
 {{- define "tp-dp-monitor-agent.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}

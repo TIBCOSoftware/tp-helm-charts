@@ -30,7 +30,7 @@ in the license file that is distributed with this file.
 {{- define "compute-services.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "compute-services.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "compute-services.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "compute-services.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "compute-services.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "compute-services.image.registry" }}
   {{- if .Values.image.registry }} 

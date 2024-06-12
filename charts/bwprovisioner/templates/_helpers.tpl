@@ -85,7 +85,7 @@ Integration storage folder pvc name
 {{- define "bwprovisioner.const.ecrImageRepo" }}piap{{end}}
 {{- define "bwprovisioner.const.acrImageRepo" }}piap{{end}}
 {{- define "bwprovisioner.const.harborImageRepo" }}piap{{end}}
-{{- define "bwprovisioner.const.defaultImageRepo" }}piap{{end}}
+{{- define "bwprovisioner.const.defaultImageRepo" }}tibco-platform-local-docker/bwce{{end}}
 
 {{- define "bwprovisioner.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
@@ -111,7 +111,7 @@ Integration storage folder pvc name
 {{- define "bwprovisioner.appinit.const.ecrImageRepo" }}piap{{end}}
 {{- define "bwprovisioner.appinit.const.acrImageRepo" }}piap{{end}}
 {{- define "bwprovisioner.appinit.const.harborImageRepo" }}piap{{end}}
-{{- define "bwprovisioner.appinit.const.defaultImageRepo" }}piap{{end}}
+{{- define "bwprovisioner.appinit.const.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bwprovisioner.appinit.image.repository" -}}

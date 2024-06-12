@@ -85,7 +85,7 @@ Integration storage folder pvc name
 {{- define "flogoprovisioner.const.ecrImageRepo" }}piap{{end}}
 {{- define "flogoprovisioner.const.acrImageRepo" }}piap{{end}}
 {{- define "flogoprovisioner.const.harborImageRepo" }}piap{{end}}
-{{- define "flogoprovisioner.const.defaultImageRepo" }}piap{{end}}
+{{- define "flogoprovisioner.const.defaultImageRepo" }}tibco-platform-local-docker/flogo{{end}}
 
 {{- define "flogoprovisioner.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
@@ -111,7 +111,7 @@ Integration storage folder pvc name
 {{- define "flogoprovisioner.appinit.const.ecrImageRepo" }}piap{{end}}
 {{- define "flogoprovisioner.appinit.const.acrImageRepo" }}piap{{end}}
 {{- define "flogoprovisioner.appinit.const.harborImageRepo" }}piap{{end}}
-{{- define "flogoprovisioner.appinit.const.defaultImageRepo" }}piap{{end}}
+{{- define "flogoprovisioner.appinit.const.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogoprovisioner.appinit.image.repository" -}}

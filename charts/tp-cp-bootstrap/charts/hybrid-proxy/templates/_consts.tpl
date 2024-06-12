@@ -34,7 +34,7 @@ in the license file that is distributed with this file.
 {{- define "hybrid-proxy.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "hybrid-proxy.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "hybrid-proxy.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "hybrid-proxy.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "hybrid-proxy.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "hybrid-proxy.image.registry" }}
   {{- if .Values.image.registry }} 

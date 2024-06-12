@@ -63,7 +63,7 @@ istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "") }}-{{ .Values.
 {{- define "servicemesh.const.gcrImageRepo" }}servicemesh{{end}}
 {{- define "servicemesh.const.harborImageRepo" }}servicemesh{{end}}
 {{- define "servicemesh.const.dockerImageRepo" }}istio{{end}}
-{{- define "servicemesh.const.defaultImageRepo" }}{{ .Values.pilot.hub | default .Values.global.hub }}{{end}}
+{{- define "servicemesh.const.defaultImageRepo" }}tibco-platform-local-docker/servicemesh{{end}}
  
 {{- define "servicemesh.image.registry" }}
   {{- if not (eq .Values.global.cp.containerRegistry.url "") }}

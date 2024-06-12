@@ -34,7 +34,7 @@ in the license file that is distributed with this file.
 {{- define "router-operator.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "router-operator.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "router-operator.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "router-operator.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "router-operator.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "router-operator.image.registry" }}
   {{- if .Values.image.registry }} 

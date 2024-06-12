@@ -116,7 +116,7 @@ platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
 {{- define "jaeger.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "jaeger.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "jaeger.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "jaeger.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "jaeger.const.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "jaeger.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}

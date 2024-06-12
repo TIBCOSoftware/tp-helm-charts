@@ -32,7 +32,7 @@ in the license file that is distributed with this file.
 {{- define "resource-set-operator.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "resource-set-operator.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "resource-set-operator.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "resource-set-operator.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "resource-set-operator.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "resource-set-operator.image.registry" }}
   {{- if .Values.image.registry }} 

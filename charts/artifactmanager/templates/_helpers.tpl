@@ -76,7 +76,7 @@ Integration storage folder pvc name
 {{- define "artifactmanager.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "artifactmanager.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "artifactmanager.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "artifactmanager.const.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "artifactmanager.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}

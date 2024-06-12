@@ -76,13 +76,13 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- define "bw-webserver.consts.bwce.ecrImageRepo" }}piap{{end}}
 {{- define "bw-webserver.consts.bwce.acrImageRepo" }}piap{{end}}
 {{- define "bw-webserver.consts.bwce.harborImageRepo" }}piap{{end}}
-{{- define "bw-webserver.consts.bwce.defaultImageRepo" }}piap{{end}}
+{{- define "bw-webserver.consts.bwce.defaultImageRepo" }}tibco-platform-local-docker/bwce{{end}}
 
 {{- define "bw-webserver.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
 {{- define "bw-webserver.consts.integration.ecrImageRepo" }}piap{{end}}
 {{- define "bw-webserver.consts.integration.acrImageRepo" }}piap{{end}}
 {{- define "bw-webserver.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "bw-webserver.consts.integration.defaultImageRepo" }}piap{{end}}
+{{- define "bw-webserver.consts.integration.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 
 {{- define "bw-webserver.image.registry" }}

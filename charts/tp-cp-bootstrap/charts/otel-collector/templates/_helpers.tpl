@@ -82,7 +82,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "otel-collector.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "otel-collector.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "otel-collector.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "otel-collector.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "otel-collector.const.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "otel-collector.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}

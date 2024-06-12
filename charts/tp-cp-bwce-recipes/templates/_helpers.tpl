@@ -73,7 +73,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "dp-bwce-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "dp-bwce-recipes.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "dp-bwce-recipes.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "dp-bwce-recipes.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "dp-bwce-recipes.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "dp-bwce-recipes.image.registry" }}
   {{- if .Values.image.registry }} 

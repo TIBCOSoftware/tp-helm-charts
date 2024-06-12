@@ -73,13 +73,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "tp-cp-tibcohub-contrib.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-tibcohub-contrib.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-tibcohub-contrib.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "tp-cp-tibcohub-contrib.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.jfrogImageRepo" }}tibco-platform-local-docker/dx{{end}}
 {{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.ecrImageRepo" }}pdx{{end}}
 {{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.acrImageRepo" }}pdx{{end}}
 {{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.harborImageRepo" }}pdx{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.defaultImageRepo" }}pdx{{end}}
+{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.defaultImageRepo" }}tibco-platform-local-docker/dx{{end}}
 
 {{- define "tp-cp-tibcohub-contrib.image.registry" }}
   {{- if .Values.image.registry }} 
