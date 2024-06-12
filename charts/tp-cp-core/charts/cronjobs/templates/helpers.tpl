@@ -8,7 +8,7 @@
 {{- define "tp-cp-cronjobs.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-cronjobs.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-cronjobs.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-cronjobs.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-cronjobs.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{- define "tp-cp-cronjobs.image.registry" }}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}

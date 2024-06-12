@@ -8,7 +8,7 @@
 {{- define "tp-cp-core.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-core.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-core.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-core.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-core.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 
 {{- define "tp-cp-core.image.repository" -}}

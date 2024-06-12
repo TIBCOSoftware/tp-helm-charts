@@ -8,7 +8,7 @@
 {{- define "finops-prometheus.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "finops-prometheus.consts.acrImageRepo" }}pcp{{end}}
 {{- define "finops-prometheus.consts.harborImageRepo" }}pcp{{end}}
-{{- define "finops-prometheus.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "finops-prometheus.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "finops-prometheus.image.registry" }}

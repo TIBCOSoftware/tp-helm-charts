@@ -74,7 +74,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "finops-otel-collector.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "finops-otel-collector.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "finops-otel-collector.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "finops-otel-collector.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "finops-otel-collector.const.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "finops-otel-collector.image.registry" }}
   {{- if .Values.image.registry }}

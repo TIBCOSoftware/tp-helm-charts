@@ -8,7 +8,7 @@
 {{- define "tp-cp-orchestrator.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-orchestrator.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-orchestrator.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-orchestrator.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-orchestrator.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "tp-cp-orchestrator.image.registry" }}

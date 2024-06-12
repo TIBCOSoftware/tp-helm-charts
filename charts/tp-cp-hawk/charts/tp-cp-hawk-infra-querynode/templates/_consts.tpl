@@ -28,7 +28,7 @@ f{{/*
 {{- define "tp-hawk-infra-querynode.consts.ecrImageRepo" }}infra-hawk/control-tower{{end}}
 {{- define "tp-hawk-infra-querynode.consts.acrImageRepo" }}infra-hawk/control-tower{{end}}
 {{- define "tp-hawk-infra-querynode.consts.harborImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-querynode.consts.defaultImageRepo" }}infra-hawk/control-tower{{end}}
+{{- define "tp-hawk-infra-querynode.consts.defaultImageRepo" }}tibco-platform-local-docker/hawk{{end}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra-querynode.image.repository" -}}

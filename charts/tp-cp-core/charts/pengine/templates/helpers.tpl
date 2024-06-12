@@ -8,7 +8,7 @@
 {{- define "tp-cp-pengine.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-pengine.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-pengine.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-pengine.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-pengine.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "tp-cp-pengine.image.registry" }}

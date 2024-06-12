@@ -28,7 +28,7 @@
 {{- define "tp-hawk-infra-prometheus.consts.ecrImageRepo" }}infra-hawk/infra-control-tower{{end}}
 {{- define "tp-hawk-infra-prometheus.consts.acrImageRepo" }}infra-hawk/infra-control-tower{{end}}
 {{- define "tp-hawk-infra-prometheus.consts.harborImageRepo" }}infra-hawk/infra-control-tower{{end}}
-{{- define "tp-hawk-infra-prometheus.consts.defaultImageRepo" }}infra-hawk/infra-control-tower{{end}}
+{{- define "tp-hawk-infra-prometheus.consts.defaultImageRepo" }}tibco-platform-local-docker/hawk{{end}}
 
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
@@ -48,7 +48,7 @@
 {{- define "tp-hawk-infra-prometheusds.consts.ecrImageRepo" }}infra-hawk/control-tower{{end}}
 {{- define "tp-hawk-infra-prometheusds.consts.acrImageRepo" }}infra-hawk/control-tower{{end}}
 {{- define "tp-hawk-infra-prometheusds.consts.harborImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-prometheusds.consts.defaultImageRepo" }}infra-hawk/control-tower{{end}}
+{{- define "tp-hawk-infra-prometheusds.consts.defaultImageRepo" }}tibco-platform-local-docker/hawk{{end}}
 
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}

@@ -47,26 +47,26 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "flogo-utilities.consts.infra.ecrImageRepo" }}stratosphere{{end}}
 {{- define "flogo-utilities.consts.infra.acrImageRepo" }}stratosphere{{end}}
 {{- define "flogo-utilities.consts.infra.harborImageRepo" }}stratosphere{{end}}
-{{- define "flogo-utilities.consts.infra.defaultImageRepo" }}stratosphere{{end}}
+{{- define "flogo-utilities.consts.infra.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 
 {{- define "flogo-utilities.consts.flogo.jfrogImageRepo" }}tibco-platform-local-docker/flogo{{end}}
 {{- define "flogo-utilities.consts.flogo.ecrImageRepo" }}piap{{end}}
 {{- define "flogo-utilities.consts.flogo.acrImageRepo" }}piap{{end}}
 {{- define "flogo-utilities.consts.flogo.harborImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.flogo.defaultImageRepo" }}piap{{end}}
+{{- define "flogo-utilities.consts.flogo.defaultImageRepo" }}tibco-platform-local-docker/flogo{{end}}
 
 {{- define "flogo-utilities.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
 {{- define "flogo-utilities.consts.integration.ecrImageRepo" }}piap{{end}}
 {{- define "flogo-utilities.consts.integration.acrImageRepo" }}piap{{end}}
 {{- define "flogo-utilities.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.integration.defaultImageRepo" }}piap{{end}}
+{{- define "flogo-utilities.consts.integration.defaultImageRepo" }}tibco-platform-local-docker/integration{{end}}
 
 {{- define "flogo-utilities.consts.plugins.jfrogImageRepo" }}tibco-platform-local-docker/flogo{{end}}
 {{- define "flogo-utilities.consts.plugins.ecrImageRepo" }}tci{{end}}
 {{- define "flogo-utilities.consts.plugins.acrImageRepo" }}tci{{end}}
 {{- define "flogo-utilities.consts.plugins.harborImageRepo" }}tci{{end}}
-{{- define "flogo-utilities.consts.plugins.defaultImageRepo" }}tci{{end}}
+{{- define "flogo-utilities.consts.plugins.defaultImageRepo" }}tibco-platform-local-docker/flogo{{end}}
 
 {{- define "flogo-utilities.image.registry" }}
   {{- if .Values.image.registry }} 

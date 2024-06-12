@@ -56,7 +56,7 @@ Create chart name and version as used by the chart label.
 {{- define "tp-cp-configuration.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-configuration.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-configuration.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-configuration.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "tp-cp-configuration.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "tp-cp-configuration.image.registry" }}
   {{- if .Values.image.registry }} 

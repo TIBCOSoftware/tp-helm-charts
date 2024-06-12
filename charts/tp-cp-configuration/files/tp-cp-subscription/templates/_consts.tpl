@@ -27,7 +27,7 @@ in the license file that is distributed with this file.
 {{- define "tp-cp-subscription.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-subscription.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-subscription.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-subscription.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "tp-cp-subscription.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "tp-cp-subscription.image.registry" }}
   {{- if .Values.image.registry }} 

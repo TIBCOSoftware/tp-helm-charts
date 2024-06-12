@@ -8,7 +8,7 @@
 {{- define "tp-cp-admin-webserver.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-admin-webserver.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-admin-webserver.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-admin-webserver.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-admin-webserver.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "tp-cp-admin-webserver.image.registry" }}

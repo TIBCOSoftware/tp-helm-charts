@@ -7,7 +7,7 @@
 {{- define "tp-cp-core-finops-job.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-core-finops-job.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-core-finops-job.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-core-finops-job.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-core-finops-job.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "tp-cp-core-finops-job.image.registry" }}

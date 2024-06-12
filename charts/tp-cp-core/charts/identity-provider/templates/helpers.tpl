@@ -8,7 +8,7 @@
 {{- define "tp-cp-identity-provider.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-identity-provider.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-identity-provider.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-identity-provider.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-identity-provider.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "tp-cp-identity-provider.image.registry" }}

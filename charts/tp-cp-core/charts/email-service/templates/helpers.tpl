@@ -8,7 +8,7 @@
 {{- define "tp-cp-email-service.consts.ecrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-email-service.consts.acrImageRepo" }}pcp{{end}}
 {{- define "tp-cp-email-service.consts.harborImageRepo" }}pcp{{end}}
-{{- define "tp-cp-email-service.consts.defaultImageRepo" }}pcp{{end}}
+{{- define "tp-cp-email-service.consts.defaultImageRepo" }}tibco-platform-local-docker/core{{end}}
 
 {{- define "tp-cp-email-service.image.registry" }}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
