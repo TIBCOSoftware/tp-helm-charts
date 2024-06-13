@@ -40,6 +40,18 @@ spec:
           {{- toYaml .Values.securityContext.provisionerAgent | nindent 10 }}
         {{- end }}
         env:
+        {{- if .Values.global.httpProxy.httpProxyUrl }}
+          - name: HTTP_PROXY
+            value: {{ .Values.global.httpProxy.httpProxyUrl }}
+        {{- end }}
+        {{- if .Values.global.httpProxy.httpsProxyUrl }}
+          - name: HTTPS_PROXY
+            value: {{ .Values.global.httpProxy.httpsProxyUrl }}
+        {{- end }}
+        {{- if .Values.global.httpProxy.noProxy }}
+          - name: NO_PROXY
+            value: {{ .Values.global.httpProxy.noProxy }}
+        {{- end }}
           - name: NAMESPACE
             value: {{ .Release.Namespace }}
           - name: RELEASE_NAME

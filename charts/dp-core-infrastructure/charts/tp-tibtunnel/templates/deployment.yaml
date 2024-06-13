@@ -33,12 +33,18 @@ spec:
         {{- /* @input: "tp-tibtunnel connect --remote-debug -s localhost:80 connecturl" */}}
         {{- /* @output: ["tp-tibtunnel", "connect", "--remote-debug","-s","localhost:80","connecturl"] */}}
         env:
-         - name: HTTP_PROXY
-           value: {{.Values.global.httpProxy.httpProxyUrl}}
-         - name: HTTPS_PROXY
-           value: {{.Values.global.httpProxy.httpsProxyUrl}}
-         - name: NO_PROXY
-           value: {{.Values.global.httpProxy.noProxy}}
+        {{- if .Values.global.httpProxy.httpProxyUrl }}
+          - name: HTTP_PROXY
+            value: {{.Values.global.httpProxy.httpProxyUrl }}
+        {{- end }}
+        {{- if .Values.global.httpProxy.httpsProxyUrl }}
+          - name: HTTPS_PROXY
+            value: {{.Values.global.httpProxy.httpsProxyUrl }}
+        {{- end }}
+        {{- if .Values.global.httpProxy.noProxy }}
+          - name: NO_PROXY
+            value: {{.Values.global.httpProxy.noProxy }}
+        {{- end }}
         command: [{{- range $v := (mustRegexSplit " +" (include "tp-tibtunnel.helpers.command.connect" .) -1) -}}"{{- $v -}}",{{- end -}}]
         {{- if .Values.securityContext.tibtunnel }}
         securityContext:
