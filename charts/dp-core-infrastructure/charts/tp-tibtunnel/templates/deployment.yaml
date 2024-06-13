@@ -34,9 +34,11 @@ spec:
         {{- /* @output: ["tp-tibtunnel", "connect", "--remote-debug","-s","localhost:80","connecturl"] */}}
         env:
          - name: HTTP_PROXY
-           value: http://192.168.1.205:3128
+           value: {{.Values.global.httpProxy.httpProxyUrl}}
          - name: HTTPS_PROXY
-           value: http://192.168.1.205:3128
+           value: {{.Values.global.httpProxy.httpsProxyUrl}}
+         - name: NO_PROXY
+           value: {{.Values.global.httpProxy.noProxy}}
         command: [{{- range $v := (mustRegexSplit " +" (include "tp-tibtunnel.helpers.command.connect" .) -1) -}}"{{- $v -}}",{{- end -}}]
         {{- if .Values.securityContext.tibtunnel }}
         securityContext:
