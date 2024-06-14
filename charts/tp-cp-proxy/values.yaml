@@ -31,6 +31,10 @@ affinity: {}
 tolerations: {}
 
 global:
+  httpProxy:
+    httpProxyUrl: http://192.168.1.205:3128
+    httpsProxyUrl: http://192.168.1.205:3128
+    noProxy: .local, .internal
   cp:
     cpHostname: "acme.local.my.cic2.pro"
     dataplaneId: "abcd"
@@ -46,10 +50,7 @@ global:
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
       iat: ""  # initial access token used to generate client credentials
-    httpProxy:
-      httpProxyUrl: http://192.168.1.205:3128
-      httpsProxyUrl: http://192.168.1.205:3128
-      noProxy: .local, .internal
+
     logging:
       # The fluentbit configuration section.
       # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
