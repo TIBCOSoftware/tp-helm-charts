@@ -73,7 +73,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "tp-cp-flogo-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-flogo-recipes.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-flogo-recipes.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-flogo-recipes.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "tp-cp-flogo-recipes.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "tp-cp-flogo-recipes.image.registry" }}
   {{- if .Values.image.registry }} 

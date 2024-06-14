@@ -73,7 +73,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "tp-cp-servicemesh-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-servicemesh-recipes.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-cp-servicemesh-recipes.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-servicemesh-recipes.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "tp-cp-servicemesh-recipes.consts.defaultImageRepo" }}tibco-platform-local-docker/infra{{end}}
 
 {{- define "tp-cp-servicemesh-recipes.image.registry" }}
   {{- if .Values.image.registry }} 
