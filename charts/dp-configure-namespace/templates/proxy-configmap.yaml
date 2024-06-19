@@ -1,0 +1,23 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: proxy-config
+  namespace: {{ .Release.Namespace }}
+    labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+data:
+  {{- if .Values.global.httpProxy.httpProxyUrl }}
+  HTTP_PROXY: {{.Values.global.httpProxy.httpProxyUrl }}
+  {{- end }}
+  {{- if .Values.global.httpProxy.httpsProxyUrl }}
+  HTTPS_PROXY: {{.Values.global.httpProxy.httpsProxyUrl }}
+  {{- end }}
+  {{- if .Values.global.httpProxy.noProxy }}
+  NO_PROXY: {{.Values.global.httpProxy.noProxy }}
+  {{- end }}

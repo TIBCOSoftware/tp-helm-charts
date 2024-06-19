@@ -37,18 +37,24 @@ spec:
           {{- toYaml .Values.securityContext.cpProxy | nindent 10 }}
         {{- end }}
         env:
-        {{- if .Values.global.httpProxy.httpProxyUrl }}
           - name: HTTP_PROXY
-            value: {{ .Values.global.httpProxy.httpProxyUrl }}
-        {{- end }}
-        {{- if .Values.global.httpProxy.httpsProxyUrl }}
+            valueFrom:
+            configMapKeyRef:
+              name: proxy-config
+              key: HTTP_PROXY
+              optional: true
           - name: HTTPS_PROXY
-            value: {{ .Values.global.httpProxy.httpsProxyUrl }}
-        {{- end }}
-        {{- if .Values.global.httpProxy.noProxy }}
+            valueFrom:
+            configMapKeyRef:
+              name: proxy-config
+              key: HTTPS_PROXY
+              optional: true
           - name: NO_PROXY
-            value: {{ .Values.global.httpProxy.noProxy }}
-        {{- end }}
+            valueFrom:
+            configMapKeyRef:
+              name: proxy-config
+              key: NO_PROXY
+              optional: true
           - name: CLIENT_ID
             valueFrom:
               secretKeyRef:
