@@ -9,7 +9,7 @@ apiVersion: v1
 metadata:
   name: proxy-config
   namespace: {{ .Release.Namespace }}
-    labels:
+  labels:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
 data:
   {{- if .Values.global.httpProxy.httpProxyUrl }}
