@@ -1,3 +1,4 @@
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
 {{- if and .Values.autoscaling.enabled (eq .Values.mode "deployment") }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -34,4 +35,5 @@ spec:
           type: Utilization
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
   {{- end }}
+{{- end }}
 {{- end }}

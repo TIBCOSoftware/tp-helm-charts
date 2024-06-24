@@ -1796,6 +1796,7 @@ spec:
           optional: true
 ---
 # Source: istiod/templates/autoscale.yaml
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -1821,6 +1822,9 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
+
+{{- end }}
+
 ---
 # Source: istiod/templates/revision-tags.yaml
 # Adapted from istio-discovery/templates/mutatingwebhook.yaml

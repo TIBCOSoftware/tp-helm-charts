@@ -3,6 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
 {{ if .Values.autoscaling.enabled -}}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -29,3 +30,4 @@ spec:
           type: Utilization
           averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
 {{- end -}}
+{{- end }}

@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
+{{/* MAB 24-6 Just simply overide logic for Platform which does not support HPA /}}
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }} 
+{{/* ------------- */}}
 {{- if and (eq .Values.controller.kind "Deployment") .Values.controller.autoscaling.enabled }}
 {{- if not .Values.controller.keda.enabled }}
 {{- if or (.Capabilities.APIVersions.Has "autoscaling/v2") (semverCompare ">=1.23.0-0" .Capabilities.KubeVersion.Version) }}
@@ -64,5 +67,6 @@ spec:
   {{- if .Values.controller.autoscaling.custom }}
   {{- toYaml .Values.controller.autoscaling.custom | nindent 4 }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

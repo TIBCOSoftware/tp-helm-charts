@@ -3,7 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
 {{ if and .Values.collector.enabled .Values.collector.autoscaling.enabled }}
 apiVersion: {{ include "common.capabilities.hpa.apiVersion" ( dict "context" $ ) }}
 kind: HorizontalPodAutoscaler
@@ -46,4 +46,5 @@ spec:
   behavior:
     {{- toYaml . | nindent 4 }}
   {{- end }}        
+{{- end }}
 {{- end }}

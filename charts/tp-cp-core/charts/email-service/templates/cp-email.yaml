@@ -238,7 +238,7 @@ spec:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
 
 ---
-
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -264,6 +264,7 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.hpa.memory }}
+{{- end }}
 ---
 
 apiVersion: cloud.tibco.com/v1
