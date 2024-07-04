@@ -539,6 +539,7 @@ managed-premium         disk.csi.azure.com   Delete          WaitForFirstConsume
 We will be using the following storage classes created with `dp-config-aks` helm chart.
 * `azure-disk-sc` is the storage class for Azure Disks. This is used for
   * storage class for data while provisioning TIBCO Enterprise Message Service™ (EMS) capability
+  * storage class for data while provisioning TIBCO® Developer Hub capability
 * `azure-files-sc` is the storage class for Azure Files. This is used for
   * artifactmanager while provisioning TIBCO BusinessWorks™ Container Edition capability
   * storage class for log while provisioning provision EMS capability
