@@ -50,7 +50,7 @@ global:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL
 
   artifactmanager:
     serviceAccount: ""
@@ -119,7 +119,7 @@ securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL
 
 service:
   type: ClusterIP
@@ -145,16 +145,16 @@ ingress:
   hostsOverride: false
   className: haproxy
   hosts:
-    - host: ""
-      paths:
-        - path: /
-          pathType: Prefix
+  - host: ""
+    paths:
+    - path: /
+      pathType: Prefix
 
-#  hosts:
-#    - host: ""
-#      paths:
-#        - path: /tibco/agent/integration/artifactmanager/
-#          pathType: Prefix
+  #  hosts:
+  #    - host: ""
+  #      paths:
+  #        - path: /tibco/agent/integration/artifactmanager/
+  #          pathType: Prefix
   # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
   annotations:
     ingress.kubernetes.io/path-rewrite: "/tibco/agent/integration/{{ $.Values.global.cp.instanceId }}/artifactmanager/(.*) /\\1"
@@ -170,20 +170,20 @@ ingress:
 resources:
   requests:
     cpu: 50m
-    memory: 128Mi
+    memory: 1596Mi
   limits:
     cpu: "2"
     memory: 2048Mi
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
 # resources:
 #  requests:
 #    cpu: 50m
@@ -226,21 +226,21 @@ extraEnvVarsSecret: ""
 # -- Extra volumeMounts for the integration services container.
 # More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
 extraVolumeMounts: []
-  # - name: example
-  #   mountPath: /opt/tibco/example.txt
+# - name: example
+#   mountPath: /opt/tibco/example.txt
 #   subPath: example.txt
 
 # -- Extra volumes for the integration services container.
 # More info: `kubectl explain deployment.spec.template.spec.volumes`.
 extraVolumes: []
-  # - name: example
-  #   persistentVolumeClaim:
+# - name: example
+#   persistentVolumeClaim:
 #     claimName: exampleClaim
 
 # -- Additional init containers to add to the automationservices pod.
 extraInitContainers: []
-  # - name: dummy-init
-  #   image: busybox
+# - name: dummy-init
+#   image: busybox
 #   command: ['echo', "hey"]
 
 config:
@@ -268,7 +268,7 @@ volumes:
           storage: 1Gi
 
       accessModes:
-        - ReadWriteOnce
+      - ReadWriteOnce
 
       volumeMode: Filesystem
 
@@ -280,7 +280,7 @@ volumes:
     existingClaim: ""
 
 strategy:
-#  rollingUpdate:
-#    maxSurge: 1
-#  type: RollingUpdate
+  #  rollingUpdate:
+  #    maxSurge: 1
+  #  type: RollingUpdate
   type: Recreate

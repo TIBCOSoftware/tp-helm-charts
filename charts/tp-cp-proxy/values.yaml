@@ -13,7 +13,7 @@ resources:
     memory: 100Mi
   limits:
     cpu: 100m
-    memory: 200Mi
+    memory: 210Mi
 
 # no of replicas
 replicaCount: "1"
@@ -45,7 +45,7 @@ global:
       # iat : Control Plane Authentication
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
-      iat: ""  # initial access token used to generate client credentials
+      iat: "" # initial access token used to generate client credentials
     logging:
       # The fluentbit configuration section.
       # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -72,7 +72,7 @@ global:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL
 # horizontal pod autoscaler configuration to scale when the cpu and memory usage exceeds
 hpa:
   minReplicas: 1
@@ -100,4 +100,4 @@ securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL

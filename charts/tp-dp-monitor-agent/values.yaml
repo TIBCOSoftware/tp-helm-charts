@@ -25,12 +25,12 @@ global:
         allowPrivilegeEscalation: false
         capabilities:
           drop:
-            - ALL
+          - ALL
 enableIngress: true
 ingress:
   annotations: {}
   pathPrefix: /tibco/agent/infra/tp-dp-monitor-agent/
-  className: "tibco-dp-{{ .Values.global.cp.dataplaneId}}"  # Ex: nginx, haproxy
+  className: "tibco-dp-{{ .Values.global.cp.dataplaneId}}" # Ex: nginx, haproxy
 
 podSecurityContext:
   runAsNonRoot: true
@@ -46,4 +46,4 @@ securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL

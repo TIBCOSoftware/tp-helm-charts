@@ -49,7 +49,7 @@ global:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL
 
   bwprovisioner:
     serviceAccount: ""
@@ -111,7 +111,7 @@ securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL
 
 service:
   type: ClusterIP
@@ -142,10 +142,10 @@ ingress:
   hostsOverride: false
   className: haproxy
   hosts:
-    - host: ""
-      paths:
-        - path: /
-          pathType: Prefix
+  - host: ""
+    paths:
+    - path: /
+      pathType: Prefix
   # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
   annotations:
     haproxy.org/cors-enable: "true"
@@ -158,24 +158,24 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-# resources:
-#  requests:
-#    cpu: 50m
-#    memory: 128Mi
-#  limits:
-#    cpu: "2"
-#    memory: 2048Mi
+# resources: {}
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube. If you do want to specify resources, uncomment the following
+# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+# limits:
+#   cpu: 100m
+#   memory: 128Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi
+resources:
+  requests:
+    cpu: 50m
+    memory: 1596Mi
+  limits:
+    cpu: "2"
+    memory: 2048Mi
 
 autoscaling:
   enabled: false
@@ -211,21 +211,21 @@ extraEnvVarsSecret: ""
 # -- Extra volumeMounts for the integration services container.
 # More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
 extraVolumeMounts: []
-  # - name: example
-  #   mountPath: /opt/tibco/example.txt
+# - name: example
+#   mountPath: /opt/tibco/example.txt
 #   subPath: example.txt
 
 # -- Extra volumes for the integration services container.
 # More info: `kubectl explain deployment.spec.template.spec.volumes`.
 extraVolumes: []
-  # - name: example
-  #   persistentVolumeClaim:
+# - name: example
+#   persistentVolumeClaim:
 #     claimName: exampleClaim
 
 # -- Additional init containers to add to the automationservices pod.
 extraInitContainers: []
-  # - name: dummy-init
-  #   image: busybox
+# - name: dummy-init
+#   image: busybox
 #   command: ['echo', "hey"]
 
 config:
@@ -239,21 +239,21 @@ oauth2proxy:
     enabled: false
     className: nginx
     hosts:
-      - host: ""
-        paths:
-          - path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: oauth2-proxy
-                port:
-                  number: 80
-      # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
+    - host: ""
+      paths:
+      - path: /oauth2
+        pathType: Prefix
+        backend:
+          service:
+            name: oauth2-proxy
+            port:
+              number: 80
+              # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
     annotations: {}
     tls: []
-      #  - secretName: chart-example-tls
-      #    hosts:
-      #      - chart-example.local
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
 
 publicApi:
   ingress:

@@ -29,17 +29,17 @@ config:
   # If left empty, it will default to the release name
   cookieName: ""
   google: {}
-    # adminEmail: xxxx
-    # useApplicationDefaultCredentials: true
-    # targetPrincipal: xxxx
-    # serviceAccountJson: xxxx
-    # Alternatively, use an existing secret (see google-secret.yaml for required fields)
-    # Example:
-    # existingSecret: google-secret
-    # groups: []
-    # Example:
-    #  - group1@example.com
-    #  - group2@example.com
+  # adminEmail: xxxx
+  # useApplicationDefaultCredentials: true
+  # targetPrincipal: xxxx
+  # serviceAccountJson: xxxx
+  # Alternatively, use an existing secret (see google-secret.yaml for required fields)
+  # Example:
+  # existingSecret: google-secret
+  # groups: []
+  # Example:
+  #  - group1@example.com
+  #  - group2@example.com
   # Default configuration, to be overridden
   configFile: |-
     email_domains = [ "*" ]
@@ -80,7 +80,7 @@ image:
 # Secrets must be manually created in the namespace.
 # ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
 # imagePullSecrets:
-  # - name: myRegistryKeySecretName
+# - name: myRegistryKeySecretName
 
 # Set a custom containerPort if required.
 # This will default to 4180 if this value is not set and the httpScheme set to http
@@ -165,7 +165,7 @@ ingress:
   pathType: Prefix
   # Used to create an Ingress record.
   # hosts:
-    # - chart-example.local
+  # - chart-example.local
   # Extra paths to prepend to every host configuration. This is useful when working with annotation based services.
   # Warning! The configuration is dependant on your current k8s API version capabilities (networking.k8s.io/v1)
   # extraPaths:
@@ -181,32 +181,32 @@ ingress:
   #   kubernetes.io/ingress.class: nginx
   #   kubernetes.io/tls-acme: "true"
   # tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: chart-example-tls
-    #   hosts:
-    #     - chart-example.local
+  # Secrets must be manually created in the namespace.
+  # - secretName: chart-example-tls
+  #   hosts:
+  #     - chart-example.local
 
 resources:
   limits:
     cpu: 100m
-    memory: 300Mi
+    memory: 612Mi
   requests:
     cpu: 100m
     memory: 300Mi
 
 extraVolumes: []
-  # - name: ca-bundle-cert
-  #   secret:
-  #     secretName: <secret-name>
+# - name: ca-bundle-cert
+#   secret:
+#     secretName: <secret-name>
 
 extraVolumeMounts: []
-  # - mountPath: /etc/ssl/certs/
-  #   name: ca-bundle-cert
+# - mountPath: /etc/ssl/certs/
+#   name: ca-bundle-cert
 
 # Additional containers to be added to the pod.
 extraContainers: []
-  #  - name: my-sidecar
-  #    image: nginx:latest
+#  - name: my-sidecar
+#    image: nginx:latest
 
 priorityClassName: ""
 
@@ -269,10 +269,7 @@ deploymentAnnotations: {}
 podAnnotations: {}
 
 # hack because PDP-1199 is not being fixed in the upper layer to pass correct properties in the recipe
-podLabels: {
-  egress.networking.platform.tibco.com/internet-web: enable,
-  networking.platform.tibco.com/kubernetes-api: enable
-}
+podLabels: {egress.networking.platform.tibco.com/internet-web: enable, networking.platform.tibco.com/kubernetes-api: enable}
 
 replicaCount: 1
 revisionHistoryLimit: 10
@@ -305,7 +302,7 @@ initContainers:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
-          - ALL
+        - ALL
       readOnlyRootFilesystem: true
       runAsNonRoot: true
       runAsUser: 65534
@@ -396,33 +393,33 @@ metrics:
 
 # Extra K8s manifests to deploy
 extraObjects: []
-  # - apiVersion: secrets-store.csi.x-k8s.io/v1
-  #   kind: SecretProviderClass
-  #   metadata:
-  #     name: oauth2-proxy-secrets-store
-  #   spec:
-  #     provider: aws
-  #     parameters:
-  #       objects: |
-  #         - objectName: "oauth2-proxy"
-  #           objectType: "secretsmanager"
-  #           jmesPath:
-  #               - path: "client_id"
-  #                 objectAlias: "client-id"
-  #               - path: "client_secret"
-  #                 objectAlias: "client-secret"
-  #               - path: "cookie_secret"
-  #                 objectAlias: "cookie-secret"
-  #     secretObjects:
-  #     - data:
-  #       - key: client-id
-  #         objectName: client-id
-  #         - key: client-secret
-  #           objectName: client-secret
-  #         - key: cookie-secret
-  #         objectName: cookie-secret
-  #       secretName: oauth2-proxy-secrets-store
-  #       type: Opaque
+# - apiVersion: secrets-store.csi.x-k8s.io/v1
+#   kind: SecretProviderClass
+#   metadata:
+#     name: oauth2-proxy-secrets-store
+#   spec:
+#     provider: aws
+#     parameters:
+#       objects: |
+#         - objectName: "oauth2-proxy"
+#           objectType: "secretsmanager"
+#           jmesPath:
+#               - path: "client_id"
+#                 objectAlias: "client-id"
+#               - path: "client_secret"
+#                 objectAlias: "client-secret"
+#               - path: "cookie_secret"
+#                 objectAlias: "cookie-secret"
+#     secretObjects:
+#     - data:
+#       - key: client-id
+#         objectName: client-id
+#         - key: client-secret
+#           objectName: client-secret
+#         - key: cookie-secret
+#         objectName: cookie-secret
+#       secretName: oauth2-proxy-secrets-store
+#       type: Opaque
 
 tibco:
   initContainer:
@@ -438,26 +435,26 @@ global:
       name: tp-identity-management
       port: 7831
   cp:
-    cpHostName: ""   # CP HOST NAME
+    cpHostName: "" # CP HOST NAME
     # dataplaneId: "abcd"   # DP ID
     # subscriptionId : "sub1"
-    instanceId: ""   # CAPABILITY INSTANCE ID
+    instanceId: "" # CAPABILITY INSTANCE ID
     containerRegistry:
       url: "reldocker.tibco.com"
     #  secret: "abcd"
     capability:
-      pathPrefix: "/"    # PATH PREFIX FOR CAPABILITY
+      pathPrefix: "/" # PATH PREFIX FOR CAPABILITY
     resources:
-    #   serviceaccount:
-    #     serviceAccountName: ""  # SA NAME
+      #   serviceaccount:
+      #     serviceAccountName: ""  # SA NAME
       ingress:
-        fqdn: ""    # CAPABILITY FQDN
-        ingressClassName: ""  # INGRESS CLASS NAME
+        fqdn: "" # CAPABILITY FQDN
+        ingressClassName: "" # INGRESS CLASS NAME
     secrets:
       # iat : Control Plane Authentication
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
-      iat: ""  # initial access token used to generate client credentials
+      iat: "" # initial access token used to generate client credentials
 
     # The fluentbit configuration section.
     # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -481,4 +478,4 @@ global:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL

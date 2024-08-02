@@ -17,15 +17,15 @@
 
 podSecurityPolicy:
   annotations: {}
-    ## Specify pod annotations
-    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
-    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
-    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
-    ##
-    # apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
-    # apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
-    # seccomp.security.alpha.kubernetes.io/allowedProfileNames: runtime/default
-    # seccomp.security.alpha.kubernetes.io/defaultProfileName: runtime/default
+  ## Specify pod annotations
+  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
+  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
+  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
+  ##
+  # apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+  # apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+  # seccomp.security.alpha.kubernetes.io/allowedProfileNames: runtime/default
+  # seccomp.security.alpha.kubernetes.io/defaultProfileName: runtime/default
   enabled: false
 
 ## Enable RBAC Authorization
@@ -60,14 +60,14 @@ aws:
 controller:
   name: controller
   image:
-    repository: haproxytech-kubernetes-ingress    # can be changed to use CE or EE Controller images
+    repository: haproxytech-kubernetes-ingress # can be changed to use CE or EE Controller images
     tag: "{{ .Chart.AppVersion }}"
     pullPolicy: IfNotPresent
 
   ## Deployment or DaemonSet pod mode
   ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
   ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
-  kind: Deployment    # can be 'Deployment' or 'DaemonSet'
+  kind: Deployment # can be 'Deployment' or 'DaemonSet'
   replicaCount: 1
 
   ## minReadySeconds setting of Deployment or DaemonSet
@@ -209,12 +209,12 @@ controller:
   ## Compute Resources for controller container
   ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
   resources:
-  #  limits:
-  #    cpu: 250m
-  #    memory: 400Mi
+    limits:
+      cpu: 250m
+      memory: 800Mi
     requests:
       cpu: 250m
-      memory: 400Mi
+      memory: 401Mi
 
   ## Horizontal Pod Scaler
   ## Only to be used with Deployment kind
@@ -347,9 +347,9 @@ controller:
     ## HAProxy traffic logs
     ## ref: https://github.com/haproxytech/kubernetes-ingress/tree/master/documentation#logging
     traffic: {}
-      #      address:  "stdout"
-      #      format:   "raw"
-      #      facility: "daemon"
+    #      address:  "stdout"
+    #      format:   "raw"
+    #      facility: "daemon"
 
   ## Mirrors the address of the service's endpoints to the
   ## load-balancer status of all Ingress objects it satisfies.
@@ -363,9 +363,9 @@ controller:
   ## Controller Service configuration
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
   service:
-    enabled: true     # set to false when controller.kind is 'DaemonSet' and controller.daemonset.useHostPorts is true
+    enabled: true # set to false when controller.kind is 'DaemonSet' and controller.daemonset.useHostPorts is true
 
-    type: NodePort   # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
+    type: NodePort # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
 
     ## Service annotations
     ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -462,7 +462,7 @@ controller:
     ## Controller Metrics Service configuration
     ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
     metrics:
-      type: ClusterIP    # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
+      type: ClusterIP # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
 
       ## Service annotations
       ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -475,7 +475,7 @@ controller:
   ## Controller DaemonSet configuration
   ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
   daemonset:
-    useHostNetwork: false  # also modify dnsPolicy accordingly
+    useHostNetwork: false # also modify dnsPolicy accordingly
     useHostPort: false
     hostIP: null
     hostPorts:
@@ -500,44 +500,44 @@ controller:
   ## Controller container lifecycle handlers
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
   lifecycle: {}
-    ## Example preStop for graceful shutdown
-    # preStop:
-    #   exec:
-    #     command: ["/bin/sh", "-c", "kill -USR1 $(pidof haproxy); while killall -0 haproxy; do sleep 1; done"]
+  ## Example preStop for graceful shutdown
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "kill -USR1 $(pidof haproxy); while killall -0 haproxy; do sleep 1; done"]
 
   ## Set additional environment variables
   extraEnvs: []
-    ## Set TZ env to configure timezone on controller containers
-    # - name: TZ
-    #   value: "Etc/UTC"
+  ## Set TZ env to configure timezone on controller containers
+  # - name: TZ
+  #   value: "Etc/UTC"
 
   ## Add additional containers
   extraContainers: []
-    ## Example sidecar
-    # - name: sidecar
-    #   image: alpine # alpine is a simple Linux OS image
-    #   command: ["/bin/sh"]
-    #   args: ["-c", "while true; do date; sleep 5;done"]
+  ## Example sidecar
+  # - name: sidecar
+  #   image: alpine # alpine is a simple Linux OS image
+  #   command: ["/bin/sh"]
+  #   args: ["-c", "while true; do date; sleep 5;done"]
 
   ## Additional volumeMounts to the controller main container
   extraVolumeMounts: []
-    ## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
-    # - name: etc-haproxy
-    #   mountPath: /etc/haproxy
-    # - name: tmp
-    #   mountPath: /tmp
-    # - name: var-state-haproxy
-    #   mountPath: /var/state/haproxy
+  ## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
+  # - name: etc-haproxy
+  #   mountPath: /etc/haproxy
+  # - name: tmp
+  #   mountPath: /tmp
+  # - name: var-state-haproxy
+  #   mountPath: /var/state/haproxy
 
   ## Additional volumes to the controller pod
   extraVolumes: []
-    ## Example empty volumes when using securityContext->readOnlyRootFilesystem
-    # - name: etc-haproxy
-    #   emptyDir: {}
-    # - name: tmp
-    #   emptyDir: {}
-    # - name: var-state-haproxy
-    #   emptyDir: {}
+  ## Example empty volumes when using securityContext->readOnlyRootFilesystem
+  # - name: etc-haproxy
+  #   emptyDir: {}
+  # - name: tmp
+  #   emptyDir: {}
+  # - name: var-state-haproxy
+  #   emptyDir: {}
 
   ## ServiceMonitor
   ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md
@@ -555,10 +555,10 @@ controller:
     ## Specify the endpoints
     ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/design.md#servicemonitor
     endpoints:
-      - port: stat
-        path: /metrics
-        scheme: http
-        interval: 30s
+    - port: stat
+      path: /metrics
+      scheme: http
+      interval: 30s
 
   ## Techdump
   ## Toggle to add the RBAC permissions needed for the techdump tool.

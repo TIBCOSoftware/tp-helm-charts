@@ -18,44 +18,44 @@ global:
     fluentbit:
       enabled: true
 
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
         allowPrivilegeEscalation: false
         capabilities:
           drop:
-            - ALL
+          - ALL
 
 # tibtunnel cli flags
 connect:
-  debug: true  # Enable debug logging
-  payload: false  # Display payload data in the debug logs. Requires flag 'debug'. WARNING: Payload might contain sensitive data!
-  dataChunkSize: ""  # Set the max size(in KB) of data for a single read/write operation, default is 32
-  dataAckMode: true  # Enable/disable data ack
-  remoteDebug: true  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
-  logFile: ""  # Full path to the output log file. If not specified, the logs will be printed on stdout
+  debug: true # Enable debug logging
+  payload: false # Display payload data in the debug logs. Requires flag 'debug'. WARNING: Payload might contain sensitive data!
+  dataChunkSize: "" # Set the max size(in KB) of data for a single read/write operation, default is 32
+  dataAckMode: true # Enable/disable data ack
+  remoteDebug: true # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
+  logFile: "" # Full path to the output log file. If not specified, the logs will be printed on stdout
 
-  networkCheckUrl: "https://www.google.com"  # Url to check for network connectivity
-  infiniteRetries: false  # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
-  url: ""  # Connect Url generated from TIBCO Cloud Control plane
-  onPremHost: "cp-proxy"  # service name of on prem host
-  onPremPort: "81"  # port number of the service.
-  profile: ""  # The name of the profile to create or update
+  networkCheckUrl: "https://www.google.com" # Url to check for network connectivity
+  infiniteRetries: false # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
+  url: "" # Connect Url generated from TIBCO Cloud Control plane
+  onPremHost: "cp-proxy" # service name of on prem host
+  onPremPort: "81" # port number of the service.
+  profile: "" # The name of the profile to create or update
 configure:
-  profile: ""  # The name of the profile to create or update
-  accessKey: "abc"  # Specify the TIBCO AccessKey secret to be used for authenticationd
-configDir: "/etc/config/tibtunnel"  # Full path to the directory where to store the configuration file(s) (default "~/.tibtunnel")
+  profile: "" # The name of the profile to create or update
+  accessKey: "abc" # Specify the TIBCO AccessKey secret to be used for authenticationd
+configDir: "/etc/config/tibtunnel" # Full path to the directory where to store the configuration file(s) (default "~/.tibtunnel")
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
     cpu: 500m
-    memory: 256Mi
+    memory: 257Mi
   limits:
     cpu: 1000m
     memory: 512Mi
@@ -93,8 +93,8 @@ fluentbit:
 provisionerAgentProbe:
   enable: true
   url: "http://{{ tpl .Values.connect.onPremHost . }}:{{ tpl .Values.connect.onPremPort . }}/tibco/agent/infra/provisioner-agent/version"
-  interval: 3  # interval between two probes in seconds
-  retries: 15  # retry attempts
+  interval: 3 # interval between two probes in seconds
+  retries: 15 # retry attempts
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
@@ -118,4 +118,4 @@ securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL
