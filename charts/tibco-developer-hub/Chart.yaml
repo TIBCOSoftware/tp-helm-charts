@@ -6,17 +6,16 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 1.2.11
-
+version: 1.2.12
 appVersion: "1.2.0"
 
 dependencies:
-  - name: common
-    repository: ""
-    tags:
-      - bitnami-common
-    version: 2.x.x
-  - condition: postgresql.enabled
-    name: postgresql
-    repository: ""
-    version: 11.x.x
+- name: common
+  repository: ""
+  tags:
+  - bitnami-common
+  version: 2.x.x
+- condition: postgresql.enabled
+  name: postgresql
+  repository: ""
+  version: 11.x.x

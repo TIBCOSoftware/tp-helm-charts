@@ -6,12 +6,12 @@
 
 apiVersion: v2
 name: dp-config-es
-version: "1.2.1"
+version: "1.2.2"
 appVersion: "1.2.0"
 description: Helm chart to configure elastic search
 type: application
 dependencies:
-  - name: eck-custom-resources-operator
-    version: 0.5.6
-    repository: https://xco-sk.github.io/eck-custom-resources/
-    condition: eck-custom-resources-operator.enabled
+- name: eck-custom-resources-operator
+  version: 0.5.6
+  repository: https://xco-sk.github.io/eck-custom-resources/
+  condition: eck-custom-resources-operator.enabled
