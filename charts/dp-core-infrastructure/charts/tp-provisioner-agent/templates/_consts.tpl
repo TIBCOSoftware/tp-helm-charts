@@ -25,7 +25,7 @@ in the license file that is distributed with this file.
 {{- define "tp-provisioner-agent.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-provisioner-agent.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-provisioner-agent.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-provisioner-agent.consts.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker{{end}}
+{{- define "tp-provisioner-agent.consts.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
 
 {{- define "tp-provisioner-agent.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}
