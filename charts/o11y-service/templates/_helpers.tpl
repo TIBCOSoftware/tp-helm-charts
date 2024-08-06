@@ -113,7 +113,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- define "o11y-service.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "o11y-service.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "o11y-service.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "o11y-service.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/bwce{{end}}
 
 {{- define "o11y-service.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}

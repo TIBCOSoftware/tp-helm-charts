@@ -27,7 +27,7 @@ in the license file that is distributed with this file.
 {{- define "tp-tibtunnel.consts.ecrImageRepo" }}stratosphere{{end}}
 {{- define "tp-tibtunnel.consts.acrImageRepo" }}stratosphere{{end}}
 {{- define "tp-tibtunnel.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-tibtunnel.consts.defaultImageRepo" }}stratosphere{{end}}
+{{- define "tp-tibtunnel.consts.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/bwce{{end}}
 
 {{- define "tp-tibtunnel.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}

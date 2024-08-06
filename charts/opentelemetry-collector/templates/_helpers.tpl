@@ -84,7 +84,7 @@ platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
 {{- define "opentelemetry-collector.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "opentelemetry-collector.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "opentelemetry-collector.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "opentelemetry-collector.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "opentelemetry-collector.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/bwce{{end}}
 
 {{- define "opentelemetry-collector.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}

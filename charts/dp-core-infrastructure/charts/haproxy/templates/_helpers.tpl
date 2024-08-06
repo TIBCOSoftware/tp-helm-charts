@@ -165,7 +165,7 @@ Create a default fully qualified unique CRD job name.
 {{- define "kubernetes-ingress.const.ecrImageRepo" }}stratosphere{{end}}
 {{- define "kubernetes-ingress.const.acrImageRepo" }}stratosphere{{end}}
 {{- define "kubernetes-ingress.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "kubernetes-ingress.const.defaultImageRepo" }}stratosphere{{end}}
+{{- define "kubernetes-ingress.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/bwce{{end}}
 
 {{- define "kubernetes-ingress.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}

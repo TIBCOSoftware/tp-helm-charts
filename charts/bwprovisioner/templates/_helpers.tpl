@@ -85,7 +85,7 @@ Integration storage folder pvc name
 {{- define "bwprovisioner.const.ecrImageRepo" }}piap{{end}}
 {{- define "bwprovisioner.const.acrImageRepo" }}piap{{end}}
 {{- define "bwprovisioner.const.harborImageRepo" }}piap{{end}}
-{{- define "bwprovisioner.const.defaultImageRepo" }}piap{{end}}
+{{- define "bwprovisioner.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/bwce{{end}}
 
 {{- define "bwprovisioner.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
