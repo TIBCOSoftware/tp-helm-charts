@@ -12,7 +12,8 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
   rules:
-  - http:
+  - host: ""
+    http:
       paths:
       - pathType: Prefix
         path: /tibco/agent/infra/provisioner-agent/
