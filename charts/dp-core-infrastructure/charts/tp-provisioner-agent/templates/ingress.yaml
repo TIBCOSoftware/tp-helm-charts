@@ -12,7 +12,7 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
   rules:
-  - host: ""
+  - host: "*"
     http:
       paths:
       - pathType: Prefix
