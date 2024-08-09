@@ -45,7 +45,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    - host: "*.prod-tibco-sub-{{ .Values.global.tibco.subscriptionId}}.svc.cluster.local"
+    - host: "cpdpproxy"
       http:
         {{- if $.Values.jaeger.ingress.hostsOverride -}}
         paths:
