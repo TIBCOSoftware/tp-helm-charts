@@ -18,7 +18,8 @@ metadata:
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:
-  - http:
+  - host: "cpdpproxy"
+    http:
       paths:
       - pathType: Prefix
         path: {{ .Values.ingress.pathPrefix }}
@@ -27,7 +28,4 @@ spec:
             name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
             port:
               number: 7831
-    {{- with .Values.ingress.host }}
-    host: {{ . }}
-    {{- end }}
 {{- end }}

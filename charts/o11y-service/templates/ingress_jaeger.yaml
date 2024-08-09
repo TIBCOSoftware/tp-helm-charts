@@ -45,13 +45,8 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  {{- range .Values.jaeger.ingress.hosts }}
-    {{- if .host }}
-    - host: {{ .host | quote }}
+    - host: "cpdpproxy"
       http:
-    {{- else }}
-    - http:
-    {{- end }}
         {{- if $.Values.jaeger.ingress.hostsOverride -}}
         paths:
           {{- range .paths }}
@@ -75,5 +70,4 @@ spec:
                 port:
                   number: {{ $.Values.jaeger.service.port }}
         {{- end }}
-  {{- end }}
 {{- end -}}
