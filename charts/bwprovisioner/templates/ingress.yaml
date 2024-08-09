@@ -46,7 +46,8 @@ spec:
   {{- end }}
   rules:
   {{- range .Values.ingress.hosts }}
-      http: "cpdpproxy"
+    - host: "cpdpproxy"
+      http:
         {{- if $.Values.ingress.hostsOverride -}}
         paths:
           {{- range .paths }}
