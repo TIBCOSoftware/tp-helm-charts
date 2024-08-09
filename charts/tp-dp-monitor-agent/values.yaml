@@ -30,7 +30,7 @@ enableIngress: true
 ingress:
   annotations: {}
   pathPrefix: /tibco/agent/infra/tp-dp-monitor-agent/
-  className: "tibco-dp-{{ .Values.global.cp.dataplaneId}}" # Ex: nginx, haproxy
+  className: "tibco-dp-{{ .Values.global.cp.dataplaneId}}"
 
 podSecurityContext:
   runAsNonRoot: true
