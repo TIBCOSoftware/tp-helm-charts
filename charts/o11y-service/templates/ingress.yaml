@@ -45,7 +45,6 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
     - host: "*.prod-tibco-sub-{{ .Values.global.tibco.subscriptionId}}.svc.cluster.local"
       http:
         {{- if $.Values.ingress.hostsOverride -}}
@@ -71,5 +70,4 @@ spec:
                 port:
                   number: {{ $.Values.service.port }}
         {{- end }}
-  {{- end }}
 {{- end -}}
