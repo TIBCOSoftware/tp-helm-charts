@@ -18,16 +18,6 @@ metadata:
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:
-  - host: "*.prod-tibco-sub-{{ .Values.global.tibco.subscriptionId}}.svc.cluster.local"
-    http:
-      paths:
-      - pathType: Prefix
-        path: {{ .Values.ingress.pathPrefix }}
-        backend:
-          service:
-            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
-            port:
-              number: 7831
   - host: "cpdpproxy"
     http:
       paths:
