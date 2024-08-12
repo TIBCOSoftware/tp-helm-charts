@@ -18,7 +18,7 @@ metadata:
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:
-  - host: "cpdpproxy"
+  - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
     http:
       paths:
       - pathType: Prefix
