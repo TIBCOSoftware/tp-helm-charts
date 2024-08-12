@@ -22,16 +22,6 @@ spec:
     http:
       paths:
       - pathType: Prefix
-        path: /tibco/agent/infra/provisioner-agent/
-        backend:
-          service:
-            name: {{ include "tp-provisioner-agent.consts.appName" . }}
-            port:
-              number: 80
-  - host: "cpdpproxy"
-    http:
-      paths:
-      - pathType: Prefix
         path: {{ .Values.ingress.pathPrefix }}
         backend:
           service:
