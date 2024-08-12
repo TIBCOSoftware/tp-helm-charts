@@ -43,7 +43,7 @@ spec:
   {{- end }}
   rules:
   {{- range .Values.oauth2proxy.ingress.hosts }}
-    - host: "*.prod-tibco-sub-{{ .Values.global.tibco.subscriptionId}}.svc.cluster.local"
+    - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
         paths:
           {{- range .paths }}
           - path: {{ .path }}
