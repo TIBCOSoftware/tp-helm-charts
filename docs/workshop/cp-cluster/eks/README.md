@@ -680,7 +680,7 @@ The `alb` ingress class is used by AWS ALB ingress controller.
 | EFS storage class    | efs-sc                                                                           | used for TIBCO® Control Plane                                                                   |
 | RDS DB instance resource arn (if created using script) | arn:aws:rds:\<CP_CLUSTER_REGION\>:\<AWS_ACCOUNT_ID\>:db:${CP_CLUSTER_NAME}-db   | used for TIBCO® Control Plane |
 | RDS DB details (if created using crossplane) | Secret `${CP_INSTANCE_ID}-rds-details` in `${CP_INSTANCE_ID}-ns` namespace Refer [Install claims](#install-claims) section  | used for TIBCO® Control Plane |
-| Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/emp/platform-cp/1.2.0/doc/html/Default.htm#Installation/control-plane-network-policies.htm) |
+| Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/control-plane-network-policies.htm) |
 
 
 # Control Plane Deployment
@@ -834,7 +834,8 @@ Please proceed with deployment of TIBCO® Control Plane on your EKS cluster as p
 
 # Clean up
 
-Refer to [the steps to delete the Control Plane](https://docs.tibco.com/emp/platform-cp/1.2.0/doc/html/Default.htm#Installation/uninstalling-tibco-control-plane.htm).
+Refer to [the steps to delete the Control Plane](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/uninstalling-tibco-control-plane.htm
+).
 
 Change the directory to [scripts/eks/](../../scripts/eks) to proceed with the next steps.
 ```bash
