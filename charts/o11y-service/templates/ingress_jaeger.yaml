@@ -70,7 +70,7 @@ spec:
               port:
                 number: {{ $.Values.jaeger.service.port }}
       {{- end }}
-  - host: "*.my.tibco.com"
+  - host: "*.eu-west.my.tibco.com"
     http:
       {{- if $.Values.jaeger.ingress.hostsOverride -}}
       paths:
