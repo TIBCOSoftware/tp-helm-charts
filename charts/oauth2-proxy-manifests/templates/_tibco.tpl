@@ -9,7 +9,7 @@ in the license file that is distributed with this file.
 {{- define "tibco.image.repository.oauth2proxy" -}}
   {{- if contains "jfrog.io" .Values.image.repository }}{{ .Values.image.repository | replace "stratosphere" "tibco-platform-local-docker/infra" }}
   {{- else }}
-    {{- .Values.image.repository | replace "stratosphere" "pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/bwce" }}
+    {{- .Values.image.repository | replace "stratosphere" "pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra" }}
   {{- end }}
 {{- end -}}
 
