@@ -45,8 +45,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
-    - host: "cpdpproxy"
+    - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
       http:
         {{- if $.Values.ingress.hostsOverride -}}
         paths:
@@ -71,5 +70,4 @@ spec:
                 port:
                   number: {{ $.Values.service.port }}
         {{- end }}
-  {{- end }}
 {{- end }}
