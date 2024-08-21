@@ -70,4 +70,29 @@ spec:
                 port:
                   number: {{ $.Values.service.port }}
         {{- end }}
+    - host: "*.eu-west.my.tibco.com"
+      http:
+        {{- if $.Values.ingress.hostsOverride -}}
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $.Values.service.port }}
+            {{- end }}
+        {{- else}}
+        paths:
+          - path: /tibco/agent/integration/{{ $.Values.global.cp.instanceId }}/artifactmanager/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $.Values.service.port }}
+        {{- end }}
 {{- end }}

@@ -70,4 +70,29 @@ spec:
               port:
                 number: {{ $.Values.jaeger.service.port }}
       {{- end }}
+  - host: "*.eu-west.my.tibco.com"
+    http:
+      {{- if $.Values.jaeger.ingress.hostsOverride -}}
+      paths:
+        {{- range .paths }}
+        - path: {{ .path }}
+          {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+          pathType: {{ .pathType }}
+          {{- end }}
+          backend:
+            service:
+              name: {{ $.Values.jaeger.service.name }}
+              port:
+                number: {{ $.Values.jaeger.service.port }}
+          {{- end }}
+      {{- else}}
+      paths:
+        - path: /tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ $.Values.jaeger.service.name }}
+              port:
+                number: {{ $.Values.jaeger.service.port }}
+      {{- end }}
 {{- end -}}
