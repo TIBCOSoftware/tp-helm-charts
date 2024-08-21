@@ -435,26 +435,26 @@ global:
       name: tp-identity-management
       port: 7831
   cp:
-    cpHostName: "" # CP HOST NAME
+    cpHostName: ""  # CP HOST NAME
     # dataplaneId: "abcd"   # DP ID
     # subscriptionId : "sub1"
-    instanceId: "" # CAPABILITY INSTANCE ID
+    instanceId: ""  # CAPABILITY INSTANCE ID
     containerRegistry:
       url: "reldocker.tibco.com"
     #  secret: "abcd"
     capability:
-      pathPrefix: "/" # PATH PREFIX FOR CAPABILITY
+      pathPrefix: "/"  # PATH PREFIX FOR CAPABILITY
     resources:
       #   serviceaccount:
       #     serviceAccountName: ""  # SA NAME
       ingress:
-        fqdn: "" # CAPABILITY FQDN
-        ingressClassName: "" # INGRESS CLASS NAME
+        fqdn: ""  # CAPABILITY FQDN
+        ingressClassName: ""  # INGRESS CLASS NAME
     secrets:
       # iat : Control Plane Authentication
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
-      iat: "" # initial access token used to generate client credentials
+      iat: ""  # initial access token used to generate client credentials
 
     # The fluentbit configuration section.
     # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
