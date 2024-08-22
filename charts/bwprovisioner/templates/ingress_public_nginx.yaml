@@ -33,6 +33,6 @@ spec:
             name: {{ $fullName }}
             port:
               number: {{ $.Values.publicApiService.targetPort }}
-        path: {{ .Values.publicApi.ingress.nginx.pathPrefix }}
-        pathType: Prefix
+        path: {{ .Values.publicApi.ingress.nginx.pathPrefix }}/(.*)
+        pathType: ImplementationSpecific
 {{- end }}
