@@ -11,11 +11,19 @@ global:
     environment: ""
     
   tibco:
+    image_name:
+      userSubscriptions: ""
+    image_repo_path: ""
+    is_replica_region: false
     logging:
       fluentbit:
         image:
-          name: "fluentbit"
-          tag: 3.0.2
+          name: "common-fluentbit"
+          tag: 3.1.4
+    check_dependencies:
+      distroless_debian:
+        name: "distroless-base-debian-debug"
+        tag: 12
 
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.

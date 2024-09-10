@@ -42,6 +42,11 @@
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{- define "cp-core-configuration.container-registry.secret" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+
 {{- define "cp-core-configuration.cp-instance-id" }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
@@ -83,3 +88,20 @@
 {{- define "tp-cp-admin-webserver.consts.disable.configuration.refresh" }}false{{ end -}}
 {{- define "tp-cp-admin-webserver.consts.config.files.to.notify.idm.on.upload" }}'["idm/reloadable.conf"]'{{ end -}}
 {{- define "tp-cp-admin-webserver.consts.admin.ui.logs.services" }}'[{"serviceType":"bwprovisioner","serviceContainer":"bwprovisioner"},{"serviceType":"flogoprovisioner","serviceContainer":"flogoprovisioner"},{"serviceType":"o11y-service","serviceContainer":"tp-o11y-service"},{"serviceType":"tp-tibtunnel","serviceContainer":"tibtunnel"},{"serviceType":"oauth2-proxy","serviceContainer":"oauth2-proxy"},{"serviceType":"dp-secret-controller","serviceContainer":"controller"},{"serviceType":"provisioner-agent","serviceContainer":"provisioner-agent"},{"serviceType":"artifactmanager","serviceContainer":"artifactmanager"}]'{{ end -}}
+
+{{/* set repository based on the registry url. We will have different repo for each one. */}}
+{{- define "cp-core-configuration.image-repository" -}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+{{- end -}}
+
+{{- define "cp-core-configuration.container-registry-image-pull-secret-name" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release ) -}}
+{{- end }}
+
+{{- define "cp-core-configuration.cp-container-registry-username" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_USERNAME" "default" "" "required" "false"  "Release" .Release ) -}}
+{{- end }}
+
+{{- define "cp-core-configuration.cp-container-registry-password" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_PASSWORD" "default" "" "required" "false"  "Release" .Release ) -}}
+{{- end }}
