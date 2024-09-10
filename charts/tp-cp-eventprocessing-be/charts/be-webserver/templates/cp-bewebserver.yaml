@@ -1,0 +1,203 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# TP iApp BE WebServer Deployment definition;
+# this defines the resources for the pod, liveness and readiness probes
+# along with the environment variables required by the microservice
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "be-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "be-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "be-webserver.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "be-webserver.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-web: enable
+{{- if .Values.global.enableLogging }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "be-webserver.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "be-webserver.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      serviceAccountName: {{ include "be-webserver.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: tp-iapp-be-server
+        image: {{ include "be-webserver.image.registry" . }}{{"/"}}{{ include "be-webserver.bews.image.repository" . }}{{"/"}}be-webserver:{{ .Values.global.be.data.BE_WEBSERVER_IMAGE_TAG }}
+        imagePullPolicy: IfNotPresent
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+        {{- toYaml .Values.bewebserver.resources | nindent 10 }}
+        ports:
+        - containerPort: 7654
+          name: server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/api/v1/version"
+            port: 7654
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/api/v1/version"
+            port: 7654
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
+        - name: TP_CP_QUERYNODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: CP_INSTANCE_ID
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "be-webserver.cp-env-configmap" . }}
+              key: CP_INSTANCE_ID
+        - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "be-webserver.cp-env-configmap" . }}
+              key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: HTTP_REQUEST_TIMEOUT
+          value: "120000"
+        - name: IDLE_TIME_SECONDS
+          value: "1800"
+        - name: WEB_SERVER_LOG_ENABLED
+          value: "true"
+        # FIXME: check what it is referring to in code
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+{{- if eq (include "be-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+      - name: fluentbit
+        image: {{ include "be-webserver.image.registry" . }}{{"/"}}{{ include "be-webserver.bews.image.repository" . }}{{"/"}}{{ .Values.global.fluentbit.image.name }}:{{ .Values.global.fluentbit.image.tag }}
+        {{- with $.Values.global.fluentbit.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.global.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+        {{- toYaml $.Values.fluentbit.resources | nindent 10 }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tp-iapp-be-server
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+{{- if .Values.global.cp }}
+{{- if .Values.global.cp.logServer }}
+{{- if .Values.global.cp.logServer.services }}
+          - name: LOG_SERVER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: username
+          - name: LOG_SERVER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: password
+{{- end }}
+{{- end }}
+{{- end }}
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: dockercontainerlogs
+            mountPath: /var/lib/docker/containers
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if eq (include "be-webserver.cp-logging-fluentbit-enabled" .) "true" }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "be-webserver.consts.appName" . }}-fluentbit-config
+{{- end }}
+{{- if (include "be-webserver.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "be-webserver.container-registry.secret" . }}
+{{- end }}
+

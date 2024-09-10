@@ -1,0 +1,71 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq (include "be-webserver.cp-logging-fluentbit-enabled" .) "true" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "be-webserver.consts.appName" . }}-fluentbit-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "be-webserver.shared.labels.standard" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               cp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      multiline.parser  docker, cri
+      DB                /var/log/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             cp.*
+      Remove_key        stream
+      Remove_key        _p
+    [FILTER]
+      Name              parser
+      Match             cp.*
+      key_name          log
+      parser            tsc-node-logger
+      Reserve_Data      On
+      Preserve_Key      On
+
+  output.conf: |
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                *
+      Host                 {{ include "be-webserver.cp-otel-services" . }}
+      Port                 4318
+      Logs_uri             /v1/logs
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+    [OUTPUT]
+      Name              stdout
+      Match             cp.*
+      Format            json        
+
+  parsers.conf: |
+    [PARSER]
+      Name tsc-node-logger
+      Format regex
+      Regex ^*(?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) \[.*\] (?<tscparserlogger>[^ ]*) (?<tscparsermessage>.*)$
+      Skip_Empty_Values False
+{{- end -}}
