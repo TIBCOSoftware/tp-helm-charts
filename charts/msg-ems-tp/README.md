@@ -1,4 +1,4 @@
-# TIBCO Enterprise Message Service™ (EMS) Provisioning Helm Chart
+# TIBCO Enterprise Message Service™ (EMS) - Provisioning Helm Chart
 [msg-ems-tp](../../charts/msg-ems-tp) is used to -
 * Provision EMS capability on a Data Plane.
 ## How to use

@@ -1,4 +1,4 @@
-# TIBCO Control Plane -  Chart for enabling provisioning of TIBCO(r) Messaging capabilities
+# TIBCO® Control Plane -  Chart for enabling provisioning of TIBCO® Messaging capabilities
 [tp-cp-msg-contrib](../../charts/msg-ems-tp) is used to -
 * Enable Control Plane provisioning of Messaging capabilities on a Data Planes.
 ## How to use
