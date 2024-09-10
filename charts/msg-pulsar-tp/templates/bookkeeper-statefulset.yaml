@@ -28,6 +28,7 @@ metadata:
   annotations:
     {{ include "msg.dp.mon.annotations" . | indent 4 }}
     platform.tibco.com/quorum-min: "2"
+    platform.tibco.com/replica-min: "3"
     platform.tibco.com/quorum-strategy: "active-active"
     # platform.tibco.com/is-in-quorum: "http://localhost:8000/api/v1/bookie/is_ready"
     platform.tibco.com/is-in-quorum: "http://localhost:8000/api/v1/bookie/state"

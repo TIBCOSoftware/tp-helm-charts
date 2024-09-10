@@ -17,7 +17,6 @@ services:
         num: 30
         rotateonfirststart: true
   - name: booke-rack
-    # FIXME:
     config:
       cmd: bash /boot/bookie-assign-rack.sh
       cwd: /pulsar/logs/bookie-rack

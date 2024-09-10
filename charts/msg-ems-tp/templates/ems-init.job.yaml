@@ -12,6 +12,7 @@
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
 # Additional HELPER VARIABLE DEFINITIONS
@@ -58,6 +59,7 @@ spec:
             - name: scripts-vol
               configMap:
                 name: "{{ $emsParams.ems.name }}-scripts"
+                defaultMode: 0777
             - name: "ems-log"
               {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
               persistentVolumeClaim:
@@ -92,6 +94,8 @@ spec:
                 {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
                 - name: ACCEPT_EUA
                   value: "y"
+                - name: EMS_ADMIN_URL
+                  value: "http://{{ $svcEmsActiveHost }}:{{ $emsParams.ems.ports.adminPort }}"
                 - name: EMS_CP_JWKS
                   value: {{ $emsParams.dp.jwks | toJson | quote }}
                 - name: EMS_CP_OWNER

@@ -16,9 +16,9 @@ need.msg.apd.params
 #
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
 #
-{{-  $apdDefaultFullImage := printf "%s/%s/msg-pulsar-all:3.0.2-24" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-3" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $apdDefaultImageTag := "3.0.2-24" -}}
+{{-  $apdDefaultFullImage := printf "%s/%s/msg-pulsar-all:3.0.2-32" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-4" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $apdDefaultImageTag := "3.0.2-32" -}}
 # Set APD defaults
 {{- $apdImage := ternary $apdDefaultFullImage .Values.apd.image ( not .Values.apd.image ) -}}
 {{- $name := ternary .Release.Name .Values.apd.name ( not .Values.apd.name ) -}}
@@ -146,6 +146,15 @@ apd:
     storageName: {{ $name }}-conf
     subPath: "log4j2.yaml"
     readOnly: true
+  params:
+    volName: config-vol
+    storageType: configMap
+    storageName: {{ $name }}-params
+    readOnly: true
+  toolsetData:
+    volName: toolset-data
+    storageType: emptyDir
+    storageName: none
   skipRedeploy: "{{ .Values.apd.skipRedeploy }}"
   allowNodeSkew: "{{ .Values.apd.allowNodeSkew | default $allowNodeSkew }}"
   allowZoneSkew: "{{ .Values.apd.allowZoneSkew | default $allowZoneSkew }}"
@@ -170,6 +179,9 @@ apd:
   toolset:
     serviceAccount: {{ .Values.apd.toolset.serviceAccount | default $dpParams.dp.serviceAccount }}
     resources: {}
+toolset:
+  lbHost: "nlbNameHere"
+  enableIngress: true
 securityProfile: "{{ .Values.apd.securityProfile | default "pulsar" }}"
 {{ end }}
 

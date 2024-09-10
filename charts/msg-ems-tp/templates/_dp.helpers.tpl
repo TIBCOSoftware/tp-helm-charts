@@ -49,8 +49,8 @@ need.msg.dp.params
       {{- $pullPolicy = ternary  $pullPolicy  .Values.global.cp.pullPolicy ( not  .Values.global.cp.pullPolicy ) -}}
         {{- if .Values.global.cp.containerRegistry -}}
           {{- $registry = ternary  $registry  .Values.global.cp.containerRegistry.url ( not  .Values.global.cp.containerRegistry.url ) -}}
-          {{- if .Values.global.cp.containerRegistry.repo -}}
-            {{- $repo = .Values.global.cp.containerRegistry.repo -}}
+          {{- if .Values.global.cp.containerRegistry.repository -}}
+            {{- $repo = .Values.global.cp.containerRegistry.repository -}}
           {{- else if contains "ghcr.io" $registry -}}
             {{- $repo = "tibco/msg-platform-cicd" -}}
             {{- $pullSecret = "cic2-tcm-ghcr-secret" -}}
@@ -100,7 +100,7 @@ need.msg.dp.params
     {{- $name = ternary  $name  .Values.dp.name ( not  .Values.dp.name ) -}}
     {{- $pullSecret = ternary  $pullSecret  .Values.dp.pullSecret ( not  .Values.dp.pullSecret ) -}}
     {{- $registry = ternary  $registry  .Values.dp.registry ( not  .Values.dp.registry ) -}}
-    {{- $repo = ternary  $repo  .Values.dp.repo ( not  .Values.dp.repo ) -}}
+    {{- $repo = ternary  $repo  .Values.dp.repository ( not  .Values.dp.repository ) -}}
     {{- $pullPolicy = ternary  $pullPolicy  .Values.dp.pullPolicy ( not  .Values.dp.pullPolicy ) -}}
     {{- $serviceAccount = ternary  $serviceAccount  .Values.dp.serviceAccount ( not  .Values.dp.serviceAccount ) -}}
     {{- $scSharedName = ternary  $scSharedName  .Values.dp.scSharedName ( not  .Values.dp.scSharedName ) -}}
@@ -177,7 +177,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.2.0.24"
+tib-dp-msgbuild: "1.3.0.14"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"

@@ -43,7 +43,8 @@ metadata:
       # isLeader="http://localhost:9010/isReady"
       # isInQuorum="http://localhost:9013/api/v1/available"
       platform.tibco.com/quorum-strategy: "{{ $emsParams.ems.quorumStrategy | default "none" }}"
-      # platform.tibco.com/quorum-min: "1"
+      platform.tibco.com/replica-min: "3"
+      platform.tibco.com/replica-max: "3"
       platform.tibco.com/leader-endpoint: "{{ $emsParams.ems.isLeader | default "none" }}"
       platform.tibco.com/is-in-quorum: "{{ $emsParams.ems.isInQuorum | default "none" }}"
 spec:
@@ -190,6 +191,23 @@ spec:
                 name: tmp-vol
               terminationMessagePath: /dev/termination-log
               terminationMessagePolicy: File
+              # NOTE: tibemsd - /isLive is not true until after quorum is formed!!
+              livenessProbe:
+                httpGet:
+                  path: /api/v1/server
+                  port: {{ int $emsParams.ems.ports.realmPort }}
+                initialDelaySeconds: 3
+                periodSeconds: 15
+                successThreshold: 1
+                failureThreshold: 4
+              readinessProbe:
+                httpGet:
+                  path: /api/v1/server
+                  port: {{ int $emsParams.ems.ports.realmPort }}
+                initialDelaySeconds: 3
+                periodSeconds: 10
+                successThreshold: 1
+                failureThreshold: 3
               envFrom:
                 - secretRef:
                     name: "{{ $emsParams.ems.name }}-tibadmin"

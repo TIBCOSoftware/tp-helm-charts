@@ -1,0 +1,77 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $apdParams := include "need.msg.apd.params" . | fromYaml -}}
+{{- $stsname := printf "%s-toolset" $apdParams.apd.name -}}
+#
+{{- if $apdParams.toolset.enableIngress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $stsname }}-old"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/pulsar/{{ $apdParams.dp.instanceId }}/toolset/(.*) /\1'
+  labels:
+    {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "apd.std.labels" $apdParams | indent 4 }}
+    app.kubernetes.io/name: apd-toolset
+    app.kubernetes.io/component: apd-toolset
+spec:
+  ingressClassName: tibco-dp-{{ $apdParams.dp.name }}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/msg/pulsar/{{ $apdParams.dp.instanceId }}/toolset/
+        backend:
+          service:
+            name: "{{ $stsname}}-ops"
+            port:
+              number: 8376
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $stsname }}-ops"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ops/shell/pulsar/{{ $apdParams.dp.instanceId }}/toolset/(.*) /\1'
+  labels:
+    {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "apd.std.labels" $apdParams | indent 4 }}
+    app.kubernetes.io/name: apd-toolset
+    app.kubernetes.io/component: apd-toolset
+spec:
+  ingressClassName: tibco-dp-{{ $apdParams.dp.name }}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/msg/ops/shell/pulsar/{{ $apdParams.dp.instanceId }}/toolset/
+        backend:
+          service:
+            name: "{{ $stsname}}-ops"
+            port:
+              number: 8376
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $stsname }}-ops"
+  labels:
+    {{ include "msg.dp.labels" . | indent 4 }}
+    tib-msg-stsname: "{{ $stsname }}"
+spec:
+  ports:
+  - name: ops-shell
+    port: 8376
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+{{- end }}
