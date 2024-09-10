@@ -93,7 +93,7 @@ spec:
       {{ end }}
       containers:
       - name: tpcppengineservice
-        image: {{ include "tp-cp-pengine.image.registry" .}}{{"/"}}{{ include "tp-cp-pengine.image.repository" .}}{{"/"}}{{ include "tp-cp-pengine.image.name" .}}:{{ include "pengine.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.pengine }}:{{ include "pengine.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.tpcppengineservice }}
         securityContext:
@@ -166,7 +166,11 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{include "tp-cp-pengine.consts.cp-db-configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: MasterWriterHost
+              {{- else }}
               key: DBHost
+              {{- end }}
         - name: PGPORT
           valueFrom:
             configMapKeyRef:
@@ -183,49 +187,8 @@ spec:
               key: PGPASSWORD
         - name: POSTGRES_DATABASE_DRIVER
           value: postgres
-        - name: PSQL_MAX_OPEN_CONNECTIONS
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-env-configmap" . }}
-              key: {{ .Chart.Name }}.psqlMaxOpenConnections
-        - name: PSQL_MAX_IDLE_CONNECTIONS
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-env-configmap" . }}
-              key: {{ .Chart.Name }}.psqlMaxIdleConnections
-        - name: PSQL_CONNECTION_MAX_LIFE_TIME
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-env-configmap" . }}
-              key: {{ .Chart.Name }}.psqlConnectionMaxLifeTime
-        - name: READ_PGHOST
-          valueFrom:
-            configMapKeyRef:
-              name: {{include "tp-cp-pengine.consts.cp-db-configuration" . }}
-              key: DBHost
-        - name: READ_PGPORT
-          valueFrom:
-            configMapKeyRef:
-              name: {{include "tp-cp-pengine.consts.cp-db-configuration" . }}
-              key: DBPort
-        - name: READ_POSTGRES_ENDPOINT_URL
-          value: "$(READ_PGHOST):$(READ_PGPORT)"
-        - name: READ_POSTGRES_DATABASE_SSL_MODE
-          value: {{ .Values.global.external.db_ssl_mode }}
-        - name: READ_POSTGRES_DATABASE_SSL_CERT
-          value: ""
-        - name: READ_POSTGRES_DATABASE_SSL_KEY
-          value: ""
-        - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
-        - name: WRITE_POSTGRES_ENDPOINT_URL
+        - name: POSTGRES_ENDPOINT_URL
           value: "$(PGHOST):$(PGPORT)"
-        - name: WRITE_POSTGRES_DATABASE_SSL_MODE
-          value: {{ .Values.global.external.db_ssl_mode }}
-        - name: WRITE_POSTGRES_DATABASE_SSL_CERT
-          value: ""
-        - name: WRITE_POSTGRES_DATABASE_SSL_KEY
-          value: ""
         - name: POSTGRES_DATABASE_SSL_ROOT_CERT_FILE_LOCATION
           value: {{ .Values.global.external.db_ssl_root_cert }}
         - name: NOTIFICATION_PAYLOAD_THRESHOLD_SIZE_IN_BYTES
@@ -248,6 +211,11 @@ spec:
               key: TSC_DNS_DOMAIN
         - name: TSC_DNS_DOMAIN
           value: https://$(TSC_DNS)
+        - name: TP_CP_IDM_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDM_HOST
         volumeMounts:
         - name: store-vol
           mountPath: /private/tsc/config
@@ -257,7 +225,7 @@ spec:
           subPath: tsc/certificates
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "tp-cp-pengine.image.registry" .}}{{"/"}}{{ include "tp-cp-pengine.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}

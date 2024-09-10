@@ -16,8 +16,13 @@ metadata:
   labels:
     {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
 data:
+# DBHost is local writer host which be same master_writer_host in master region
   DBHost: {{ .Values.global.external.db_host }}
   DBName: {{ .Values.global.external.db_name }}
   DBPort: {{ .Values.global.external.db_port | quote }}
   DBSSLMode: {{ .Values.global.external.db_ssl_mode | quote }}
   DBSSLRootCert: {{ .Values.global.external.db_ssl_root_cert | quote }}
+  {{- if eq .Values.global.tibco.is_replica_region true }}
+  MasterWriterHost: {{ .Values.global.external.db_master_writer_host }}
+  LocalReaderHost: {{ .Values.global.external.db_local_reader_host }}
+  {{- end }}

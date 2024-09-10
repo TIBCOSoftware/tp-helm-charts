@@ -88,7 +88,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
         - name: check-permissions-engine
-          image: {{ include "tp-cp-user-subscriptions.image.registry" .}}{{"/"}}{{ include "tp-cp-user-subscriptions.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+          image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
           {{- if .Values.global.containerSecurityContext.userSub }}
           securityContext:
             {{- toYaml .Values.global.containerSecurityContext.userSub | nindent 12 }}
@@ -112,7 +112,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.userSub | nindent 10 }}
         {{- end }}
-        image: {{ include "tp-cp-user-subscriptions.image.registry" .}}{{"/"}}{{ include "tp-cp-user-subscriptions.image.repository" .}}{{"/"}}{{ include "tp-cp-user-subscriptions.image.name" .}}:{{ include "user-subscriptions.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.userSubscriptions }}:{{ include "user-subscriptions.generated.buildNumber" . }}
         resources:
           requests:
             cpu: {{ .Values.cpusersubservice.resources.requests.cpu }}
@@ -175,7 +175,11 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-cp-user-subscriptions.consts.cp.db.configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: MasterWriterHost
+              {{- else }}
               key: DBHost
+              {{- end }}
         - name: PGPORT
           valueFrom:
             configMapKeyRef:
@@ -185,7 +189,11 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-cp-user-subscriptions.consts.cp.db.configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: LocalReaderHost
+              {{- else }}
               key: DBHost
+              {{- end }}
         - name: READ_PGPORT
           valueFrom:
             configMapKeyRef:
@@ -272,7 +280,7 @@ spec:
           subPath: tsc/certificates
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "tp-cp-user-subscriptions.image.registry" .}}{{"/"}}{{ include "tp-cp-user-subscriptions.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}

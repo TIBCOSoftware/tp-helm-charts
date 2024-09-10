@@ -50,12 +50,21 @@
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{/* set repository based on the registry url. We will have different repo for each one. */}}
+{{- define "cp-core-configuration.image-repository" -}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+{{- end -}}
+
 {{- define "cp-core-configuration.pvc-name" }}
 {{- if .Values.pvcName }}
   {{- .Values.pvcName }}
 {{- else }}
 {{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "false"  "Release" .Release )}}
 {{- end }}
+{{- end }}
+
+{{- define "cp-core-configuration.container-registry.secret" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}
 
 {{- define "cp-core-configuration.cp-instance-id" }}
@@ -80,3 +89,19 @@
 {{- define "tp-cp-orchestrator.consts.published.http.port" }}10833{{ end -}}
 
 {{- define "tp-cp-orchestrator.consts.cp.db.configuration" }}provider-cp-database-config{{ end -}}
+
+{{- define "cp-core-configuration.isSingleNamespace" }}
+  {{- include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release ) -}}
+{{- end }}
+
+{{- define "cp-core-configuration.container-registry-image-pull-secret-name" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release ) -}}
+{{- end }}
+
+{{- define "cp-core-configuration.cp-container-registry-username" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_USERNAME" "default" "" "required" "false"  "Release" .Release ) -}}
+{{- end }}
+
+{{- define "cp-core-configuration.cp-container-registry-password" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_PASSWORD" "default" "" "required" "false"  "Release" .Release ) -}}
+{{- end }}

@@ -3,7 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{- if .Values.global.external.admin }}
+{{- if eq .Values.global.tibco.is_replica_region false }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -43,7 +43,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
         {{- end }}        
-        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core-ops.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: ENVIRONMENT_TYPE

@@ -72,25 +72,25 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
       - name: check-pod-dependencies
-        image: {{ include "tp-cp-admin-webserver.image.registry" .}}{{"/"}}{{ include "tp-cp-admin-webserver.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
         {{- if .Values.global.containerSecurityContext.adminWebServer }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.adminWebServer | nindent 10 }}
         {{- end }}
-        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-provider to be running; sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_IDP_HOST:9893/ping" 2>&1 | grep "HTTP/"); done' ]
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
         env:
-          - name: TP_CP_IDP_HOST
+          - name: TP_CP_IDM_HOST
             valueFrom:
               configMapKeyRef:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
-                key: TP_CP_IDP_HOST
+                key: TP_CP_IDM_HOST
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
       {{ end }}
       containers:
       - name: cpadminwebserver
-        image: {{ include "tp-cp-admin-webserver.image.registry" .}}{{"/"}}{{ include "tp-cp-admin-webserver.image.repository" .}}{{"/"}}{{ include "tp-cp-admin-webserver.image.name" .}}:{{ include "admin-webserver.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.adminWebserver }}:{{ include "admin-webserver.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.adminWebServer }}
         securityContext:
@@ -127,6 +127,16 @@ spec:
           successThreshold: 1
           failureThreshold: 1
         env:
+        - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
+          value: {{ include "cp-core-configuration.container-registry-image-pull-secret-name" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_USERNAME
+          value: {{ include "cp-core-configuration.cp-container-registry-username" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_PASSWORD
+          value: {{ include "cp-core-configuration.cp-container-registry-password" . | quote }}         
+        - name: CP_CONTAINER_REGISTRY_REPO
+          value: {{ include "cp-core-configuration.image-repository" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_URL
+          value: {{ include "cp-core-configuration.container-registry" . | quote }}
         - name: TP_CP_PERMISSIONS_ENGINE_HOST
           valueFrom:
             configMapKeyRef:
@@ -164,6 +174,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_IDM_HOST
+        - name: TP_CP_IDP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDP_HOST
         - name: CLOUDOPS_PORT
           value: {{ include "tp-cp-admin-webserver.consts.cloudops.port" . | quote }}
         - name: HTTP_REQUEST_TIMEOUT
@@ -206,13 +221,18 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_ADMIN_DNS_DOMAIN
+        - name: TP_CP_WILDCARD_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_WILDCARD_DNS_DOMAIN
         volumeMounts:
           - name: store-vol
             mountPath: /private/tsc/config
             subPath: tsc/config
 {{- if (include "cp-core-configuration.enableLogging" .)}}
       - name: fluentbit
-        image: {{ include "tp-cp-admin-webserver.image.registry" .}}{{"/"}}{{ include "tp-cp-admin-webserver.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
@@ -349,6 +369,17 @@ spec:
       enableRedirects: true
   - path: /admin/reset-password
     internalPath: /admin/reset-password
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: true
+  - path: /admin/forgot-password
+    internalPath: /admin/forgot-password
     port: 3000
     protocol: http
     proxies:

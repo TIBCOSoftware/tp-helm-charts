@@ -13,14 +13,33 @@ global:
   tibco:
     region: "global"
     region_to_prefix: '{"TSC":{"global":""},"ADMIN":{"global":""}}'
+    image_name:
+      adminWebserver: "core-admin-webserver"
+      webserver: "core-web-server"
+      orchestrator: "core-orchestrator"
+      userSubscriptions: "core-user-subscriptions"
+      emailService: "core-email-service"
+      cronjobs: "core-cronjobs"
+      identityManagement: "core-identity-management"
+      identityProvider: "core-identity-provider"
+      pengine: "core-pengine"
+      cpScripts: "core-cp-scripts"
     logging:
       fluentbit:
         image:
-          name: "fluentbit"
-          tag: 3.0.2
+          name: "common-fluentbit"
+          tag: 3.1.4
+    check_dependencies:
+      distroless_debian:
+        name: "common-distroless-base-debian-debug"
+        tag: 12
+    self_hosted_deployment: true
+    is_replica_region: false
 
   external:
     db_host: ""
+    db_master_writer_host: ""
+    db_local_reader_host: ""
     db_name: ""
     db_port: ""
     db_username: ""

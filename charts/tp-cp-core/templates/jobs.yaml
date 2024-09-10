@@ -1,4 +1,4 @@
-
+{{- if eq .Values.global.tibco.is_replica_region false }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -39,7 +39,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -144,7 +144,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -251,7 +251,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -356,7 +356,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -418,6 +418,7 @@ spec:
 
 ---
 
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -426,7 +427,7 @@ metadata:
     "helm.sh/hook": pre-install, pre-upgrade
     "helm.sh/hook-weight": "20"
     "helm.sh/hook-delete-policy": before-hook-creation
-    description: "Job to create self signed certs for IdM and IdP"
+    description: "Job to create self-signed certs and secrets for IdM and IdP services in self-hosted deployment."
   namespace: {{ include "tp-control-plane.consts.namespace" . }}
   labels:
     {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
@@ -457,7 +458,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" . }}{{"/"}}{{ include "tp-cp-core.image.repository" .}}{{"/cp-scripts-core"}}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: POD_NAMESPACE
@@ -479,4 +480,134 @@ spec:
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
+{{- end }}
+
 ---
+
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-default-idp
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "15" # weight 15 will ensure that this job will be run after the chart clean-up job has completed
+    "helm.sh/hook-delete-policy": before-hook-creation
+    description: "Job to delete self-signed certificates and secrets for IdM and IdP services in self-hosted deployment."
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-default-idp
+      labels:
+        {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: tsc-setup
+        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+        {{- end }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CERT_SCRIPTS_LOCATION
+          value: /opt/tibco/tsc/scripts/certs
+        - name: TSC_CONFIG_LOCATION
+          value: /private/tsc/config
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/tsc/scripts/certs/uninstall-idp.sh"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/tsc
+          subPath: tsc
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+{{- end }}
+
+---
+{{- else }}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-mount
+  annotations:
+    "helm.sh/hook": pre-install, pre-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-control-plane.consts.appName" . }}-mount
+      labels:
+        {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: tsc-mount
+        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+        {{- end }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TSC_CONFIG_LOCATION
+          value: /opt/tibco/tsc/config
+        - name: TSC_CERTIFICATES_LOCATION
+          value: /opt/tibco/tsc/certificates
+        - name: TSC_VOLUME_LOCATION
+          value: /private/tsc
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/tsc/scripts/init.sh mount"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/tsc
+          subPath: tsc
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+
+---
+{{- end }}
