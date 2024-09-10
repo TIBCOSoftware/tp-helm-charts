@@ -8,13 +8,18 @@ MSG CP Common Helpers
 #
 
 */}}
-
 {{- define "msgdp.ghcrImageRepo" -}}"tibco/msg-platform-cicd"{{ end }}
-{{- define "msgdp.jfrogImageRepo" -}}"tibco-platform-local-docker/msg"{{ end }}
-{{- define "msgdp.ecrImageRepo" -}}"msg-platform-cicd"{{ end }}
-{{- define "msgdp.acrImageRepo" -}}"msg-platform-cicd"{{ end }}
-{{- define "msgdp.reldockerImageRepo" -}}"messaging"{{ end }}
-{{- define "msgdp.defaultImageRepo" -}}"messaging"{{ end }}
+{{- define "msgdp.devImageRepo" -}}"tibco-platform-docker-dev"{{ end }}
+{{- define "msgdp.prodImageRepo" -}}"tibco-platform-docker-prod"{{ end }}
+{{- define "msgdp.reldockerImageRepo" -}}"tibco-platform"{{ end }}
+{{- define "msgdp.defaultImageRepo" -}}"tibco-platform-docker-prod"{{ end }}
+# Old Repos
+{{- define "msgdp.jfrogImageRepoOld" -}}"tibco-platform-local-docker/msg"{{ end }}
+{{- define "msgdp.ecrImageRepoOld" -}}"msg-platform-cicd"{{ end }}
+{{- define "msgdp.acrImageRepoOld" -}}"msg-platform-cicd"{{ end }}
+{{- define "msgdp.reldockerImageRepoOld" -}}"messaging"{{ end }}
+{{- define "msgdp.defaultImageRepoOld" -}}"messaging"{{ end }}
+
 {{- define "const.onprem.dnsdomains" -}}"tp-cp-core-dnsdomains"{{ end }}
 {{- define "const.saas.dnsdomains" -}}"tp-control-plane-dnsdomains"{{ end }}
 
@@ -69,10 +74,10 @@ need.msg.cp.params
 */}}
 {{ define "need.msg.cp.params" }}
   # DEFAULT SETTINGS
-  {{- $registry := "664529841144.dkr.ecr.us-west-2.amazonaws.com" -}}
-  {{- $repo := include "msgdp.ecrImageRepo" . -}}
+  {{- $registry := "csgprdusw2reposaas.jfrog.io" -}}
+  {{- $repo := include "msgdp.defaultImageRepo" . -}}
   {{- $imageName := "msg-cp-ui-contrib" -}}
-  {{- $imageTag := "1.2.0-30" -}}
+  {{- $imageTag := "1.3.0-14" -}}
   {{- $TARGET_PATH := "/private/tsc/config/capabilities/platform" -}}
   {{- $pullSecret := "" -}}
   {{- $pullPolicy := "Always" -}}
@@ -80,6 +85,7 @@ need.msg.cp.params
   {{- $enableJobSecurityContext := "false" -}}
   {{- $CP_OTEL_SERVICE := "" -}}
   {{- $CP_LOGGING_FLUENTBIT_ENABLED := "false" -}}
+  {{- $CP_SERVICE_ACCOUNT_NAME := "" -}}
   {{- $CP_SUBSCRIPTION_SINGLE_NAMESPACE := "false" -}}
   {{- $SYSTEM_WHO := "" -}}
   {{- $DNS_DOMAIN := "" -}}
@@ -89,14 +95,6 @@ need.msg.cp.params
   # LEGACY SETTINGS
   {{- if .Values.data.SYSTEM_DOCKER_REGISTRY -}}
     {{- $registry = .Values.data.SYSTEM_DOCKER_REGISTRY -}}
-  {{- end -}}
-
-  {{- if (lookup "v1" "ConfigMap" .Release.Namespace (include "const.onprem.dnsdomains" .)) -}}
-    # On-Prem Env
-    {{- $ENV_TYPE = "onprem" -}}
-  {{- else if (lookup "v1" "ConfigMap" .Release.Namespace (include "const.saas.dnsdomains" .)) -}}
-    # SaaS Env
-    {{- $ENV_TYPE = "saas" -}}
   {{- end -}}
 
   {{- if (lookup "v1" "ConfigMap" .Release.Namespace "cp-env") -}}
@@ -111,6 +109,7 @@ need.msg.cp.params
     {{- $CP_LOGGING_FLUENTBIT_ENABLED = include "env.get" (dict "cm" "cp-env" "key" "CP_LOGGING_FLUENTBIT_ENABLED" "default" $CP_LOGGING_FLUENTBIT_ENABLED "required" "false" "Release" .Release) -}}
     {{- $CP_OTEL_SERVICE = include "env.get" (dict "cm" "cp-env" "key" "CP_OTEL_SERVICE" "default" $CP_OTEL_SERVICE "required" "false" "Release" .Release) -}}
     {{- $CP_VOLUME_CLAIM = include "env.get" (dict "cm" "cp-env" "key" "CP_PVC_NAME" "default" $CP_VOLUME_CLAIM "required" "false" "Release" .Release) -}}
+    {{- $CP_SERVICE_ACCOUNT_NAME = include "env.get" (dict "cm" "cp-env" "key" "CP_SERVICE_ACCOUNT_NAME" "default" $CP_SERVICE_ACCOUNT_NAME "required" "false" "Release" .Release) -}}
     {{- $CP_SUBSCRIPTION_SINGLE_NAMESPACE = include "env.get" (dict "cm" "cp-env" "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" $CP_SUBSCRIPTION_SINGLE_NAMESPACE "required" "false" "Release" .Release) -}}
   {{- else if (lookup "v1" "ConfigMap" .Release.Namespace "cic-env") -}}
     # SaaS Env
@@ -120,12 +119,10 @@ need.msg.cp.params
     {{- $SYSTEM_WHO = include "env.get" (dict "cm" "cic-env" "key" "SYSTEM_WHO" "default" $SYSTEM_WHO "required" "false" "Release" .Release) -}}
     {{- if (lookup "v1" "ConfigMap" .Release.Namespace "cic-private-env") -}}
       {{- $CP_VOLUME_CLAIM = include "env.get" (dict "cm" "cic-private-env" "key" "CP_VOLUME_CLAIM" "default" $CP_VOLUME_CLAIM "required" "false" "Release" .Release) -}}
+      {{- $CP_SERVICE_ACCOUNT_NAME = include "env.get" (dict "cm" "cic-private-env" "key" "CP_DEFAULT_SA" "default" $CP_SERVICE_ACCOUNT_NAME "required" "false" "Release" .Release) -}}
     {{- end -}}
   {{- end -}}
 
-  {{- if .Values.global.cic.data.SYSTEM_DOCKER_REGISTRY -}}
-    {{- $registry = .Values.global.cic.data.SYSTEM_DOCKER_REGISTRY -}}
-  {{- end -}}
   # RECOMMENDED CP SUPPLIED SETTINGS
   {{- if or (include "env.check" (dict "cm" "cp-env" "key" "CP_CONTAINER_REGISTRY" "Release" .Release)) (include "env.check" (dict "cm" "cic-env" "key" "SYSTEM_DOCKER_REGISTRY" "Release" .Release)) (.Values.global.cic.data.SYSTEM_DOCKER_REGISTRY) }}
     {{- $registry = include "env.get" (dict "cm" "cic-env" "key" "SYSTEM_DOCKER_REGISTRY" "default" $registry "required" "false" "Release" .Release) -}}
@@ -139,25 +136,41 @@ need.msg.cp.params
     {{- else if contains "ghcr.io" $registry -}}
       {{- $repo = "tibco/msg-platform-cicd" -}}
       {{- $pullSecret = "cic2-tcm-ghcr-secret" -}}
-    {{- else if contains "jfrog.io" $registry -}}
-      {{- $repo = include "msgdp.jfrogImageRepo" . -}}
-    {{- else if contains "amazonaws.com" $registry -}}
-      {{- $repo = include "msgdp.ecrImageRepo" . -}}
-    {{- else if contains "azurecr.io" $registry -}}
-      {{- $repo = include "msgdp.acrImageRepo" . -}}
-    {{- else if contains "reldocker.tibco.com" $registry -}}
-      {{- $repo = include "msgdp.reldockerImageRepo" . -}}
+    {{- else if .Values.cp.useNewRepos -}}
+      {{- if contains "jfrog.io" $registry -}}
+        {{- $repo = include "msgdp.prodImageRepo" . -}}
+      {{- else if contains "amazonaws.com" $registry -}}
+        {{- $repo = include "msgdp.devImageRepo" . -}}
+      {{- else if contains "azurecr.io" $registry -}}
+        {{- $repo = include "msgdp.devImageRepo" . -}}
+      {{- else if contains "reldocker.tibco.com" $registry -}}
+        {{- $repo = include "msgdp.reldockerImageRepo" . -}}
+      {{- else -}}
+        {{- $repo = include "msgdp.defaultImageRepo" . -}}
+      {{- end -}}
     {{- else -}}
-      {{- $repo = include "msgdp.defaultImageRepo" . -}}
+      {{- if contains "jfrog.io" $registry -}}
+        {{- $repo = include "msgdp.jfrogImageRepoOld" . -}}
+      {{- else if contains "amazonaws.com" $registry -}}
+        {{- $repo = include "msgdp.ecrImageRepoOld" . -}}
+      {{- else if contains "azurecr.io" $registry -}}
+        {{- $repo = include "msgdp.acrImageRepoOld" . -}}
+      {{- else if contains "reldocker.tibco.com" $registry -}}
+        {{- $repo = include "msgdp.reldockerImageRepoOld" . -}}
+      {{- else -}}
+        {{- $repo = include "msgdp.defaultImageRepoOld" . -}}
+      {{- end -}}
     {{- end -}}
+    {{- $repo = include "env.get" (dict "cm" "cp-env" "key" "CP_CONTAINER_REGISTRY_REPO" "default" $repo "required" "false" "Release" .Release) -}}
     {{- $pullSecret = ternary  $pullSecret  .Values.global.cic.data.PULL_SECRET ( not  .Values.global.cic.data.PULL_SECRET ) -}}
     {{- $pullSecret = include "env.get" (dict "cm" "cp-env" "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" $pullSecret "required" "false" "Release" .Release) -}}
   {{- end -}}
+
   # OVERRIDE SETTINGS
   {{- if .Values.cp -}}
     {{- $CP_VOLUME_CLAIM = ternary  $CP_VOLUME_CLAIM  .Values.cp.CP_VOLUME_CLAIM ( not  .Values.cp.CP_VOLUME_CLAIM ) -}}
     {{- $registry = ternary  $registry  .Values.cp.registry ( not  .Values.cp.registry ) -}}
-    {{- $repo = ternary  $repo  .Values.cp.repo ( not  .Values.cp.repo ) -}}
+    {{- $repo = ternary  $repo  .Values.cp.repository ( not  .Values.cp.repository ) -}}
     {{- $imageName = ternary  $imageName  .Values.cp.imageName ( not  .Values.cp.imageName ) -}}
     {{- $imageTag = ternary  $imageTag  .Values.cp.imageTag ( not  .Values.cp.imageTag ) -}}
     {{- $TARGET_PATH = ternary  $TARGET_PATH  .Values.cp.TARGET_PATH ( not  .Values.cp.TARGET_PATH ) -}}
@@ -190,6 +203,7 @@ cp:
   OTEL_SERVICE: {{ $CP_OTEL_SERVICE }}
   DNS_DOMAIN: '{{ $DNS_DOMAIN }}'
   ADMIN_DNS_DOMAIN: '{{ $ADMIN_DNS_DOMAIN }}'
+  serviceAccount: {{ $CP_SERVICE_ACCOUNT_NAME }}
   SUBSCRIPTION_SINGLE_NAMESPACE: {{ $CP_SUBSCRIPTION_SINGLE_NAMESPACE }}
   SYSTEM_WHO: {{ $SYSTEM_WHO }}
   ENV_TYPE: {{ $ENV_TYPE }}

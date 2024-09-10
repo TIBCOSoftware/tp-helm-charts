@@ -7,12 +7,12 @@
 
 # TODO: MSGDP-316: Comment out redundant OUTPUT=stdout after testing is complete
 outfile=${1:-output.conf}
-if [[ "$LOGGING_FLUENTBIT_ENABLED" == "true" ]]; then
+if [[ "$MSGDP_LOGGING_FLUENTBIT_ENABLED" == "true" ]]; then
     cat - <<EOF > $outfile
 [OUTPUT]
     Name                 opentelemetry
     Match                dp.routable*
-    Host                 ${OTEL_SERVICE}
+    Host                 ${MSGDP_OTEL_SERVICE}
     Port                 4318
     Logs_uri             /v1/logs
     Log_response_payload True

@@ -7,8 +7,8 @@
 # THIS FILES IS EXPECTED TO BE SOURCED USING BASH SHELL
 ls -lh /cm/*
 
-export ENV_TYPE="${ENV_TYPE:-""}"
-echo "ENV_TYPE: $ENV_TYPE"
+export MSGDP_ENV_TYPE="${MSGDP_ENV_TYPE:-""}"
+echo "MSGDP_ENV_TYPE: $MSGDP_ENV_TYPE"
 
 # Env values needed
 requiredEnv=()
@@ -23,9 +23,9 @@ requiredEnv+=("PERMISSIONS_ENGINE_HOST")
 echo "Loading dnsdomains CM values"
 cmDnsList="/cm/cp-dns /cm/cic-dns"
 expectedCmDns=""
-if [ "$ENV_TYPE" = "onprem" ]; then
+if [ "$MSGDP_ENV_TYPE" = "onprem" ]; then
     expectedCmDns="/cm/cp-dns"
-elif [ "$ENV_TYPE" = "saas" ]; then
+elif [ "$MSGDP_ENV_TYPE" = "saas" ]; then
     expectedCmDns="/cm/cic-dns"
 else
     expectedCmDns="Unknown"
@@ -68,9 +68,11 @@ done
 # Convert DNS ENV to expected values
 if [ -n "$TSC_ADMIN_DNS_DOMAIN" ]; then
     export ACME_HOST="$TSC_ADMIN_DNS_DOMAIN"
+    export MSGDP_ADMIN_DNS_DOMAIN="$TSC_ADMIN_DNS_DOMAIN"
 fi
 if [ -n "$TP_CP_PERMISSIONS_ENGINE_HOST" ]; then
     export PERMISSIONS_ENGINE_HOST="$TP_CP_PERMISSIONS_ENGINE_HOST"
+    export MSGDP_PERMISSIONS_ENGINE_HOST="$TP_CP_PERMISSIONS_ENGINE_HOST"
 fi
 
 

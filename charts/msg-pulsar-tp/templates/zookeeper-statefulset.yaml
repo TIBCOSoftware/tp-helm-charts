@@ -31,6 +31,8 @@ metadata:
     # isLeader="http://localhost:9010/isReady"
     # isInQuorum="http://localhost:9013/api/v1/available"
     # platform.tibco.com/quorum-min: "1"
+    platform.tibco.com/replica-min: "{{ $zkReplicas }}"
+    platform.tibco.com/replica-max: "{{ $zkReplicas }}"
     platform.tibco.com/quorum-strategy: "quorum-based"
     platform.tibco.com/leader-endpoint: "http://localhost:8090/isleader"
     platform.tibco.com/is-in-quorum: "http://localhost:8090/inquorum"

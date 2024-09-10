@@ -51,7 +51,6 @@ spec:
             containers:
             -   name: "main"
                 command: ['/compliance/check_eua', 'bash', '-c' ]
-                # FIXME: bash < /boot/pulsar-upgrade.sh
                 args:
                 - >
                   bash < /boot/pulsar-upgrade.sh

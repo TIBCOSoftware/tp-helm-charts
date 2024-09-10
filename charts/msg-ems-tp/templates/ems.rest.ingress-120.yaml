@@ -17,7 +17,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: "{{ $svcEms }}-admin"
+  name: "{{ $svcEms }}-admin-120"
   namespace: {{ .Release.Namespace }}
   annotations:
     ingress.kubernetes.io/path-rewrite: '/tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/(.*) /\1'
@@ -33,7 +33,7 @@ spec:
   - http:
       paths:
       - pathType: Prefix
-        path: /tibco/agent/msg/ems/{{ $emsParams.dp.instanceId }}/rest/
+        path: /tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/
         backend:
           service:
             name: "{{ $svcEms }}active"

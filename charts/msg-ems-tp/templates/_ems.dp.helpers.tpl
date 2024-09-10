@@ -14,8 +14,8 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-24" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-3" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-35" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-4" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
 {{- $sizing := ternary  "small" .Values.ems.sizing ( not  .Values.ems.sizing ) -}}
@@ -120,13 +120,38 @@ ems:
   pvcShareName: {{ $pvcShareName }}
   pvcShareSize: {{ $pvcShareSize }}
   msgData: 
+    volName: ems-data
     storageType: {{ $msgStorageType }}
     storageName: {{ $msgStorageName }}
     storageSize: {{ $msgStorageSize }}
   logs: 
+    volName: ems-logs
     storageType: {{ $logStorageType }}
     storageName: {{ $logStorageName }}
     storageSize: {{ $logStorageSize }}
+  boot:
+    volName: scripts-vol
+    storageType: configMap
+    storageName: {{ $name }}-scripts
+    readOnly: true
+  certs:
+    volName: certs-vol
+    storageType: secret
+    storageName: {{ $name }}-certs
+    readOnly: true
+  params:
+    volName: config-vol
+    storageType: configMap
+    storageName: {{ $name }}-params
+    readOnly: true
+  toolsetData:
+    volName: toolset-data
+    storageType: emptyDir
+    storageName: none
+  toolset:
+    volName: toolset-vol
+    storageType: emptyDir
+    storageName: none
   skipRedeploy: "{{ .Values.ems.skipRedeploy }}"
   istioEnable: "{{ .Values.ems.istioEnable | default "false" }}"
   ports:
@@ -149,6 +174,9 @@ ems:
       memory: {{ $memLim }}
       cpu: {{ $cpuLim }}
     {{ end }}
+toolset:
+  lbHost: "nlbNameHere"
+  enableIngress: true
 securityProfile: "{{ .Values.ems.securityProfile | default "ems" }}"
 {{ end }}
 
@@ -165,6 +193,7 @@ tib-msg-ems-sizing: "{{ .ems.sizing }}"
 tib-msg-ems-use: "{{ .ems.use }}"
 app.kubernetes.io/name: "ems"
 platform.tibco.com/app-type: "msg-ems"
+app.kubernetes.io/part-of: "{{ .ems.name }}"
 platform.tibco.com/app.resources.requests.cpu: {{ .ems.resources.requests.cpu | default "100m" | quote }}
 platform.tibco.com/app.resources.requests.memory: {{ .ems.resources.requests.memory | default "128Mi" | quote }}
 platform.tibco.com/app.resources.limits.cpu: {{ .ems.resources.limits.cpu | default "3" | quote }}

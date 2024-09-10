@@ -1,6 +1,11 @@
 
-# Copyright (c) 2023-2024 Cloud Software Group, Inc. All Rights Reserved. Confidential and Proprietary.
 # This file is intended to be sourced on pod startup
+
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
 
 # DEBUG: for x in "$@" ; do echo ".. $x .." ; done
 # SET ZONE INFORMATION

@@ -1,3 +1,8 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
 recipe:
     helmCharts:
     -   flags:
@@ -11,9 +16,9 @@ recipe:
                 host: "${HELM_REPO}"
         values:
         -   content: |
-              emsVersion: "10.3.0-7"
+              emsVersion: "10.3.0-35"
               ems:
                 name: ${EMS_NAME}
                 use: ${EMS_USE}
                 sizing: ${EMS_SIZE}
-        version: "1.1.14"
+        version: "1.3.14"

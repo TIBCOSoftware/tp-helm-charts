@@ -30,7 +30,7 @@ if [ -n "$EMS_CP_OWNER" ] ; then
 fi
 if [ -n "$EMS_ADMIN_USER" ] ; then 
     adminList="$adminList"' {"name":"'$EMS_ADMIN_USER'"},'
-    tibAdminUser='{ "description":"Tibco DP Admin credentials", "name":"'$EMS_ADMIN_USER'", "password":"'$EMS_ADMIN_PASSWORD'" },'
+    tibAdminUser='{ "description":"Tibco DP Admin credentials", "name":"'$EMS_ADMIN_USER'", "password":"locked" },'
 fi
 
 cat - <<EOF > $outfile
@@ -191,7 +191,7 @@ cat - <<EOF > $outfile
     {
       "description":"server-user",
       "name":"$srvBase",
-      "password":null
+      "password":"locked"
     }
   ]
 }

@@ -27,6 +27,7 @@ metadata:
   annotations:
     {{ include "msg.dp.mon.annotations" . | indent 4 }}
     platform.tibco.com/quorum-min: "1"
+    platform.tibco.com/replica-min: "2"
     platform.tibco.com/quorum-strategy: "active-active"
     platform.tibco.com/is-in-quorum: "http://localhost:8080/status.html"
   labels:

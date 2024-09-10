@@ -10,7 +10,6 @@ cat - <<EOF > $outfile
 services:
   - name: main
     config:
-      # === FIXME: ===
       cmd: ${WATCHDOG_MAIN} ${WATCHDOG_MAIN_ARGS}
       # cmd: /usr/local/watchdog/bin/wait-for-shutdown.sh
       cwd: /pulsar/logs

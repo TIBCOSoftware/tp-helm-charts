@@ -69,14 +69,27 @@ function sts_get_config {
     [ $? -ne 0 ] && log " No STS data, not watching health ..." && return 1
     quorumStrategy="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/quorum-strategy"]' )"
     replicas="$(cat $stsdata | jq '.spec.replicas' )"
+    lastReplicas=$replicas
     isLeader="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/leader-endpoint"]' )"
     [ "$isLeader" = "null" ] && isLeader=""
     quorumMin="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/quorum-min"]' )"
+    replicaMin="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/replica-min"]' )"
+    replicaMax="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/replica-max"]' )"
     if [ "$quorumMin" = "null" ] || [ -z "$quorumMin" ] ; then 
         quorumMin="1"
     fi
-    if [ "$quorumMin" -gt "$replicas" ] ; then
-        replicas="$quorumMin"
+    if [ "$replicaMin" = "null" ] || [ -z "$replicaMin" ] ; then 
+        replicaMin="1"
+    fi
+    if [ "$replicaMin" -gt "$replicas" ] ; then
+        alert "spec-alert $STS_NAME: replicas = $replicas, min=$replicaMin"
+        replicas="$replicaMin"
+    fi
+    if [ "$replicaMax" = "null" ] || [ -z "$replicaMax" ] ; then 
+        replicaMax="$replicas"
+    fi
+    if [ "$replicas" -gt "$replicaMax" ] ; then
+        alert "spec-alert $STS_NAME: replicas = $replicas, max=$replicaMax"
     fi
     stsNamespace="$(cat $stsdata | jq -r '.metadata.namespace' )"
     # isInQuorum="http://localhost:9013/api/v1/available"
@@ -88,6 +101,8 @@ function sts_get_config {
     quorumUrl=$(echo "$isInQuorum" | sed -e "s;localhost;$podhost;")
     cat - <<!
 --------------------------
+replicaMin=$replicaMin
+replicaMax=$replicaMax
 quorumStrategy=$quorumStrategy
 quorumMin=$quorumMin
 isLeader=$isLeader
@@ -105,6 +120,14 @@ function sts_check_health {
     curlOpts="-k -s -o /dev/null"
     curlTimeout="--max-time 5 --connect-timeout 3"
     inQuorumCount=0 leader="" missingList= health=bad
+    # Check for scaling actions
+    kubectl get sts "$STS_NAME" -o json > $stsdata
+    xreplicas="$(cat $stsdata | jq '.spec.replicas' )"
+    [ "$xreplicas" != "$lastReplicas" ] && \
+            alert "scaling-alert $STS_NAME: replicas = $xreplicas, was $lastReplicas" &&
+            sts_get_config
+
+    # Check health
     maxReplica=$(( $replicas - 1 ))
     for r in $(seq 0 $maxReplica ) ; do
         podname="$STS_NAME-$r"
