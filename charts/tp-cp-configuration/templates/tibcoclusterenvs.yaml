@@ -7,7 +7,11 @@
 
 # dynamically generate TibcoClusterEnv CRs using the values defined in .Values.tibcoclusterenv
 {{- $root := . -}}
+{{- $hasTscSessionKey := false }}
+{{- $hasDomainSessionKey := false }}
 {{ range .Values.router.configurationEnvs }}
+{{- if eq .setting "TSC_SESSION_KEY" }}{{ $hasTscSessionKey = true }}{{ end }}
+{{- if eq .setting "DOMAIN_SESSION_KEY" }}{{ $hasDomainSessionKey = true }}{{ end }}
 kind: TibcoClusterEnv
 apiVersion: cloud.tibco.com/v1
 metadata:
@@ -32,7 +36,11 @@ metadata:
 spec:
   group: "infra.router"
   setting: "VALID_TIBCO_DOMAINS"
+  {{- if .Values.router.validTibcoDomains }}
+  value: {{ .Values.router.validTibcoDomains | quote }}
+  {{- else }}
   value: ".{{ include "tp-cp-configuration.domain-name" . }}.{{ include "tp-cp-configuration.top-level-domain" . }}"
+  {{- end }}
 
 ---
 
@@ -48,8 +56,8 @@ spec:
   setting: "SUPPORTED_DOMAINS_REGEX"
   value: "[^.]+\\.([^.]+\\.{{ include "tp-cp-configuration.domain-name" . }}\\.{{ include "tp-cp-configuration.top-level-domain" . }})"
 
+{{- if not $hasTscSessionKey }}
 ---
-
 kind: TibcoClusterEnv
 apiVersion: cloud.tibco.com/v1
 metadata:
@@ -66,9 +74,10 @@ spec:
   {{- else }}
   value: {{ $tscSessionKey.spec.value | quote }}
   {{- end }}
+{{- end }}
 
+{{- if not $hasDomainSessionKey }}
 ---
-
 kind: TibcoClusterEnv
 apiVersion: cloud.tibco.com/v1
 metadata:
@@ -85,3 +94,4 @@ spec:
   {{- else }}
   value: {{ $domainSessionKey.spec.value | quote }}
   {{- end }}
+{{- end }}

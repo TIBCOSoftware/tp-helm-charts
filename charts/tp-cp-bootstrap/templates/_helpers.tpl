@@ -103,6 +103,11 @@ Create chart name and version as used by the chart label.
 {{- end }}
 {{- end }}
 
+{{/* Service Cidr for the cluster */}}
+{{- define "tp-cp-bootstrap.serviceCIDR" }}
+{{- .Values.global.external.clusterInfo.serviceCIDR }}
+{{- end }}
+
 {{/*
 ================================================================
                   SECTION LABELS

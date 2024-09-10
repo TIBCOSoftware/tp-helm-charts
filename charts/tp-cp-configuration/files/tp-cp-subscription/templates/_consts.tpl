@@ -7,7 +7,13 @@ in the license file that is distributed with this file.
 */}}
 
 {{/* A fixed short name for the application. Can be different than the chart name */}}
-{{- define "tp-cp-subscription.consts.appName" }}hybrid-server-{{ .Values.subscriptionId }}{{ end -}}
+{{- define "tp-cp-subscription.consts.appName" }}
+  {{- if (eq (.Values.global.tibco.useSingleNamespace | toString ) "true") }}
+    {{- "hybrid-server" -}}-{{- .Values.subscriptionId -}}
+  {{- else }}
+    {{- "hybrid-server" -}}
+  {{- end -}}
+{{- end -}}
 
 
 {{- define "tp-cp-subscription.consts.tenantName" }}cp-core{{ end -}}
@@ -19,37 +25,31 @@ in the license file that is distributed with this file.
 {{/* Team we're a part of. */}}
 {{- define "tp-cp-subscription.consts.team" }}cic-compute{{ end -}}
 
-{{- define "tp-cp-subscription.consts.namespace" }}{{ .Release.Namespace }}{{ end -}}
+{{- define "tp-cp-subscription.consts.serviceAccount" }}
+  {{- if .Values.global.tibco.serviceAccount }}
+    {{- .Values.global.tibco.serviceAccount -}}
+  {{- else }}
+    {{- include "tp-cp-subscription.consts.appName" . -}}
+  {{- end -}}
+{{- end -}}
+
+{{- define "tp-cp-subscription.consts.namespace" }}
+  {{- if .Values.global.tibco.useSingleNamespace }}
+    {{ .Release.Namespace }}
+  {{- else }}
+    {{- .Values.global.tibco.controlPlaneInstanceId }}-tibco-sub-{{- .Values.subscriptionId -}}
+  {{- end -}}
+{{- end -}}
 
 {{- define "tp-cp-subscription.container-registry.secret" }}{{ .Values.global.tibco.containerRegistry.secret }}{{end}}
 
-{{- define "tp-cp-subscription.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "tp-cp-subscription.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-subscription.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-subscription.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-subscription.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "tp-cp-subscription.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- .Values.global.tibco.containerRegistry.url }}
-  {{- end }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-cp-subscription.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "tp-cp-subscription.image.registry" .) }} 
-    {{- include "tp-cp-subscription.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-cp-subscription.image.registry" .) }}
-    {{- include "tp-cp-subscription.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-cp-subscription.image.registry" .) }}
-    {{- include "tp-cp-subscription.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-cp-subscription.consts.defaultImageRepo" .}}
-  {{- end }}
+    {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* control plane deployment target */}}
@@ -69,6 +69,21 @@ in the license file that is distributed with this file.
 {{- .Values.global.external.clusterInfo.nodeCIDR }}
 {{- else }}
 {{- .Values.global.external.clusterInfo.podCIDR }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/* Service CIDR for the cluster */}}
+{{- define "tp-cp-subscription.serviceCIDR" }}
+{{- .Values.global.external.clusterInfo.serviceCIDR }}
+{{- end }}
+
+{{- define "tp-cp-subscription.imageCredential" }}
+{{- with .Values.global.tibco.containerRegistry }}
+{{- if .username  }}
+{{- if .password }}
+{{- printf "{\"auths\":{\"%s\":{\"username\":\"%s\",\"password\":\"%s\",\"auth\":\"%s\"}}}" .url .username .password (printf "%s:%s" .username .password | b64enc) | b64enc }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -21,7 +21,7 @@ defaults:
     variant: ""
 
     # Can be a full hub/image:tag
-    image: pilot
+    image: servicemesh-pilot
     traceSampling: 1.0
 
     # Resources for a small pilot install
@@ -37,6 +37,8 @@ defaults:
     extraContainerArgs: []
 
     env:
+      PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER: false   # https://istio.io/latest/docs/reference/commands/pilot-agent/#envvars
+      PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER: false
       ENABLE_ENHANCED_RESOURCE_SCOPING: true
 
     affinity: {}
@@ -357,7 +359,7 @@ defaults:
     priorityClassName: ""
 
     proxy:
-      image: proxyv2
+      image: servicemesh-proxyv2
 
       # This controls the 'policy' in the sidecar injector.
       autoInject: enabled
@@ -435,7 +437,7 @@ defaults:
 
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
-      image: proxyv2
+      image: servicemesh-proxyv2
 
     # If set to true, enable validating webhook
     # Skip webhook validation. Causing repeated loop when deployed in multiple namespaces

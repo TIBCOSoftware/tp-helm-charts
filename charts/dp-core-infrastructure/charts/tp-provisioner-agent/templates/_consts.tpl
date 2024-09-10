@@ -33,13 +33,5 @@ in the license file that is distributed with this file.
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-provisioner-agent.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-provisioner-agent.image.registry" .) }} 
-    {{- include "tp-provisioner-agent.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-provisioner-agent.image.registry" .) }}
-    {{- include "tp-provisioner-agent.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-provisioner-agent.image.registry" .) }}
-    {{- include "tp-provisioner-agent.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-provisioner-agent.consts.defaultImageRepo" .}}
-  {{- end }}
+ {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}

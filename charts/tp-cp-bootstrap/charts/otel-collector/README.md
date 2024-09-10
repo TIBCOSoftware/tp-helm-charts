@@ -245,7 +245,7 @@ At this time, Prometheus CRDs are supported but other CRDs are not.
 
 ### Other configuration options
 
-The [values.yaml](./values.yaml) file contains information about all other configuration
+The [values.yaml](values.yaml) file contains information about all other configuration
 options for this chart.
 
 For more examples see [Examples](examples).

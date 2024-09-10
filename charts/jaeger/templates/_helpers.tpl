@@ -112,27 +112,13 @@ platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
 platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
 {{- end -}}
 
-{{- define "jaeger.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "jaeger.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "jaeger.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "jaeger.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "jaeger.const.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "jaeger.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "jaeger.image.repository" -}}
-  {{- if contains "jfrog.io" (include "jaeger.image.registry" .) }}
-    {{- include "jaeger.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "jaeger.image.registry" .) }}
-    {{- include "jaeger.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "jaeger.image.registry" .) }}
-    {{- include "jaeger.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "jaeger.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
 
 {{/*
@@ -508,6 +494,85 @@ Elasticsearch related command line options
 {{- end -}}
 {{- end -}}
 
+{{- define "isO11yv3" -}}
+{{- and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") -}}
+{{- end -}}
+
+{{- define "esServerUrls" -}}
+--es.server-urls={{ .Values.global.cp.resources.o11y.tracesServer.config.es.endpoint }}
+{{- end -}}
+
+{{- define "esUsername" -}}
+--es.username={{ .Values.global.cp.resources.o11y.tracesServer.config.es.username }}
+{{- end -}}
+
+{{- define "esPassword" -}}
+--es.password={{ .Values.global.cp.resources.o11y.tracesServer.secret.es.password }}
+{{- end -}}
+
+
+{{/*
+Elasticsearch related command line options
+*/}}
+{{- define "elasticsearch.query.cmdArgs" -}}
+{{- if include "isO11yv3" . -}}
+{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled -}}
+{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind "elasticSearch" -}}
+- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.elasticSearch.endpoint }}
+- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.elasticSearch.username }}
+- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.proxy.elasticSearch.password }}
+{{- end -}}
+{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind "openSearch" -}}
+- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.openSearch.endpoint }}
+- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.openSearch.username }}
+- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.proxy.openSearch.password }}
+{{- end -}}
+{{- end -}}
+{{- else}}
+- {{ include "esServerUrls" . }}
+- {{ include "esUsername" . }}
+- {{ include "esPassword" . }}
+{{- end -}}
+{{- range $key, $value := .Values.storage.elasticsearch.cmdlineParams -}}
+{{- if $value }}
+- --{{ $key }}={{ $value }}
+{{- else }}
+- --{{ $key }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Elasticsearch related command line options
+*/}}
+{{- define "elasticsearch.collector.cmdArgs" -}}
+{{- if include "isO11yv3" . -}}
+{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled -}}
+{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch" -}}
+- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.endpoint }}
+- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.username }}
+- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
+{{- end -}}
+{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch" -}}
+- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.openSearch.endpoint }}
+- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.openSearch.username }}
+- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.openSearch.password }}
+{{- end -}}
+{{- end -}}
+{{- else }}
+- {{ include "esServerUrls" . }}
+- {{ include "esUsername" . }}
+- {{ include "esPassword" . }}
+{{- end }}
+{{- range $key, $value := .Values.storage.elasticsearch.cmdlineParams -}}
+{{- if $value }}
+- --{{ $key }}={{ $value }}
+{{- else }}
+- --{{ $key }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 Cassandra or Elasticsearch related command line options depending on which is used
 */}}
@@ -518,6 +583,23 @@ Cassandra or Elasticsearch related command line options depending on which is us
 {{- include "elasticsearch.cmdArgs" . -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "storage.query.cmdArgs" -}}
+{{- if eq .Values.storage.type "cassandra" -}}
+{{- include "cassandra.cmdArgs" . -}}
+{{- else if eq .Values.storage.type "elasticsearch" -}}
+{{- include "elasticsearch.query.cmdArgs" . -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "storage.collector.cmdArgs" -}}
+{{- if eq .Values.storage.type "cassandra" -}}
+{{- include "cassandra.cmdArgs" . -}}
+{{- else if eq .Values.storage.type "elasticsearch" -}}
+{{- include "elasticsearch.collector.cmdArgs" . -}}
+{{- end -}}
+{{- end -}}
+
 
 {{/*
 Add extra argument to the command line options

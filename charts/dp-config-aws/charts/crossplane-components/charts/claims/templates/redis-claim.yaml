@@ -32,22 +32,18 @@ spec:
     {{- /* additional parameters */ -}}
     {{- if .additionalConfigurationParameters }}
     {{- with .additionalConfigurationParameters }}
-    applyModificationsImmediately: {{ .applyModificationsImmediately }}
-    atRestEncryptionEnabled: {{ .atRestEncryptionEnabled }}
-    authEnabled: {{ .authEnabled }}
-    {{- if eq .multiAZEnabled true }}
-    automaticFailoverEnabled: true
+    {{- range $paramKey, $paramValue := . }}
+    {{- if $paramValue }}
+    {{- if (eq $paramKey "restoreFrom") }}
+    restoreFrom:
+      {{- range $restoreKey, $restoreValue := $paramValue }}
+      {{ $restoreKey }}: {{ $restoreValue }}
+      {{- end }}
+    {{- else }}
+    {{ $paramKey }}: {{ $paramValue }}
+    {{- end -}}
+    {{- end -}}
     {{- end }}
-    engine: {{ .engine }}
-    multiAZEnabled: {{ .multiAZEnabled }}
-    numNodeGroups: {{ .numNodeGroups }}
-    replicasPerNodeGroup: {{ .replicasPerNodeGroup }}
-    {{- if .restoreFrom }}
-    {{- with .restoreFrom }}
-    snapshotName: {{ .snapshotName }}
-    {{- end }}
-    {{- end }}
-    transitEncryptionEnabled: {{ .transitEncryptionEnabled }}
     {{- end }}
     {{- end }}
     {{- end }}

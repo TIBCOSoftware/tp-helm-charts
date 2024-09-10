@@ -17,24 +17,13 @@ router:
       group: "infra.router"
       setting: "LOG_LEVEL"
       value: "info"
-
-image:
-  name: container-image-extractor
-  registry: ""
-  repo: ""
-  tag: 93-distroless
-  pullPolicy: IfNotPresent
-
-controlTower:
-  image:
-    name: "control-tower"
-    tag: 132
-    pullPolicy: IfNotPresent
+  # comma-separated list of domains with which TibcoClusterEnv CR of VALID_TIBCO_DOMAINS is to be created
+  # validTibcoDomains: ""
 
 fluentbit:
   image:
-    name: "fluentbit"
-    tag: 3.0.2
+    name: "common-fluentbit"
+    tag: 3.1.4
     pullPolicy: IfNotPresent
 
 # Pod Security Context configuration

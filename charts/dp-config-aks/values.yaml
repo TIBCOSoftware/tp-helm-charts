@@ -32,7 +32,7 @@ clusterIssuer:
   create: true
 
 httpIngress:
-  enabled: true
+  enabled: false
   name: nginx  # kong for kong
   ingressClassName: azure-application-gateway  # see: https://github.com/kubernetes-sigs/external-dns/blob/master/docs/faq.md
   path: /
@@ -86,7 +86,7 @@ storageClass:
 
 ingress-nginx:
   # chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
-  enabled: true
+  enabled: false
   controller:
     service:  # for external-dns
       type: ClusterIP
@@ -99,11 +99,13 @@ traefik:
     enabled: false
   service:  # for external-dns
     type: ClusterIP
+  ingressClass:
+    name: traefik
     # annotations: # for external dns to register domain
     #   external-dns.alpha.kubernetes.io/hostname: "" # *.abc.<host-domain>
   ingressRoute:  # for dashboard
     dashboard:
-      matchRule: ""  # Host(``) && PathPrefix(`/dashboard`) || Host(``) && PathPrefix(`/api`)
+      matchRule: PathPrefix(`/dashboard`) || PathPrefix(`/api`)
       entryPoints:
         - traefik
         - web
@@ -113,12 +115,8 @@ traefik:
       allowExternalNameServices: true
   nodeSelector:  # for cic2
     kubernetes.io/os: linux
-  tlsStore:  # for certificate
-    default:
-      defaultCertificate:
-        secretName: cic-certificate-production-azure
-  additionalArguments:
-    - '--serversTransport.insecureSkipVerify=true'
+  serversTransport:
+    insecureSkipVerify: true
 
 kong:
   # chart values: https://github.com/Kong/charts/blob/main/charts/kong/values.yaml

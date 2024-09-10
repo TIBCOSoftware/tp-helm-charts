@@ -10,9 +10,8 @@
 compute-services:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.2.17"
-    dpConfigureNamespaceChartVersion: "1.2.27"
-  queryNodeBasicAuthHeader: "johndoe"
+    dpCoreInfrastructureChartVersion: "1.3.13"
+    dpConfigureNamespaceChartVersion: "1.3.4"
 
   # list of helm repositories supported by compute service. This will be used to download and serialize the helm chart content on fly
   # supported types: "chart-museum"
@@ -65,9 +64,10 @@ global:
       # set to true to create rbac resources for the service account (cluster role and binding), set to false if the service account already have the rbacs
       infra: true
     containerRegistry:
-      url: ""
+      url: ""  # container registry url
       username: ""
       password: ""
+      repository: "tibco-platform-docker-prod"  # repository
 
     # Flag to enable or disable creating default network policies for a namespace
     # Default value is false. Possible values are true, false
@@ -76,12 +76,16 @@ global:
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""
+
+    useSingleNamespace: true
+
   external:
     dnsTunnelDomain: ""
     dnsDomain: ""
     clusterInfo:
       nodeCIDR: ""
       podCIDR: ""
+      serviceCIDR: "172.20.0.0/16"
 
 #    logserver:
 #      endpoint: ""

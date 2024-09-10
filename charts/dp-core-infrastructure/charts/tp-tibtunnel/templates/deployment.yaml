@@ -42,12 +42,27 @@ spec:
         resources:
           {{- toYaml . | nindent 10}}
         {{- end }}
+        env:
+        {{- with .Values.global.proxy }}
+        {{- if .httpProxy }}
+        - name: http_proxy
+          value: {{ .httpProxy }}
+        {{- end }}
+        {{- if .httpsProxy }}
+        - name: https_proxy
+          value: {{ .httpsProxy }}
+        {{- end }}
+        {{- if .noProxy }}
+        - name: no_proxy
+          value: {{ .noProxy | quote }}
+        {{- end }}          
+        {{- end }}
         volumeMounts:
         - name: config-dir
           mountPath: /etc/config
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+        image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.fluentbit.image.name }}:{{ .Values.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.global.logging.fluentbit.securityContext }}
         securityContext:

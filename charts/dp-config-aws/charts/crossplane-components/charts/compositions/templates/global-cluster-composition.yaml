@@ -1,0 +1,42 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositeglobaldatabases.database.platform.tibco.com
+  labels:
+    provider: provider-aws-global-database
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: database.platform.tibco.com/v1alpha1
+    kind: CompositeGlobalDatabase
+  patchSets:
+    - name: RegionParameter
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+  resources:
+    - name: globaldatabase
+      base:
+        apiVersion: rds.aws.crossplane.io/v1alpha1
+        kind: GlobalCluster
+        spec:
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            sourceDBClusterIdentifierSelector:
+              matchLabels:
+                aurora-cluster-reference: ""
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.auroraClusterReference"
+          toFieldPath: "spec.forProvider.sourceDBClusterIdentifierSelector.matchLabels.aurora-cluster-reference"
+        - fromFieldPath: "spec.parameters.deletionProtection"
+          toFieldPath: "spec.forProvider.deletionProtection"

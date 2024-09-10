@@ -20,6 +20,7 @@ global:
     containerRegistry:
       secret: ""
       url: reldocker.tibco.com
+      repository: "tibco-platform-docker-prod"
     environmentType: "vagrant"
     resources:
       storage:
@@ -36,7 +37,7 @@ global:
       fluentbit:
         enabled: true
         image:
-          tag: 3.0.2
+          tag: 3.1.4
         resources:
           requests:
             cpu: 10m
@@ -58,7 +59,8 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 68
+      name: infra-artifactmanager
+      tag: 73
     deploymanager:
       image:
         enabled: false

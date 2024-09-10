@@ -78,27 +78,13 @@ app.kubernetes.io/name: {{ include "otel-collector.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "otel-collector.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "otel-collector.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "otel-collector.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "otel-collector.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "otel-collector.const.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "otel-collector.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "otel-collector.image.repository" -}}
-  {{- if contains "jfrog.io" (include "otel-collector.image.registry" .) }}
-    {{- include "otel-collector.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "otel-collector.image.registry" .) }}
-    {{- include "otel-collector.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "otel-collector.image.registry" .) }}
-    {{- include "otel-collector.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "otel-collector.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 
@@ -247,5 +233,15 @@ The capitalization is important for StatefulSet.
 {{- end -}}
 {{- end }}
 
+{{/*
+Get ConfigMap name if existingName is defined, otherwise use default name for generated config.
+*/}}
+{{- define "otel-collector.configName" -}}
+  {{- if .Values.configMap.existingName -}}
+    {{- .Values.configMap.existingName }}
+  {{- else }}
+    {{- printf "%s%s" (include "otel-collector.fullname" .) (.configmapSuffix) }}
+  {{- end -}}
+{{- end }}
 
 {{- define "otel-collector.container-registry.secret" }}tibco-container-registry-credentials{{end}}

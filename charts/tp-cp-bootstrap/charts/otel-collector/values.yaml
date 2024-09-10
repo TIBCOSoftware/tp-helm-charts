@@ -95,6 +95,9 @@ presets:
 configMap:
   # Specifies whether a configMap should be created (true by default)
   create: true
+  # Specifies an existing ConfigMap to be mounted to the pod
+  # The ConfigMap MUST include the collector configuration via a key named 'relay' or the collector will not start.
+  existingName: ""
 
 # Base collector configuration.
 # Supports templating. To escape existing instances of {{ }}, use {{` <original content> `}}.
@@ -117,7 +120,10 @@ config:
     memory_ballast: {}
   processors:
     batch: {}
-    memory_limiter: null
+    memory_limiter:
+      check_interval: 5s
+      limit_percentage: 80
+      spike_limit_percentage: 25
   receivers:
     otlp:
       protocols:
@@ -228,7 +234,8 @@ imagePullSecrets: []
 # OpenTelemetry Collector executable
 command:
   name: otelcol-contrib
-  extraArgs: []
+  extraArgs:
+    - --feature-gates=-component.UseLocalHostAsDefaultHost
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -565,6 +572,10 @@ serviceMonitor:
   # additional labels for the ServiceMonitor
   extraLabels: {}
   #  release: kube-prometheus-stack
+  # Used to set relabeling and metricRelabeling configs on the ServiceMonitor
+  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+  relabelings: []
+  metricRelabelings: []
 
 # PodDisruptionBudget is used only if deployment enabled
 podDisruptionBudget:
@@ -572,7 +583,7 @@ podDisruptionBudget:
 #   minAvailable: 2
 #   maxUnavailable: 1
 
-# autoscaling is used only if deployment enabled
+# autoscaling is used only if mode is "deployment" or "statefulset"
 autoscaling:
   enabled: true
   minReplicas: 1
@@ -667,10 +678,5 @@ networkPolicy:
   #      - port: 1234
   #        protocol: TCP
 
-# When enabled, the chart will set the GOMEMLIMIT env var to 80% of the configured
-# resources.limits.memory and remove the memory ballast extension.
-# If no resources.limits.memory are defined enabling does nothing.
-# In a future release this setting will be enabled by default.
-# See https://github.com/open-telemetry/opentelemetry-helm-charts/issues/891
-# for more details.
-useGOMEMLIMIT: true
+# Allow containers to share processes across pod namespace
+shareProcessNamespace: false

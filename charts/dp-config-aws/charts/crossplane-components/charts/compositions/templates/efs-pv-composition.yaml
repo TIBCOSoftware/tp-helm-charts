@@ -1,0 +1,105 @@
+{{/* 
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositeefspv.filesystem.platform.tibco.com
+  labels:
+    provider: provider-aws-efs-pv
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: filesystem.platform.tibco.com/v1alpha1
+    kind: CompositeEFSPV
+  resources:
+    - name: aws-efs
+      base:
+        apiVersion: filesystem.platform.tibco.com/v1alpha1
+        kind: CompositeEFS
+        spec:
+          compositionSelector:
+            matchLabels:
+              provider: provider-aws-efs
+      patches:
+        - fromFieldPath: "spec.parameters.encrypted"
+          toFieldPath: "spec.parameters.encrypted"
+        - fromFieldPath: "spec.parameters.kmsKeyId"
+          toFieldPath: "spec.parameters.kmsKeyId"
+        - fromFieldPath: "spec.parameters.performanceMode"
+          toFieldPath: "spec.parameters.performanceMode"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.parameters.region"
+        - fromFieldPath: "spec.parameters.throughputMode"
+          toFieldPath: "spec.parameters.throughputMode"
+        - fromFieldPath: "spec.parameters.vpcId"
+          toFieldPath: "spec.parameters.vpcId"
+        - fromFieldPath: "spec.parameters.nodeCIDR"
+          toFieldPath: "spec.parameters.nodeCIDR"
+        - fromFieldPath: "spec.parameters.subnetIds"
+          toFieldPath: "spec.parameters.subnetIds"
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.parameters.prefix"
+        - fromFieldPath: "spec.parameters.provisionedThroughputInMibps"
+          toFieldPath: "spec.parameters.provisionedThroughputInMibps"
+        - fromFieldPath: "spec.parameters.tags"
+          toFieldPath: "spec.parameters.tags"
+        - type: ToCompositeFieldPath
+          fromFieldPath: "status.filesystem.fileSystemID"
+          toFieldPath: "status.atProvider.fileSystemID"
+        - type: ToCompositeFieldPath
+          fromFieldPath: "status.filesystem.fileSystemARN"
+          toFieldPath: "status.atProvider.fileSystemARN"
+      connectionDetails:
+        - type: FromFieldPath
+          name: efs_id
+          fromFieldPath: "status.filesystem.fileSystemID"
+        - type: FromFieldPath
+          name: efs_arn
+          fromFieldPath: "status.filesystem.fileSystemARN"
+    - name: persistent-volume
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              kind: PersistentVolume
+              apiVersion: v1
+              metadata:
+                name: ""
+              spec:
+                storageClassName: ""
+                capacity:
+                  storage: ""
+                nfs:
+                  path: "/"
+                  server: ""
+          providerConfigRef:
+            name: kubernetes-provider-config
+      patches:
+        - fromFieldPath: "spec.parameters.accessModes"
+          toFieldPath: "spec.forProvider.manifest.spec.accessModes"
+        - fromFieldPath: "spec.parameters.persistentVolumeName"
+          toFieldPath: "spec.forProvider.manifest.metadata.name"
+        - fromFieldPath: "spec.parameters.reclaimPolicy"
+          toFieldPath: "spec.forProvider.manifest.spec.persistentVolumeReclaimPolicy"
+        - fromFieldPath: "spec.parameters.storageClassName"
+          toFieldPath: "spec.forProvider.manifest.spec.storageClassName"
+        - fromFieldPath: "spec.parameters.storage"
+          toFieldPath: "spec.forProvider.manifest.spec.capacity.storage"
+        - fromFieldPath: "spec.parameters.volumeMode"
+          toFieldPath: "spec.forProvider.manifest.spec.volumeMode"
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: "status.atProvider.fileSystemID"
+              - fromFieldPath: "spec.parameters.region"
+            strategy: string
+            string:
+              fmt: "%s.efs.%s.amazonaws.com"
+          toFieldPath: "spec.forProvider.manifest.spec.nfs.server"

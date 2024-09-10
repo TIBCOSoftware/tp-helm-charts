@@ -81,6 +81,8 @@ spec:
   - to:
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.serviceCIDR" . }}
     {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
@@ -109,6 +111,7 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        - {{ include "tp-cp-bootstrap.serviceCIDR" . }}
         {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
         - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
         {{- end }}
@@ -136,6 +139,7 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        - {{ include "tp-cp-bootstrap.serviceCIDR" . }}
         {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
         - {{ include "tp-cp-bootstrap.podCIDR" . }}
         {{- end }}
@@ -171,6 +175,8 @@ spec:
           component: kube-apiserver
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.serviceCIDR" . }}
     {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
@@ -188,6 +194,8 @@ spec:
           component: kube-apiserver
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.serviceCIDR" . }}
     {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}
@@ -215,6 +223,7 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+        - {{ include "tp-cp-bootstrap.serviceCIDR" . }}
         {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
         - {{ include "tp-cp-bootstrap.podCIDR" . }}
         {{- end }}
@@ -239,6 +248,8 @@ spec:
   - from:
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.nodeCIDR" . }}
+    - ipBlock:
+        cidr: {{ include "tp-cp-bootstrap.serviceCIDR" . }}
     {{- if ne (include "tp-cp-bootstrap.nodeCIDR" . ) (include "tp-cp-bootstrap.podCIDR" . ) }}
     - ipBlock:
         cidr: {{ include "tp-cp-bootstrap.podCIDR" . }}

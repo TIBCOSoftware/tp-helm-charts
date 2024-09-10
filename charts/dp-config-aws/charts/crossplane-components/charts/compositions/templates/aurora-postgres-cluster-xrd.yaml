@@ -1,0 +1,176 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositeauroraclusters.database.platform.tibco.com
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  group: database.platform.tibco.com
+  names:
+    kind: CompositeAuroraCluster
+    plural: compositeauroraclusters
+    singular: compositeauroracluster
+  claimNames:
+    kind: TibcoAuroraCluster
+    plural: tibcoauroraclusters
+  connectionSecretKeys:
+    - username
+    - password
+    - endpoint
+    - reader_endpoint
+    - port
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        description: Tibco XRD for AWS Aurora PostgreSQL Cluster
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  region:
+                    type: string
+                  vpcId:
+                    type: string
+                  nodeCIDR:
+                    type: string
+                  subnetIds:
+                    type: array
+                    # items is required for array type
+                    items:
+                      type: string
+                  allocatedStorage:
+                    type: integer
+                    default: 20
+                  allowMajorVersionUpgrade:
+                    type: boolean
+                  autogeneratePassword:
+                    type: boolean
+                    default: true
+                  applyImmediately:
+                    type: boolean
+                    default: true
+                  autoMinorVersionUpgrade:
+                    type: boolean
+                  backupRetentionPeriod:
+                    type: integer
+                    default: 1
+                  databaseName:
+                    type: string
+                  dbParameterGroupFamily:
+                    type: string
+                  deletionProtection:
+                    type: boolean
+                    default: false
+                  enableGlobalWriteForwarding:
+                    type: boolean
+                  engine:
+                    type: string
+                  engineVersion:
+                    type: string
+                  engineMode:
+                    type: string
+                  finalDBSnapshotIdentifier:
+                    type: string
+                  globalClusterIdentifier:
+                    type: string
+                  groupFamilyParameters:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        parameterName:
+                          type: string
+                        parameterValue: 
+                          type: string
+                        applyMethod: 
+                          type: string
+                  additionalIngressRules:
+                    type: object
+                    properties:
+                      fromPort:
+                        type: integer
+                      toPort:
+                        type: integer
+                      ipProtocol:
+                        type: string
+                      ipRanges:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cidrIp:
+                              type: string
+                  kmsKeyId:
+                    type: string
+                  masterUsername:
+                    type: string
+                  masterUserPasswordSecretRef:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      key:
+                        type: string
+                      namespace:
+                        type: string
+                  port:
+                    type: integer
+                  prefix:
+                    type: string
+                  skipFinalSnapshot:
+                    type: boolean
+                    default: true
+                  storageEncrypted:
+                    type: boolean
+                    default: false                    
+                  storageType:
+                    type: string
+                    default: aurora
+                  restoreFrom:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                      snapshot:
+                        type: object
+                        properties:
+                          snapshotIdentifier:
+                            type: string
+                  tags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        value: 
+                          type: string
+                    required:
+                      - key
+                      - value
+                required:
+                  - region
+                  - vpcId
+                  - nodeCIDR
+                  - subnetIds
+                  - prefix
+                  - dbParameterGroupFamily
+                  - engine
+                  - engineVersion
+                  - engineMode
+                  - port
+            required:
+              - parameters

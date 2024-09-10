@@ -1,0 +1,192 @@
+{{/*
+Copyright © 2024. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.auroraCluster }}
+{{- if eq .Values.auroraCluster.create true }}
+
+{{ $root := . }}
+{{- if .Values.auroraCluster.globalDatabase }}
+{{- if .Values.auroraCluster.globalDatabase.secondaryCluster }}
+{{- if .Values.auroraCluster.globalDatabase.secondaryCluster.create }}
+{{- if .Values.auroraCluster.globalDatabase.secondaryCluster.masterUserPasswordSecretRef }}
+{{- with .Values.auroraCluster.globalDatabase.secondaryCluster.masterUserPasswordSecretRef }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .name }}
+  namespace: {{ $root.Release.Namespace }}
+type: Opaque
+data:
+  username: {{ .username }}
+  password: {{ .password }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+---
+
+apiVersion: database.platform.tibco.com/v1alpha1
+kind: TibcoAuroraCluster
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-aurora-cluster
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-aurora-cluster
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" . }}
+    vpcId: {{ include "claims.net-vpc-identifier" . }}  
+    nodeCIDR: {{ include "claims.net-node-cidr" . }}
+    subnetIds: 
+    {{- if .Values.auroraCluster.mandatoryConfigurationParameters.publiclyAccessible }}
+    {{- $publicSubnets := include "claims.net-public-subnets" . }}
+    {{- range ( split "\n" $publicSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    {{- else }}
+    {{- $privateSubnets := (include "claims.net-private-subnets" .) }}
+    {{- range (split "\n" $privateSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    {{- end }}
+    prefix: {{ .Values.commonResourcePrefix }}
+    {{- with .Values.auroraCluster }}
+    {{- $mandatory_params := .mandatoryConfigurationParameters }}
+    {{- /* mandatory parameters */ -}}
+    {{- toYaml .mandatoryConfigurationParameters | nindent 4 }}
+    {{- /* additional parameters */ -}}
+    {{- if .additionalConfigurationParameters }}
+    {{- with .additionalConfigurationParameters }}
+    {{- range $paramKey, $paramValue := . }}
+    {{- if $paramValue }}
+    {{- if (eq $paramKey "groupFamilyParameters") }}
+    groupFamilyParameters:
+      {{- toYaml $paramValue | nindent 4 }}
+    {{- else if (eq $paramKey "allowedIngressConnectionsFrom") }}
+    additionalIngressRules:
+      fromPort: {{ $root.Values.auroraCluster.mandatoryConfigurationParameters.port }}
+      toPort: {{ $root.Values.auroraCluster.mandatoryConfigurationParameters.port }}
+      ipProtocol: "tcp"
+      ipRanges:
+        {{- range $ip := $paramValue }}
+        - cidrIp: {{ $ip | quote }}
+        {{- end }}
+    {{- else if (eq $paramKey "restoreFrom") }}
+    restoreFrom:
+      {{- range $restoreKey, $restoreValue := $paramValue }}
+      {{ $restoreKey }}: {{ $restoreValue }}
+      {{- end }}
+    {{- else }}
+    {{ $paramKey }}: {{ $paramValue }}
+    {{- end }}
+    {{- end -}}
+    {{- end -}}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if or .Values.commonTags .Values.auroraCluster.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.auroraCluster.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.auroraCluster.globalDatabase }}
+    {{- if .Values.auroraCluster.globalDatabase.secondaryCluster }}
+    {{- if .Values.auroraCluster.globalDatabase.secondaryCluster.create }}
+    {{- with .Values.auroraCluster.globalDatabase.secondaryCluster }}
+    globalClusterIdentifier: {{ .globalClusterIdentifier }}
+    enableGlobalWriteForwarding: {{ .enableGlobalWriteForwarding }}
+    autogeneratePassword: false
+    masterUserPasswordSecretRef:
+      {{- with .masterUserPasswordSecretRef }}
+      namespace: {{ $root.Release.Namespace }}
+      name: {{ .name }}
+      key: {{ .key }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-aurora-cluster"
+  writeConnectionSecretToRef:
+    name: {{ .Values.auroraCluster.connectionDetailsSecret }}
+
+---
+
+{{ range $i, $e := until ( .Values.auroraCluster.numberOfInstances | int ) }}
+apiVersion: database.platform.tibco.com/v1alpha1
+kind: TibcoRDSInstance
+metadata:
+  name: {{ $root.Values.commonResourcePrefix }}-rds-instance-{{ $i }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "claims.labels" $root | nindent 4 }}
+    claim-name: {{ $root.Values.commonResourcePrefix }}-rds-instance-{{ $i }}
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" $root }}
+    auroraClusterReference: {{ $root.Values.commonResourcePrefix }}-aurora-cluster
+    dbSubnetGroupReference: {{ $root.Values.commonResourcePrefix }}-db-subnet-group
+    {{- with $root.Values.auroraCluster.mandatoryConfigurationParameters }}
+    dbInstanceClass: {{ .dbInstanceClass }}
+    engine: {{ .engine }}
+    publiclyAccessible: {{ .publiclyAccessible }}
+    {{- end }}
+    {{- if or $root.Values.commonTags $root.Values.auroraCluster.resourceTags }}
+    tags:
+    {{- range $key, $value := $root.Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := $root.Values.auroraCluster.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-rds-instance"
+  writeConnectionSecretToRef:
+    name: rds-instance-{{ $i }}-details
+---
+{{- end }}
+
+---
+
+{{- if .Values.auroraCluster.globalDatabase }}
+{{- if .Values.auroraCluster.globalDatabase.primaryCluster }}
+{{- if .Values.auroraCluster.globalDatabase.primaryCluster.create }}
+apiVersion: database.platform.tibco.com/v1alpha1
+kind: TibcoGlobalDatabase
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-global-database
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-global-db
+spec:
+  parameters:
+    region: {{ include "claims.cloud-region" . }}
+    auroraClusterReference: {{ .Values.commonResourcePrefix }}-aurora-cluster
+    deletionProtection: {{ .Values.auroraCluster.globalDatabase.primaryCluster.deletionProtection }}
+  compositionSelector:
+    matchLabels:
+      provider: "provider-aws-global-database"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

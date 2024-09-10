@@ -43,12 +43,7 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{- end }}
           resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 1024Mi
+            {{- toYaml .Values.resources | nindent 12 }}
           ports:
             - containerPort: 7820
               name: tp-o11yservice
@@ -61,6 +56,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: DATAPLANE_ID
               value: {{ .Values.global.cp.dataplaneId }}
+{{- if eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3" }}
+            - name: O11y
+              value: "o11yV3"
+{{- end }}
           volumeMounts:
             - name: o11y-cfgs
               readOnly: true
@@ -70,11 +69,15 @@ spec:
               mountPath: "/o11y/secrets"
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluentbit
-          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.global.cp.logging.fluentbit.securityContext }}
           securityContext:
             {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
             - name: POD_NAMESPACE
