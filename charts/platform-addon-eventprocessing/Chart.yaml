@@ -1,0 +1,27 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v2
+name: platform-addon-eventprocessing
+description: TIBCO Platform chart for BE addon
+type: application
+version: 1.3.7
+appVersion: "1.3.0"
+keywords:
+  - tibco-platform
+  - platform
+  - eventprocessing
+  - addon
+annotations:
+  app.helm.sh/component: control-plane
+  app.helm.sh/name: platform-addon-eventprocessing
+dependencies:
+  - name: tp-cp-eventprocessing-be
+    version: "1.3.9"
+    repository: alias:tibco-platform
+    condition: tp-cp-eventprocessing-be.enabled
+    tags:
+      - be
