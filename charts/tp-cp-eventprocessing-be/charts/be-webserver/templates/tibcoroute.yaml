@@ -1,0 +1,53 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# TIBCO Route definition; this is where you define your microservice endpoints
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "be-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "be-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "be-webserver.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+    - path: /cp/be/web-ui-content
+      internalPath: /cp/be/web-ui-content
+      port: 7654
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+          methods:
+            - GET
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          enableRedirects: true
+          allowClientCache: true
+          allowXFrameOptions: false
+    - path: /cp/be/v1
+      internalPath: /tp-cp-be-ws/v1
+      port: 7654
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: false
