@@ -6,6 +6,8 @@
 global:
   # .Values.global.enableLogging variable can be set to false to disable starting fluentbit side-car containers
   enableLogging: true
+  tibco:
+    is_replica_region: false
   cp:
     data:
       CP_DB_CONFIGURATION: provider-cp-database-config
@@ -80,7 +82,7 @@ images:
     image:
       name: hawk-scripts
       pullPolicy: IfNotPresent
-      tag: 168
+      tag: 177
 
 hawk:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
