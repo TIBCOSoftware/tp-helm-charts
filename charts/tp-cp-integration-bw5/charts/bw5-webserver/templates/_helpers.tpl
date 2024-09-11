@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2023. Cloud Software Group, Inc.
+Copyright © 2024. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -69,60 +69,20 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
     ===========================================================================
 */}}
 
-
-{{- define "bw5-webserver.consts.bwce.jfrogImageRepo" }}tibco-platform-local-docker/bwce{{end}}
-{{- define "bw5-webserver.consts.bwce.ecrImageRepo" }}piap{{end}}
-{{- define "bw5-webserver.consts.bwce.acrImageRepo" }}piap{{end}}
-{{- define "bw5-webserver.consts.bwce.harborImageRepo" }}piap{{end}}
-{{- define "bw5-webserver.consts.bwce.defaultImageRepo" }}piap{{end}}
-
-{{- define "bw5-webserver.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
-{{- define "bw5-webserver.consts.integration.ecrImageRepo" }}piap{{end}}
-{{- define "bw5-webserver.consts.integration.acrImageRepo" }}piap{{end}}
-{{- define "bw5-webserver.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "bw5-webserver.consts.integration.defaultImageRepo" }}piap{{end}}
-
-
 {{- define "bw5-webserver.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
 {{- end }}
 
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bw5-webserver.bwce.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "bw5-webserver.image.registry" .) }} 
-    {{- include "bw5-webserver.consts.bwce.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "bw5-webserver.image.registry" .) }}
-    {{- include "bw5-webserver.consts.bwce.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "bw5-webserver.image.registry" .) }}
-    {{- include "bw5-webserver.consts.bwce.harborImageRepo" .}}
-  {{- else }}
-    {{- include "bw5-webserver.consts.bwce.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bw5-webserver.integration.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "bw5-webserver.image.registry" .) }} 
-    {{- include "bw5-webserver.consts.integration.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "bw5-webserver.image.registry" .) }}
-    {{- include "bw5-webserver.consts.integration.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "bw5-webserver.image.registry" .) }}
-    {{- include "bw5-webserver.consts.integration.harborImageRepo" .}}
-  {{- else }}
-    {{- include "bw5-webserver.consts.integration.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
-
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
 {{- define "cp-env" -}}

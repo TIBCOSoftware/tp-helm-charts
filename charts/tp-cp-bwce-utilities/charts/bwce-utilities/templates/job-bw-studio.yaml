@@ -1,50 +1,53 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
 {{ if .Values.bwStudioExtract }}
 {{- $dot := . }}
+{{- range $studio := .Values.bwStudioImages }}
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "bwce-utilities.fullname" $dot }}-studio-extract-{{ randAlphaNum 4 | lower }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $.Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": before-hook-creation
   labels:
-    {{- include "bwce-utilities.labels" . | nindent 4 }}
+    {{- include "bwce-utilities.labels" $dot | nindent 4 }}
 spec:
   backoffLimit: 2
   ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- with $.Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
+        {{- include "bwce-utilities.selectorLabels" $dot | nindent 8 }}
         egress.networking.platform.tibco.com/internet-all: enable
     spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
-      # serviceAccountName: {{ include "bwce-utilities.service-account-name" . }}
+      # serviceAccountName: {{ include "bwce-utilities.service-account-name" $dot }}
       {{- with $.Values.podSecurityContext }}
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       {{- end }}
       containers:
-      {{- range $studio := .Values.bwStudioImages }}
       - name: {{ $studio.image }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
         {{- with $.Values.securityContext }}
         securityContext:
-          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        resources:
+        {{- toYaml $.Values.studio.resources | nindent 10 }}
         env:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $studio.image }}:{{ $studio.tag }}"
@@ -67,7 +70,6 @@ spec:
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
-      {{- end }}
       volumes:
       - name: store-vol
         persistentVolumeClaim:
@@ -78,5 +80,6 @@ spec:
           secretName: {{ include "bwce-utilities.container-registry.secret" $dot }}
       imagePullSecrets:
         - name: {{ include "bwce-utilities.container-registry.secret" $dot }}
+{{- end }}
 {{- end }}
 {{- end }}

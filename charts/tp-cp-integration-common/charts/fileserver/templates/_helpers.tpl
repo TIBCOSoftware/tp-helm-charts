@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2023. Cloud Software Group, Inc.
+Copyright © 2024. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -48,39 +48,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 
-
-{{- define "fileserver.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
-{{- define "fileserver.consts.integration.ecrImageRepo" }}piap{{end}}
-{{- define "fileserver.consts.integration.acrImageRepo" }}piap{{end}}
-{{- define "fileserver.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "fileserver.consts.integration.defaultImageRepo" }}piap{{end}}
-
-
 {{- define "fileserver.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
 {{- end }}
-
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "fileserver.integration.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "fileserver.image.registry" .) }} 
-    {{- include "fileserver.consts.integration.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "fileserver.image.registry" .) }}
-    {{- include "fileserver.consts.integration.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "fileserver.image.registry" .) }}
-    {{- include "fileserver.consts.integration.harborImageRepo" .}}
-  {{- else }}
-    {{- include "fileserver.consts.integration.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
-
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
 {{- define "cp-env" -}}

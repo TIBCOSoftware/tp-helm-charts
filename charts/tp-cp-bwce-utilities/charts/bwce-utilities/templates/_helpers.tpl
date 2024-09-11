@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2023. Cloud Software Group, Inc.
+Copyright © 2024. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -43,100 +43,29 @@ app.kubernetes.io/name: {{ include "bwce-utilities.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "bwce-utilities.consts.infra.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "bwce-utilities.consts.infra.ecrImageRepo" }}stratosphere{{end}}
-{{- define "bwce-utilities.consts.infra.acrImageRepo" }}stratosphere{{end}}
-{{- define "bwce-utilities.consts.infra.harborImageRepo" }}stratosphere{{end}}
-{{- define "bwce-utilities.consts.infra.defaultImageRepo" }}stratosphere{{end}}
-
-
-{{- define "bwce-utilities.consts.bwce.jfrogImageRepo" }}tibco-platform-local-docker/bwce{{end}}
-{{- define "bwce-utilities.consts.bwce.ecrImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.bwce.acrImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.bwce.harborImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.bwce.defaultImageRepo" }}piap{{end}}
-
-{{- define "bwce-utilities.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
-{{- define "bwce-utilities.consts.integration.ecrImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.integration.acrImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "bwce-utilities.consts.integration.defaultImageRepo" }}piap{{end}}
-
-{{- define "bwce-utilities.consts.plugins.jfrogImageRepo" }}tibco-platform-local-docker/bwce{{end}}
-{{- define "bwce-utilities.consts.plugins.ecrImageRepo" }}tci{{end}}
-{{- define "bwce-utilities.consts.plugins.acrImageRepo" }}tci{{end}}
-{{- define "bwce-utilities.consts.plugins.harborImageRepo" }}tci{{end}}
-{{- define "bwce-utilities.consts.plugins.defaultImageRepo" }}tci{{end}}
-
 {{- define "bwce-utilities.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bwce-utilities.infra.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "bwce-utilities.image.registry" .) }} 
-    {{- include "bwce-utilities.consts.infra.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.infra.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.infra.harborImageRepo" .}}
-  {{- else }}
-    {{- include "bwce-utilities.consts.infra.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bwce-utilities.bwce.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "bwce-utilities.image.registry" .) }} 
-    {{- include "bwce-utilities.consts.bwce.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.bwce.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.bwce.harborImageRepo" .}}
-  {{- else }}
-    {{- include "bwce-utilities.consts.bwce.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bwce-utilities.integration.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "bwce-utilities.image.registry" .) }} 
-    {{- include "bwce-utilities.consts.integration.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.integration.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.integration.harborImageRepo" .}}
-  {{- else }}
-    {{- include "bwce-utilities.consts.integration.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "bwce-utilities.plugins.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "bwce-utilities.image.registry" .) }} 
-    {{- include "bwce-utilities.consts.plugins.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.plugins.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "bwce-utilities.image.registry" .) }}
-    {{- include "bwce-utilities.consts.plugins.harborImageRepo" .}}
-  {{- else }}
-    {{- include "bwce-utilities.consts.plugins.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
 {{- define "cp-env" -}}
@@ -176,4 +105,3 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- include "cp-env.get" (dict "key" "CP_SERVICE_ACCOUNT_NAME" "default" "control-plane-sa" "required" "false"  "Release" .Release )}}
 {{- end }}
 {{- end }}
-

@@ -68,36 +68,14 @@ app.kubernetes.io/part-of: {{ include "dp-bwce-recipes.part-of" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-
-{{- define "dp-bwce-recipes.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "dp-bwce-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "dp-bwce-recipes.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "dp-bwce-recipes.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "dp-bwce-recipes.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "dp-bwce-recipes.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "dp-bwce-recipes.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "dp-bwce-recipes.image.registry" .) }} 
-    {{- include "dp-bwce-recipes.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "dp-bwce-recipes.image.registry" .) }}
-    {{- include "dp-bwce-recipes.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "dp-bwce-recipes.image.registry" .) }}
-    {{- include "dp-bwce-recipes.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "dp-bwce-recipes.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
 {{- define "cp-env" -}}
