@@ -1,0 +1,19 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "bwadapter.fullname" . }}
+  labels:
+    {{- include "bwadapter.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "bwadapter.selectorLabels" . | nindent 4 }}

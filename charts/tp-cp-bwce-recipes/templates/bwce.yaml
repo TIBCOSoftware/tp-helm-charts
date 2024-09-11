@@ -12,12 +12,12 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.2.0",
-      "minCPVersion": "1.2.0",
+      "capabilityVersion": "1.3.0",
+      "minCPVersion": "1.3.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
-      "minVersionRequiredForUpgrade": "1.1.0"
+      "minVersionRequiredForUpgrade": "1.2.0"
     }
   package.json: |
     {
@@ -29,6 +29,11 @@ data:
             "monitoringPriority": "essential"
           },
           {
+            "name": "dp-bwce-mon",
+            "description": "BWCE Monitoring Service",
+            "monitoringPriority": "optional"
+          },
+          {
             "name": "oauth2-proxy",
             "description": "OAuth2 Proxy",
             "monitoringPriority": "essential"
@@ -38,7 +43,7 @@ data:
           {
             "version": [
               1,
-              2,
+              3,
               0
             ],
             "capabilityId": "INTEGRATIONCORE",
@@ -47,7 +52,7 @@ data:
           {
             "version": [
               1,
-              2,
+              3,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -64,6 +69,12 @@ data:
             "required": true,
             "resourceId": "INGRESS",
             "resourceType": "PLATFORM"
+          },
+          {
+            "type": "Database Resource",
+            "required": false,
+            "resourceId": "DBCONFIG",
+            "resourceType": "PLATFORM"
           }
         ]
       }
@@ -73,7 +84,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.2.9"
+          version: "1.3.13"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -82,16 +93,33 @@ data:
                 global:
                   bwprovisioner:
                     image:
-                      tag: 427
+                      tag: 493
                 config:
-                  APP_INIT_IMAGE_TAG: "29"
+                  APP_INIT_IMAGE_TAG: "33"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
-                    nginx:
+                    config:
                       className: ${INGRESS_CLASS_NAME}
                       pathPrefix: ${INGRESS_PATH_PREFIX}
                       fqdn: ${INGRESS_FQDN}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+        - name: dp-bwce-mon
+          namespace: ${NAMESPACE}
+          version: "1.3.14"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                enabled: ${ENABLE_EXEC_HISTORY}
+                global:
+                  bwcemon:
+                    image:
+                      tag: 2.9.2
           flags:
             install: true
             createNamespace: false
@@ -126,8 +154,10 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
+        resources:
+        {{- toYaml .Values.scripts.resources | nindent 10 }}
         env:
         - name: CAPABILITY_NAME
           value: "bwce"
@@ -136,7 +166,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.2.0"
+          value: "1.3.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

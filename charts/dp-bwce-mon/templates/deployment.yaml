@@ -1,0 +1,134 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.enabled -}}
+{{ $fullName := include "dp-bwce-mon.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dp-bwce-mon.fullname" . }}
+  labels:
+    {{- include "dp-bwce-mon.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "dp-bwce-mon.selectorLabels" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        platform.tibco.com/last-updated: {{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC" | quote }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "dp-bwce-mon.selectorLabels" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+    spec:
+      imagePullSecrets:
+      - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      {{- end }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: server
+          {{- if .Values.securityContext.bwcemon }}
+          securityContext:
+            {{- toYaml .Values.securityContext.bwcemon | nindent 12 }}
+          {{- end }}
+          image: {{ include "dp-bwce-mon.image.registry" .}}{{"/"}}{{ include "dp-bwce-mon.image.repository" .}}{{"/"}}tp-bwce-mon:{{ .Values.global.bwcemon.image.tag }}
+          imagePullPolicy: {{ .Values.global.bwcemon.image.pullPolicy }}
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /api/v1/applications/version
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "dp-bwce-mon.fullname" . }}-config
+            - secretRef:
+                name: {{ include "dp-bwce-mon.fullname" . }}-config
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: INSTANCE_ID
+              value: {{ .Values.global.cp.instanceId }}
+            - name: CHART_VERSION
+              value: {{ .Chart.Version }}
+            - name: CHART_APP_VERSION
+              value: {{ .Chart.AppVersion }}
+            - name: DEPLOYMENT
+              value: "CP"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
+        - name: fluent-bit
+          image: {{ include "dp-bwce-mon.image.registry" .}}{{"/"}}{{ include "dp-bwce-mon.integration.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: {{ .Chart.Name }}
+          volumeMounts:
+            - name: podlogs
+              mountPath: /var/log/pods
+            - name: fluent-bit-config
+              mountPath: /fluent-bit/etc/
+        {{- end }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
+      volumes:
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: fluent-bit-config
+          configMap:
+            name: {{ include "dp-bwce-mon.fullname" . }}-fluentbit-config
+{{- end }}
+{{- end }}

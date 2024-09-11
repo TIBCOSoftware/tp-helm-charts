@@ -1,13 +1,13 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if .Values.bwpluginsExtract }}
+{{ if .Values.bwPluginsExtractJobF }}
 {{- $dot := . }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "bwce-utilities.fullname" $dot }}-plugins-extract-{{ randAlphaNum 4 | lower }}
+  name: {{ include "bwce-utilities.fullname" $dot }}-plugins-extract-job-f-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -35,15 +35,17 @@ spec:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       {{- end }}
       containers:
-      {{- range $name, $plugin := .Values.bwplugins }}
+      {{- range $name, $plugin := .Values.bwPluginsJobF }}
         {{- range $tag := $plugin.deleteTags }}
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-delete
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           imagePullPolicy: IfNotPresent
           {{- with $.Values.securityContext }}
           securityContext:
-          {{- toYaml $.Values.securityContext | nindent 10 }}
+          {{- toYaml $.Values.securityContext | nindent 12 }}
           {{- end }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
           command:
             - "sh"
             - "-c"
@@ -60,6 +62,12 @@ spec:
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-img-extract
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
           imagePullPolicy: IfNotPresent
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          resources:
+          {{- toYaml $.Values.plugins.resources | nindent 12 }}
           env:
           - name: SOURCE_REGISTRY
             value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.plugins.image.repository" $dot }}"
@@ -87,6 +95,12 @@ spec:
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-default
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           imagePullPolicy: IfNotPresent
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
           command:
             - "sh"
             - "-c"
