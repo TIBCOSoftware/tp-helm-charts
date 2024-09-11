@@ -16,18 +16,33 @@ global:
   imageRegistry: ""
   # Following parameters which are used in our chart, are passed during provisioning from control plane
   cp:
-    dataplaneId: ""
+    dataplaneId: "abcd"
     instanceId: ""
-    cpHostname: ""
+    cpHostname: "acme.local.my.cic2.pro"
     resources:
       serviceaccount:
         serviceAccountName: ""
+      ingress:
+        fqdn: foo.com
+        ingressClassName: nginx
+        ingressController: nginx
+        annotations: {}
     containerRegistry:
-      secret: ""
-      url: ""
+      secret: "abcd"
+      repository: "tibco-platform-docker-prod"
+      url: "reldocker.tibco.com"
     logging:
       fluentbit:
+        image:
+          name: common-fluentbit
+          tag: 3.1.4
         enabled: true
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
   # -- Global Docker registry secret names as an array
   # </br> E.g. `imagePullSecrets: [myRegistryKeySecretName]`
   imagePullSecrets: []
@@ -100,17 +115,10 @@ ingress:
 # @default -- See below
 backstage:
   image:
-
-    registry: ""
-
-    # -- Backstage image repository
-    repository: pdx/tibco-hub
-
-    # -- Backstage image repository for Jfrog environment
-    jfrogRepository: tibco-platform-local-docker/dx/tibco-hub
-
+    # -- Backstage image name
+    name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "463"
+    tag: "591"
 
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
@@ -308,9 +316,7 @@ postgresql:
   # -- Switch to enable or disable the PostgreSQL helm chart
   enabled: false
   image:
-    registry: ""
-    repository: pdx/postgresql
-    jfrogRepository: tibco-platform-local-docker/dx/postgresql
+    name: dx-postgresql
     tag: 14.12.0-debian-12-r4
   commonLabels: '{{- include "tibcohub.platform.commonLabels" . -}}'
 
@@ -428,9 +434,6 @@ metrics:
 
 fluentbit:
   image:
-    registry: ""
-    repository: pdx/fluent-bit
-    jfrogRepository: tibco-platform-local-docker/dx/fluent-bit
     tag: 3.0.2
     pullPolicy: Always
   securityContext:
@@ -458,8 +461,14 @@ autoscaling:
 
 initContainer:
   image:
-    registry: ""
-    repository: pdx/postgresql
-    jfrogRepository: tibco-platform-local-docker/dx/postgresql
+    name: dx-postgresql
     tag: 14.12.0-debian-12-r4
     digest: ""
+
+publicApi:
+  ingress:
+    controllerName: nginx
+    config:
+      className: nginx
+      pathPrefix: /tibco/hub
+      fqdn: ""

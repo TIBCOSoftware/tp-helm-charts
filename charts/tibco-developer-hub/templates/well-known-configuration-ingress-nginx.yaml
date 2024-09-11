@@ -1,8 +1,7 @@
 # Copyright © 2023. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-
-{{- $ingressHost := .Values.ingress.host | required ".Values.ingress.host is required." }}
+{{ if eq .Values.publicApi.ingress.controllerName "nginx" -}}
 {{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -21,10 +20,13 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /.well-known/openid-configuration
     nginx.ingress.kubernetes.io/configuration-snippet: |
       proxy_set_header x-cp-host {{ $cpHostname }};
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
   rules:
-    - host: {{ $ingressHost }}
+    - host: {{ .Values.publicApi.ingress.config.fqdn }}
       http:
         paths:
           - backend:
@@ -34,3 +36,4 @@ spec:
                   number: 443
             path: /tibco/hub/.well-known/openid-configuration
             pathType: Exact
+{{- end }}
