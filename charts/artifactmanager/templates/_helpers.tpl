@@ -72,27 +72,11 @@ Integration storage folder pvc name
 
 {{- define "artifactmanager.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}
 
-{{- define "artifactmanager.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "artifactmanager.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "artifactmanager.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
  
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "artifactmanager.image.repository" -}}
-  {{- if contains "jfrog.io" (include "artifactmanager.image.registry" .) }}
-    {{- include "artifactmanager.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "artifactmanager.image.registry" .) }}
-    {{- include "artifactmanager.const.ecrImageRepo" .}}
-  {{- else if contains "azurecr.io" (include "artifactmanager.image.registry" .) }}
-    {{- include "artifactmanager.const.acrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "artifactmanager.image.registry" .) }}
-    {{- include "artifactmanager.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "artifactmanager.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}

@@ -13,6 +13,7 @@ global:
     subscriptionId: "sub1"
     containerRegistry:
       url: reldocker.tibco.com
+      repository: "tibco-platform-docker-prod"
 
   logging:
     fluentbit:
@@ -54,7 +55,7 @@ configDir: "/etc/config/tibtunnel"  # Full path to the directory where to store 
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
-    cpu: 500m
+    cpu: 200m
     memory: 256Mi
   limits:
     cpu: 1000m
@@ -64,9 +65,9 @@ resources:
 replicaCount: "2"
 
 image:
-  name: tp-tibtunnel
+  name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 149
+  tag: 153
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -78,7 +79,8 @@ tolerations: {}
 fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
-    tag: 3.0.2
+    tag: 3.1.4
+    name: common-fluentbit
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:

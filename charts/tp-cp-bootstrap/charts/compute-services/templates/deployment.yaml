@@ -58,6 +58,10 @@ spec:
           - name: tibco-charts-dir
             mountPath: /helm/tibcocharts
           {{- end }}
+        {{- if .Values.dpMetadata.components }}
+          - name: monitor-services-file
+            mountPath: /component/services
+        {{- end }}   
         ports:
         - containerPort: 9979
           name: server
@@ -76,20 +80,21 @@ spec:
             value: "dp-"
           - name: TUNNEL_DNS_DOMAIN_SUFFIX
             value: "{{ .Values.global.external.dnsTunnelDomain}}"
+        {{- if .Values.global.tibco.useSingleNamespace }}
           - name: HYBRID_SERVER_SERVICE_NAMESPACE
-            value: "{{ .Release.Namespace }}"
-          - name: RELEASE_NAMESPACE
             value: "{{ .Release.Namespace }}"
           - name: HYBRID_SERVER_SERVICE_NAME
             value: "hybrid-server-%s"
-          - name: CONTAINER_REGISTRY_URL
-            value: "{{ .Values.global.tibco.containerRegistry.url }}"
+        {{- else }}
+          - name: HYBRID_SERVER_SERVICE_NAMESPACE
+            value: "{{ .Values.global.tibco.controlPlaneInstanceId }}-tibco-sub-%s"
+          - name: HYBRID_SERVER_SERVICE_NAME
+            value: "hybrid-server"
+        {{- end }}
+          - name: RELEASE_NAMESPACE
+            value: "{{ .Release.Namespace }}"
           - name: CONTROL_PLANE_URL_SUFFIX
             value: "{{ .Values.global.external.dnsDomain}}"
-          - name: QUERY_NODE_SERVICE
-            value: "{{ include "compute-services.consts.queryNodeService" .}}"
-          - name: QUERY_NODE_BASIC_AUTH_HEADER
-            value: {{ .Values.queryNodeBasicAuthHeader }}
           - name: DP_CORE_INFRASTRUCTURE_CHART_VERSION
             value: {{ .Values.dpMetadata.dpCoreInfrastructureChartVersion | quote }}
           - name: DP_CORE_INFRASTRUCTURE_CHART_NAME
@@ -100,6 +105,10 @@ spec:
             value: {{ .Values.dpMetadata.dpConfigureNamespaceChartVersion | quote }}
           - name: HELM_CLI_TIMEOUT_SECONDS
             value: "60"
+          - name: CONTAINER_REGISTRY_URL
+            value: "{{ .Values.global.tibco.containerRegistry.url }}"
+          - name: CONTAINER_REGISTRY_REPOSITORY
+            value: "{{ .Values.global.tibco.containerRegistry.repository }}"            
           {{- if .Values.global.tibco.containerRegistry.username }}
           - name: CONTAINER_REGISTRY_USERNAME
             value: {{ .Values.global.tibco.containerRegistry.username }}
@@ -108,6 +117,7 @@ spec:
           - name: CONTAINER_REGISTRY_PASSWORD
             value: {{ .Values.global.tibco.containerRegistry.password }}
           {{- end }}
+
         {{- if .Values.dpHelmRepositories }}
           - name: HELM_REPO_CONFIG
             value: /helm/config/repo.json
@@ -117,6 +127,39 @@ spec:
           - name: HELM_CACHE_HOME
             value: /tmp/.cache/helm
           {{- end }}
+        {{- if .Values.dpMetadata.components }}
+          - name: MONITOR_SERVICES_FILE
+            value: /component/services/monitor-services.json
+        {{- end }}
+          - name: CREATE_JFROG_ACCOUNT_PER_SUBSCRIPTION
+            value: "{{ .Values.dpContainerRegistries.jfrog.enabled }}"
+        {{- if .Values.dpContainerRegistries.jfrog.enabled }}
+          - name: JFROG_MOTHERSHIP_FQDN
+            valueFrom:
+              secretKeyRef:
+                key: motherShipFqdn
+                name: {{ include "compute-services.consts.appName" .}}-jfrog
+          - name: JFROG_ADMIN_USERNAME
+            valueFrom:
+              secretKeyRef:
+                key: adminUsername
+                name: {{ include "compute-services.consts.appName" .}}-jfrog
+          - name: JFROG_ADMIN_BEARER_TOKEN
+            valueFrom:
+              secretKeyRef:
+                key: adminBearerToken
+                name: {{ include "compute-services.consts.appName" .}}-jfrog
+          - name: JFROG_SERVICE_ACCOUNT_EMAIL
+            valueFrom:
+              secretKeyRef:
+                key: email
+                name: {{ include "compute-services.consts.appName" .}}-jfrog
+          - name: JFROG_CUSTOMER_GROUP
+            valueFrom:
+              secretKeyRef:
+                key: customerGroup
+                name: {{ include "compute-services.consts.appName" .}}-jfrog
+        {{- end }}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "compute-services.image.registry" .}}{{"/"}}{{ include "compute-services.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -166,6 +209,11 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "compute-services.consts.appName" . }}-fluentbit-config
+{{- end }}
+{{- if .Values.dpMetadata.components }}
+        - name: monitor-services-file
+          configMap:
+            name: {{ include "compute-services.consts.appName" . }}-monitor-services
 {{- end }}
       imagePullSecrets:
         - name: {{ include "compute-services.container-registry.secret" . }}

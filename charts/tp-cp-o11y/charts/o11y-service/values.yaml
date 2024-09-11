@@ -21,10 +21,10 @@ global:
       fluentbit:
         enabled: true
         image:
-          name: "fluentbit"
+          name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.0.2
+          tag: 3.1.4
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -45,7 +45,7 @@ autoscaling:
 
 image:
   pullPolicy: IfNotPresent
-  tag: 1721
+  tag: 2027
 
 tibcoRouter:
   path: /o11y

@@ -1,0 +1,239 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{ if and (.Values.global.cp.dataplane.hostCloudType) (eq .Values.global.cp.dataplane.hostCloudType "control-tower") }}
+{{- $fullName := include "o11y-service.fullname" . -}}
+{{- $releaseName := .Release.Name -}}
+{{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class" .Values.global.cp.dataplane.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-logs
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    nginx.ingress.kubernetes.io/rewrite-target: /v1/logs
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  {{- end }}
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    {{- range .Values.global.cp.dataplane.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.global.cp.resources.ingress.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+      http:
+    {{- else }}
+    - http:
+    {{- end }}
+        paths:
+          - path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              service:
+                name: otel-userapp-logs
+                port:
+                  number: 4318
+
+---
+
+{{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class" .Values.global.cp.dataplane.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    nginx.ingress.kubernetes.io/rewrite-target: /v1/traces
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  {{- end }}
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    {{- range .Values.global.cp.dataplane.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.global.cp.resources.ingress.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+      http:
+    {{- else }}
+    - http:
+    {{- end }}
+        paths:
+          - path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              service:
+                name: otel-userapp-traces
+                port:
+                  number: 4318
+
+---
+
+{{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class" .Values.global.cp.dataplane.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    nginx.ingress.kubernetes.io/rewrite-target: /v1/metrics
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  {{- end }}
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    {{- range .Values.global.cp.dataplane.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.global.cp.resources.ingress.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+      http:
+    {{- else }}
+    - http:
+    {{- end }}
+        paths:
+          - path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              service:
+                name: otel-userapp-metrics
+                port:
+                  number: 4318
+
+---
+
+{{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.global.cp.dataplane.ingress.annotations "kubernetes.io/ingress.class" .Values.global.cp.dataplane.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-export
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    nginx.ingress.kubernetes.io/rewrite-target: /metrics
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  {{- end }}
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    {{- range .Values.global.cp.dataplane.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.global.cp.resources.ingress.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+      http:
+    {{- else }}
+    - http:
+    {{- end }}
+        paths:
+          - path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              service:
+                name: otel-userapp-metrics
+                port:
+                  number: 4319
+
+{{- end -}}

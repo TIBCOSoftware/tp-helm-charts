@@ -21,15 +21,15 @@ spec:
   valueOverrides:
     - name: global.tibco.containerRegistry.url 
       value: {{ include "tp-cp-configuration.image.registry" .}}
+    - name: global.tibco.containerRegistry.repository
+      value: {{ include "tp-cp-configuration.image.repository" .}}
     - name: global.tibco.logging.fluentbit.enabled
       value: {{ include "tp-cp-configuration.cp-logging-fluentbit-enabled" . | quote }}
     {{- if (include "tp-cp-configuration.container-registry.secret" .) }}
     - name: global.tibco.containerRegistry.secret
       value: {{ include "tp-cp-configuration.container-registry.secret" . }}
     {{- end }}
-    - name: namespacePrefix
-      value: {{ include "tp-cp-configuration.cp-instance-id" . }}
-    - name: controlPlaneInstanceId
+    - name: global.tibco.controlPlaneInstanceId
       value: {{ include "tp-cp-configuration.cp-instance-id" . }}
     - name: global.tibco.createNetworkPolicy
       value: {{ include "tp-cp-configuration.create-network-policy" . | quote }}
@@ -41,10 +41,24 @@ spec:
     - name: global.external.clusterInfo.podCIDR
       value: {{ include "tp-cp-configuration.podCIDR" . }}
     {{- end }}
-    - name: global.external.provider
-      value: {{ include "tp-cp-configuration.cp-provider" . }}
+    {{- if (include "tp-cp-configuration.serviceCIDR" .) }}
+    - name: global.external.clusterInfo.serviceCIDR
+      value: {{ include "tp-cp-configuration.serviceCIDR" . }}
+    {{- end }}
+    - name: global.tibco.useSingleNamespace
+      value: {{ include "tp-cp-configuration.useSingleNamespace" . | quote }}
     - name: global.tibco.serviceAccount
       value: {{ include "tp-cp-configuration.service-account-name" . }}
+    {{- if (include "tp-cp-configuration.container-registry-username" .) }}
+    - name: global.tibco.containerRegistry.username
+      value: {{ include "tp-cp-configuration.container-registry-username" .}}
+    {{- end }}
+    {{- if (include "tp-cp-configuration.container-registry-password" .) }}
+    - name: global.tibco.containerRegistry.password
+      value: {{ include "tp-cp-configuration.container-registry-password" .}}
+    {{- end }}
+    - name: global.tibco.otelServiceName
+      value: {{ include "tp-cp-configuration.otelServiceName" . }}
   templates:
   {{- range $path, $bytes := $root.Files.Glob "files/tp-cp-subscription/**" }}
 
@@ -69,9 +83,9 @@ metadata:
 spec:
   # these values will always override if these values are provided while submitting TibcoResourceSet CR
   valueOverrides:
-    - name: namespacePrefix
-      value: {{ include "tp-cp-configuration.cp-instance-id" . }}
-    - name: controlPlaneInstanceId
+    - name: global.tibco.useSingleNamespace
+      value: {{ include "tp-cp-configuration.useSingleNamespace" . | quote }}
+    - name: global.tibco.controlPlaneInstanceId
       value: {{ include "tp-cp-configuration.cp-instance-id" . }}      
   templates:
   {{- range $path, $bytes := $root.Files.Glob "files/tp-cp-data-plane/**" }}
@@ -84,4 +98,3 @@ spec:
     content: {{ $root.Files.Get $path | b64enc }}
     {{- end }}
   {{- end }}
-

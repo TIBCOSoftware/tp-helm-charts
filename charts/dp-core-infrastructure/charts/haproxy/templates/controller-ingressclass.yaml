@@ -30,6 +30,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- if .Values.controller.ingressClassResource.default }}
+  annotations:
     ingressclass.kubernetes.io/is-default-class: "true"
 {{- end }}
 spec:

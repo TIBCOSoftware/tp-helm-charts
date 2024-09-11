@@ -17,6 +17,7 @@ global:
     serviceAccount: ""                                 # customer provided service account
     containerRegistry:
       url: "reldocker.tibco.com"
+      repository: "tibco-platform-docker-prod"
       # username: "test" # [optional] Create a imagePullSecret named <dpId> for private container registry.
       # password: "test"
       # email: "tibco-plt@cloud.com"
@@ -36,6 +37,12 @@ global:
         capabilities:
           drop:
             - ALL
+  # proxy configuration for the outward traffic from cp proxy
+  # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+  proxy:
+    httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+    httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+    noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
 
 tp-tibtunnel:
   enabled: true
@@ -78,8 +85,12 @@ haproxy:
       type: ClusterIP
       enabled: true
     existingImagePullSecret: "{{ .Values.global.tibco.dataPlaneId }}"
+    extraLabels:
+      platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
+      platform.tibco.com/workload-type: "infra"
     podLabels:
-      # allow k8s api access
       networking.platform.tibco.com/kubernetes-api: enable
+      platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
+      platform.tibco.com/workload-type: "infra"
 config:
   enabled: true

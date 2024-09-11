@@ -15,15 +15,231 @@ global:
     containerRegistry:
       secret: ""
       url: reldocker.tibco.com
+      repository: "tibco-platform-docker-prod"
     enableClusterScopedPerm: true
     environmentType: ""
     appNamespaces:
       - app-ns1
       - app-ns2
+    dataplane:
+      hostCloudType: ""
+      ingress:
+        enabled: false
+        className: nginx
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /$2
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+        tls: []
+        hosts:
+          - host: ""
+            paths:
+              - path: /traces
+                enabled: true
+                pathType: Prefix
+                backend:
+                  service:
+                    name: otel-userapp-traces
+                    port:
+                      number: 4318
+          - host: ""
+            paths:
+              - path: /metrics
+                enabled: true
+                pathType: Prefix
+                backend:
+                  service:
+                    name: otel-userapp-metrics
+                    port:
+                      number: 4318
+          - host: ""
+            paths:
+              - path: /logs
+                enabled: true
+                pathType: Prefix
+                backend:
+                  service:
+                    name: otel-userapp-logs
+                    port:
+                      number: 4318
+          - host: ""
+            paths:
+              - path: /exporter/metrics
+                enabled: true
+                pathType: Prefix
+                backend:
+                  service:
+                    name: otel-userapp-metrics
+                    port:
+                      number: 4319
     resources:
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
+      resourcemapping:
+        O11Y: o11yv3
+      o11yv3:
+        logsServer:
+          config:
+            exporter:
+              userApps:
+                enabled: true
+                kind: elasticSearch
+                elasticSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
+                openSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
+                kafka:
+                  brokers: {}
+                  protocol_version: somevalue
+                  topic: somevalue
+                  username: somevalue
+                otlp:
+                  type: http|grpc
+                  endpoint: localhost:4317
+              services:
+                enabled: true
+                kind: elasticSearch
+                elasticSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
+                openSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
+                kafka:
+                  brokers: {}
+                  protocol_version: somevalue
+                  topic: somevalue
+                  username: somevalue
+                otlp:
+                  type: http|grpc
+                  endpoint: localhost:4317
+            proxy:
+              userApps:
+                kind: elasticSearch
+                enabled: true
+                elasticSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
+                openSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
+          secret:
+            exporter:
+              userApps:
+                elasticSearch:
+                  password: somevalue
+                  headers: {}
+                openSearch:
+                  password: somevalue
+                  headers: {}
+                kafka:
+                  password: somevalue
+              services:
+                elasticSearch:
+                  password: somevalue
+                  headers: {}
+                openSearch:
+                  password: somevalue
+                  headers: {}
+                kafka:
+                  password: somevalue
+            proxy:
+              userApps:
+                elasticSearch:
+                  headers: {}
+                  password: somevalue
+                openSearch:
+                  headers: {}
+                  password: somevalue
+        metricsServer:
+          config:
+            exporter:
+              enabled: true
+              kind: prometheus
+              prometheus:
+                endpoint: somevalue
+                username: somevalue
+              kafka:
+                brokers: somevalue
+                protocol_version: somevalue
+                topic: somevalue
+                username: somevalue
+              otlp:
+                type: http|grpc
+                endpoint: localhost:4317
+            proxy:
+              enabled: true
+              kind: prometheus
+              prometheus:
+                endpoint: somevalue
+                username: somevalue
+          secret:
+            exporter:
+              prometheus:
+                headers: {}
+                password: somevalue
+              kafka:
+                password: somevalue
+            proxy:
+              prometheus:
+                headers: {}
+                password: somevalue
+        tracesServer:
+          config:
+            exporter:
+              enabled: true
+              kind: elasticSearch
+              elasticSearch:
+                endpoint: somevalue
+                username: somevalue
+              openSearch:
+                endpoint: somevalue
+                username: somevalue
+              kafka:
+                brokers: {}
+                protocol_version: somevalue
+                topic: somevalue
+                username: somevalue
+              otlp:
+                type: http|grpc
+                endpoint: localhost:4317
+            proxy:
+              enabled: true
+              kind: elasticSearch
+              elasticSearch:
+                endpoint: somevalue
+                username: somevalue
+              openSearch:
+                endpoint: somevalue
+                username: somevalue
+          secret:
+            exporter:
+              elasticSearch:
+                headers: {}
+                password: somevalue
+              openSearch:
+                headers: {}
+                password: somevalue
+              kafka:
+                password: somevalue
+            proxy:
+              enabled: true
+              kind: elasticSearch
+              elasticSearch:
+                headers: {}
+                password: somevalue
+              openSearch:
+                headers: {}
+                password: somevalue
       o11y:
         logsServer:
           kind: "elasticSearch"
@@ -76,6 +292,7 @@ global:
               username: "tracesServer-config-es-username"
           secret:
             es:
+              headers: {}
               password: "tracesServer-secret-es-password"
         metricsServer:
           kind: "prometheus"
@@ -90,6 +307,7 @@ global:
             exporter:
               token: "metricsServer-secret-exporter-token"
             proxy:
+              token: "metricsServer-secret-proxy-token"
               headers: {}
               password: "metricsServer-secret-proxy-password"
         config:
@@ -159,6 +377,10 @@ global:
           jaeger:
             es:
               password: "pwd-jaeger-es"
+      ingress:
+        fqdn: ""
+        ingressClassName: "my-nginx-ingress"
+        ingressController: "nginx"
 
     logging:
       # The fluentbit configuration section.
@@ -169,7 +391,15 @@ global:
       fluentbit:
         enabled: true
         image:
-          tag: 3.0.2
+          name: "common-fluentbit"
+          tag: 3.1.4
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
         securityContext:
           runAsNonRoot: false
           runAsUser: 0
@@ -188,7 +418,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 1721
+      tag: 2027
 
 
 replicaCount: 1
@@ -235,7 +465,7 @@ service:
   port: 7820
   targetPort: 7820
 
-resources: {}
+  # resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
@@ -246,13 +476,13 @@ resources: {}
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
-# resources:
-#  requests:
-#    cpu: 50m
-#    memory: 128Mi
-#  limits:
-#    cpu: "2"
-#    memory: 2048Mi
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 1024Mi
 
 autoscaling:
   enabled: false

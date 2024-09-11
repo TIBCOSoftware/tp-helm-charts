@@ -6,13 +6,13 @@
 
 apiVersion: v2
 name: dp-config-aks
-version: "1.2.4"
-appVersion: "1.2.0"
+version: "1.3.1"
+appVersion: "1.3.0"
 description: A Helm chart to configure TIBCO Dataplane on AZURE
 type: application
 dependencies:
   - name: traefik
-    version: 24.0.0
+    version: 30.1.0
     repository: https://traefik.github.io/charts
     condition: traefik.enabled
   - name: ingress-nginx

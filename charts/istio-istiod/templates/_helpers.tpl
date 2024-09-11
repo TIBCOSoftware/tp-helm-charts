@@ -56,14 +56,6 @@ istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "") }}-{{ .Values.
 istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-reader
 {{- end -}}
 {{- end -}}
-
-{{- define "servicemesh.const.jfrogImageRepo" }}tibco-platform-local-docker/servicemesh{{end}}
-{{- define "servicemesh.const.ecrImageRepo" }}servicemesh{{end}}
-{{- define "servicemesh.const.acrImageRepo" }}servicemesh{{end}}
-{{- define "servicemesh.const.gcrImageRepo" }}servicemesh{{end}}
-{{- define "servicemesh.const.harborImageRepo" }}servicemesh{{end}}
-{{- define "servicemesh.const.dockerImageRepo" }}istio{{end}}
-{{- define "servicemesh.const.defaultImageRepo" }}{{ .Values.pilot.hub | default .Values.global.hub }}{{end}}
  
 {{- define "servicemesh.image.registry" }}
   {{- if not (eq .Values.global.cp.containerRegistry.url "") }}
@@ -73,19 +65,5 @@ istio-{{ .Release.Namespace }}{{- if not (eq .Values.revision "") }}-{{ .Values.
  
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "servicemesh.image.repository" -}}
-  {{- if contains "jfrog.io" (include "servicemesh.image.registry" .) }}
-    {{- include "servicemesh.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "servicemesh.image.registry" .) }}
-    {{- include "servicemesh.const.ecrImageRepo" .}}
-  {{- else if contains "azurecr.io" (include "servicemesh.image.registry" .) }}
-    {{- include "servicemesh.const.acrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "servicemesh.image.registry" .) }}
-    {{- include "servicemesh.const.harborImageRepo" .}}
-  {{- else if contains "gcr.io" (include "servicemesh.image.registry" .) }}
-    {{- include "servicemesh.const.gcrImageRepo" .}}        
-  {{- else if contains "docker.io" (include "servicemesh.image.registry" .) }}
-    {{- include "servicemesh.const.dockerImageRepo" .}}        
-  {{- else }}
-    {{- include "servicemesh.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}

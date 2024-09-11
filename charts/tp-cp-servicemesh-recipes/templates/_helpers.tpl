@@ -68,34 +68,13 @@ app.kubernetes.io/part-of: {{ include "tp-cp-servicemesh-recipes.part-of" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-
-{{- define "tp-cp-servicemesh-recipes.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "tp-cp-servicemesh-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-servicemesh-recipes.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-servicemesh-recipes.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-servicemesh-recipes.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "tp-cp-servicemesh-recipes.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-cp-servicemesh-recipes.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "tp-cp-servicemesh-recipes.image.registry" .) }} 
-    {{- include "tp-cp-servicemesh-recipes.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-cp-servicemesh-recipes.image.registry" .) }}
-    {{- include "tp-cp-servicemesh-recipes.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-cp-servicemesh-recipes.image.registry" .) }}
-    {{- include "tp-cp-servicemesh-recipes.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-cp-servicemesh-recipes.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 

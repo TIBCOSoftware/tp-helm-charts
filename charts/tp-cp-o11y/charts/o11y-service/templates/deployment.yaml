@@ -53,10 +53,12 @@ spec:
             - containerPort: 7820
               name: tp-o11yservice
           env:
+            - name: WHO
+              value: {{include "o11y-service.cp-instance-id" .}}
             - name: IS_CP
               value: "true"
             - name: IS_ON_PREM
-              value: "true"
+              value: "{{ include "o11y-service.CPCustomerEnv" . }}"
             - name: CP_DP_URL
               value: {{ include "o11y-service.cp-dp-url" . }}
             - name: NAMESPACE
@@ -65,7 +67,7 @@ spec:
                   fieldPath: metadata.namespace
   {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}
         - name: fluentbit
-          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+          image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
           {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
           securityContext:

@@ -39,26 +39,18 @@ spec:
     {{- /* additional parameters */ -}}
     {{- if .additionalConfigurationParameters }}
     {{- with .additionalConfigurationParameters }}
-    storageEncrypted: {{ .storageEncrypted }}
-    {{- if .storageEncrypted }}
-    {{- if .kmsKeyId }}
-    kmsKeyId: {{ .kmsKeyId }}
+    {{- range $paramKey, $paramValue := . }}
+    {{- if $paramValue }}
+    {{- if (eq $paramKey "restoreFrom") }}
+    restoreFrom:
+      {{- range $restoreKey, $restoreValue := $paramValue }}
+      {{ $restoreKey }}: {{ $restoreValue }}
+      {{- end }}
+    {{- else }}
+    {{ $paramKey }}: {{ $paramValue }}
+    {{- end -}}
+    {{- end -}}
     {{- end }}
-    {{- end }}
-    {{- if .restoreFrom }}
-    {{- with .restoreFrom }}
-    source: {{ .source }}
-    snapshotIdentifier: {{ .snapshotIdentifier }}
-    {{- end }}
-    {{- end }}
-    allocatedStorage: {{ .allocatedStorage }}
-    backupRetentionPeriod: {{ .backupRetentionPeriod }}
-    caCertificateIdentifier: {{ .caCertificateIdentifier }}
-    deletionProtection: {{ .deletionProtection }}
-    finalDBSnapshotIdentifier: {{ .finalDBSnapshotIdentifier }}
-    multiAZ: {{ .multiAZ }}
-    skipFinalSnapshotBeforeDeletion: {{ .skipFinalSnapshotBeforeDeletion }}
-    storageType: {{ .storageType }}
     {{- end }}
     {{- end }}
     {{- end }}

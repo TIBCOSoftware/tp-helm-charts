@@ -107,8 +107,10 @@ spec:
           value: "{{ .Values.waitForBackendPodToBeReady }}"
         - name: IS_CIC2_ENV
           value: "true"
+      {{- if .Values.global.tibco.useSingleNamespace }}
         - name: WATCH_NAMESPACE
           value: "{{ .Release.Namespace }}"
+      {{- end }}
         - name: HTTP_PORT_TUNNEL
           value: '443'
         - name: POD_NAMESPACE
@@ -123,8 +125,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['app.kubernetes.io/name']
+      {{- if .Values.global.tibco.useSingleNamespace }}
         - name: WATCH_NAMESPACE_PREFIX
           value: "{{ .Release.Namespace }}"
+      {{- else }}
+        - name: WATCH_NAMESPACE_PREFIX
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}    
+      {{- end }}
         - name: SETTINGS_PROPERTIES_VOLUME_PATH
           value: "/etc/config/settings.properties"
         volumeMounts:

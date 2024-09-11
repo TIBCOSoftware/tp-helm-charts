@@ -21,7 +21,7 @@ containers:
       - /{{ .Values.command.name }}
     {{- end }}
     args:
-      {{- if .Values.configMap.create }}
+      {{- if or .Values.configMap.create .Values.configMap.existingName }}
       - --config=/conf/relay.yaml
       {{- end }}
       {{- range .Values.command.extraArgs }}
@@ -37,7 +37,7 @@ containers:
     {{- if .Values.image.digest }}
     image: "{{ ternary "" (print (.Values.global).imageRegistry "/") (empty (.Values.global).imageRegistry) }}{{ .Values.image.repository }}@{{ .Values.image.digest }}"
     {{- else }}
-    image: "{{ include "opentelemetry-collector.image.registry" .}}{{"/"}}{{ include "opentelemetry-collector.image.repository" .}}{{"/"}}opentelemetry-collector-contrib:{{ .Values.image.tag | default .Chart.AppVersion }}"
+    image: "{{ include "opentelemetry-collector.image.registry" .}}{{"/"}}{{ include "opentelemetry-collector.image.repository" .}}{{"/"}}o11y-opentelemetry-collector-contrib:{{ .Values.image.tag | default .Chart.AppVersion }}"
     {{- end }}
     imagePullPolicy: {{ .Values.image.pullPolicy }}
 
@@ -116,7 +116,7 @@ containers:
       {{- toYaml . | nindent 6 }}
     {{- end }}
     volumeMounts:
-      {{- if .Values.configMap.create }}
+      {{- if or .Values.configMap.create .Values.configMap.existingName }}
       - mountPath: /conf
         name: {{ include "opentelemetry-collector.lowercase_chartname" . }}-configmap
       {{- end }}
@@ -139,7 +139,7 @@ containers:
         mountPropagation: HostToContainer
       {{- end }}
       {{- if .Values.extraVolumeMounts }}
-      {{- toYaml .Values.extraVolumeMounts | nindent 6 }}
+      {{- tpl (toYaml .Values.extraVolumeMounts) . | nindent 6 }}
       {{- end }}
 {{- if .Values.extraContainers }}
   {{- tpl (toYaml .Values.extraContainers) . | nindent 2 }}
@@ -152,7 +152,7 @@ initContainers:
 priorityClassName: {{ .Values.priorityClassName | quote }}
 {{- end }}
 volumes:
-  {{- if .Values.configMap.create }}
+  {{- if or .Values.configMap.create .Values.configMap.existingName }}
   - name: {{ include "opentelemetry-collector.lowercase_chartname" . }}-configmap
     configMap:
       name: {{ include "opentelemetry-collector.fullname" . }}{{ .configmapSuffix }}
@@ -180,7 +180,7 @@ volumes:
       path: /
   {{- end }}
   {{- if .Values.extraVolumes }}
-  {{- toYaml .Values.extraVolumes | nindent 2 }}
+  {{- tpl (toYaml .Values.extraVolumes) . | nindent 2 }}
   {{- end }}
 {{- with .Values.nodeSelector }}
 nodeSelector:

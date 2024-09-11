@@ -3,8 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-
-{{ if and (eq .Values.global.cp.resources.o11y.tracesServer.kind "jaeger") (.Values.global.cp.resources.o11y.tracesServer.enabled) }}
+{{ if or ( and (.Values.global.cp.resources.resourcemapping.O11Y) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") ( .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled )) (and (eq .Values.global.cp.resources.o11y.tracesServer.kind "jaeger") (.Values.global.cp.resources.o11y.tracesServer.enabled))}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -59,11 +58,11 @@ spec:
       - name: {{ template "jaeger.query.name" . }}
         securityContext:
           {{- toYaml .Values.query.securityContext | nindent 10 }}
-        image: {{ include "jaeger.image.registry" .}}{{"/"}}{{ include "jaeger.image.repository" .}}{{"/"}}jaeger-query:{{- .Values.query.tag | default (include "jaeger.image.tag" .) }}
+        image: {{ include "jaeger.image.registry" .}}{{"/"}}{{ include "jaeger.image.repository" .}}{{"/"}}o11y-jaeger-query:{{- .Values.query.tag | default (include "jaeger.image.tag" .) }}
         imagePullPolicy: {{ .Values.query.pullPolicy }}
         args:
           {{ include "extra.cmdArgs" ( dict "cmdlineParams" .Values.query.cmdlineParams ) | nindent 10  }}
-          {{- include "storage.cmdArgs" . | nindent 10 }}
+          {{- include "storage.query.cmdArgs" . | nindent 10 }}
         env:
         {{- if .Values.query.extraEnv }}
           {{- toYaml .Values.query.extraEnv | nindent 10 }}

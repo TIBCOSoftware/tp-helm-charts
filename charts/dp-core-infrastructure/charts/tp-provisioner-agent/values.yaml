@@ -9,8 +9,8 @@
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
-    cpu: 500m
-    memory: 500Mi
+    cpu: 200m
+    memory: 256Mi
   limits:
     cpu: 1000m
     memory: 1000Mi
@@ -19,8 +19,8 @@ resources:
 replicaCount: "1"
 
 image:
-  name: tp-provisioner-agent
-  tag: 334
+  name: infra-provisioner-agent
+  tag: 356
   pullPolicy: Always
 
 nodeSelector:
@@ -46,6 +46,7 @@ global:
     serviceAccount: ""  # user provided service account.
     containerRegistry:
       url: reldocker.tibco.com
+      repository: tibco-platform-docker-prod
 
   logging:
     fluentbit:
@@ -62,20 +63,25 @@ global:
         capabilities:
           drop:
             - ALL
-
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
 fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
-    tag: 3.0.2
+    tag: 3.1.4
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
       cpu: 10m
-      memory: 100Mi
+      memory: 20Mi
     limits:
       cpu: 50m
-      memory: 150Mi
+      memory: 50Mi
 hpa:
   minReplicas: 1
   maxReplicas: 3

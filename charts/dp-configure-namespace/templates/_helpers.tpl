@@ -73,6 +73,13 @@ Create chart name and version as used by the chart label.
 {{- end }}
 {{- end }}
 
+{{/* Service Cidr for the cluster */}}
+{{- define "dp-configure-namespace.serviceCidr" }}
+{{- if .Values.networkPolicy.create }}
+{{- required (printf "networkPolicy.serviceCidrIpBlock is required, if Network Policy is enabled.\n\nUse --set networkPolicy.serviceCidrIpBlock=<ServiceIpCidr>\nServiceIpCidr=<IP range of Service CIDR (CIDR notation)> e.g. 172.20.0.0/16") .Values.networkPolicy.serviceCidrIpBlock -}}
+{{- end }}
+{{- end }}
+
 {{/*
 ================================================================
                   SECTION LABELS

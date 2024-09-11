@@ -46,7 +46,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext.artifactManager | nindent 12 }}
           {{- end }}
-          image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}artifactmanager:{{ .Values.global.artifactmanager.image.tag }}
+          image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}{{ .Values.global.artifactmanager.image.name }}:{{ .Values.global.artifactmanager.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
             - name: data
@@ -93,7 +93,7 @@ spec:
                   fieldPath: metadata.name
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
-          image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           {{- if .Values.global.cp.logging.fluentbit.securityContext }}
           securityContext:

@@ -52,33 +52,13 @@ Create chart name and version as used by the chart label.
 ================================================================   
 */}}
 
-{{- define "tp-cp-configuration.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "tp-cp-configuration.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-configuration.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-configuration.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-configuration.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "tp-cp-configuration.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-cp-configuration.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "tp-cp-configuration.image.registry" .) }} 
-    {{- include "tp-cp-configuration.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-cp-configuration.image.registry" .) }}
-    {{- include "tp-cp-configuration.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-cp-configuration.image.registry" .) }}
-    {{- include "tp-cp-configuration.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-cp-configuration.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 
@@ -157,9 +137,19 @@ Create chart name and version as used by the chart label.
 {{- include "cp-env.get" (dict "key" "CP_CLUSTER_POD_CIDR" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{/* Control plane service CIDR */}}
+{{- define "tp-cp-configuration.serviceCIDR" -}}
+{{- include "cp-env.get" (dict "key" "CP_CLUSTER_SERVICE_CIDR" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
 {{/* Control plane OTEl service */}}
 {{- define "tp-cp-configuration.otelServiceName" -}}
 {{- include "cp-env.get" (dict "key" "CP_OTEL_SERVICE" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{/* Control plane single namespace flag */}}
+{{- define "tp-cp-configuration.useSingleNamespace" -}}
+{{- include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )}}
 {{- end }}
 
 {{/*

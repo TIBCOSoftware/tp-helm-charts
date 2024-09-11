@@ -30,33 +30,13 @@ in the license file that is distributed with this file.
 
 {{- define "router-operator.container-registry.secret" }}tibco-container-registry-credentials{{end}}
 
-{{- define "router-operator.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "router-operator.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "router-operator.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "router-operator.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "router-operator.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "router-operator.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- .Values.global.tibco.containerRegistry.url }}
-  {{- end }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "router-operator.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "router-operator.image.registry" .) }} 
-    {{- include "router-operator.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "router-operator.image.registry" .) }}
-    {{- include "router-operator.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "router-operator.image.registry" .) }}
-    {{- include "router-operator.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "router-operator.consts.defaultImageRepo" .}}
-  {{- end }}
+    {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* set annotations for application load balancer ingress in AWS */}}

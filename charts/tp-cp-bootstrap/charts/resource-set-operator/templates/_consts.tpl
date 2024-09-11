@@ -28,12 +28,6 @@ in the license file that is distributed with this file.
 
 {{- define "resource-set-operator.container-registry.secret" }}tibco-container-registry-credentials{{end}}
 
-{{- define "resource-set-operator.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "resource-set-operator.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "resource-set-operator.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "resource-set-operator.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "resource-set-operator.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "resource-set-operator.image.registry" }}
   {{- if .Values.image.registry }} 
     {{- .Values.image.registry }}
@@ -46,13 +40,7 @@ in the license file that is distributed with this file.
 {{- define "resource-set-operator.image.repository" -}}
   {{- if .Values.image.repo }} 
     {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "resource-set-operator.image.registry" .) }} 
-    {{- include "resource-set-operator.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "resource-set-operator.image.registry" .) }}
-    {{- include "resource-set-operator.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "resource-set-operator.image.registry" .) }}
-    {{- include "resource-set-operator.consts.harborImageRepo" .}}
   {{- else }}
-    {{- include "resource-set-operator.consts.defaultImageRepo" .}}
+    {{- .Values.global.tibco.containerRegistry.repository }}
   {{- end }}
 {{- end -}}

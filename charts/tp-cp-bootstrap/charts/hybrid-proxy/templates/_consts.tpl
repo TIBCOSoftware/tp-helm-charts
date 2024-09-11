@@ -30,33 +30,13 @@ in the license file that is distributed with this file.
 
 {{- define "hybrid-proxy.container-registry.secret" }}tibco-container-registry-credentials{{end}}
 
-{{- define "hybrid-proxy.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "hybrid-proxy.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "hybrid-proxy.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "hybrid-proxy.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "hybrid-proxy.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "hybrid-proxy.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- .Values.global.tibco.containerRegistry.url }}
-  {{- end }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "hybrid-proxy.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "hybrid-proxy.image.registry" .) }} 
-    {{- include "hybrid-proxy.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "hybrid-proxy.image.registry" .) }}
-    {{- include "hybrid-proxy.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "hybrid-proxy.image.registry" .) }}
-    {{- include "hybrid-proxy.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "hybrid-proxy.consts.defaultImageRepo" .}}
-  {{- end }}
+    {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* set annotations for load balancer creating network load balancer in AWS */}}

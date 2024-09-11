@@ -14,7 +14,7 @@ metadata:
     {{- include "tp-cp-data-plane.shared.labels.standard" . | nindent 4}}
 spec:
   selector:
-    app.kubernetes.io/name: "hybrid-server-{{ .Values.subscriptionId }}"
+    app.kubernetes.io/name: {{ include "tp-cp-data-plane.consts.subscriptionAppName" .}}
     platform.tibco.com/subscriptionId: {{ .Values.subscriptionId | quote }}
   endpoint:
     path: {{ if hasPrefix "/" (tpl .Values.path .) }}{{else}}/{{end}}{{ tpl .Values.path . }}                 

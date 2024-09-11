@@ -26,7 +26,7 @@ app.kubernetes.io/name: {{ include "tp-cp-subscription.consts.appName" . }}
 app.kubernetes.io/component: {{ include "tp-cp-subscription.consts.component" . }}
 app.kubernetes.io/part-of: {{ include "tp-cp-subscription.consts.team" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-platform.tibco.com/subscriptionId: {{ .Values.subscriptionId }}
+platform.tibco.com/subscriptionId: {{ .Values.subscriptionId | quote }}
 {{- end -}}
 
 {{/*
@@ -40,6 +40,6 @@ app.cloud.tibco.com/created-by: {{ include "tp-cp-subscription.consts.team" . }}
 app.cloud.tibco.com/tenant-name: {{ include "tp-cp-subscription.consts.tenantName" . }}
 helm.sh/chart: {{ include "tp-cp-subscription.shared.labels.chartLabelValue" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
-platform.tibco.com/controlplane-instance-id: {{ .Values.controlPlaneInstanceId }}
+platform.tibco.com/controlplane-instance-id: {{ .Values.global.tibco.controlPlaneInstanceId | quote }}
 {{- end -}}
 

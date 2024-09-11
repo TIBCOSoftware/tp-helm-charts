@@ -4,24 +4,30 @@ This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
 
+{{ $efsKind := "TibcoEFS" }}
+{{ $efsSuffix := "efs" }}
 {{- if .Values.efs }}
 {{- if eq .Values.efs.create true }}
-apiVersion: filesystem.platform.tibco.com/v1alpha1
+{{- if .Values.efs.storageClass }}
 {{- if eq .Values.efs.storageClass.create true }}
-kind: TibcoEFSSC
-{{- else }}
-kind: TibcoEFS
+{{ $efsKind = "TibcoEFSSC" }}
+{{ $efsSuffix = "efs-sc" }}
 {{- end }}
+{{- end }}
+{{- if .Values.efs.persistentVolume }}
+{{- if eq .Values.efs.persistentVolume.create true }}
+{{ $efsKind = "TibcoEFSPV" }}
+{{ $efsSuffix = "efs-pv" }}
+{{- end }}
+{{- end }}
+apiVersion: filesystem.platform.tibco.com/v1alpha1
+kind: {{ $efsKind }}
 metadata:
   name: {{ .Values.commonResourcePrefix }}-efs
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "claims.labels" . | nindent 4 }}
-    {{- if eq .Values.efs.storageClass.create true }}
-    claim-name: {{ .Values.commonResourcePrefix }}-efs-sc
-    {{- else }}
-    claim-name: {{ .Values.commonResourcePrefix }}-efs
-    {{- end }}
+    claim-name: {{ .Values.commonResourcePrefix }}-{{ $efsSuffix }}
 spec:
   parameters:
     region: {{ include "claims.cloud-region" . }}
@@ -40,15 +46,11 @@ spec:
     {{- /* additional parameters */ -}}
     {{- if .additionalConfigurationParameters }}
     {{- with .additionalConfigurationParameters }}
-    encrypted: {{ .encrypted }}
-    {{- if .encrypted }}
-    {{- if .kmsKeyID }}
-    kmsKeyId: {{ .kmsKeyId }}
+    {{- range $paramKey, $paramValue := . }}
+    {{- if $paramValue }}
+    {{ $paramKey }}: {{ $paramValue }}
     {{- end }}
-    {{- end }}
-    {{- if eq $mandatory_params.throughputMode "provisioned" }}
-    provisionedThroughputInMibps: {{ .provisionedThroughputInMibps }}
-    {{- end }}
+    {{- end -}}
     {{- end }}
     {{- end }}
     {{- end }}
@@ -77,13 +79,22 @@ spec:
     volumeBindingMode: {{ .volumeBindingMode }}
     {{- end }}
     {{- end }}
+    {{- if eq .Values.efs.persistentVolume.create true }}
+    {{- with .Values.efs.persistentVolume }}
+    persistentVolumeName: {{ .name }}
+    accessModes:
+      {{- toYaml .accessModes | nindent 4 }}
+    reclaimPolicy: {{ .reclaimPolicy }}
+    {{- if .storageClassName -}}
+    storageClassName: {{ .storageClassName }}
+    {{- end }}
+    storage: {{ .storage }}
+    volumeMode: {{ .volumeMode }}
+    {{- end }}
+    {{- end }}
   compositionSelector:
     matchLabels:
-      {{- if eq .Values.efs.storageClass.create true }}
-      provider: "provider-aws-efs-sc"
-      {{- else }}
-      provider: "provider-aws-efs"
-      {{- end }}
+      provider: "provider-aws-{{ $efsSuffix }}"
   writeConnectionSecretToRef:
     name: {{ .Values.efs.connectionDetailsSecret }}
 {{- end }}
