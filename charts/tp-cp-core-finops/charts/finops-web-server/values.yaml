@@ -12,8 +12,8 @@ global:
     logging:
       fluentbit:
         image:
-          name: "fluentbit"
-          tag: 3.0.2
+          name: "common-fluentbit"
+          tag: 3.1.4
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.
@@ -66,5 +66,10 @@ fluentbit:
     limits:
       cpu: "150m"
       memory: "150Mi"
+# HPA
+hpa:
+  cpu: 70
+  memory: 70
+
 # no of replicas
-replicaCount: "3"
+replicaCount: "1"

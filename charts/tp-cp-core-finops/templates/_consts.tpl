@@ -24,11 +24,21 @@
 {{- define "tp-cp-core-finops.consts.finopsWebServiceName" }}tp-cp-finops-web-server.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.cpUserSubscriptionsServiceName" }}tp-cp-user-subscriptions.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.cpOrchestratorServiceName" }}tp-cp-orchestrator.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tp-cp-core-finops.consts.monitorAgentHost" }}dp-%[1]s.{{ .Release.Namespace }}.svc.cluster.local{{ end -}}
+{{- define "tp-cp-core-finops.consts.monitorAgentHost" -}}
+    {{- if (include "cp-core-configuration.isSingleNamespace" .) }}
+        {{- "dp-%[1]s."}}{{ .Release.Namespace }}{{".svc.cluster.local" -}}
+    {{- else }}
+        {{- "dp-%s."}}{{include "cp-core-configuration.cp-instance-id" .}}{{"-tibco-sub-%s.svc.cluster.local" -}}
+    {{- end -}}
+{{ end -}}
 {{- define "tp-cp-core-finops.consts.hawkQueryNodeHost" }}querynode.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.finopsPrometheusHost" }}tp-cp-finops-prometheus.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.provisonerAgentHost" }}dp-%s.{{ .Release.Namespace }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.finopsOTelHost" }}otel-finops-cp-collector.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tp-cp-core-finops.consts.beWebServer" }}tp-cp-be-webserver.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tp-cp-core-finops.consts.bw5WebServer" }}tp-cp-bw5-webserver.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tp-cp-core-finops.consts.bw6WebServer" }}tp-cp-bw6-webserver.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
+
 
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
@@ -87,6 +97,14 @@
 {{/* Container registry for control plane. default value empty */}}
 {{- define "cp-core-configuration.container-registry" }}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{- define "cp-core-configuration.isSingleNamespace" }}
+  {{- $isSubscriptionSingleNamespace := "" -}}
+    {{- if eq "true" (include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )) -}}
+        {{- $isSubscriptionSingleNamespace = "1" -}}
+    {{- end -}}
+  {{ $isSubscriptionSingleNamespace }}
 {{- end }}
 
 {{- define "tp-cp-core-finops.consts.cp.db.configuration" }}provider-cp-database-config{{ end -}}

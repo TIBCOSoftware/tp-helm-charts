@@ -4,15 +4,9 @@
 # in the license file that is distributed with this file.
 #
 
-{{- define "finops-prometheus.consts.jfrogImageRepo" }}tibco-platform-local-docker/core{{end}}
-{{- define "finops-prometheus.consts.ecrImageRepo" }}pcp{{end}}
-{{- define "finops-prometheus.consts.acrImageRepo" }}pcp{{end}}
-{{- define "finops-prometheus.consts.harborImageRepo" }}pcp{{end}}
-{{- define "finops-prometheus.consts.defaultImageRepo" }}pcp{{end}}
-
 {{/* Container registry for control plane. default value empty */}}
 {{- define "finops-prometheus.image.registry" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false"  "Release" .Release )}}
 {{- end }}
 
 {{/* secret for control plane. default value empty */}}
@@ -22,15 +16,5 @@
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "finops-prometheus.image.repository" -}}
-  {{- if contains "jfrog.io" (include "finops-prometheus.image.registry" .) }}
-    {{- include "finops-prometheus.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "finops-prometheus.image.registry" .) }}
-    {{- include "finops-prometheus.consts.ecrImageRepo" .}}
-  {{- else if contains "azurecr.io" (include "finops-prometheus.image.registry" .) }}
-    {{- include "finops-prometheus.consts.acrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "finops-prometheus.image.registry" .) }}
-    {{- include "finops-prometheus.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "finops-prometheus.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false"  "Release" .Release )}}
 {{- end -}}

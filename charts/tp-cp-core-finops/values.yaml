@@ -10,6 +10,8 @@ finops:
   deleteDBOnUninstall: "false"
 # Global section will apply to this chart and all of its subcharts.
 global:
+  tibco:
+    is_replica_region: false
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.

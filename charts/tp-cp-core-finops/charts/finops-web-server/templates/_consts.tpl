@@ -67,10 +67,6 @@
 {{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
 {{- end }}
 {{- end }}
-{{/* Container registry for control plane. default value empty */}}
-{{- define "cp-core-configuration.container-registry" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
-{{- end }}
 
 {{- define "cp-core-configuration.enableLogging" }}
   {{- $isEnableLogging := "" -}}

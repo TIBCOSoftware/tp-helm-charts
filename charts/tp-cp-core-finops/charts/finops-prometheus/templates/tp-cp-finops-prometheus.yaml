@@ -60,7 +60,7 @@ spec:
           securityContext:
             {{- toYaml .Values.global.containerSecurityContext.finopsPrometheus | nindent 12 }}
           {{- end }}        
-          image: {{ include "finops-prometheus.image.registry" .}}{{"/"}}{{ include "finops-prometheus.image.repository" .}}{{"/tp-cp-finops-prometheus"}}:{{ include "finops-prometheus.generated.buildNumber" . }}
+          image: {{ include "finops-prometheus.image.registry" .}}{{"/"}}{{ include "finops-prometheus.image.repository" .}}{{"/tel-finops-prometheus"}}:{{ include "finops-prometheus.generated.buildNumber" . }}
           resources:
             requests:
               cpu: {{ .Values.finopsprometheus.resources.requests.cpu }}
