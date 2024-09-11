@@ -1,0 +1,32 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.publicApi.ingress.controllerName "nginx" -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-User,X-Auth-Request-Email,X-Forwarded-Access-Token,X-Auth-Request-Access-Token,X-Atmosphere-Token
+    nginx.ingress.kubernetes.io/auth-signin: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/start?rd=$escaped_request_uri
+    nginx.ingress.kubernetes.io/auth-url: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/auth
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  rules:
+    - host: {{ .Values.publicApi.ingress.config.fqdn }}
+      http:
+        paths:
+          - backend:
+              service:
+                name: {{ include "common.names.fullname" . }}
+                port:
+                  number: {{ .Values.service.ports.backend }}
+            path: {{ .Values.publicApi.ingress.config.pathPrefix }}
+            pathType: Prefix
+{{- end }}
