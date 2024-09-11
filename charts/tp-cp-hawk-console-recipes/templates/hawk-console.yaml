@@ -1,0 +1,147 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-hawk-console-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.3.0",
+      "minCPVersion": "1.2.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.hawkConsole.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.hawkConsole.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.2.0"
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-dp-hawk-console",
+            "description": "Hawk Console Service",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: tp-dp-hawk-console
+          namespace: ${NAMESPACE}
+          version: "1.3.21"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                image:
+                  tag: {{ .Values.capabilities.hawkConsole.tag | quote }}
+                hawkconsole:
+                  readinessFailureThreshold: 10
+                  readinessInitialDelaySeconds: 12
+                  readinessPeriodSeconds: 15
+                  readinessTimeoutSeconds: 10
+                  livenessFailureThreshold: 10
+                  livenessInitialDelaySeconds: 15
+                  livenessPeriodSeconds: 15
+                  livenessTimeoutSeconds: 10
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 1024Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 3072Mi                
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-hawk-console-recipes.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-hawk-console-recipes.labels" . | nindent 8 }}
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: tp-dp-hawk-console
+        image: {{ include "tp-cp-hawk-console-recipes.image.registry" .}}{{"/"}}{{ include "tp-cp-hawk-console-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "hawkconsole"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/infra"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.3.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.hawkConsole.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.hawkConsole.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console-volume
+          configMap:
+            name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-hawk-console-recipes.pvc-name" . }}
+      imagePullSecrets:
+        {{- if (include "tp-cp-hawk-console-recipes.container-registry.secret" .) }}
+        - name: {{ include "tp-cp-hawk-console-recipes.container-registry.secret" . }}
+        {{- end}}

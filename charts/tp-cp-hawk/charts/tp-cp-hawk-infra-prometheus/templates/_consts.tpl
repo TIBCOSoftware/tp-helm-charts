@@ -22,44 +22,15 @@
 {{/* Namespace we're going into. */}}
 {{- define "tp-hawk-infra-prometheus.consts.namespace" }}{{ .Release.Namespace }}{{ end -}}
 
-{{- define "tp-hawk-infra-prometheus.consts.buildNumber" }}v2.45.5{{ end -}}
-
-{{- define "tp-hawk-infra-prometheus.consts.jfrogImageRepo" }}tibco-platform-local-docker/hawk{{end}}
-{{- define "tp-hawk-infra-prometheus.consts.ecrImageRepo" }}infra-hawk/infra-control-tower{{end}}
-{{- define "tp-hawk-infra-prometheus.consts.acrImageRepo" }}infra-hawk/infra-control-tower{{end}}
-{{- define "tp-hawk-infra-prometheus.consts.harborImageRepo" }}infra-hawk/infra-control-tower{{end}}
-{{- define "tp-hawk-infra-prometheus.consts.defaultImageRepo" }}infra-hawk/infra-control-tower{{end}}
-
+{{- define "tp-hawk-infra-prometheus.consts.buildNumber" }}v2.53.2{{ end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra-prometheus.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-hawk-infra-prometheus.image.registry" .) }}
-    {{- include "tp-hawk-infra-prometheus.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-hawk-infra-prometheus.image.registry" .) }}
-    {{- include "tp-hawk-infra-prometheus.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-hawk-infra-prometheus.image.registry" .) }}
-    {{- include "tp-hawk-infra-prometheus.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-hawk-infra-prometheus.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
-{{- define "tp-hawk-infra-prometheusds.consts.jfrogImageRepo" }}tibco-platform-local-docker/hawk{{end}}
-{{- define "tp-hawk-infra-prometheusds.consts.ecrImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-prometheusds.consts.acrImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-prometheusds.consts.harborImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-prometheusds.consts.defaultImageRepo" }}infra-hawk/control-tower{{end}}
 
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra-prometheusds.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-hawk-infra-prometheus.image.registry" .) }}
-    {{- include "tp-hawk-infra-prometheusds.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-hawk-infra-prometheus.image.registry" .) }}
-    {{- include "tp-hawk-infra-prometheusds.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-hawk-infra-prometheus.image.registry" .) }}
-    {{- include "tp-hawk-infra-prometheusds.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-hawk-infra-prometheusds.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}

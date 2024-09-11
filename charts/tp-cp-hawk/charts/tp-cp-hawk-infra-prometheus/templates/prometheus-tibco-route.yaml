@@ -12,7 +12,7 @@ spec:
   serviceNamespace: {{ include "tp-hawk-infra-prometheus.consts.namespace" . }}
   env:
   - name: CP_DNS_DOMAIN
-    value: {{ include "tp-hawk-infra-prometheus.dns-domain" . }}
+    value: admin.{{ include "tp-hawk-infra-prometheus.dns-domain" . }}
   endpoints:
   - path: /admin/hawk-console
     protocol: http

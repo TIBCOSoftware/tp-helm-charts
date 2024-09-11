@@ -1,0 +1,34 @@
+# Copyright © 2023. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if .Values.enableIngress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  annotations:
+    haproxy.org/server-ssl: "true"
+    ingress.kubernetes.io/path-rewrite: "/tibco/agent/infra/hawkconsole/(.*) /hawkconsole/\\1"
+    {{- with .Values.ingress.annotations }}
+    {{- tpl (toYaml .) $ | nindent 4}}
+    {{- end }}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  ingressClassName: {{ tpl .Values.ingress.className . }}
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.ingress.pathPrefix }}
+        backend:
+          service:
+            name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+            port:
+              number: 9687
+    {{- with .Values.ingress.host }}
+    host: {{ . }}
+    {{- end }}
+{{- end }}
