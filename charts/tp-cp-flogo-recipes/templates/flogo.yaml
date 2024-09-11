@@ -12,12 +12,12 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.2.0",
-      "minCPVersion": "1.2.0",
+      "capabilityVersion": "1.3.0",
+      "minCPVersion": "1.3.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
-      "minVersionRequiredForUpgrade": "1.1.0"
+      "minVersionRequiredForUpgrade": "1.2.0"
     }
   package.json: |
     {
@@ -38,7 +38,7 @@ data:
           {
             "version": [
               1,
-              2,
+              3,
               0
             ],
             "capabilityId": "INTEGRATIONCORE",
@@ -47,7 +47,7 @@ data:
           {
             "version": [
               1,
-              2,
+              3,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -74,7 +74,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.2.9"
+          version: "1.3.12"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -83,13 +83,13 @@ data:
                 global:
                   flogoprovisioner:
                     image:
-                      tag: 368-platform-1.2.0
+                      tag: 419-platform-1.3.0
                 config:
-                  APP_INIT_IMAGE_TAG: "29"
+                  APP_INIT_IMAGE_TAG: "31"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
-                    nginx:
+                    config:
                       className: ${INGRESS_CLASS_NAME}
                       pathPrefix: ${INGRESS_PATH_PREFIX}
                       fqdn: ${INGRESS_FQDN}
@@ -140,13 +140,13 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.2.0"
+          value: "1.3.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
           value: {{ .Values.capabilities.flogo.overwriteRecipe | quote }}
         - name: IS_LATEST
-          value: {{ .Values.capabilities.flogo.isLatest | quote }}          
+          value: {{ .Values.capabilities.flogo.isLatest | quote }}
         volumeMounts:
         - name: {{ include "tp-cp-flogo-recipes.appName" . }}-flogo-volume
           mountPath: /opt/tibco/recipe

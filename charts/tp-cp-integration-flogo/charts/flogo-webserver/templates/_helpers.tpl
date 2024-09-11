@@ -57,56 +57,19 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
     ===========================================================================
 */}}
 
-{{- define "flogo-webserver.consts.jfrogImageRepo" }}tibco-platform-local-docker/flogo{{end}}
-{{- define "flogo-webserver.consts.ecrImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.acrImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.harborImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.defaultImageRepo" }}piap{{end}}
-
-{{- define "flogo-webserver.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
-{{- define "flogo-webserver.consts.integration.ecrImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.integration.acrImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "flogo-webserver.consts.integration.defaultImageRepo" }}piap{{end}}
-
-
 {{- define "flogo-webserver.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
 {{- end }}
 
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogo-webserver.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "flogo-webserver.image.registry" .) }} 
-    {{- include "flogo-webserver.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "flogo-webserver.image.registry" .) }}
-    {{- include "flogo-webserver.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "flogo-webserver.image.registry" .) }}
-    {{- include "flogo-webserver.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "flogo-webserver.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogo-webserver.integration.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "flogo-webserver.image.registry" .) }} 
-    {{- include "flogo-webserver.consts.integration.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "flogo-webserver.image.registry" .) }}
-    {{- include "flogo-webserver.consts.integration.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "flogo-webserver.image.registry" .) }}
-    {{- include "flogo-webserver.consts.integration.harborImageRepo" .}}
-  {{- else }}
-    {{- include "flogo-webserver.consts.integration.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 

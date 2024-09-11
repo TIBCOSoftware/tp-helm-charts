@@ -43,98 +43,29 @@ app.kubernetes.io/name: {{ include "flogo-utilities.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "flogo-utilities.consts.infra.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "flogo-utilities.consts.infra.ecrImageRepo" }}stratosphere{{end}}
-{{- define "flogo-utilities.consts.infra.acrImageRepo" }}stratosphere{{end}}
-{{- define "flogo-utilities.consts.infra.harborImageRepo" }}stratosphere{{end}}
-{{- define "flogo-utilities.consts.infra.defaultImageRepo" }}stratosphere{{end}}
-
-
-{{- define "flogo-utilities.consts.flogo.jfrogImageRepo" }}tibco-platform-local-docker/flogo{{end}}
-{{- define "flogo-utilities.consts.flogo.ecrImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.flogo.acrImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.flogo.harborImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.flogo.defaultImageRepo" }}piap{{end}}
-
-{{- define "flogo-utilities.consts.integration.jfrogImageRepo" }}tibco-platform-local-docker/integration{{end}}
-{{- define "flogo-utilities.consts.integration.ecrImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.integration.acrImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.integration.harborImageRepo" }}piap{{end}}
-{{- define "flogo-utilities.consts.integration.defaultImageRepo" }}piap{{end}}
-
-{{- define "flogo-utilities.consts.plugins.jfrogImageRepo" }}tibco-platform-local-docker/flogo{{end}}
-{{- define "flogo-utilities.consts.plugins.ecrImageRepo" }}tci{{end}}
-{{- define "flogo-utilities.consts.plugins.acrImageRepo" }}tci{{end}}
-{{- define "flogo-utilities.consts.plugins.harborImageRepo" }}tci{{end}}
-{{- define "flogo-utilities.consts.plugins.defaultImageRepo" }}tci{{end}}
-
 {{- define "flogo-utilities.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogo-utilities.infra.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "flogo-utilities.image.registry" .) }} 
-    {{- include "flogo-utilities.consts.infra.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.infra.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.infra.harborImageRepo" .}}
-  {{- else }}
-    {{- include "flogo-utilities.consts.infra.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogo-utilities.flogo.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "flogo-utilities.image.registry" .) }} 
-    {{- include "flogo-utilities.consts.flogo.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.flogo.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.flogo.harborImageRepo" .}}
-  {{- else }}
-    {{- include "flogo-utilities.consts.flogo.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogo-utilities.integration.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "flogo-utilities.image.registry" .) }} 
-    {{- include "flogo-utilities.consts.integration.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.integration.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.integration.harborImageRepo" .}}
-  {{- else }}
-    {{- include "flogo-utilities.consts.integration.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogo-utilities.plugins.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "flogo-utilities.image.registry" .) }} 
-    {{- include "flogo-utilities.consts.plugins.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.plugins.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "flogo-utilities.image.registry" .) }}
-    {{- include "flogo-utilities.consts.plugins.harborImageRepo" .}}
-  {{- else }}
-    {{- include "flogo-utilities.consts.plugins.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 
