@@ -2971,6 +2971,51 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-integration
     apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:28:22.992253949Z"
+    dependencies:
+    - name: tp-cp-integration-common
+      repository: alias:tibco-platform
+      version: 1.3.5
+    - condition: tp-cp-integration-bwce.enabled
+      name: tp-cp-integration-bwce
+      repository: alias:tibco-platform
+      version: 1.3.19
+    - condition: tp-cp-integration-flogo.enabled
+      name: tp-cp-integration-flogo
+      repository: alias:tibco-platform
+      version: 1.3.12
+    - condition: tp-cp-integration-bw5.enabled
+      name: tp-cp-integration-bw5
+      repository: alias:tibco-platform
+      version: 1.3.22
+    - condition: tp-cp-integration-bw6.enabled
+      name: tp-cp-integration-bw6
+      repository: alias:tibco-platform
+      version: 1.3.32
+    - condition: tp-cp-bwce-utilities.enabled
+      name: tp-cp-bwce-utilities
+      repository: alias:tibco-platform
+      version: 1.3.13
+    - condition: tp-cp-flogo-utilities.enabled
+      name: tp-cp-flogo-utilities
+      repository: alias:tibco-platform
+      version: 1.3.20
+    description: TIBCO Platform Integration chart
+    digest: bb00f9c6b5625006f305a45909efec0b114883658a98cb351c43965aa3c5b4dc
+    keywords:
+    - tibco-platform
+    - platform
+    - integration
+    name: tp-cp-integration
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-1.3.80/tp-cp-integration-1.3.80.tgz
+    version: 1.3.80
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-integration
+    apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-21T08:43:09.092220035Z"
     dependencies:
@@ -3614,4 +3659,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-09-11T09:23:45.6469639Z"
+generated: "2024-09-11T09:28:22.992432214Z"
