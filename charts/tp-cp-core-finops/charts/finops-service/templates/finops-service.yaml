@@ -76,7 +76,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.finopsService | nindent 10 }}
         {{- end }}        
-        image: {{ include "finops-service.image.registry" .}}{{"/"}}{{ include "finops-service.image.repository" .}}{{"/tp-cp-finops-service"}}:{{ include "finops-service.generated.buildNumber" . }}
+        image: {{ include "finops-service.image.registry" .}}{{"/"}}{{ include "finops-service.image.repository" .}}{{"/tel-finops-service"}}:{{ include "finops-service.generated.buildNumber" . }}
         resources:
           requests:
             cpu: {{ .Values.finopsservice.resources.requests.cpu }}
@@ -217,7 +217,10 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: /private/finops/certificates/global-bundle.pem
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBSSLRootCert
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           valueFrom:
             configMapKeyRef:
@@ -228,11 +231,14 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: /private/finops/certificates/global-bundle.pem
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-service.consts.cp.db.configuration" . }}
+              key: DBSSLRootCert
         volumeMounts:
         - name: store-vol
-          mountPath: /private/finops/certificates
-          subPath: finops/certificates
+          mountPath: /private/tsc/certificates
+          subPath: tsc/certificates
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "finops-service.image.registry" .}}{{"/"}}{{ include "finops-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}

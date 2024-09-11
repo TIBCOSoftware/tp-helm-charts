@@ -84,7 +84,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.finopsWebServer | nindent 10 }}
         {{- end }}        
-        image: {{ include "finops-web-server.image.registry" .}}{{"/"}}{{ include "finops-web-server.image.repository" .}}{{"/tp-cp-finops-web-server"}}:{{ include "finops-web-server.generated.buildNumber" . }}
+        image: {{ include "finops-web-server.image.registry" .}}{{"/"}}{{ include "finops-web-server.image.repository" .}}{{"/tel-finops-web-server"}}:{{ include "finops-web-server.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -122,6 +122,11 @@ spec:
             configMapKeyRef:
               name: {{ include "finops-web-server.tp-finops-dnsdomains-configmap" . }}
               key: TP_CP_USER_SUBSCRIPTIONS_HOST
+        - name: TP_CP_ORCHESTRATOR_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "finops-web-server.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_ORCHESTRATOR_HOST
         - name: TP_CP_FINOPS_SERVICE_HOST
           valueFrom:
             configMapKeyRef:
@@ -198,6 +203,33 @@ spec:
             name: {{ include "finops-web-server.consts.appName" . }}-fluentbit-config
 {{- end }}
 
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "finops-web-server.consts.appName" . }}
+  namespace: {{ include "finops-web-server.consts.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "finops-web-server.consts.appName" . }}
+  minReplicas: {{ .Values.replicaCount }}
+  maxReplicas: {{ add 2 .Values.replicaCount }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.cpu }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.memory }}
 
 ---
 

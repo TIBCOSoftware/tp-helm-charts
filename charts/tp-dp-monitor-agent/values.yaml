@@ -5,6 +5,12 @@
 replicaCount: "1"
 global:
   LOG_LEVEL: debug
+  tibco:
+    logging:
+      fluentbit:
+        image:
+          name: "common-fluentbit"
+          tag: 3.1.4
   cp:
     dataplaneId: "abcd"
     subscriptionId: "sub1"
@@ -47,3 +53,11 @@ securityContext:
     capabilities:
       drop:
         - ALL
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
