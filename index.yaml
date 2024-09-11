@@ -58,6 +58,20 @@ entries:
     version: 1.0.24
   bwprovisioner:
   - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:43.955055665Z"
+    description: TIBCO Platform Dataplane Capabilty -- BW Provisioner
+    digest: cc2579484813dc3d1b9c364e58cbda8a634f487ac4bf402bdc975e4cdfd21c6c
+    home: https://github.com/tibco/tp-iapp-bw-provisioner.git
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO Platform Dev Team
+    name: bwprovisioner
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/bwprovisioner-1.3.13/bwprovisioner-1.3.13.tgz
+    version: 1.3.13
+  - apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-20T16:26:14.452801289Z"
     description: TIBCO Platform Dataplane Capabilty -- BW Provisioner
@@ -151,6 +165,31 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/distributed-lock-operator-1.0.75/distributed-lock-operator-1.0.75.tgz
     version: 1.0.75
+  dp-bw-adapter:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:44.161031447Z"
+    description: TIBCO Platform Bare-metal Dataplane Capabilty -- BW Adapter
+    digest: 40f87f863f39448ca6e08ed848af44181c5834d9643084a9d559e4fcc354a6d7
+    home: https://github.com/tibco/tp-iapp-bw-adapter.git
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO Platform Dev Team
+    name: dp-bw-adapter
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-bw-adapter-1.3.10/dp-bw-adapter-1.3.10.tgz
+    version: 1.3.10
+  dp-bwce-mon:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:44.373211044Z"
+    description: TIBCO Platform Dataplane Capabilty -- BWCE Monitoring
+    digest: fdcbd636576a97724c8a3544c99ad0103826bc4b855692133ced195fd0b4322a
+    name: dp-bwce-mon
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-bwce-mon-1.3.14/dp-bwce-mon-1.3.14.tgz
+    version: 1.3.14
   dp-config-aks:
   - annotations:
       artifacthub.io/changes: |
@@ -2329,6 +2368,22 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-bwce-recipes
     apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:44.548231433Z"
+    description: TIBCO Platform BusinessWorks Data Plane recipes
+    digest: 14ee85ae30ed2475920bae4e8b87a359cbcf461a43488554a23c4f40989914b8
+    keywords:
+    - tibco-platform
+    - control-plane
+    name: tp-cp-bwce-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bwce-recipes-1.3.35/tp-cp-bwce-recipes-1.3.35.tgz
+    version: 1.3.35
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-bwce-recipes
+    apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-20T16:26:14.703462982Z"
     description: TIBCO Platform BusinessWorks Data Plane recipes
@@ -2342,6 +2397,20 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bwce-recipes-1.2.14/tp-cp-bwce-recipes-1.2.14.tgz
     version: 1.2.14
   tp-cp-bwce-utilities:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:44.760009458Z"
+    dependencies:
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane -- BWCE Utilities
+    digest: 6b5c44100998e1cb5371c2fca94a0badd6e13d8f7fdaaaee9119d4c7c467ee80
+    name: tp-cp-bwce-utilities
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bwce-utilities-1.3.13/tp-cp-bwce-utilities-1.3.13.tgz
+    version: 1.3.13
   - apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-20T16:26:14.884041539Z"
@@ -2941,6 +3010,20 @@ entries:
     version: 1.2.36
   tp-cp-integration-bw5:
   - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:44.980506852Z"
+    dependencies:
+    - condition: bw5-webserver.enabled
+      name: bw5-webserver
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane -- BW5 Integration
+    digest: 2c213be0a78841b9ce25679f9074ef94a119c1006ac173291358671f142a7678
+    name: tp-cp-integration-bw5
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-bw5-1.3.22/tp-cp-integration-bw5-1.3.22.tgz
+    version: 1.3.22
+  - apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-20T16:26:15.100399917Z"
     dependencies:
@@ -2954,7 +3037,36 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-bw5-1.2.17/tp-cp-integration-bw5-1.2.17.tgz
     version: 1.2.17
+  tp-cp-integration-bw6:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:45.206383553Z"
+    dependencies:
+    - condition: bw6-webserver.enabled
+      name: bw6-webserver
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane -- BW6 Integration
+    digest: d5ad5fe000a4888c35101ab25e62ce5d414d1600b7a815e34495da2975ce939f
+    name: tp-cp-integration-bw6
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-bw6-1.3.32/tp-cp-integration-bw6-1.3.32.tgz
+    version: 1.3.32
   tp-cp-integration-bwce:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:45.440174855Z"
+    dependencies:
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane -- Integration for BWCE
+    digest: 25c5932ddcd7898d2074b914d2549c1f72047b604ef9a906f6389ed2d1d220a3
+    name: tp-cp-integration-bwce
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-bwce-1.3.19/tp-cp-integration-bwce-1.3.19.tgz
+    version: 1.3.19
   - apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-20T16:26:15.298429248Z"
@@ -2970,6 +3082,20 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-bwce-1.2.21/tp-cp-integration-bwce-1.2.21.tgz
     version: 1.2.21
   tp-cp-integration-common:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2024-09-11T09:23:45.646690631Z"
+    dependencies:
+    - condition: fileserver.enabled
+      name: fileserver
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane -- Integration Common
+    digest: dd31f1d30ea881ed66b2b34cb72fc4c76a89b7e904c24381d8c2543598c30826
+    name: tp-cp-integration-common
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-common-1.3.5/tp-cp-integration-common-1.3.5.tgz
+    version: 1.3.5
   - apiVersion: v2
     appVersion: 1.2.0
     created: "2024-05-20T16:26:15.491539761Z"
@@ -3488,4 +3614,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-09-11T09:07:33.65437662Z"
+generated: "2024-09-11T09:23:45.6469639Z"
