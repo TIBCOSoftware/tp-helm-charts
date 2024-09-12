@@ -68,13 +68,6 @@ app.kubernetes.io/part-of: {{ include "dp-oauth2proxy-recipes.part-of" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-
-{{- define "dp-oauth2proxy-recipes.consts.jfrogImageRepo" }}tibco-platform-local-docker/core{{end}}
-{{- define "dp-oauth2proxy-recipes.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "dp-oauth2proxy-recipes.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "dp-oauth2proxy-recipes.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "dp-oauth2proxy-recipes.consts.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "dp-oauth2proxy.image.registry" }}
   {{- if .Values.image.registry }} 
     {{- .Values.image.registry }}
@@ -85,17 +78,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "dp-oauth2proxy.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "dp-oauth2proxy.image.registry" .) }} 
-    {{- include "dp-oauth2proxy-recipes.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "dp-oauth2proxy.image.registry" .) }}
-    {{- include "dp-oauth2proxy-recipes.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "dp-oauth2proxy.image.registry" .) }}
-    {{- include "dp-oauth2proxy-recipes.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "dp-oauth2proxy-recipes.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 
