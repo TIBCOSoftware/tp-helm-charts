@@ -15,10 +15,13 @@ metadata:
 {{- end }}
   name: {{ template "oauth2-proxy.fullname" . }}
   namespace: {{ template "oauth2-proxy.namespace" $ }}
-{{- with .Values.ingress.annotations }}
   annotations:
-{{ toYaml . | indent 4 }}
-{{- end }}
+  {{- with .Values.global.cp.resources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.ingress.annotations }}
+    {{ toYaml . | indent 4 }}
+  {{- end }}
 spec:
   {{- if and .Values.ingress.className ( eq "true" ( include "ingress.supportsIngressClassName" . ) ) }}
   ingressClassName: {{ .Values.ingress.className | quote }}

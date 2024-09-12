@@ -71,10 +71,10 @@ alphaConfig:
   existingSecret: ~
 
 image:
-  repository: "quay.io/oauth2-proxy/oauth2-proxy"
-  # appVersion is used by default
-  tag: ""
+  name: core-tp-oauth-proxy
+  tag: "v1.3.4"
   pullPolicy: "IfNotPresent"
+  # appVersion is used by default
 
 # Optionally specify an array of imagePullSecrets.
 # Secrets must be manually created in the namespace.
@@ -98,7 +98,7 @@ extraArgs:
   upstream: "static://202"
   reverse-proxy: true
   skip-jwt-bearer-tokens: true
-  skip-provider-button: true
+  skip-provider-button: false
   scope: openid email profile TSC
   footer: "Secured by TIBCO Platform"
 
@@ -424,14 +424,6 @@ extraObjects: []
   #       secretName: oauth2-proxy-secrets-store
   #       type: Opaque
 
-tibco:
-  initContainer:
-    image: alpine
-    tag: 3.18
-  loggerContainer:
-    image: fluentbit
-    tag: 2.1.6
-
 global:
   idm:
     svc:
@@ -444,6 +436,7 @@ global:
     instanceId: ""   # CAPABILITY INSTANCE ID
     containerRegistry:
       url: "reldocker.tibco.com"
+      repository: "tibco-platform-docker-prod"
     #  secret: "abcd"
     capability:
       pathPrefix: "/"    # PATH PREFIX FOR CAPABILITY
@@ -452,12 +445,23 @@ global:
     #     serviceAccountName: ""  # SA NAME
       ingress:
         fqdn: ""    # CAPABILITY FQDN
-        ingressClassName: ""  # INGRESS CLASS NAME
+        ingressClassName: ""    # INGRESS CLASS NAME
+        ingressController: ""    # INGRESS CONTROLLER NAME
     secrets:
       # iat : Control Plane Authentication
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
       iat: ""  # initial access token used to generate client credentials
+    proxy:
+      httpProxy: ""     # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpsProxy: ""
+      noProxy: ""       # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
+
+    initContainer:
+      alpine:
+        image:
+          name: core-alpine-curl-jq
+          tag: "1"
 
     # The fluentbit configuration section.
     # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -467,6 +471,9 @@ global:
 
     logging:
       fluentbit:
+        image:
+          name: common-fluentbit
+          tag: "3.1.4"
         enabled: true
         resources:
           requests:

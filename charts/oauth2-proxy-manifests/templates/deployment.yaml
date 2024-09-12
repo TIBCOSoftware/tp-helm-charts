@@ -64,9 +64,24 @@ spec:
 
       initContainers:
       - name: generate-oauth2-proxy-secret
-        image: "{{ template "tibco.image.repository.alpine" .}}"
+        image: {{ .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.global.cp.initContainer.alpine.image.name }}:{{ .Values.global.cp.initContainer.alpine.image.tag }}
         command: [ "/bin/sh", "-c", "source /etc/config/script/iat_to_clienid.sh && initialize" ]
         # command: [ "/bin/sh", "-c", "sleep 6400000" ]
+        env:
+          {{- with .Values.global.cp.proxy }}
+          {{- if .httpProxy }}
+          - name: http_proxy
+            value: {{ .httpProxy }}
+          {{- end }}
+          {{- if .httpsProxy }}
+          - name: https_proxy
+            value: {{ .httpsProxy }}
+          {{- end }}
+          {{- if .noProxy }}
+          - name: no_proxy
+            value: {{ .noProxy | quote }}
+          {{- end }}
+          {{- end }}
         volumeMounts:
         - name: shell-script-volume
           mountPath: /etc/config/script/iat_to_clienid.sh
@@ -74,7 +89,7 @@ spec:
       containers:
 {{- if (((.Values.global.cp).logging).fluentbit).enabled }}
       - name: fluentbit
-        image: "{{ template "tibco.image.repository.fluentbit" .}}"
+        image: {{ .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}
         {{- if .Values.global.cp.logging.fluentbit.securityContext }}
         securityContext:
           {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 10 }}
@@ -119,8 +134,7 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}       
       - name: {{ .Chart.Name }}
-        image: "{{ template "tibco.image.repository.oauth2proxy" .}}:v{{ include "oauth2-proxy.version" . }}"
-
+        image: {{ .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         {{- if .Values.alphaConfig.enabled }}
@@ -240,6 +254,20 @@ spec:
               {{- end }}
               key: {{ .Values.sessionStorage.redis.sentinel.passwordKey }}
         {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.global.cp.proxy }}
+        {{- if .httpProxy }}
+        - name: http_proxy
+          value: {{ .httpProxy }}
+        {{- end }}
+        {{- if .httpsProxy }}
+        - name: https_proxy
+          value: {{ .httpsProxy }}
+        {{- end }}
+        {{- if .noProxy }}
+        - name: no_proxy
+          value: {{ .noProxy | quote }}
         {{- end }}
         {{- end }}
         {{- if .Values.extraEnv }}
