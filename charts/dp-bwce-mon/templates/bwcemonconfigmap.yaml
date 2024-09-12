@@ -1,0 +1,14 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "dp-bwce-mon.labels" . | nindent 4 }}
+  name: {{ include "dp-bwce-mon.fullname" . }}-config
+data:
+  {{- include "dp-bwce-mon.bwcemonConfig" . | nindent 2 }}
+{{- end }}

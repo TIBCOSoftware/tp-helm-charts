@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -37,8 +37,10 @@ spec:
           image: {{ include "bwce-utilities.image.registry" .}}{{"/"}}{{ include "bwce-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           {{- with $.Values.securityContext }}
           securityContext:
-          {{- toYaml $.Values.securityContext | nindent 10 }}
+          {{- toYaml $.Values.securityContext | nindent 12 }}
           {{- end }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
           command:
             - "sh"
             - "-c"
@@ -69,6 +71,8 @@ spec:
                   bwceversion=$(echo "$d")
                   bwceversionStr=$bwceversionStr"   {"
                   bwceversionStr=$bwceversionStr"   \"Version\": \"${bwceversion%%/*}\","
+                  bwceversionStr=$bwceversionStr"   \"Name\": \"TIBCO Business Studio for BusinessWorks ™\","
+                  bwceversionStr=$bwceversionStr"   \"Description\": \"Accelerate application development with a model-driven Eclipse IDE where you can visually design, test and deploy TIBCO BusinessWorks processes. Use TIBCO Business Studio for rapid end-to-end API development, service orchestration, complex data transformations and cloud-based application integration.\","
                   bwceversionStr=$bwceversionStr"   \"Platforms\": ["
                   platformStr=""
                   for platform in $(ls "$bwceversion") ; do

@@ -26,7 +26,7 @@ containers:
     {{- if .Values.image.digest }}
     image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
     {{- else }}
-    image: "{{ include "finops-otel-collector.image.registry" .}}{{"/"}}{{ include "finops-otel-collector.image.repository" .}}{{"/"}}opentelemetry-collector-contrib:{{ .Values.image.tag | default .Chart.AppVersion }}"
+    image: "{{ include "finops-otel-collector.image.registry" .}}{{"/"}}{{ include "finops-otel-collector.image.repository" .}}{{"/"}}o11y-opentelemetry-collector-contrib:{{ .Values.image.tag | default .Chart.AppVersion }}"
     {{- end }}
     imagePullPolicy: {{ .Values.image.pullPolicy }}
     
@@ -49,7 +49,7 @@ containers:
       {{- end }}
       {{- if and (.Values.useGOMEMLIMIT) ((((.Values.resources).limits).memory))  }}
       - name: GOMEMLIMIT
-        value: {{ div (mul (include "finops-otel-collector.convertMemToMib" .Values.resources.limits.memory) 80) 100 }}MiB
+        value: {{ include "otel-collector.gomemlimit" .Values.resources.limits.memory | quote }}
       {{- end }}
       {{- with .Values.extraEnvs }}
       {{- . | toYaml | nindent 6 }}

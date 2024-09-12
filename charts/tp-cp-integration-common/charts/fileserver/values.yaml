@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -38,7 +38,7 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: 1.26.0-alpine
-  name: nginx
+  name: integration-nginx
 
 nameOverride: ""
 
@@ -74,8 +74,8 @@ service:
 
 resources:
   requests:
-    cpu: "50m"
-    memory: "128Mi"
+    cpu: "300m"
+    memory: "700Mi"
   limits:
     cpu: "500m"
     memory: "1024Mi"

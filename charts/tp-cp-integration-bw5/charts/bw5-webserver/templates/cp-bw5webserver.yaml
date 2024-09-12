@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -25,14 +25,8 @@ spec:
     metadata:
       labels:
         {{- include "bw5-webserver.shared.labels.standard" . | nindent 8 }}
-        egress.networking.cloud.tibco.com/internet-web: enable
-        egress.networking.cloud.tibco.com/router-intercom: enable
-        ingress.networking.cloud.tibco.com/tiblet-all: enable
-        egress.networking.cloud.tibco.com/compute-services: enable
-        egress.networking.cloud.tibco.com/hybrid-server: enable
-        egress.networking.cloud.tibco.com/monitoring-service: enable
-        egress.networking.cloud.tibco.com/hawk-service: enable
-        egress.networking.cloud.tibco.com/open-telemetry-collector: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
 {{- if .Values.global.enableLogging }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -62,7 +56,7 @@ spec:
       {{- end }}
       containers:
       - name: tp-iapp-bw5-server
-        image: {{ include "bw5-webserver.image.registry" . }}{{"/"}}{{ include "bw5-webserver.bwce.image.repository" . }}{{"/"}}tp-iapp-bw5-webserver:{{ .Values.global.cic.data.BW5_WEBSERVER_IMAGE_TAG }}
+        image: {{ include "bw5-webserver.image.registry" . }}{{"/"}}{{ include "bw5-webserver.bwce.image.repository" . }}{{"/"}}tp-bw5-webserver:{{ .Values.global.cic.data.BW5_WEBSERVER_IMAGE_TAG }}
         imagePullPolicy: IfNotPresent
         {{- with $.Values.securityContext }}
         securityContext:
@@ -130,6 +124,16 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_DNS_DOMAIN
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
         - name: HTTP_REQUEST_TIMEOUT
           value: "120000"
         - name: IDLE_TIME_SECONDS

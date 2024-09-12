@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -25,12 +25,8 @@ spec:
     metadata:
       labels:
         {{- include "bw-webserver.shared.labels.standard" . | nindent 8 }}
-        egress.networking.cloud.tibco.com/internet-web: enable
-        egress.networking.cloud.tibco.com/router-intercom: enable
-        ingress.networking.cloud.tibco.com/tiblet-all: enable
-        egress.networking.cloud.tibco.com/compute-services: enable
-        egress.networking.cloud.tibco.com/hybrid-server: enable
-        egress.networking.cloud.tibco.com/open-telemetry-collector: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
 {{- if eq (include "bw-webserver.cp-logging-fluentbit-enabled" .) "true" }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -60,7 +56,7 @@ spec:
       terminationGracePeriodSeconds: 15
       containers:
       - name: tp-iapp-bw-server
-        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}tp-iapp-bw-webserver:{{ .Values.global.cic.data.BW_WEBSERVER_IMAGE_TAG }}
+        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}tp-bwce-webserver:{{ .Values.global.cic.data.BW_WEBSERVER_IMAGE_TAG }}
         imagePullPolicy: IfNotPresent
         {{- if $.Values.securityContext }}
         securityContext:
@@ -104,6 +100,16 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_DNS_DOMAIN
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
           valueFrom:
             configMapKeyRef:

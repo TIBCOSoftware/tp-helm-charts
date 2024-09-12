@@ -8,60 +8,18 @@ in the license file that is distributed with this file.
 Return the proper image name
 */}}
 
-{{- define "backstage.image" -}}
-{{- $CPImageValues := dict "registry" "reldocker.tibco.com" -}}
-    {{- if .Values.global.cp -}}
-    {{- $CPImageValues = dict "registry" (.Values.global.cp.containerRegistry.url | default "reldocker.tibco.com") -}}
-    {{- $imageRoot := merge .Values.backstage.image $CPImageValues -}}
-        {{ if (hasSuffix ".jfrog.io" $imageRoot.registry) }}
-        {{- $imageRoot = merge (dict "repository" .Values.backstage.image.jfrogRepository) $imageRoot -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot  "global" .Values.global) }}
-        {{- else -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot "global" .Values.global) }}
-        {{- end -}}
-    {{- end -}}
+{{- define "backstage.image.registry" }}
+  {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
 
-{{- define "fluentbit.image" -}}
-{{- $CPImageValues := dict "registry" "reldocker.tibco.com" -}}
-    {{- if .Values.global.cp -}}
-    {{- $CPImageValues = dict "registry" (.Values.global.cp.containerRegistry.url | default "reldocker.tibco.com") -}}
-    {{- $imageRoot := merge .Values.fluentbit.image $CPImageValues -}}
-        {{ if (hasSuffix ".jfrog.io" $imageRoot.registry) }}
-        {{- $imageRoot = merge (dict "repository" .Values.fluentbit.image.jfrogRepository) $imageRoot -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot  "global" .Values.global) }}
-        {{- else -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot "global" .Values.global) }}
-        {{- end -}}
-    {{- end -}}
+{{/* set repository based on the registry url. We will have different repo for each one. */}}
+{{- define "backstage.image.repository" -}}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
+
 
 {{- define "postgresql.image" -}}
-{{- $CPImageValues := dict "registry" "reldocker.tibco.com" -}}
-    {{- if .Values.global.cp -}}
-    {{- $CPImageValues = dict "registry" (.Values.global.cp.containerRegistry.url | default "reldocker.tibco.com") -}}
-    {{- $imageRoot := merge .Values.image $CPImageValues -}}
-        {{ if (hasSuffix ".jfrog.io" $imageRoot.registry) }}
-        {{- $imageRoot = merge (dict "repository" .Values.image.jfrogRepository) $imageRoot -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot  "global" .Values.global) }}
-        {{- else -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot "global" .Values.global) }}
-        {{- end -}}
-    {{- end -}}
-{{- end -}}
-
-{{- define "postgresql.initContainer.image" -}}
-{{- $CPImageValues := dict "registry" "reldocker.tibco.com" -}}
-    {{- if .Values.global.cp -}}
-    {{- $CPImageValues = dict "registry" (.Values.global.cp.containerRegistry.url | default "reldocker.tibco.com") -}}
-    {{- $imageRoot := merge .Values.initContainer.image $CPImageValues -}}
-        {{ if (hasSuffix ".jfrog.io" $imageRoot.registry) }}
-        {{- $imageRoot = merge (dict "repository" .Values.initContainer.image.jfrogRepository) $imageRoot -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot  "global" .Values.global) }}
-        {{- else -}}
-        {{ include "common.images.image" (dict "imageRoot" $imageRoot "global" .Values.global) }}
-        {{- end -}}
-    {{- end -}}
+  {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
 {{- end -}}
 
 {{/*

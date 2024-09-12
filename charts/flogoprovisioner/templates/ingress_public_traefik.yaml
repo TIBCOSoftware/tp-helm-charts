@@ -1,0 +1,69 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.publicApi.ingress.controllerName "traefik" -}}
+{{- $fullName := include "flogoprovisioner.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-oauth-errors@kubernetescrd,{{ .Release.Namespace }}-{{ $fullName }}-forward-auth@kubernetescrd,{{ .Release.Namespace }}-{{ $fullName }}-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $fullName }}-public-traefik
+spec:
+  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  rules:
+  - host: {{ .Values.publicApi.ingress.config.fqdn }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ $.Values.publicApiService.targetPort }}
+        path: {{ .Values.publicApi.ingress.config.pathPrefix }}/
+        pathType: Prefix
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-strip-prefix
+spec:
+  stripPrefix:
+    prefixes:
+    - {{ .Values.publicApi.ingress.config.pathPrefix }}/
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-forward-auth
+spec:
+  forwardAuth:
+    address: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/auth
+    authResponseHeaders:
+    - X-Auth-Request-User
+    - X-Auth-Request-Email
+    - X-Forwarded-Access-Token
+    - X-Auth-Request-Access-Token
+    - X-Atmosphere-Token
+    trustForwardHeader: true
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-oauth-errors
+spec:
+  errors:
+    query: {{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/sign_in?rd={url}
+    service:
+      name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
+      port: 80
+    status:
+    - "401"
+{{- end }}

@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -15,7 +15,7 @@ global:
       SYSTEM_INSTALLATION_NAME: "tibco"
       SYSTEM_CLUSTER_ID: "cic"
       SYSTEM_AWS_ACCOUNT_ID: ""
-      BW5_WEBSERVER_IMAGE_TAG: "69"
+      BW5_WEBSERVER_IMAGE_TAG: "92"
   cp:
     data:
   external:
@@ -30,8 +30,8 @@ global:
 
   fluentbit:
     image:
-      name: "fluent-bit"
-      tag: "3.0.2"
+      name: "common-fluentbit"
+      tag: "3.1.4"
     securityContext:
       runAsNonRoot: false
       runAsUser: 0
@@ -91,10 +91,10 @@ bw5webserver:
   resources:
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 700Mi
     limits:
-      cpu: 500m
-      memory: 4Gi
+      cpu: "1"
+      memory: 1024Mi
 fluentbit:
   resources:
     requests:

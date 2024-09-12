@@ -68,19 +68,6 @@ app.kubernetes.io/part-of: {{ include "tp-cp-tibcohub-contrib.part-of" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-
-{{- define "tp-cp-tibcohub-contrib.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.defaultImageRepo" }}stratosphere{{end}}
-
-{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.jfrogImageRepo" }}tibco-platform-local-docker/dx{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.ecrImageRepo" }}pdx{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.acrImageRepo" }}pdx{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.harborImageRepo" }}pdx{{end}}
-{{- define "tp-cp-tibcohub-contrib.consts.tibcoHub.defaultImageRepo" }}pdx{{end}}
-
 {{- define "tp-cp-tibcohub-contrib.image.registry" }}
   {{- if .Values.image.registry }} 
     {{- .Values.image.registry }}
@@ -91,34 +78,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-cp-tibcohub-contrib.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "tp-cp-tibcohub-contrib.image.registry" .) }} 
-    {{- include "tp-cp-tibcohub-contrib.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-cp-tibcohub-contrib.image.registry" .) }}
-    {{- include "tp-cp-tibcohub-contrib.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-cp-tibcohub-contrib.image.registry" .) }}
-    {{- include "tp-cp-tibcohub-contrib.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-cp-tibcohub-contrib.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
-
-{{/* set repository based on the registry url. We will have different repo for each one. */}}
-{{- define "tp-cp-tibcohub-contrib.tibcoHub.image.repository" -}}
-  {{- if .Values.image.repo }} 
-    {{- .Values.image.repo }}
-  {{- else if contains "jfrog.io" (include "tp-cp-tibcohub-contrib.image.registry" .) }} 
-    {{- include "tp-cp-tibcohub-contrib.consts.tibcoHub.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-cp-tibcohub-contrib.image.registry" .) }}
-    {{- include "tp-cp-tibcohub-contrib.consts.tibcoHub.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-cp-tibcohub-contrib.image.registry" .) }}
-    {{- include "tp-cp-tibcohub-contrib.consts.tibcoHub.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-cp-tibcohub-contrib.consts.tibcoHub.defaultImageRepo" .}}
-  {{- end }}
-{{- end -}}
-
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
 {{- define "cp-env" -}}

@@ -22,12 +22,8 @@ spec:
     metadata:
       labels:
         {{- include "flogo-webserver.shared.labels.standard" . | nindent 8 }}
-        egress.networking.cloud.tibco.com/internet-web: enable
-        egress.networking.cloud.tibco.com/router-intercom: enable
-        ingress.networking.cloud.tibco.com/tiblet-all: enable
-        egress.networking.cloud.tibco.com/compute-services: enable
-        egress.networking.cloud.tibco.com/hybrid-server: enable
-        egress.networking.cloud.tibco.com/open-telemetry-collector: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
       {{- if eq (include "flogo-webserver.cp-logging-fluentbit-enabled" .) "true" }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -61,7 +57,7 @@ spec:
         {{- end }}
       containers:
       - name: tp-iapp-flogo-server
-        image: {{ include "flogo-webserver.image.registry" . }}{{"/"}}{{ include "flogo-webserver.image.repository" . }}{{"/"}}tp-iapp-flogo-webserver:{{ .Values.image.tag }}
+        image: {{ include "flogo-webserver.image.registry" . }}{{"/"}}{{ include "flogo-webserver.image.repository" . }}{{"/"}}tp-flogo-webserver:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
