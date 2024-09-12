@@ -1,0 +1,38 @@
+# vCluster 0.19 file contents
+sync:
+# sync real nodes to the virtual cluster where virtual cluster pods are running
+# this is for installing kube-metrics-server & also for enabling hostpath mapping
+ nodes:
+   enabled: true
+   syncAllNodes: true
+# this is needed so that nginx of host cluster can access ingresses of vCluster
+ ingresses:
+   enabled: true
+ ingressclasses:
+   enabled: false
+
+syncer:
+ extraArgs:
+ # this is needed for hostPath mapping
+   - --mount-physical-host-paths=true
+ # allocated more resources to syncer to make the performance better
+ resources:
+   limits:
+     ephemeral-storage: 8Gi
+     memory: 4Gi
+   requests:
+     ephemeral-storage: 400Mi
+     cpu: 100m
+     memory: 512Mi
+
+# the below settings are for using eks flavour of k8s (otherwise, for sending emails we need to add SES permissions to the node IAM role)
+etcd:
+ image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6
+controller:
+ image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
+api:
+ image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
+# to annotate vcluster service account with IAM role having SES permissions
+workloadServiceAccount:
+ annotations:
+   eks.amazonaws.com/role-arn: "arn:aws:iam::123576567868:role/vcluster-ses"  # modify this IAM role with your IAM role details
