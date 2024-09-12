@@ -1,0 +1,31 @@
+extraScrapeConfigs: |
+  - job_name: otel-collector
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: pod
+    relabel_configs:
+    - action: keep
+      regex: "true"
+      source_labels:
+      - __meta_kubernetes_pod_label_prometheus_io_scrape
+    - action: keep
+      regex: "infra"
+      source_labels:
+      - __meta_kubernetes_pod_label_platform_tibco_com_workload_type
+    - action: keepequal
+      source_labels: 
+      - __meta_kubernetes_pod_container_port_number
+      target_label: __meta_kubernetes_pod_label_prometheus_io_port
+    - action: replace
+      regex: ([^:]+)(?::\d+)?;(\d+)
+      replacement: $1:$2
+      source_labels:
+      - __address__
+      - __meta_kubernetes_pod_label_prometheus_io_port
+      target_label: __address__
+    - action: replace
+      source_labels: 
+      - __meta_kubernetes_pod_label_prometheus_io_path
+      target_label: __metrics_path__
+      regex: (.+)
+      replacement: /$1

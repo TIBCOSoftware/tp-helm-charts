@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+  name: nginx-elastic
+  namespace: elastic
+spec:
+  ingressClassName: %%REPLACE_WITH_YOUR_INGRESS_CLASS_NAME%%
+  rules:
+  - host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+    http:
+      paths:
+      - backend:
+          service:
+            name: elasticsearch-master
+            port:
+              number: 9200
+        path: /o11y/traces-server(/|$)(.*)
+        pathType: ImplementationSpecific

@@ -15,8 +15,8 @@ RUN apk add --no-cache \
     libc-dev \
     libffi-dev \
     openssl-dev \
-    && curl https://awscli.amazonaws.com/awscli-${AWS_CLI_VERSION:-2.13.28}.tar.gz | tar -xz \
-    && cd awscli-${AWS_CLI_VERSION:-2.13.28} \
+    && curl https://awscli.amazonaws.com/awscli-${AWS_CLI_VERSION:-2.15.32}.tar.gz | tar -xz \
+    && cd awscli-${AWS_CLI_VERSION:-2.15.32} \
     && ./configure --prefix=/opt/aws-cli/ --with-download-deps \
     && make \
     && make install
@@ -39,10 +39,11 @@ RUN apk add --no-cache --update python3 py3-pip && \
 FROM alpine:3.19
 
 ARG EKSCTL_VERSION
+ARG KUBECTL_VERSION
 ARG TARGETOS TARGETARCH
 
 # base packages
-RUN apk add --no-cache --upgrade coreutils util-linux gettext bash curl wget envsubst jq openssl git python3 yq kubectl helm && rm -rf /var/cache/apk/*
+RUN apk add --no-cache --upgrade coreutils util-linux gettext bash curl wget envsubst jq openssl git python3 yq helm && rm -rf /var/cache/apk/*
 
 # COPY AWSCLI V2 to BASE_IMAGE
 COPY --from=builder-aws /opt/aws-cli/ /opt/aws-cli/
@@ -52,16 +53,21 @@ RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws
 COPY --from=builder-azure /azure /azure
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /usr/local/bin/az
 
-RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.176.0"; } && \
+RUN { [ -n "${KUBECTL_VERSION}" ] || KUBECTL_VERSION="1.30.2"; } && \
+    echo "KUBECTL_VERSION=${KUBECTL_VERSION}" && \
+    curl -sLO https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl && \
+    chmod +x ./kubectl && mv -f ./kubectl /usr/local/bin/kubectl && \
+    kubectl version --client=true
+
+RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.181.0"; } && \
     echo "EKSCTL_VERSION=${EKSCTL_VERSION}" && \
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/v${EKSCTL_VERSION}/eksctl_$(uname -s)_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/eksctl && mv /tmp/eksctl /usr/local/bin/eksctl && \
     eksctl version
 
 # copy directories
-COPY ["cp-cluster", "/home/workshop/cp-cluster/"]
-COPY ["dp-cluster", "/home/workshop/dp-cluster/"]
-COPY ["scripts", "/home/workshop/scripts/"]
+COPY ["eks", "/home/workshop/eks/"]
+COPY ["aks", "/home/workshop/aks/"]
 
 WORKDIR /home/workshop
 
