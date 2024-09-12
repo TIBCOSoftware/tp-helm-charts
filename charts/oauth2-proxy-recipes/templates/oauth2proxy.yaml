@@ -12,7 +12,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.2.0",
+      "capabilityVersion": "1.3.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.oauth2proxy.releaseDate | quote }},
@@ -25,32 +25,45 @@ data:
     recipe:
       helmCharts:
       - name: oauth2-proxy
+        namespace: ${NAMESPACE}
+        version: {{ .Values.capabilities.oauth2proxy.version | quote }}
+        repository:
+          chartMuseum:
+            host: ${HELM_REPO}
         flags:
           install: true
           createNamespace: false
           dependencyUpdate: true
         values:
-          - content: "global:     #global section can be removed once CP is having these
-          values passed down through capability\n  cp:\n    cpHostName: \"${CP_HOST_NAME}\"\n
-          \   instanceId: \"${CP_CAPABILITY_INSTANCE_ID}\"\n    capability:\n      pathPrefix:
-          \"${CAPABILITY_PATH_PREFIX}\"\n    resources:\n      ingress:\n        fqdn:
-          \"${INGRESS_FQDN}\"\n        ingressClassName: \"${INGRESS_CLASSNAME}\"\n
-          \       secrets:\n          iat: \"${SECRETS_IAT}\"\nserviceAccount:\n  enabled:
-          false\n  name: ${SERVICE_ACCOUNT_NAME}   #CP global var? \nimage:\n  repository:
-          \"${IMAGE_REPOSITORY}/stratosphere/tp-oauth-proxy\"\n  tag: \"v1.2.2\"\nconfig:\n
-          \ existingSecret: \"oauth2proxy-${CP_CAPABILITY_INSTANCE_ID}\" ### can be
-          the release name to make it unique\nextraArgs:\n  oidc-issuer-url: \"https://${CP_HOST_NAME}\"\n
-          \ cookie-path: ${CAPABILITY_PATH_PREFIX}      ### ${global.cp.capability.pathPrefix}\n
-          \ proxy-prefix: ${CAPABILITY_PATH_PREFIX}/oauth2   ### ${global.cp.capability.pathPrefix}/oauth2\ningress:\n
-          \ className: ${INGRESS_CLASSNAME} ### ${global.cp.resources.ingress.ingressClassName}\n
-          \ hosts: \n    - ${INGRESS_FQDN} ### ${global.cp.resources.ingress.fqdn}\n
-          \ path: \"${CAPABILITY_PATH_PREFIX}/oauth2\" ### ${global.cp.capability.pathPrefix}/oauth2\nenableLogging:
-          true\n"
-        version: {{ .Values.capabilities.oauth2proxy.version | quote }}
-        namespace: "${NAMESPACE}"
-        repository:
-          chartMuseum:
-            host: "${HELM_REPO}"
+        - content: |
+            global:
+              cp:
+                cpHostname: ${CP_HOST_NAME}
+                instanceId: ${CP_CAPABILITY_INSTANCE_ID}
+                capability:
+                  pathPrefix: ${CAPABILITY_PATH_PREFIX}
+                  ingress:
+                    fqdn: ${INGRESS_FQDN}
+                    ingressClassName: ${INGRESS_CLASSNAME}
+                secrets:
+                  iat: ${SECRETS_IAT}
+            serviceAccount:
+              enabled: false
+              name: ${SERVICE_ACCOUNT_NAME}
+            image:
+              tag: {{ .Values.capabilities.oauth2proxy.tag | quote }}
+            config:
+              existingSecret: oauth2proxy-${CP_CAPABILITY_INSTANCE_ID}
+            extraArgs:
+              oidc-issuer-url: https://${CP_HOST_NAME}
+              cookie-path: ${CAPABILITY_PATH_PREFIX} 						      ### ${global.cp.capability.pathPrefix}
+              proxy-prefix: ${CAPABILITY_PATH_PREFIX}/oauth2 		      ### ${global.cp.capability.pathPrefix}/oauth2
+              whitelist-domain: ${CP_HOST_NAME},${INGRESS_FQDN}			### used for signout redirect, DP ingress hostname needed to be whitelisted for traefik
+            ingress:
+              className: ${INGRESS_CLASSNAME} 									      ### ${global.cp.resources.ingress.ingressClassName}
+              hosts: 
+                - ${INGRESS_FQDN} 															      ### ${global.cp.resources.ingress.fqdn}
+              path: ${CAPABILITY_PATH_PREFIX}/oauth2 						      ### ${global.cp.capability.pathPrefix}/oauth2
 
 
 ---
@@ -88,7 +101,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra_sidecar"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.2.0"
+          value: "1.3.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
