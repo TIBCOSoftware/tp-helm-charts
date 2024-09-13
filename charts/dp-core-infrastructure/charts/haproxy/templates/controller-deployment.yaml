@@ -85,6 +85,7 @@ spec:
         runAsNonRoot: true
         runAsUser:  1000
         runAsGroup: 1000
+        readOnlyRootFilesystem: true
 {{- end }}
       containers:
         - name: {{ include "kubernetes-ingress.name" . }}-{{ .Values.controller.name }}
