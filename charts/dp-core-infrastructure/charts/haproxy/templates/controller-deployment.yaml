@@ -130,6 +130,7 @@ spec:
             runAsUser:  1000
             runAsGroup: 1000
             allowPrivilegeEscalation: {{ .Values.controller.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
