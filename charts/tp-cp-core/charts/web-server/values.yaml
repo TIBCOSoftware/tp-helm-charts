@@ -8,6 +8,7 @@
 global:
   external:
     environment: ""
+    helmRepo: "https://tibcosoftware.github.io/tp-helm-charts"
   tibco:
     image_name:
       webserver: ""
@@ -22,6 +23,7 @@ global:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
         tag: 12
+    finops: "disable"
 
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
