@@ -198,6 +198,7 @@ backstage:
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   containerSecurityContext:
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -360,6 +361,7 @@ postgresql:
       runAsUser: 1001
       runAsGroup: 0   # see https://github.com/bitnami/charts/issues/13985#issuecomment-1411654273
       allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop:
           - ALL
@@ -437,6 +439,7 @@ fluentbit:
     runAsNonRoot: false
     runAsUser: 0
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL

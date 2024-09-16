@@ -430,6 +430,7 @@ securityContext:
   runAsGroup: {{ int .dp.gid }}
     {{- if ne (int 0) (int .dp.uid) }}
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
     - ALL
@@ -442,6 +443,7 @@ securityContext:
   runAsGroup: {{ int .dp.gid }}
     {{- if ne (int 0) (int .dp.uid) }}
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
     - ALL
