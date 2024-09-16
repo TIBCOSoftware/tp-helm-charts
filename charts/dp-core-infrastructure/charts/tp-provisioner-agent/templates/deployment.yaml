@@ -76,6 +76,9 @@ spec:
           timeoutSeconds: 5
           initialDelaySeconds: 10
           periodSeconds: 10
+        volumeMounts:
+          - name: tmp
+            mountPath: /tmp
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
@@ -120,6 +123,8 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
 {{- if .Values.global.logging.fluentbit.enabled }}
         - name: podlogs
           hostPath:

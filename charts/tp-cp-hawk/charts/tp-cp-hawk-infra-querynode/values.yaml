@@ -30,6 +30,7 @@ global:
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     querynode:
       allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop:
           - ALL

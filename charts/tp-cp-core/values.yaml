@@ -65,6 +65,7 @@ global:
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     tpcpcoreJob:
       allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop:
           - ALL
