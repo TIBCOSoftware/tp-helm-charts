@@ -10,7 +10,6 @@ metadata:
 data:
   iat_to_clienid.sh: |
     #!/bin/sh
-    apk update && apk add curl jq
     set +x
     body='{
       "client_name": "OAuth2_Proxy_{{ .Values.global.cp.instanceId }}_{{ now | unixEpoch }}",

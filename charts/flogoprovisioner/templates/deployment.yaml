@@ -134,6 +134,9 @@ spec:
                   name: {{ include "flogoprovisioner.o11yservice.configmap" . }}
                   key: otel-recvservice-port
                   optional: true
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
           image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
@@ -167,8 +170,10 @@ spec:
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
         {{- end }}
-      {{- if .Values.global.cp.logging.fluentbit.enabled }}
       volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: podlogs
           hostPath:
             path: /var/log/pods

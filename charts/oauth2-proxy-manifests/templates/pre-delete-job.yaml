@@ -47,6 +47,8 @@ spec:
       - name: oauth2-proxy-secret-pre-delete-job
         image: "{{ template "tibco.image.repository.alpine" .}}"
         command: [ "/bin/sh", "-c", "source /etc/config/script/iat_to_clienid.sh && cleanup" ]
+        securityContext:
+          readOnlyRootFilesystem: true
         volumeMounts:
         - name: shell-script-volume
           mountPath: /etc/config/script/iat_to_clienid.sh
