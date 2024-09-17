@@ -16,7 +16,7 @@ metadata:
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
   backoffLimit: 0
-  ttlSecondsAfterFinished: 18000 #cleanup after 5hr
+  ttlSecondsAfterFinished: 18000  #cleanup after 5hr
   template:
     metadata:
       name: client-credential-creation
@@ -44,6 +44,8 @@ spec:
               value: {{ .Values.global.cp.dataplaneId }}
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
+          securityContext:
+            readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
 
@@ -58,7 +60,7 @@ metadata:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
-  ttlSecondsAfterFinished: 18000 #cleanup after 5hr
+  ttlSecondsAfterFinished: 18000  #cleanup after 5hr
   backoffLimit: 0
   template:
     metadata:
