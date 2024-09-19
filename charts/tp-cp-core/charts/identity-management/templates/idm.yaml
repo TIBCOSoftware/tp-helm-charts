@@ -234,8 +234,10 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: CP_JWKS_URI
+          value: {{ .Values.global.tibco.idm_cp_jwks_uri }}
         - name: TSC_HOST_MAPPING
-          value: '{"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "allowExpiredSubscription": true, "jwksUri": "$(TSC_CONFIG_LOCATION)/config/idm/own-keystores/cic_cli_host.pem"}'
+          value: '{"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "allowExpiredSubscription": true, "jwksUri": "$(CP_JWKS_URI)"}'
         - name: ADMIN_HOST_MAPPING
           value: '{"host": "$(TSC_ADMIN_DNS_DOMAIN)", "tenantId": "ADMIN", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "maxValidityForAccessToken": "8h"}'
         - name: IDENTITY_MANAGEMENT_HOST_MAPPINGS
