@@ -15,7 +15,7 @@ in the license file that is distributed with this file.
 
 {{/* init container image used for registering OAuth client and creating a kubernetes secret with it */}}
 {{- define "tibco.image.repository.alpine" -}}
-  {{- if contains "jfrog.io" .Values.global.cp.containerRegistry.url }}{{ .Values.global.cp.containerRegistry.url }}/tibco-platform-local-docker-prod/{{ .Values.tibco.initContainer.image }}:{{ .Values.tibco.initContainer.tag }}
+  {{- if contains "jfrog.io" .Values.global.cp.containerRegistry.url }}{{ .Values.global.cp.containerRegistry.url }}/tibco-platform-docker-prod/infra/{{ .Values.tibco.initContainer.image }}:{{ .Values.tibco.initContainer.tag }}
   {{- else }}
     {{- .Values.global.cp.containerRegistry.url }}/pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra/{{ .Values.tibco.initContainer.image }}:{{ .Values.tibco.initContainer.tag }}
   {{- end }}
