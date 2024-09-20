@@ -51,7 +51,7 @@ spec:
               name: publicapiserver
           {{- if .Values.securityContext.flogoprovisioner }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext.flogoprovisioner | nindent 12 }}
           {{- end }}
           image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}flogo-provisioner:{{ .Values.global.flogoprovisioner.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
