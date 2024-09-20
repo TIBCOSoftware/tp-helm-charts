@@ -1418,6 +1418,15 @@ entries:
   o11yservice:
   - apiVersion: v2
     appVersion: 1.3.0
+    created: "2024-09-20T05:31:04.298510809Z"
+    description: A helm chart for o11y service
+    digest: 25c1d7316150ad3c775a0ecb83bd4e876426a3d5b81c073d31ce9aee3a623f0e
+    name: o11yservice
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.3.32/o11yservice-1.3.32.tgz
+    version: 1.3.32
+  - apiVersion: v2
+    appVersion: 1.3.0
     created: "2024-09-11T04:28:42.479790985Z"
     description: A helm chart for o11y service
     digest: 900f31e9f89bc9f3ff9bd248b60a94febb7cbc8a49a9637c6c25117a8a9f11de
@@ -3802,6 +3811,22 @@ entries:
   tp-cp-o11y:
   - apiVersion: v2
     appVersion: 1.3.0
+    created: "2024-09-20T05:31:04.511514987Z"
+    dependencies:
+    - condition: o11y-service.enabled
+      name: o11y-service
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane -- O11Y Infra
+    digest: 24b7a5b615266a69433c7a774e2eea0bde65c1f0529c924141adf5f2da7550f3
+    keywords:
+    - o11y
+    name: tp-cp-o11y
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-o11y-1.3.19/tp-cp-o11y-1.3.19.tgz
+    version: 1.3.19
+  - apiVersion: v2
+    appVersion: 1.3.0
     created: "2024-09-11T04:28:43.306548186Z"
     dependencies:
     - condition: o11y-service.enabled
@@ -4336,4 +4361,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-09-19T06:42:24.155982972Z"
+generated: "2024-09-20T05:31:04.511785984Z"
