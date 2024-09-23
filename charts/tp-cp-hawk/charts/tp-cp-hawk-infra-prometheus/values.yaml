@@ -29,11 +29,13 @@ global:
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     prometheus:
       allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop:
           - ALL
     prometheusds:
       allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop:
           - ALL
