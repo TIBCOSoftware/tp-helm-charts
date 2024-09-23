@@ -119,5 +119,7 @@ spec:
               value: {{ .noProxy | quote }}
             {{- end }}          
             {{- end }}
+          securityContext:
+            readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
