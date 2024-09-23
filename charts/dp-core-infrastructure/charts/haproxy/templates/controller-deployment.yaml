@@ -27,7 +27,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     {{- if .Values.controller.extraLabels }}
-{{ tpl (toYaml .Values.controller.extraLabels) . | indent 4 }}
+{{ toYaml .Values.controller.extraLabels | indent 4 }}
     {{- end }}
 spec:
   {{- if and (not .Values.controller.autoscaling.enabled) (not .Values.controller.keda.enabled) }}
@@ -48,7 +48,7 @@ spec:
         app.kubernetes.io/name: {{ include "kubernetes-ingress.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         {{- if .Values.controller.podLabels }}
-{{ tpl (toYaml .Values.controller.podLabels) . | indent 8 }}
+{{ toYaml .Values.controller.podLabels | indent 8 }}
         {{- end }}
       {{- if .Values.controller.podAnnotations }}
       annotations:
@@ -85,11 +85,7 @@ spec:
         runAsNonRoot: true
         runAsUser:  1000
         runAsGroup: 1000
-{{- if .Values.controller.allowPrivilegedPorts }}
-        sysctls:
-         - name: net.ipv4.ip_unprivileged_port_start
-           value: "0"
-{{- end }}
+        readOnlyRootFilesystem: true
 {{- end }}
       containers:
         - name: {{ include "kubernetes-ingress.name" . }}-{{ .Values.controller.name }}
@@ -106,7 +102,7 @@ spec:
           - --configmap={{ include "kubernetes-ingress.namespace" . }}/{{ include "kubernetes-ingress.fullname" . }}
           - --http-bind-port={{ .Values.controller.containerPort.http }}
           - --https-bind-port={{ .Values.controller.containerPort.https }}
-{{- if and (semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version) .Values.controller.service.enablePorts.quic }}
+{{- if semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version }}
           - --quic-bind-port={{ .Values.controller.containerPort.https }}
           - --quic-announce-port={{ .Values.controller.service.ports.https }}
 {{- end }}
@@ -124,17 +120,6 @@ spec:
 {{- end }}
 {{- if .Values.controller.service.enablePorts.prometheus }}
           - --prometheus
-{{- end }}
-{{- if eq .Values.controller.sync.mode "fetch" }}
-  {{- if .Values.controller.sync.fetchParams.period }}
-          - --proxy-k8s-fetch-period={{ .Values.controller.sync.fetchParams.period }}
-  {{- end }}
-  {{- if eq .Values.controller.sync.fetchParams.source "k8s" }}
-          - --k8s-api-sync-type=k8s
-  {{- else if eq .Values.controller.sync.fetchParams.source "proxy" }}
-          - --k8s-api-sync-type=proxy
-          - --proxy-svc-label-selector={{ .Values.controller.sync.proxyParams.proxySvcLabelSelector }}
-  {{- end }}
 {{- end }}
 {{- $root := . }}
 {{- range .Values.controller.extraArgs }}
@@ -162,13 +147,13 @@ spec:
               containerPort: {{ $value }}
               protocol: TCP
           {{- end }}
-          {{- if and (semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version) .Values.controller.service.enablePorts.quic }}
+          {{- if semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version }}
             - name: quic
               containerPort: {{ .Values.controller.containerPort.https }}
               protocol: UDP
           {{- end }}
           {{- range .Values.controller.service.tcpPorts }}
-            - name: {{ .name | trunc 15 | trimSuffix "-" }}
+            - name: {{ .name }}-tcp
               containerPort: {{ .targetPort }}
               protocol: TCP
           {{- end }}
