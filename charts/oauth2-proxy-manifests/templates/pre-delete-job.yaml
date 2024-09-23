@@ -45,23 +45,10 @@ spec:
       restartPolicy: Never
       containers:
       - name: oauth2-proxy-secret-pre-delete-job
-        image: {{ .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.global.cp.initContainer.alpine.image.name }}:{{ .Values.global.cp.initContainer.alpine.image.tag }}
+        image: "{{ template "tibco.image.repository.alpine" .}}"
         command: [ "/bin/sh", "-c", "source /etc/config/script/iat_to_clienid.sh && cleanup" ]
-        env:
-        {{- with .Values.global.cp.proxy }}
-        {{- if .httpProxy }}
-        - name: http_proxy
-          value: {{ .httpProxy }}
-        {{- end }}
-        {{- if .httpsProxy }}
-        - name: https_proxy
-          value: {{ .httpsProxy }}
-        {{- end }}
-        {{- if .noProxy }}
-        - name: no_proxy
-          value: {{ .noProxy | quote }}
-        {{- end }}
-        {{- end }}        
+        securityContext:
+          readOnlyRootFilesystem: true
         volumeMounts:
         - name: shell-script-volume
           mountPath: /etc/config/script/iat_to_clienid.sh
