@@ -45,35 +45,54 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  {{- range .Values.jaeger.ingress.hosts }}
-    {{- if .host }}
-    - host: {{ .host | quote }}
-      http:
-    {{- else }}
-    - http:
-    {{- end }}
-        {{- if $.Values.jaeger.ingress.hostsOverride -}}
-        paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .pathType }}
-            {{- end }}
-            backend:
-              service:
-                name: {{ $.Values.jaeger.service.name }}
-                port:
-                  number: {{ $.Values.jaeger.service.port }}
-            {{- end }}
-        {{- else}}
-        paths:
-          - path: /tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $.Values.jaeger.service.name }}
-                port:
-                  number: {{ $.Values.jaeger.service.port }}
-        {{- end }}
-  {{- end }}
+  - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
+    http:
+      {{- if $.Values.jaeger.ingress.hostsOverride -}}
+      paths:
+        {{- range .paths }}
+        - path: {{ .path }}
+          {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+          pathType: {{ .pathType }}
+          {{- end }}
+          backend:
+            service:
+              name: {{ $.Values.jaeger.service.name }}
+              port:
+                number: {{ $.Values.jaeger.service.port }}
+          {{- end }}
+      {{- else}}
+      paths:
+        - path: /tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ $.Values.jaeger.service.name }}
+              port:
+                number: {{ $.Values.jaeger.service.port }}
+      {{- end }}
+  - host: "*.my.tibco.com"
+    http:
+      {{- if $.Values.jaeger.ingress.hostsOverride -}}
+      paths:
+        {{- range .paths }}
+        - path: {{ .path }}
+          {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+          pathType: {{ .pathType }}
+          {{- end }}
+          backend:
+            service:
+              name: {{ $.Values.jaeger.service.name }}
+              port:
+                number: {{ $.Values.jaeger.service.port }}
+          {{- end }}
+      {{- else}}
+      paths:
+        - path: /tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ $.Values.jaeger.service.name }}
+              port:
+                number: {{ $.Values.jaeger.service.port }}
+      {{- end }}
 {{- end -}}

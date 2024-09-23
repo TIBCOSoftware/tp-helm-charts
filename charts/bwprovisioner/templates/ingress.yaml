@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2023. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -45,13 +45,8 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
-    {{- if .host }}
-    - host: {{ .host | quote }}
+    - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
       http:
-    {{- else }}
-    - http:
-    {{- end }}
         {{- if $.Values.ingress.hostsOverride -}}
         paths:
           {{- range .paths }}
@@ -75,5 +70,29 @@ spec:
                 port:
                   number: {{ $.Values.service.port }}
         {{- end }}
-  {{- end }}
+    - host: "*.my.tibco.com"
+      http:
+        {{- if $.Values.ingress.hostsOverride -}}
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $.Values.service.port }}
+            {{- end }}
+        {{- else}}
+        paths:
+          - path: /tibco/agent/integration/{{ $.Values.global.cp.instanceId }}/bwprovisioner/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $.Values.service.port }}
+        {{- end }}
 {{- end }}

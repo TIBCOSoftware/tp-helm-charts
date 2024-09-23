@@ -12,7 +12,18 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
   rules:
-  - http:
+  - host: "*.prod-tibco-sub-{{ .Values.global.tibco.subscriptionId}}.svc.cluster.local"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+  - host: "*.my.tibco.com"
+    http:
       paths:
       - pathType: Prefix
         path: /tibco/agent/infra/provisioner-agent/
