@@ -17,15 +17,15 @@
 
 podSecurityPolicy:
   annotations: {}
-  ## Specify pod annotations
-  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
-  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
-  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
-  ##
-  # apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
-  # apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
-  # seccomp.security.alpha.kubernetes.io/allowedProfileNames: runtime/default
-  # seccomp.security.alpha.kubernetes.io/defaultProfileName: runtime/default
+    ## Specify pod annotations
+    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
+    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
+    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
+    ##
+    # apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+    # apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+    # seccomp.security.alpha.kubernetes.io/allowedProfileNames: runtime/default
+    # seccomp.security.alpha.kubernetes.io/defaultProfileName: runtime/default
   enabled: false
 
 ## Enable RBAC Authorization
@@ -60,14 +60,14 @@ aws:
 controller:
   name: controller
   image:
-    repository: haproxytech-kubernetes-ingress # can be changed to use CE or EE Controller images
+    repository: infra-haproxytech-kubernetes-ingress    # can be changed to use CE or EE Controller images
     tag: "{{ .Chart.AppVersion }}"
     pullPolicy: IfNotPresent
 
   ## Deployment or DaemonSet pod mode
   ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
   ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
-  kind: Deployment # can be 'Deployment' or 'DaemonSet'
+  kind: Deployment    # can be 'Deployment' or 'DaemonSet'
   replicaCount: 1
 
   ## minReadySeconds setting of Deployment or DaemonSet
@@ -77,6 +77,11 @@ controller:
   ## Running container without root privileges
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
   unprivileged: true
+
+  ## Allow privileged port binding without root privileges
+  ## ref: https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/
+  ## Note: this feature enables net.ipv4.ip_unprivileged_port_start=0 sysctl when running in unprivileged mode
+  allowPrivilegedPorts: false
 
   ## Restricts container syscalls
   ## ref: https://kubernetes.io/docs/tutorials/security/seccomp/
@@ -161,14 +166,14 @@ controller:
   # ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
   # Note: Uses ingressClass as name for the Ingress Class object if enabled
   ingressClassResource:
-    name: hapoxy
+    name: haproxy
     default: false
     parameters: {}
 
   # k8s < 1.18: Ingress Class used, in multi-ingress environments, for ingress.class annotation to select ingress resources to implement.
   # k8s >= 1.18: Ingress Class used to target specific HAProxy Ingress Controller in multi-ingress envionments
   # ref: https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/#using-multiple-ingress-controllers
-  ingressClass: haproxy #TODO   typically "haproxy" or null to receive all events
+  ingressClass: haproxy   # typically "haproxy" or null to receive all events
 
   # Gateway API controller, not available in K8s as default but can be installed
   # ref: https://gateway-api.sigs.k8s.io/
