@@ -45,39 +45,31 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
-    {{- if .host }}
-    - host: {{ .host | quote }}
-      http:
-    {{- else }}
-    - http:
-    {{- end }}
-        {{- if $.Values.ingress.hostsOverride -}}
-        paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .pathType }}
-            {{- end }}
-            backend:
-              service:
-                name: {{ $fullName }}
-                port:
-                  number: {{ $.Values.service.port }}
-            {{- end }}
-        {{- else}}
-        paths:
-          - path: /tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/o11y-service/
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $fullName }}
-                port:
-                  number: {{ $.Values.service.port }}
-        {{- end }}
-  {{- end }}
-{{- end -}}
-  - host: "*.my.tibco.com"
+  - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
+    http:
+      {{- if $.Values.ingress.hostsOverride -}}
+      paths:
+       {{- range .paths }}
+        - path: {{ .path }}
+          {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+          pathType: {{ .pathType }}
+          {{- end }}
+          backend:
+            service:
+              name: {{ $fullName }}
+              port:
+                number: {{ $.Values.service.port }}
+          {{- end }}
+      {{- else}}
+      paths:
+        - path: /tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/o11y-service/
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ $fullName }}
+              port:
+                number: {{ $.Values.service.port }}
+  - host: "*.eu-west.my.tibco.com"
     http:
       {{- if $.Values.ingress.hostsOverride -}}
       paths:
