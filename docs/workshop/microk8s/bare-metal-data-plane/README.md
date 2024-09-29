@@ -348,7 +348,7 @@ The following files are required to set up the ElasticSearch index before collec
    * [Trace Span index template for Jaeger ](./jaeger_span_index_template.json): `jaeger_span_index_template.json`
    * [Trace Index Lifecycle Policy](./jaeger_index_policy.json): `jaeger_index_policy.json`
    * [Trace Service rollover index](./jaeger_service_rollover_index.json) `jaeger_service_rollover_index.json`
-   * [Trace Span rollover index](./jaeger_service_rollover_index.json) `jaeger_service_rollover_index.json`
+   * [Trace Span rollover index](./jaeger_span_rollover_index.json) `jaeger_span_rollover_index.json`
 
 > [!NOTE]
 >
