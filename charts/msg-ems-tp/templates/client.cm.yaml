@@ -14,6 +14,7 @@
 {{- $emsTcpPort := $emsParams.ems.ports.tcpPort -}}
 {{- $emsSslPort := $emsParams.ems.ports.sslPort -}}
 {{- $emsPromPort := $emsParams.ems.ports.promServerEP -}}
+{{- $emsAdminPort := $emsParams.ems.ports.adminPort -}}
 
 #
 apiVersion: v1
@@ -36,6 +37,8 @@ data:
   EMS_PROM_PORT: "{{ $emsPromPort }}"
   EMS_ADMIN_USER: "admin"
   EMS_ADMIN_PASSWORD: ""
+  EMS_ADMIN_PORT: "{{ $emsAdminPort }}"
+  EMS_ADMIN_URL: "http://{{ $svcEmsActiveHost }}:{{ $emsAdminPort }}"
   EMS_FTL_REALM_URL: "http://{{ $svcFtlHost }}:{{ $emsRealmPort }}"
   {{ if .Values.ems.sslEnable }}
   EMS_SSL_URL: "ssl://{{ $svcEmsActiveHost }}:{{ $emsSslPort }},ssl://{{ $svcEmsHost }}:{{ $emsSslPort }}"

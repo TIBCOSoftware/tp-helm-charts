@@ -6,12 +6,18 @@
 
 global:
   tibco:
-    CP_DB_CONFIGURATION: provider-cp-database-config
+    image_name:
+      identityProvider: ""
+    image_repo_path: ""
     logging:
       fluentbit:
         image:
-          name: "fluentbit"
-          tag: 2.2.2
+          name: "common-fluentbit"
+          tag: 3.1.4
+    check_dependencies:
+      distroless_debian:
+        name: "common-distroless-base-debian-debug"
+        tag: 12
   external:
     enableLogging: false
     region: ""

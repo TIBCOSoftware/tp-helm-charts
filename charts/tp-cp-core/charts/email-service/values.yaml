@@ -7,7 +7,6 @@
 # Global section will apply to this chart and all of its subcharts.
 global:
   external:
-    enableLogging: false
     fromAndReplyToEmailAddress: ""
     emailServerType: "smtp"
     emailServer:
@@ -21,11 +20,14 @@ global:
       sendgrid:
         apiKey: ""
   tibco:
+    image_name:
+      emailService: ""
+    image_repo_path: ""
     logging:
       fluentbit:
         image:
-          name: "fluentbit"
-          tag: 3.0.2
+          name: "common-fluentbit"
+          tag: 3.1.4
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.

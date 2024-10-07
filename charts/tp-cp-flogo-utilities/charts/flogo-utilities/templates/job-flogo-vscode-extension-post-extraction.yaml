@@ -74,6 +74,8 @@ spec:
                 flogoVSCExtnVer=$(echo "$d")
                 flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   {"
                 flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   \"Version\": \"${flogoVSCExtnVer%%/*}\","
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   \"Name\": \"TIBCO Flogo® Extension for Visual Studio Code\","
+                flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   \"Description\": \"Accelerate TIBCO Flogo® application development by tapping into the robust Microsoft Visual Studio Code ecosystem. Design, build and test Flogo® applications locally in a Visual Studio Code IDE. Deploy anywhere including on-premises, in private/public cloud (seamlessly using the new TIBCO Platform) or devices.\","
                 flogoVSCExtnVersionStr=$flogoVSCExtnVersionStr"   \"Platforms\": ["
                 platformStr=""
                 for platform in $(ls "$flogoVSCExtnVer") ; do

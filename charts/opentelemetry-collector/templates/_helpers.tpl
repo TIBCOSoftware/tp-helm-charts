@@ -80,27 +80,13 @@ platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
 platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
 {{- end }}
 
-{{- define "opentelemetry-collector.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "opentelemetry-collector.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "opentelemetry-collector.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "opentelemetry-collector.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "opentelemetry-collector.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
-
 {{- define "opentelemetry-collector.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "opentelemetry-collector.image.repository" -}}
-  {{- if contains "jfrog.io" (include "opentelemetry-collector.image.registry" .) }}
-    {{- include "opentelemetry-collector.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "opentelemetry-collector.image.registry" .) }}
-    {{- include "opentelemetry-collector.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "opentelemetry-collector.image.registry" .) }}
-    {{- include "opentelemetry-collector.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "opentelemetry-collector.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
 
 {{/*
@@ -247,3 +233,15 @@ The capitalization is important for StatefulSet.
 {{- print "StatefulSet" -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Get ConfigMap name if existingName is defined, otherwise use default name for generated config.
+*/}}
+{{- define "opentelemetry-collector.configName" -}}
+  {{- if .Values.configMap.existingName -}}
+    {{- .Values.configMap.existingName }}
+  {{- else }}
+    {{- printf "%s%s" (include "opentelemetry-collector.fullname" .) (.configmapSuffix) }}
+  {{- end -}}
+{{- end }}
+

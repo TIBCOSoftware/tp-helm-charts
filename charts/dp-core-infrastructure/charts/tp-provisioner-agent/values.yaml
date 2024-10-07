@@ -9,18 +9,18 @@
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
-    cpu: 500m
-    memory: 768Mi
+    cpu: 200m
+    memory: 256Mi
   limits:
     cpu: 1000m
-    memory: 1024Mi
+    memory: 1000Mi
 
 # no of replicas
 replicaCount: "1"
 
 image:
-  name: tp-provisioner-agent
-  tag: 334
+  name: infra-provisioner-agent
+  tag: 356
   pullPolicy: Always
 
 nodeSelector:
@@ -33,28 +33,29 @@ tolerations: {}
 enableIngress: true
 ingress:
   annotations: {}
-  # nginx custom annotation example
-  # nginx.org/rewrites: "serviceName={{ include \"tp-provisioner-agent.consts.appName\" . }} rewrite=/" #https://github.com/nginxinc/kubernetes-ingress/tree/v2.4.2/examples/ingress-resources/rewrites
+    # nginx custom annotation example
+    # nginx.org/rewrites: "serviceName={{ include \"tp-provisioner-agent.consts.appName\" . }} rewrite=/" #https://github.com/nginxinc/kubernetes-ingress/tree/v2.4.2/examples/ingress-resources/rewrites
   pathPrefix: /tibco/agent/infra/provisioner-agent/
-  className: "haproxy-dp-{{ .Values.global.tibco.dataPlaneId}}" # Ex: nginx, haproxy
+  className: "haproxy-dp-{{ .Values.global.tibco.dataPlaneId}}"  # Ex: nginx, haproxy
 
 global:
   tibco:
     dataPlaneId: "abcd"
     subscriptionId: "sub1"
     controlPlaneUrl: "https://account.local.cic2.pro"
-    serviceAccount: "" # user provided service account.
+    serviceAccount: ""  # user provided service account.
     containerRegistry:
       url: reldocker.tibco.com
+      repository: tibco-platform-docker-prod
 
   logging:
     fluentbit:
       enabled: true
 
-      # The fluentbit configuration section.
-      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-      # Privilege escalation is not allowed for security reasons.
-      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
@@ -62,21 +63,26 @@ global:
         readOnlyRootFilesystem: true
         capabilities:
           drop:
-          - ALL
-
+            - ALL
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
 fluentbit:
   image:
     registry: cr.fluentbit.io/fluent/fluent-bit
-    tag: 3.0.2
+    tag: 3.1.4
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
       cpu: 10m
-      memory: 100Mi
+      memory: 20Mi
     limits:
       cpu: 50m
-      memory: 150Mi
+      memory: 50Mi
 hpa:
   minReplicas: 1
   maxReplicas: 3
@@ -105,4 +111,4 @@ securityContext:
     readOnlyRootFilesystem: true
     capabilities:
       drop:
-      - ALL
+        - ALL

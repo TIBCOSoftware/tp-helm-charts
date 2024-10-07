@@ -67,7 +67,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
         - name: check-pod-dependencies
-          image: {{ include "tp-cp-identity-provider.image.registry" .}}{{"/"}}{{ include "tp-cp-identity-provider.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+          image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
           {{- if .Values.global.containerSecurityContext.tpcpidpservice }}
           securityContext:
             {{- toYaml .Values.global.containerSecurityContext.tpcpidpservice | nindent 10 }}
@@ -85,7 +85,7 @@ spec:
       {{ end }}
       containers:
       - name: tp-cp-identity-provider
-        image: {{ include "tp-cp-identity-provider.image.registry" .}}{{"/"}}{{ include "tp-cp-identity-provider.image.repository" .}}{{"/"}}{{ include "tp-cp-identity-provider.image.name" .}}:{{ include "identity-provider.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.identityProvider }}:{{ include "identity-provider.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.tpcpidpservice }}
         securityContext:
@@ -147,6 +147,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_ADMIN_DNS_DOMAIN
+        - name: TP_CP_EMAIL_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMAIL_SERVICE_HOST
         - name: PGHOST
           valueFrom:
             configMapKeyRef:
@@ -181,7 +186,7 @@ spec:
           subPath: tsc/certificates
 {{- if (include "cp-core-configuration.enableLogging" .)}}
       - name: fluentbit
-        image: {{ include "tp-cp-identity-provider.image.registry" .}}{{"/"}}{{ include "tp-cp-identity-provider.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
@@ -278,7 +283,6 @@ spec:
           name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
           key: TSC_ADMIN_DNS_DOMAIN
   endpoints:
-    # reset password endpoint
     - path: /idp/v1/reset-password
       internalPath: /idp/v1/reset-password
       port: 7893
@@ -288,7 +292,6 @@ spec:
           config: empty
           fqdn: ${DEFAULTIDP_DNS_DOMAIN}
           enableRedirects: true
-    # SSOService endpoint
     - path: /sso
       internalPath: /sso
       port: 8000
@@ -298,10 +301,27 @@ spec:
           config: empty
           fqdn: ${DEFAULTIDP_DNS_DOMAIN}
           enableRedirects: true
-    # liveness probes' endpoint
     - path: /ping/not_exposed
       internalPath: /ping
       port: 9893
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /idp/v1/forgot-password-token
+      internalPath: /v1/forgot-password-token
+      port: 7893
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /idp/v1/forgot-password
+      internalPath: /v1/forgot-password
+      port: 7893
       protocol: http
       proxies:
         - listener: virtual

@@ -12,14 +12,9 @@
 # subscriptionId, uniquely identifies each subscription
 subscriptionId: ""
 
-# namespace prefix 
-namespacePrefix: ""
-
 image:
-  name: tp-hybrid-server
-  registry: ""
-  repo: ""
-  tag: 26-distroless
+  name: infra-hybrid-server
+  tag: 33-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -68,17 +63,19 @@ tolerations: []
 
 affinity: {}
 
-# control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
-# lowercase alphanumeric string of max 5 chars
-controlPlaneInstanceId: ""
-
 #global values used by the chart. These values gets propagated to sub-charts.
+# Note: if username and password are provided, then the secret should be  created with this name.
 global:
-  tibco: 
+  tibco:
+    controlPlaneInstanceId: ""
     serviceAccount: ""
     createNetworkPolicy: false
     containerRegistry:
       secret: ""
+      url: ""
+      username: ""
+      password: ""
+    otelServiceName: ""
 
     # The fluentbit configuration section.
     # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -89,10 +86,8 @@ global:
       fluentbit:
         enabled: true
         image:
-          name: "fluentbit"
-          registry: ""
-          repo: ""
-          tag: 3.0.2
+          name: "common-fluentbit"
+          tag: 3.1.4
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -102,8 +97,11 @@ global:
           capabilities:
             drop:
               - ALL
+        
+    useSingleNamespace: false
+  
   external:
-    provider: ""
     clusterInfo:
       nodeCIDR: ""
       podCIDR: ""
+      serviceCIDR: ""

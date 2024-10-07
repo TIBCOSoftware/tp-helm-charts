@@ -4,24 +4,26 @@ This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
 
+{{ $roleKind := "TibcoRole" }}
+{{ $roleSuffix := "role" }}
 {{- if .Values.iam }}
 {{- if eq .Values.iam.create true }}
-apiVersion: iam.platform.tibco.com/v1alpha1
+{{- if .Values.iam.mandatoryConfigurationParameters }}
+{{- if .Values.iam.mandatoryConfigurationParameters.serviceAccount }}
 {{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true }}
-kind: TibcoRoleSA
-{{- else }}
-kind: TibcoRole
+{{ $roleKind = "TibcoRoleSA" }}
+{{ $roleSuffix = "role-sa" }}
 {{- end }}
+{{- end }}
+{{- end }}
+apiVersion: iam.platform.tibco.com/v1alpha1
+kind: {{ $roleKind }}
 metadata:
   name: {{ .Values.commonResourcePrefix }}-role
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "claims.labels" . | nindent 4 }}
-    {{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true }}
-    claim-name: {{ .Values.commonResourcePrefix }}-role-sa
-    {{- else }}
-    claim-name: {{ .Values.commonResourcePrefix }}-role
-    {{- end }}
+    claim-name: {{ .Values.commonResourcePrefix }}-{{ $roleSuffix }}
 spec:
   parameters:
     prefix: {{ .Values.commonResourcePrefix }}
@@ -63,11 +65,7 @@ spec:
     {{- end }}
   compositionSelector:
     matchLabels:
-      {{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true }}
-      provider: "provider-aws-role-sa"
-      {{- else }}
-      provider: "provider-aws-role"
-      {{- end }}
+      provider: "provider-aws-{{ $roleSuffix }}"
   writeConnectionSecretToRef:
     name: {{ .Values.iam.connectionDetailsSecret }}
 

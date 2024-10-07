@@ -25,6 +25,22 @@ component: statefulset-collector
 {{- end }}
 
 {{/*
+Get ConfigMap name if existingName is defined, otherwise use default name for generated config.
+*/}}
+{{- define "otel-collector.configName" -}}
+  {{- if .Values.configMap.existingName -}}
+    {{- .Values.configMap.existingName }}
+  {{- else }}
+    {{- printf "%s%s" (include "otel-collector.fullname" .) (.configmapSuffix) }}
+  {{- end -}}
+{{- end }}
+
+{{- define "otel-collector.gomemlimit" }}
+{{- $memlimitBytes := include "otel-collector.convertMemToBytes" . | mulf 0.8 -}}
+{{- printf "%dMiB" (divf $memlimitBytes 0x1p20 | floor | int64) -}}
+{{- end }}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
@@ -70,39 +86,16 @@ app.kubernetes.io/name: {{ include "finops-otel-collector.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "finops-otel-collector.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "finops-otel-collector.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "finops-otel-collector.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "finops-otel-collector.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "finops-otel-collector.const.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "finops-otel-collector.image.registry" }}
-  {{- if .Values.image.registry }}
-    {{- .Values.image.registry }}
-  {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{- define "finops-otel-collector.container-registry.secret" }}
-  {{- if .Values.imagePullSecrets }}
-    {{- .Values.imagePullSecrets }}
-  {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
 {{- end -}}
 
-{{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "finops-otel-collector.image.repository" -}}
-  {{- if contains "jfrog.io" (include "finops-otel-collector.image.registry" .) }}
-    {{- include "finops-otel-collector.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "finops-otel-collector.image.registry" .) }}
-    {{- include "finops-otel-collector.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "finops-otel-collector.image.registry" .) }}
-    {{- include "finops-otel-collector.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "finops-otel-collector.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 
@@ -230,5 +223,27 @@ Convert memory value to numeric value in MiB to be used by otel memory_limiter p
 {{- div (trimSuffix "ki" $mem | atoi) 1024 -}}
 {{- else -}}
 {{- div (div ($mem | atoi) 1024) 1024 -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Convert memory value to numeric value in Bytes to be used by otel memory_limiter processor.
+*/}}
+{{- define "otel-collector.convertMemToBytes" -}}
+{{- $mem := lower . -}}
+{{- if hasSuffix "gi" $mem -}}
+{{- trimSuffix "gi" $mem | atoi | mul 1073741824 -}}
+{{- else if hasSuffix "mi" $mem -}}
+{{- trimSuffix "mi" $mem | atoi | mul 1048576 -}}
+{{- else if hasSuffix "ki" $mem -}}
+{{- trimSuffix "ki" $mem | atoi | mul 1024 -}}
+{{- else if hasSuffix "g" $mem -}}
+{{- trimSuffix "g" $mem | atoi | mul 1000000000 -}}
+{{- else if hasSuffix "m" $mem -}}
+{{- trimSuffix "m" $mem | atoi | mul 1000000 -}}
+{{- else if hasSuffix "k" $mem -}}
+{{- trimSuffix "k" $mem | atoi | mul 1000 -}}
+{{- else -}}
+{{- $mem | atoi -}}
 {{- end -}}
 {{- end -}}

@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -35,8 +35,6 @@ spec:
       - name: {{ .Values.global.cp.containerRegistry.secret }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
-      {{- else }}
-      serviceAccountName: {{ include "bwprovisioner.sa" . }}
       {{- end }}
       {{- if .Values.podSecurityContext }}
       securityContext:
@@ -53,7 +51,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext.bwprovisioner | nindent 12 }}
           {{- end }}
-          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}bw-provisioner:{{ .Values.global.bwprovisioner.image.tag }}
+          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}tp-bw-provisioner:{{ .Values.global.bwprovisioner.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
             httpGet:
@@ -109,7 +107,7 @@ spec:
             - name: LOGGING_FLUENT_BIT_ENABLED
               value: "{{ .Values.global.cp.logging.fluentbit.apps.enabled }}"
             - name: FLUENT_BIT_SIDECAR_IMAGE
-              value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+              value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:
@@ -139,7 +137,7 @@ spec:
             mountPath: /tmp
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
-          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}fluent-bit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           {{- if .Values.global.cp.logging.fluentbit.securityContext }}
           securityContext:

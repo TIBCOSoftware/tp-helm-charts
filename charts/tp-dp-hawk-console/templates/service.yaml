@@ -1,0 +1,26 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+  namespace: {{ .Release.Namespace }}
+  labels:
+      app.kubernetes.io/name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+      app.kubernetes.io/component: {{ include "tp-dp-hawk-console.consts.component" . }}
+      app.kubernetes.io/part-of: {{ include "tp-dp-hawk-console.consts.team" . }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 9687
+      protocol: TCP
+      targetPort: 9687
+      name: hawk-rest-port
+  selector:
+      app.kubernetes.io/name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  clusterIP: None

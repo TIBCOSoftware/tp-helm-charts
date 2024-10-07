@@ -10,6 +10,14 @@ function wait_for_url()  {
     while [[ "$(curl -k -s -o /dev/null -w '%{http_code}' $url )" != "200" ]]; do echo -n "." ; sleep 5 ; done ;
 }
 
+function wait_for_active {
+    for try in $(seq 300) ; do
+        kubectl get pods -n=$MY_NAMESPACE -l=tib-msg-stsname=$EMS_SERVICE,tib-msg-stsrole=leader | egrep $EMS_SERVICE  && break
+        echo -n "."
+        sleep 3
+    done
+}
+
 outfile=${1:-tibemsd-ftl.json}
 ftlport="443"
 emsport="9010"
@@ -29,5 +37,15 @@ for try in $(seq 5) ; do
     echo -n "."
     sleep 3
 done
+
+echo "Waiting for EMS-Active Service ... "
+wait_for_active
+# 1.3.0 tibadmin init: Use admin user to fix tibadmin users
+emsData='{"name": "tibadmin", "description": "msgdp-update", "password": "'"$EMS_ADMIN_PASSWORD"'" }' || true
+export EMS_ADMIN_USER=""
+export EMS_ADMIN_PASSWORD=""
+/boot/emsadmin-curl.sh -a /users/tibadmin -X POST \
+   --data "$emsData" || true
+cat curl.debug
 
 exit $rtc

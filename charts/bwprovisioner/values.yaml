@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -7,24 +7,23 @@
 # Declare variables to be passed into your templates.
 
 global:
-  tibco:
-    subscriptionId: "sub1"
-  cic:
-    data:
-      SYSTEM_WHERE: "local"
-      SYSTEM_WHO: "local"
-      SYSTEM_DOCKER_REGISTRY: "reldocker.tibco.com"
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
     containerRegistry:
       secret: ""
       url: reldocker.tibco.com
+      repository: "tibco-platform-docker-prod"
     environmentType: ""
     resources:
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
+      ingress:
+        fqdn: foo.com
+        ingressClassName: nginx
+        ingressController: nginx
+        annotations: {}
 
     logging:
       # The fluentbit configuration section.
@@ -34,10 +33,10 @@ global:
       # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
       fluentbit:
         apps:
-          enabled: false
+          enabled: true
         enabled: true
         image:
-          tag: 3.0.2
+          tag: 3.1.4
         resources:
           requests:
             cpu: 10m
@@ -52,7 +51,7 @@ global:
           readOnlyRootFilesystem: true
           capabilities:
             drop:
-            - ALL
+              - ALL
 
   bwprovisioner:
     serviceAccount: ""
@@ -60,7 +59,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 257
+      tag: 452
     deploymanager:
       image:
         enabled: false
@@ -71,7 +70,7 @@ global:
 replicaCount: 1
 
 image:
-  repository: tci/tci-bwprovisioner
+  repository: tibco-platform/tp-bw-provisioner
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -79,16 +78,6 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-serviceAccount:
-  enabled: false
-  # Specifies whether a service account should be created
-  create: false
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
 
 podAnnotations: {}
 
@@ -115,7 +104,7 @@ securityContext:
     readOnlyRootFilesystem: true
     capabilities:
       drop:
-      - ALL
+        - ALL
 
 service:
   type: ClusterIP
@@ -127,29 +116,16 @@ publicApiService:
   port: 7816
   targetPort: 7816
 
-# ingress:
-#  enabled: false
-#  annotations: {}
-#    # kubernetes.io/ingress.class: nginx
-#    # kubernetes.io/tls-acme: "true"
-#  hosts:
-#    - host: chart-example.local
-#      paths: []
-#  tls: []
-#  #  - secretName: chart-example-tls
-#  #    hosts:
-#  #      - chart-example.local
-
 ingress:
   # -- Enables configuration of ingress to expose bwprovisioner. Requires ingress support in the Kubernetes cluster.
   enabled: true
   hostsOverride: false
   className: haproxy
   hosts:
-  - host: ""
-    paths:
-    - path: /
-      pathType: Prefix
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
   # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
   annotations:
     haproxy.org/cors-enable: "true"
@@ -162,24 +138,13 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-# resources: {}
-# We usually recommend not to specify default resources and to leave this as a conscious
-# choice for the user. This also increases chances charts run on environments with little
-# resources, such as Minikube. If you do want to specify resources, uncomment the following
-# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-# limits:
-#   cpu: 100m
-#   memory: 128Mi
-# requests:
-#   cpu: 100m
-#   memory: 128Mi
 resources:
   requests:
-    cpu: 50m
-    memory: 1864Mi
+    cpu: 500m
+    memory: 700Mi
   limits:
-    cpu: "2"
-    memory: 2048Mi
+    cpu: "1"
+    memory: 1024Mi
 
 autoscaling:
   enabled: false
@@ -215,54 +180,31 @@ extraEnvVarsSecret: ""
 # -- Extra volumeMounts for the integration services container.
 # More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
 extraVolumeMounts: []
-# - name: example
-#   mountPath: /opt/tibco/example.txt
+  # - name: example
+  #   mountPath: /opt/tibco/example.txt
 #   subPath: example.txt
 
 # -- Extra volumes for the integration services container.
 # More info: `kubectl explain deployment.spec.template.spec.volumes`.
 extraVolumes: []
-# - name: example
-#   persistentVolumeClaim:
+  # - name: example
+  #   persistentVolumeClaim:
 #     claimName: exampleClaim
 
 # -- Additional init containers to add to the automationservices pod.
 extraInitContainers: []
-# - name: dummy-init
-#   image: busybox
+  # - name: dummy-init
+  #   image: busybox
 #   command: ['echo', "hey"]
 
 config:
-  #  DP_INTERNAL_URL: ""
-  DP_INTERNAL_URL: "***NOT AVAILABLE***"
   ARTIFACT_MANAGER_PORT: "7813"
-  APP_INIT_IMAGE_TAG: "20"
-
-oauth2proxy:
-  ingress:
-    enabled: false
-    className: nginx
-    hosts:
-    - host: ""
-      paths:
-      - path: /oauth2
-        pathType: Prefix
-        backend:
-          service:
-            name: oauth2-proxy
-            port:
-              number: 80
-              # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
-    annotations: {}
-    tls: []
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
+  APP_INIT_IMAGE_TAG: "32"
 
 publicApi:
   ingress:
     controllerName: nginx
-    nginx:
+    config:
       className: nginx
       pathPrefix: /tibco/bw
       fqdn: ""

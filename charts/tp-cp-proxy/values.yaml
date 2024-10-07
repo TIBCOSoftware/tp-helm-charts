@@ -10,17 +10,27 @@
 resources:
   requests:
     cpu: 50m
-    memory: 128Mi
+    memory: 100Mi
   limits:
     cpu: 100m
-    memory: 256Mi
+    memory: 200Mi
+
+job:
+  # Job resources
+  resources:
+    requests:
+      cpu: 50m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi
 
 # no of replicas
 replicaCount: "1"
 
 image:
-  name: tp-cp-proxy
-  tag: 137
+  name: infra-cp-proxy
+  tag: 144
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -38,6 +48,7 @@ global:
     containerRegistry:
       url: "reldocker.tibco.com"
       secret: "abcd"
+      repository: "tibco-platform-docker-prod"
     resources:
       serviceaccount:
         serviceAccountName: ""
@@ -55,8 +66,8 @@ global:
       fluentbit:
         enabled: true
         image:
-          registry: cr.fluentbit.io/fluent/fluent-bit
-          tag: 3.0.2
+          name: common-fluentbit
+          tag: 3.1.4
         # Resources
         # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
@@ -72,7 +83,14 @@ global:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - ALL
+              - ALL
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
+
 # horizontal pod autoscaler configuration to scale when the cpu and memory usage exceeds
 hpa:
   minReplicas: 1
@@ -101,4 +119,4 @@ securityContext:
     readOnlyRootFilesystem: true
     capabilities:
       drop:
-      - ALL
+        - ALL

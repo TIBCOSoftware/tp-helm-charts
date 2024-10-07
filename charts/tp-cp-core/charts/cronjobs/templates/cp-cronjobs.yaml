@@ -75,7 +75,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
       - name: check-pod-dependencies
-        image: {{ include "tp-cp-cronjobs.image.registry" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
         {{- if .Values.global.containerSecurityContext.cronjobs }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.cronjobs | nindent 10 }}
@@ -93,7 +93,7 @@ spec:
       {{ end }}
       containers:
       - name: cpcronjobservice
-        image: {{ include "tp-cp-cronjobs.image.registry" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.repository" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.name" .}}:{{ include "cronjobs.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cronjobs }}:{{ include "cronjobs.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.cronjobs }}
         securityContext:
@@ -286,7 +286,7 @@ spec:
             subPath: tsc/certificates
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "tp-cp-cronjobs.image.registry" .}}{{"/"}}{{ include "tp-cp-cronjobs.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}

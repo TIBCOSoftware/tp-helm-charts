@@ -63,6 +63,14 @@
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{/* set repository based on the registry url. We will have different repo for each one. */}}
+{{- define "cp-core-configuration.image-repository" -}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+{{- end -}}
+
+{{- define "cp-core-configuration.container-registry.secret" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
 
 {{/* Control plane DNS domain. default value cp1 */}}
 {{- define "cp-core-configuration.cp-dns-domain" }}
@@ -93,4 +101,36 @@
         {{- $isEnableLogging = "1" -}}
     {{- end -}}
   {{ $isEnableLogging }}
+{{- end }}
+
+{{- define "identity-management.client-id-secret-key" }}
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
+    {{- "identity-management-client-id-secret-key" }}
+{{- else }}
+    {{- "tp-identity-management-idps-conf-override" }}
+{{- end }}
+{{- end }}
+
+{{- define "identity-management-jwt-key-store-password" }}
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
+    {{- "identity-management-jwt-key-store-password" }}
+{{- else }}
+    {{- "tp-identity-management-idps-conf-override" }}
+{{- end }}
+{{- end }}
+
+{{- define "identity-management-sp-key-store-password" }}
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
+    {{- "identity-management-sp-key-store-password" }}
+{{- else }}
+    {{- "tp-identity-management-idps-conf-override" }}
+{{- end }}
+{{- end }}
+
+{{- define "identity-management-jwt-keystore-url" }}
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
+    {{- "identity-management-jwt-keystore-url" }}
+{{- else }}
+    {{- "tp-identity-management-idps-conf-override" }}
+{{- end }}
 {{- end }}

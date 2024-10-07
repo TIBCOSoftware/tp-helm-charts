@@ -22,9 +22,24 @@
 {{- define "tpcontrol-plane.consts.tpIdpJobServiceName" }}tp-cp-identity-provider.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpPermissionEngineServiceName" }}tp-cp-pengine.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.cpMonitoringServiceName" }}tp-cp-monitoring-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.provisionerAgentURLFramework" }}dp-%s.{{ .Release.Namespace }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.provisionerAgentURLFramework" -}}
+    {{- if (include "cp-core-configuration.isSingleNamespace" .) }}
+        {{- "dp-%s." }}{{ .Release.Namespace }}{{ ".svc.cluster.local" -}}
+    {{- else }}
+        {{- "dp-%s." }}{{include "cp-core-configuration.cp-instance-id" .}}{{ "-tibco-sub-%s.svc.cluster.local" -}}
+    {{- end -}}
+{{ end -}}
 {{- define "tpcontrol-plane.consts.computeServiceName" }}compute-services.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.cpQueryNodeServiceName" }}querynode.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.cpQueryNodeServiceName" -}}
+    {{- if (include "cp-core-configuration.isSingleNamespace" .) }}
+        {{- "querynode."}}{{ include "tp-control-plane.consts.namespace" . }}{{ ".svc.cluster.local" -}}
+    {{- else }}
+        {{- "querynode."}}{{include "cp-core-configuration.cp-instance-id" .}}{{ "-tibco-cp.svc.cluster.local" -}}
+    {{- end -}}
+{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpBW5ServiceName" }}tp-cp-bw5-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpBW6ServiceName" }}tp-cp-bw6-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 
 {{- define "cp-env.get" }}
 {{- $cm := ((include "cp-env" .)| fromYaml) }}
@@ -119,4 +134,18 @@
   {{ $isEnableLogging }}
 {{- end }}
 
+
+{{- define "cp-core-configuration.isSingleNamespace" }}
+  {{- $isSubscriptionSingleNamespace := "" -}}
+    {{- if eq "true" (include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )) -}}
+        {{- $isSubscriptionSingleNamespace = "1" -}}
+    {{- end -}}
+  {{ $isSubscriptionSingleNamespace }}
+{{- end }}
+
 {{- define "tp-cp-core.consts.cp.db.configuration" }}provider-cp-database-config{{ end -}}
+
+{{/* set repository based on the registry url. We will have different repo for each one. */}}
+{{- define "cp-core-configuration.image-repository" -}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+{{- end -}}

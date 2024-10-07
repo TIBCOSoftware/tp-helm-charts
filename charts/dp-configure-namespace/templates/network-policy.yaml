@@ -83,6 +83,7 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - {{ include "dp-configure-namespace.nodeCidr" . }}
+        - {{ include "dp-configure-namespace.serviceCidr" . }}
         {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
         - {{ include "dp-configure-namespace.podCidr" . }}
         {{- end }}
@@ -110,6 +111,7 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - {{ include "dp-configure-namespace.nodeCidr" . }}
+        - {{ include "dp-configure-namespace.serviceCidr" . }}
         {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
         - {{ include "dp-configure-namespace.podCidr" . }}
         {{- end }}
@@ -145,6 +147,8 @@ spec:
           component: kube-apiserver
     - ipBlock:
         cidr: {{ include "dp-configure-namespace.nodeCidr" . }}
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.serviceCidr" . }}
     {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
     - ipBlock:
         cidr: {{ include "dp-configure-namespace.podCidr" . }}
@@ -162,6 +166,8 @@ spec:
           component: kube-apiserver
     - ipBlock:
         cidr: {{ include "dp-configure-namespace.nodeCidr" . }}
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.serviceCidr" . }}
     {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
     - ipBlock:
         cidr: {{ include "dp-configure-namespace.podCidr" . }}
@@ -189,6 +195,7 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - {{ include "dp-configure-namespace.nodeCidr" . }}
+        - {{ include "dp-configure-namespace.serviceCidr" . }}
         {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
         - {{ include "dp-configure-namespace.podCidr" . }}
         {{- end }}
@@ -213,6 +220,8 @@ spec:
   - from:
     - ipBlock:
         cidr: {{ include "dp-configure-namespace.nodeCidr" . }}
+    - ipBlock:
+        cidr: {{ include "dp-configure-namespace.serviceCidr" . }}
     {{- if ne (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
     - ipBlock:
         cidr: {{ include "dp-configure-namespace.podCidr" . }}

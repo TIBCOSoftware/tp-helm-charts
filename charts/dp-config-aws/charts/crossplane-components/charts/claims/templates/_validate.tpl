@@ -39,6 +39,16 @@ in the license file that is distributed with this file.
 {{- fail (printf "crossplane-components.claims.efs.storageClass.name is required to be passed as helm values") }}
 {{- end }}
 {{- end }}
+{{- if eq .Values.efs.persistentVolume.create true }}
+{{- if not .Values.efs.persistentVolume.name }}
+{{- fail (printf "crossplane-components.claims.efs.persistentVolume.name is required to be passed as helm values") }}
+{{- end }}
+{{- end }}
+{{- if and (.Values.efs.persistentVolume) (.Values.efs.storageClass) }}
+{{- if and (eq .Values.efs.persistentVolume.create true) (eq .Values.efs.storageClass.create true) }}
+{{- fail (printf "crossplane-components.claims.efs.persistentVolume and crossplane-components.claims.efs.storageClass both cannot be created at the same time") }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{/* validation for postgresInstance claims */}}
@@ -66,6 +76,74 @@ in the license file that is distributed with this file.
 {{- end }}
 {{- if empty .Values.postgresInstance.mandatoryConfigurationParameters.port }}
 {{- fail (printf "crossplane-components.claims.postgresInstance.mandatoryConfigurationParameters.port is required to be passed as helm values") -}}
+{{- end }}
+{{- end }}
+
+{{/* validation for aurora cluster and global database claims */}}
+{{- if eq .Values.auroraCluster.create true }}
+{{- if not .Values.auroraCluster.connectionDetailsSecret }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.connectionDetailsSecret is required to be passed as helm values") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.numberOfInstances }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.numberOfInstances is required to be passed as helm values") -}}
+{{- else }}
+{{- if or (gt (.Values.auroraCluster.numberOfInstances | int) 3) (lt (.Values.auroraCluster.numberOfInstances | int) 1) }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.numberOfInstances is required to be minimum 1 and maximum 3") -}}
+{{- end }}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters are required to be passed as helm values") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.dbParameterGroupFamily }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.dbParameterGroupFamily is required to be passed as helm values") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.dbInstanceClass }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.dbInstanceClass is required to be passed as helm values") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.engine }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.engine is required to be passed as helm values") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.engineVersion }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.engineVersion is required to be passed as helm values") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.engineMode }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.engineMode is required to be passed as helm values") -}}
+{{- end }}
+{{- if empty .Values.auroraCluster.mandatoryConfigurationParameters.port }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.port is required to be passed as helm values") -}}
+{{- end }}
+{{- if .Values.auroraCluster.globalDatabase }}
+{{- if and (.Values.auroraCluster.globalDatabase.primaryCluster.create) (.Values.auroraCluster.globalDatabase.secondaryCluster.create) -}}
+{{- fail (printf "only one of crossplane-components.claims.auroraCluster.globalDatabase.primaryCluster or crossplane-components.claims.auroraCluster.globalDatabase.secondaryCluster is required to be passed as helm values") -}}
+{{- end }}
+{{- if (not (.Values.auroraCluster.globalDatabase.secondaryCluster.create)) }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.databaseName }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.databaseName is required to be passed as helm values for primary cluster") -}}
+{{- end }}
+{{- if not .Values.auroraCluster.mandatoryConfigurationParameters.masterUsername }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.masterUsername is required to be passed as helm values for primary cluster") -}}
+{{- end }}
+{{- end }}
+{{- if and .Values.auroraCluster.globalDatabase.primaryCluster }}
+{{- if and (.Values.auroraCluster.globalDatabase.primaryCluster.create) (not (.Values.auroraCluster.globalDatabase.secondaryCluster.create)) }}
+{{- if empty .Values.auroraCluster.globalDatabase.primaryCluster.deletionProtection }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.globalDatabase.primaryCluster.deletionProtection is required to be passed as helm values") -}}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.auroraCluster.globalDatabase.secondaryCluster }}
+{{- if and (.Values.auroraCluster.globalDatabase.secondaryCluster.create) (not (.Values.auroraCluster.globalDatabase.primaryCluster.create)) }}
+{{- if not .Values.auroraCluster.globalDatabase.secondaryCluster.globalClusterIdentifier }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.globalDatabase.secondaryCluster.globalClusterIdentifier is required to be passed as helm values") -}}
+{{- end }}
+{{- if .Values.auroraCluster.mandatoryConfigurationParameters.databaseName }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.databaseName is not required to be passed as helm values for secondary cluster") -}}
+{{- end }}
+{{- if .Values.auroraCluster.mandatoryConfigurationParameters.masterUsername }}
+{{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.masterUsername is not required to be passed as helm values for secondary cluster") -}}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 
@@ -115,11 +193,13 @@ in the license file that is distributed with this file.
 {{- if not .Values.iam.mandatoryConfigurationParameters.serviceAccount }}
 {{- fail (printf "crossplane-components.claims.iam.mandatoryConfigurationParameters.serviceAccount are required to be passed as helm values") -}}
 {{- end }}
+{{- if eq .Values.iam.mandatoryConfigurationParameters.serviceAccount.create true}}
 {{- if not .Values.iam.mandatoryConfigurationParameters.serviceAccount.name }}
 {{- fail (printf "crossplane-components.claims.iam.mandatoryConfigurationParameters.serviceAccount.name is required to be passed as helm values") -}}
 {{- end }}
 {{- if not .Values.iam.mandatoryConfigurationParameters.serviceAccount.namespace }}
 {{- fail (printf "crossplane-components.claims.iam.mandatoryConfigurationParameters.serviceAccount.namespace is required to be passed as helm values") -}}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -6,13 +6,22 @@
 
 global:
   tibco:
+    self_hosted_deployment: true
+    idm_cp_jwks_uri: "/private/tsc/config/idm/own-keystores/cic_cli_host.pem"
     region: "global"
     region_to_prefix: ""
+    image_name:
+      identityManagement: ""
+    image_repo_path: ""
     logging:
       fluentbit:
         image:
-          name: "fluentbit"
-          tag: 2.2.2
+          name: "common-fluentbit"
+          tag: 3.1.4
+    check_dependencies:
+      distroless_debian:
+        name: "common-distroless-base-debian-debug"
+        tag: 12
   external:
     region: ""
     enableLogging: false

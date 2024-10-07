@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -7,22 +7,24 @@
 # Declare variables to be passed into your templates.
 
 global:
-  cic:
-    data:
-      SYSTEM_WHERE: "local"
-      SYSTEM_WHO: "local"
-      SYSTEM_DOCKER_REGISTRY: "reldocker.tibco.com"
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
     containerRegistry:
       secret: ""
       url: reldocker.tibco.com
+      repository: "tibco-platform-docker-prod"
     environmentType: ""
     resources:
       serviceaccount:
         nameSpace: ""
         serviceAccountName: ""
+      ingress:
+        fqdn: foo.com
+        ingressClassName: nginx
+        ingressController: nginx
+        annotations: {}
+
     logging:
       # The fluentbit configuration section.
       # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -34,7 +36,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 3.0.2
+          tag: 3.1.4
         resources:
           requests:
             cpu: 10m
@@ -50,13 +52,22 @@ global:
           capabilities:
             drop:
               - ALL
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpProxy: ""
+      # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      httpsProxy: ""
+      # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
+      noProxy: ""
   flogoprovisioner:
     serviceAccount: ""
     data:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 38-m1-ext
+      tag: 452
     deploymanager:
       image:
         enabled: false
@@ -67,7 +78,7 @@ global:
 replicaCount: 1
 
 image:
-  repository: tci/tci-flogoprovisioner
+  repository: tibco-platform/tp-flogo-provisioner
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -168,36 +179,13 @@ probes:
     timeoutSeconds: 10
 
 config:
-  #  DP_INTERNAL_URL: ""
-  DP_INTERNAL_URL: "***NOT AVAILABLE***"
   ARTIFACT_MANAGER_PORT: "7813"
-  APP_INIT_IMAGE_TAG: "13"
-
-oauth2proxy:
-  ingress:
-    enabled: false
-    className: nginx
-    hosts:
-      - host: ""
-        paths:
-          - path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: oauth2-proxy
-                port:
-                  number: 80
-      # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
-    annotations: {}
-    tls: []
-      #  - secretName: chart-example-tls
-      #    hosts:
-      #      - chart-example.local
+  APP_INIT_IMAGE_TAG: "31"
 
 publicApi:
   ingress:
     controllerName: nginx
-    nginx:
+    config:
       className: nginx
       pathPrefix: /tibco/flogo
       fqdn: ""

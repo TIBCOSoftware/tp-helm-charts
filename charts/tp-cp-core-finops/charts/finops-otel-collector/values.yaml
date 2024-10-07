@@ -150,7 +150,7 @@ image:
   repository: otel/opentelemetry-collector-contrib
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "0.106.1"
   # When digest is set to a non-empty value, images will be pulled by digest (regardless of tag value).
   digest: ""
 imagePullSecrets: []
@@ -158,7 +158,8 @@ imagePullSecrets: []
 # OpenTelemetry Collector executable
 command:
   name: otelcol-contrib
-  extraArgs: []
+  extraArgs:
+    - --feature-gates=-component.UseLocalHostAsDefaultHost
 
 serviceAccount:
   # Specifies whether a service account should be created

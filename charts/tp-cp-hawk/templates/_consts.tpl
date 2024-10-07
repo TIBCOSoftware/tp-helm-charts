@@ -34,13 +34,5 @@
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-hawk-infra.image.registry" .) }}
-    {{- include "tp-hawk-infra.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-hawk-infra.image.registry" .) }}
-    {{- include "tp-hawk-infra.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-hawk-infra.image.registry" .) }}
-    {{- include "tp-hawk-infra.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-hawk-infra.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}

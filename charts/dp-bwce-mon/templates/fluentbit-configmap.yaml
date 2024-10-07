@@ -1,0 +1,72 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if and .Values.enabled .Values.global.cp.logging.fluentbit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dp-bwce-mon.fullname" . }}-fluentbit-config
+  labels:
+    {{- include "dp-bwce-mon.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               dp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      multiline.parser  docker, cri
+      DB                /var/log/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             dp.*
+      Remove_key        stream
+      Remove_key        date
+      Remove_key        _p
+    [FILTER]
+      Name              parser
+      Match             dp.*
+      key_name          log
+      parser            tsc-node-logger
+      Reserve_Data      On
+      Preserve_Key      On
+
+  output.conf: |
+    [OUTPUT]
+      Name   stdout
+      Match  dp.*
+      Format json
+    
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                dp.*
+      Host                 otel-services.${POD_NAMESPACE}.svc.cluster.local
+      Port                 4318
+      Logs_uri             /v1/logs
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    [PARSER]
+      Name tsc-node-logger
+      Format regex
+      Regex ^*(?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) \[.*\] (?<tscparserlogger>[^ ]*) (?<tscparsermessage>.*)$
+      Skip_Empty_Values False
+{{- end }}

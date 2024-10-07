@@ -34,7 +34,7 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
+      serviceAccountName: {{ include "tp-cp-subscription.consts.serviceAccount" . }}
       containers:
         - name: hybrid-server
           {{- if .Values.securityContext.hybridServer }}
@@ -52,7 +52,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: HYBRID_SERVER_APP_NAME
-            value: hybrid-server-{{ .Values.subscriptionId }}       
+            value: {{ include "tp-cp-subscription.consts.appName" . }}      
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}

@@ -1,0 +1,35 @@
+{
+    "policy": {
+        "_meta": {
+            "description": "Policy for jaeger trace index lifecycle management on TIBCO Platform",
+            "project": {
+                "name": "TIBCO Platform",
+                "department": "platform infra"
+            }
+        },
+        "phases": {
+            "hot": {
+                "actions": {
+                    "rollover": {
+                        "max_size": "2GB",
+                        "max_age": "7d"
+                    }
+                }
+            },
+            "warm": {
+                "min_age": "10d",
+                "actions": {
+                    "forcemerge": {
+                        "max_num_segments": 1
+                    }
+                }
+            },
+            "delete": {
+                "min_age": "30d",
+                "actions": {
+                    "delete": {}
+                }
+            }
+        }
+    }
+}

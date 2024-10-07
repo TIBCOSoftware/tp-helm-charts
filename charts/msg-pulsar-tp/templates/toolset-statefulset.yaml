@@ -19,22 +19,23 @@
 
 {{- if .Values.components.toolset }}
 {{-  $apdParams := include "need.msg.apd.params" . | fromYaml }}
+{{-  $stsname := printf "%s-%s" (include  "pulsar.fullname" . ) .Values.toolset.component }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+  name: "{{ $stsname }}"
   namespace: {{ template "pulsar.namespace" . }}
   annotations:
     {{ include "msg.dp.mon.annotations" . | indent 4 }}
     platform.tibco.com/quorum-min: "1"
     platform.tibco.com/quorum-strategy: "active-active"
   labels:
-    tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
-    app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+    tib-msg-stsname: "{{ $stsname }}"
+    app.kubernetes.io/name: "{{ $stsname }}"
     {{- include "pulsar.standardLabels" . | nindent 4 }}
     component: {{ .Values.toolset.component }}
 spec:
-  serviceName: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+  serviceName: "{{ $stsname }}"
   replicas: {{ .Values.toolset.replicaCount | default (include "apd.sts.replicas" (dict "comp" "toolset" "param" $apdParams ))}}
   updateStrategy:
     type: OnDelete
@@ -46,8 +47,8 @@ spec:
   template:
     metadata:
       labels:
-        tib-msg-stsname: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
-        app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+        tib-msg-stsname: "{{ $stsname }}"
+        app.kubernetes.io/name: "{{ $stsname }}"
         {{- include "pulsar.template.labels" . | nindent 8 }}
         component: {{ .Values.toolset.component }}
 {{- include "apd.sts.size.labels" (dict "comp" "toolset" "param" $apdParams ) | nindent 8 }}
@@ -73,7 +74,7 @@ spec:
       serviceAccountName: "{{ $apdParams.apd.toolset.serviceAccount }}"
       {{ include "msg.dp.security.pod" $apdParams | nindent 6 }}
       containers:
-      - name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+      - name: "{{ $stsname }}"
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
@@ -85,23 +86,47 @@ spec:
 {{- include "apd.sts.resources" (dict "comp" "toolset" "param" $apdParams ) | nindent 10 }}
       {{- end }}
         command: ["bash", "-c"]
+        # exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;
         args:
         - >
-          source /boot/pulsar-setup.bash /usr/local/watcdog/bin/wait-for-shutdown.sh ; 
+          source /boot/pulsar-setup.bash ; 
+          bin/apply-config-from-env.py conf/client.conf;
+          bin/apply-config-from-env.py conf/bookkeeper.conf;
         {{- if .Values.toolset.additionalCommand }}
           {{ .Values.toolset.additionalCommand }}
         {{- end }}
-          bin/apply-config-from-env.py conf/client.conf;
-          bin/apply-config-from-env.py conf/bookkeeper.conf;
           {{- include "pulsar.toolset.zookeeper.tls.settings" . | nindent 10 }}
-          exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;
+          ( mkdir -p /pulsar/logs/boot ; cd /pulsar/logs/boot ;
+              for x in /boot/mk-*.sh ; do bash < $x ; done | tee -a boot.out ) ;
+          ( mkdir -p /data/boot ; cp /boot/*.sh /data/boot/ ; chmod +x /data/boot/*.sh ) ;
+          exec /usr/local/watchdog/bin/watchdog  ; 
+        ports:
+        - name: ops-shell
+          containerPort: 8376
+          # Requires websocket upgrade support
+          protocol: TCP
         env:
         {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
+        - name: MY_SVC_HOST
+          value: "$(MY_POD_NAME).{{ $stsname }}.{{ .Release.Namespace }}.svc"
         - name: STS_NAME
-          value: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+          value: "{{ $stsname }}"
+        - name: ALLOWED_HOSTNAMES
+          value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ $apdParams.dp.cpHostname | default "no-cp-host" }},{{ $apdParams.toolset.lbHost}}"
+        - name: TCM_WATCHDOG_LOG_FILE
+          value: /pulsar/logs/watchdog.log
+        - name: TCM_WATCHDOG_CONFIG
+          value: "/pulsar/logs/boot/toolset.wd.yaml"
+        - name: TCM_WD_PORT
+          value: "{{ $apdParams.apd.ports.watchdogPort }}"
+        - name: TCM_WATCHDOG_HOSTPORT
+          # note: $(MY_POD_NAME) will be one of {{ $stsname }}-[012]
+          value: "$(MY_POD_NAME):$(TCM_WD_PORT)"
+        - name: COMMAND
+          value: "/data/boot/ops-pulsar-bash-shell.sh"
         envFrom:
         - configMapRef:
-            name: "{{ template "pulsar.fullname" . }}-{{ .Values.toolset.component }}"
+            name: "{{ $stsname }}"
         volumeMounts:
         - mountPath: /pulsar/logs
           {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
@@ -110,8 +135,12 @@ spec:
           {{- $opsVol := (dict "volName" "ops" "subPath" "." "storageType" "sharedPvc" "storageName" $apdParams.apd.logs.storageName ) -}}
           {{ include "msg.pv.vol.mount" $opsVol | nindent 10 }}
         {{- end }}
+        - mountPath: /config
+          {{ include "msg.pv.vol.mount" $apdParams.apd.params | nindent 10 }}
         - mountPath: /boot
           {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 10 }}
+        - mountPath: /data
+          {{ include "msg.pv.vol.mount" $apdParams.apd.toolsetData | nindent 10 }}
         - mountPath: /pulsar/conf
           {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         - mountPath: /pulsar/conf/log4j2.yaml
@@ -140,6 +169,8 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
         {{- end }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.params | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.toolsetData | nindent 6 }}
       {{- if .Values.auth.authentication.enabled }}
       {{- if eq .Values.auth.authentication.provider "jwt" }}
       - name: client-token

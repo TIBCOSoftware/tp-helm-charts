@@ -1,5 +1,5 @@
 {{/*
-Copyright 2019 kubernetes Technologies LLC
+Copyright 2019 HAProxy Technologies LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ Encode an imagePullSecret string for the default backend.
 {{- end }}
 
 {{/*
-Generate default certificate for kubernetes.
+Generate default certificate for HAProxy.
 */}}
 {{- define "kubernetes-ingress.gen-certs" -}}
 {{- $ca := genCA "kubernetes-ingress-ca" 365 -}}
@@ -159,27 +159,20 @@ Create a default fully qualified unique CRD job name.
 {{- printf "%s-%s-%d" (include "kubernetes-ingress.fullname" .) "crdjob" .Release.Revision | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{/* vim: set filetype=mustache: */}}
-
-{{- define "kubernetes-ingress.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "kubernetes-ingress.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "kubernetes-ingress.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "kubernetes-ingress.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "kubernetes-ingress.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
-
 {{- define "kubernetes-ingress.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "kubernetes-ingress.image.repository" -}}
-  {{- if contains "jfrog.io" (include "kubernetes-ingress.image.registry" .) }} 
-    {{- include "kubernetes-ingress.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "kubernetes-ingress.image.registry" .) }}
-    {{- include "kubernetes-ingress.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "kubernetes-ingress.image.registry" .) }}
-    {{- include "kubernetes-ingress.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "kubernetes-ingress.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
+
+{{/*
+Create a FQDN for the proxy pods.
+*/}}
+{{- define "kubernetes-ingress.serviceProxyName" -}}
+{{- printf "%s-%s" (include "kubernetes-ingress.fullname" . | trunc 58 | trimSuffix "-") "proxy" }}
+{{- end -}}
+
+{{/* vim: set filetype=mustache: */}}

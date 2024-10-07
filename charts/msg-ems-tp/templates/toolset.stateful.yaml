@@ -1,0 +1,169 @@
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#   ${hostname}-${replicaId}.${serviceName}.${namespace}.svc.${clusterDomain}
+#
+apiVersion: apps/v1
+#
+# HELPER VARIABLE DEFINITIONS
+{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{-  $emsNeedsVct := "no" -}}
+{{- $stsname := printf "%s-toolset" $emsParams.ems.name -}}
+{{- $svcname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEmsHost := printf "%s.%s.svc" $svcEms .Release.Namespace -}}
+{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
+{{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
+{{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
+{{- $dataPvc := $emsParams.ems.logs.storageName -}}
+#
+kind: StatefulSet
+metadata:
+    name: "{{ $stsname }}"
+    namespace: "{{ .Release.Namespace }}"
+    labels:
+      {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "ems.std.labels" $emsParams | indent 6 }}
+      name: "{{ $stsname }}"
+      # app.kubernetes.io/name must match CAP-DB services list for health monitoring
+      # currently this is a fixed list per capability template, not instance customizable
+      app.kubernetes.io/name: "ems-toolset"
+      app: msg-ems-ftl
+      tib-msg-stsname: "{{ $stsname }}"
+    annotations:
+      {{ include "msg.dp.mon.annotations" . | indent 6 }}
+      platform.tibco.com/quorum-min: "1"
+      platform.tibco.com/quorum-strategy: "active-active"
+spec:
+    podManagementPolicy: Parallel
+    replicas: 1
+    selector:
+        matchLabels:
+          tib-msg-stsname: "{{ $stsname }}"
+          tib-dp-release: "{{ .Release.Name }}"
+    serviceName: "{{ $svcname }}"
+    template:
+        metadata:
+            labels:
+                tib-dp-name: "{{ $emsParams.dp.name }}"
+                {{ include "msg.dp.labels" . | indent 16 }}
+                {{ include "msg.dp.net.all" . | indent 16}}
+                {{ include "ems.std.labels" $emsParams | indent 16 }}
+                tib-msg-stsname: "{{ $stsname }}"
+                tib-msg-stsrole: "standby"
+                name: ems
+                app: msg-ems-ftl
+                "sidecar.istio.io/inject": "{{ $emsParams.ems.istioEnable }}"
+            name: ems
+            annotations:
+              cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        spec:
+            {{- if ne "none" $emsParams.dp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $emsParams.dp.pullSecret }}
+            {{- end }}
+            # NOTE: if hostname/subdomain do not agree with podname/service
+            # .. DNS pod resolution problems can occur
+            hostname: "{{ $stsname }}"
+            enableServiceLinks: false
+            subdomain: "{{ $svcname }}"
+            nodeSelector:
+              kubernetes.io/os: linux
+            containers:
+            - name: "{{ $stsname }}"
+              image: "{{ $emsParams.ems.image }}"
+              imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
+              resources:
+                requests:
+                  memory: "0.5Gi"
+                  cpu: "0.1"
+                limits:
+                  memory: "4Gi"
+                  cpu: "3"
+              # exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ; 
+              # exec /usr/local/watchdog/bin/watchdog  ; 
+              # cd /app ; exec /app/cloudshell  ; 
+              command: ['/compliance/check_eua', 'bash', '-c' ]
+              args:
+              - >
+                ( mkdir -p /logs/boot ; cd /logs/boot ;
+                    for x in /boot/mk-*.sh ; do bash < $x ; done | tee -a boot.out ) ;
+                ( mkdir -p /data/boot ; cp /boot/*.sh /data/boot/ ; chmod +x /data/boot/*.sh ) ;
+                ( mkdir -p /logs/certs ; cd /logs/certs ; 
+                    if [ -f $(echo /boot-certs/*.pem | cut -f1 -d' ' ) ] ; then
+                      cp /boot-certs/* ./ ; fi )
+                ( cd /logs/certs ; 
+                    for x in server.cert.pem server_root.cert.pem server.key.pem ; do 
+                      [ ! -f "$x" ] && cp /opt/tibco/ems/current-version/samples/certs/$x $x ; done ) ;
+                exec /usr/local/watchdog/bin/watchdog  ; 
+              ports:
+              - name: ops-shell
+                containerPort: 8376
+                # Requires websocket upgrade support
+                protocol: TCP
+              - name: watchdog-port
+                containerPort: {{ int $emsParams.ems.ports.watchdogPort }}
+                protocol: TCP
+              - name: logger-port
+                containerPort: {{ int $emsParams.ems.ports.loggerPort }}
+                protocol: TCP
+              {{ include "msg.dp.security.container" $emsParams | nindent 14 }}
+              volumeMounts:
+              - mountPath: /boot
+                {{ include "msg.pv.vol.mount" $emsParams.ems.boot | nindent 16 }}
+              - mountPath: /config
+                {{ include "msg.pv.vol.mount" $emsParams.ems.params | nindent 16 }}
+              - mountPath: /data
+                {{ include "msg.pv.vol.mount" $emsParams.ems.toolsetData | nindent 16 }}
+              - mountPath: /logs
+                {{ include "msg.pv.vol.mount" $emsParams.ems.toolset | nindent 16 }}
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              envFrom:
+                - configMapRef:
+                    name: "{{ $emsParams.ems.name }}-clients"
+                    optional: true
+                - secretRef:
+                    name : "{{ $emsParams.ems.name }}-tibadmin"
+                    optional: true
+              env:
+              {{ include "msg.dp.stdenv" $emsParams | indent  14 }}
+              - name: MY_SVC_HOST
+                value: "$(MY_POD_NAME).{{ $stsname }}.{{ .Release.Namespace }}.svc"
+              - name: ALLOWED_HOSTNAMES
+                value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ $emsParams.dp.cpHostname | default "no-cp-host" }},{{ $emsParams.toolset.lbHost}}"
+              - name: ACCEPT_EUA
+                value: "y"
+              - name: GOTRACEBACK
+                value: "crash"
+              - name: TCM_WATCHDOG_LOG_FILE
+                value: /logs/watchdog.log
+              - name: TCM_WATCHDOG_CONFIG
+                value: "/logs/boot/toolset.wd.yaml"
+              - name: TCM_WD_PORT
+                value: "{{ $emsParams.ems.ports.watchdogPort }}"
+              - name: TCM_WATCHDOG_HOSTPORT
+                # note: $(MY_POD_NAME) will be one of {{ $stsname }}-[012]
+                value: "$(MY_POD_NAME):$(TCM_WD_PORT)"
+              - name: COMMAND
+                value: "/data/boot/ops-tibemsadmin-shell.sh"
+            volumes:
+            {{ include "msg.pv.vol.def" $emsParams.ems.boot | nindent 12 }}
+            {{ include "msg.pv.vol.def" $emsParams.ems.params | nindent 12 }}
+            {{ include "msg.pv.vol.def" $emsParams.ems.toolset | nindent 12 }}
+            {{ include "msg.pv.vol.def" $emsParams.ems.toolsetData | nindent 12 }}
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            {{ include "msg.dp.security.pod" $emsParams | nindent 12 }}
+            # The service account allows access to helm/kubectl actions
+            serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
+            terminationGracePeriodSeconds: 10
+    updateStrategy:
+        # type: OnDelete
+    # MSG DATA ALLOCATE NEW STORAGE
+    volumeClaimTemplates:
+...

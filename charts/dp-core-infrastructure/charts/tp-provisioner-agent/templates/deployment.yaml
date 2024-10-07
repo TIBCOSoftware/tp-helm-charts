@@ -49,6 +49,20 @@ spec:
           # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
           - name: HELM_CACHE_HOME
             value: /tmp/.cache/helm
+          {{- with .Values.global.proxy }}
+          {{- if .httpProxy }}
+          - name: http_proxy
+            value: {{ .httpProxy }}
+          {{- end }}
+          {{- if .httpsProxy }}
+          - name: https_proxy
+            value: {{ .httpsProxy }}
+          {{- end }}
+          {{- if .noProxy }}
+          - name: no_proxy
+            value: {{ .noProxy | quote }}
+          {{- end }}          
+          {{- end }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10}}
@@ -81,7 +95,7 @@ spec:
             mountPath: /tmp
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}fluentbit:{{ .Values.fluentbit.image.tag }}
+        image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.global.logging.fluentbit.securityContext }}
         securityContext:

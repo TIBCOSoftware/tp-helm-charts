@@ -1,0 +1,13 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v2
+name: tp-cp-eventprocessing-be
+version: 1.3.9
+appVersion: 1.3.0
+description: TIBCO Platform Control Plane -- BE Addon
+dependencies:
+  - name: be-webserver
+    version: "1.3.*"
+    condition: be-webserver.enabled

@@ -1,0 +1,62 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.publicApi.ingress.controllerName "traefik" -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-oauth-errors@kubernetescrd,{{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-forward-auth@kubernetescrd
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  rules:
+    - host: {{ .Values.publicApi.ingress.config.fqdn }}
+      http:
+        paths:
+          - backend:
+              service:
+                name: {{ include "common.names.fullname" . }}
+                port:
+                  number: {{ .Values.service.ports.backend }}
+            path: {{ .Values.publicApi.ingress.config.pathPrefix }}
+            pathType: Prefix
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "common.names.fullname" . }}-forward-auth
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  forwardAuth:
+    address: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/auth
+    authResponseHeaders:
+      - X-Auth-Request-User
+      - X-Auth-Request-Email
+      - X-Forwarded-Access-Token
+      - X-Auth-Request-Access-Token
+      - X-Atmosphere-Token
+    trustForwardHeader: true
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "common.names.fullname" . }}-oauth-errors
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  errors:
+    query: {{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/sign_in?rd={url}
+    service:
+      name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
+      port: 80
+    status:
+      - "401"
+{{- end }}
+

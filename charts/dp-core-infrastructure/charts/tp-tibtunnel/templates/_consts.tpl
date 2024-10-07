@@ -23,25 +23,11 @@ in the license file that is distributed with this file.
 
 {{- define "tp-tibtunnel.consts.fluentbit.buildNumber" }}1.9.4{{end -}}
 
-{{- define "tp-tibtunnel.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "tp-tibtunnel.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "tp-tibtunnel.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "tp-tibtunnel.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-tibtunnel.consts.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
-
 {{- define "tp-tibtunnel.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-tibtunnel.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-tibtunnel.image.registry" .) }} 
-    {{- include "tp-tibtunnel.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-tibtunnel.image.registry" .) }}
-    {{- include "tp-tibtunnel.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-tibtunnel.image.registry" .) }}
-    {{- include "tp-tibtunnel.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-tibtunnel.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.tibco.containerRegistry.repository}}
 {{- end -}}

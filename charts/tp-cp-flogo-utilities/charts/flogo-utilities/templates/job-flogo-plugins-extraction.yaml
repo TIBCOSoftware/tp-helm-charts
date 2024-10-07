@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -40,13 +40,18 @@ spec:
       containers:
       {{- range $name, $plugin := .Values.flogoplugins }}
       {{- range $tag := $plugin.deleteTags }}
-      - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-delete
+      - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-delete
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: IfNotPresent
         {{- with $.Values.securityContext }}
         securityContext:
           {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        env:
+        - name: FLOGO_CONNECTOR_NAME
+          value: "{{ $name }}"
+        - name: FLOGO_CONNECTOR_TAG
+          value: "{{ $tag }}"
         command:
           - "sh"
           - "-c"
@@ -60,7 +65,7 @@ spec:
             subPath: {{ $.Values.volumes.plugins.subPath }}
       {{- end }}
       {{- range $tag := $plugin.tags }}
-      - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-img-extract
+      - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-extract
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: IfNotPresent
         env:
@@ -76,6 +81,10 @@ spec:
           value: "{{ $.Values.volumes.plugins.mountPath }}/flogo-contribution/{{ $name }}/{{ $tag }}"
         - name: LOG_LEVEL
           value: debug
+        - name: FLOGO_CONNECTOR_NAME
+          value: "{{ $name }}"
+        - name: FLOGO_CONNECTOR_TAG
+          value: "{{ $tag }}"
         volumeMounts:
         - name: shared-vol
           mountPath: {{ $.Values.volumes.plugins.mountPath }}
@@ -85,9 +94,14 @@ spec:
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
         {{- end }}
-      - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-default
+      - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-default
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: IfNotPresent
+        env:
+        - name: FLOGO_CONNECTOR_NAME
+          value: "{{ $name }}"
+        - name: FLOGO_CONNECTOR_TAG
+          value: "{{ $tag }}"
         command:
           - "sh"
           - "-c"

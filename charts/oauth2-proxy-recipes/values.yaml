@@ -9,15 +9,20 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for cp proxy, default is latest
-    version: "10.1.006"
-    tag: ""
+    version: "10.1.022"
+    tag: "v1.3.4"
     # Timestamp of capability release
-    releaseDate: "2024/05/15"
+    releaseDate: "2024/08/02"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "Enhancements, Bug fixes, etc."
 
+global:
+  cp:
+    containerRegistry:
+      repository: "tibco-platform-docker-prod"
+
 image:
-  name: distroless-base-debian-debug
+  name: common-distroless-base-debian-debug
   registry: ""
   repo: ""
   tag: 12

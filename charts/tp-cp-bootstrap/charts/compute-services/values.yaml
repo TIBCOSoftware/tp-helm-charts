@@ -11,15 +11,23 @@ settingsConfigmap:
   - key: "LOG_LEVEL"
     value: "info"
 
-# Bearer authn header for calling query node.
-queryNodeBasicAuthHeader: "johndoe"
-
 dpMetadata:
   dpConfigureNamespaceChartName: "dp-configure-namespace"
   dpConfigureNamespaceChartVersion: "*"
   dpCoreInfrastructureChartName: "dp-core-infrastructure"
   dpCoreInfrastructureChartVersion: "*"
-
+  components:
+    services:
+      - name: "tp-tibtunnel"
+        description: "TibTunnel"
+        monitoringPriority: "essential"
+      - name: "provisioner-agent"
+        description: "provisioner-agent"
+        monitoringPriority: "essential"
+      - name: "cpdpproxy"
+        description: "HA Proxy Ingress"
+        monitoringPriority: "essential"
+    dependsOn: []
 
 # You can use topology spread constraints to control how Pods are spread across your cluster among failure-domains such as regions, zones, nodes,
 # and other user-defined topology domains. This can help to achieve high availability as well as efficient resource utilization.
@@ -46,10 +54,8 @@ hpa:
 
 # images
 image:
-  name: platform-compute-services
-  registry: ""
-  repo: ""
-  tag: 297-distroless
+  name: infra-compute-services
+  tag: 379-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -94,12 +100,27 @@ securityContext:
 #        username: "test"
 #        password: "test"
 
+# Jfrog container registry configuration. Configuration required by compute service to create customer/subscription service-accounts in jfrog.
+# Data plane container registries supported by the Control Plane.
+# single control plane can support multiple container registries for dp.
+# this is the list of non-default docker registries.
+dpContainerRegistries:
+  jfrog:
+    enabled: false
+    motherShipFqdn: ""
+    adminUsername: ""
+    adminBearerToken: "" # admin user bearer token to create to jfrog internal users, these users will be created by tibco on behalf of customers/subscription.
+    email: ""
+    customerGroup: "" #customer service account will be part of this group. This group should be pre-created in Jfrog (mothershipFqdn)
+
 # Global section will apply to this chart and all of its subcharts.
 global:
   tibco:
     serviceAccount: ""
     containerRegistry:
       url: ""
+      repository: "tibco-platform-docker-prod"
+
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""
@@ -113,10 +134,10 @@ global:
       fluentbit:
         enabled: true
         image:
-          name: "fluentbit"
+          name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.0.2
+          tag: 3.1.4
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false

@@ -1,0 +1,30 @@
+# vCluster 0.19 file contents
+sync:
+# sync real nodes to the virtual cluster where virtual cluster pods are running
+# this is for installing kube-metrics-server & also for enabling hostpath mapping
+ nodes:
+   enabled: true
+   syncAllNodes: true
+# this was needed so that nginx of host cluster can access ingresses of vCluster
+ ingresses:
+   enabled: true
+ ingressclasses:
+   enabled: false
+ hoststorageclasses:
+   enabled: true
+
+syncer:
+ extraArgs:
+ # this is needed for hostPath mapping
+   - --mount-physical-host-paths=true
+ # this is needed for syncing the real labels in host cluster for p8s scraping
+   - --sync-labels=platform.tibco.com/*,prometheus.io/*
+ # allocated more resources to syncer to make the performance better
+ resources:
+   limits:
+     ephemeral-storage: 8Gi
+     memory: 4Gi
+   requests:
+     ephemeral-storage: 400Mi
+     cpu: 100m
+     memory: 512Mi

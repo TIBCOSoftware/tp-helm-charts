@@ -13,12 +13,12 @@ metadata:
 data:
   prometheus.yml: |-
     global:
-      scrape_interval: 15s
+      scrape_interval: 35s
       evaluation_interval: 15s
 
     scrape_configs:
       - job_name: 'redtailmetrics'
-        scheme: https
+        scheme: http
         basic_auth:
           username: mtuser
           password: QPuf6#2$A

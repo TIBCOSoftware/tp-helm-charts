@@ -25,7 +25,7 @@ efs:
     throughputMode: "elastic"
   # Additional configuration parameters for EFS
   # additionalConfigurationParameters:
-  #   encrypted: false
+  #   encrypted: "true"
   #   kmsKeyId: ""
   #   provisionedThroughputInMibps: 10
   storageClass:
@@ -50,11 +50,21 @@ efs:
     allowVolumeExpansion: false
     reclaimPolicy: "Delete"
     volumeBindingMode: "Immediate"
+  persistentVolume:
+    # To create kubernetes persistent volume set create to true
+    create: false
+    # Set the name of persistent volume
+    name: ""
+    accessModes:
+      - ReadWriteMany
+    reclaimPolicy: "Retain"
+    storage: "10000Gi"
+    storageClassName: ""
+    volumeMode: "Filesystem"
   # Set the tags (key-value pairs) which are to be added to EFS
   # resourceTags:
   #   resource-name: efs
   #   cost-center: control-plane
-
 
 postgresInstance:
   # To create RDS PostgreSQL instance claim set create to true
@@ -76,12 +86,12 @@ postgresInstance:
   #   allocatedStorage: 20
   #   backupRetentionPeriod: 0
   #   caCertificateIdentifier: "rds-ca-rsa2048-g1"
-  #   deletionProtection: false
+  #   deletionProtection: "false"
   #   finalDBSnapshotIdentifier: ""
   #   kmsKeyId: ""
-  #   multiAZ: false
-  #   skipFinalSnapshotBeforeDeletion: true
-  #   storageEncrypted: false
+  #   multiAZ: "false"
+  #   skipFinalSnapshotBeforeDeletion: "true"
+  #   storageEncrypted: "false"
   #   storageType: gp3
   #   restoreFrom:
   #     source: "Snapshot"
@@ -89,6 +99,69 @@ postgresInstance:
   # Set the tags (key-value pairs) which are to be added to RDS DB instance
   # resourceTags:
   #   resource-name: postgres-instance
+  #   cost-center: control-plane
+
+auroraCluster:
+  # To create Auora cluster claim set create to true
+  create: false
+  # Secret name in the same release namespace where the username, password, endpoint and port will be stored
+  connectionDetailsSecret: ""
+  numberOfInstances: 1
+  globalDatabase:
+    primaryCluster:
+      create: false
+      deletionProtection: "false"
+    secondaryCluster:
+      create: false
+      globalClusterIdentifier: ""
+      enableGlobalWriteForwarding: "true"
+      masterUserPasswordSecretRef:
+        name: "dummy"
+        key: "dummy"
+        # encoded value - Not Required to be set
+        username: ""
+        # encoded value - Not Required to be set
+        password: ""
+  # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html are supported
+  # Mandatory configuration parameters for Aurora cluster
+  mandatoryConfigurationParameters:
+    # provide for creating primary / stand-alone cluster
+    # databaseName: "postgres"
+    dbInstanceClass: "db.t3.medium"
+    dbParameterGroupFamily: "aurora-postgresql14"
+    engine: "aurora-postgresql"
+    engineVersion: "14.11"
+    engineMode: "provisioned"
+    # provide for creating primary / stand-alone cluster
+    # masterUsername: "useradmin"
+    port: 5432
+    publiclyAccessible: false
+  # Additional configuration parameters for Aurora postgres
+  # additionalConfigurationParameters:
+  #   allocatedStorage: 20
+  #   allowMajorVersionUpgrade: "false"
+  #   applyImmediately: "false"
+  #   autoMinorVersionUpgrade: "true"
+  #   backupRetentionPeriod: "0"
+  #   deletionProtection: "false"
+  #   finalDBSnapshotIdentifier: ""
+  #   kmsKeyId: ""
+  #   groupFamilyParameters:
+  #     - parameterName: rds.force_ssl
+  #       parameterValue: '1'
+  #       applyMethod: immediate
+  #   allowedIngressConnectionsFrom:
+  #     - "10.120.0.0/32"
+  #     - "40.120.0.0/32"
+  #   skipFinalSnapshot: "true"
+  #   storageEncrypted: "false"
+  #   storageType: aurora
+  #   restoreFrom:
+  #     source: "Snapshot"
+  #     snapshotIdentifier: ""
+  # # Set the tags (key-value pairs) which are to be added to RDS DB instance
+  # resourceTags:
+  #   resource-name: aurora-cluster
   #   cost-center: control-plane
 
 ses:
@@ -119,16 +192,16 @@ redis:
     port: 6379
   # Additional configuration parameters for Redis replication group
   # additionalConfigurationParameters:
-  #   applyModificationsImmediately: true
-  #   atRestEncryptionEnabled: false
-  #   authEnabled: false
+  #   applyModificationsImmediately: "true"
+  #   atRestEncryptionEnabled: "false"
+  #   authEnabled: "false"
   #   engine: "redis"
-  #   multiAZEnabled: false
+  #   multiAZEnabled: "false"
   #   numNodeGroups: 1
-  #   replicasPerNodeGroup: 0
+  #   replicasPerNodeGroup: "0"
   #   restoreFrom:
   #     snapshotName: ""
-  #   transitEncryptionEnabled: false
+  #   transitEncryptionEnabled: "false"
   # Set the tags (key-value pairs) which are to be added to Redis replication group
   # resourceTags:
   #   resource-name: redis

@@ -84,7 +84,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
       - name: check-pod-dependencies
-        image: {{ include "tp-cp-orchestrator.image.registry" .}}{{"/"}}{{ include "tp-cp-orchestrator.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
         {{- if .Values.global.containerSecurityContext.orchestrator }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.orchestrator | nindent 10 }}
@@ -110,7 +110,7 @@ spec:
       {{ end }}
       containers:
       - name: cporchservice
-        image: {{ include "tp-cp-orchestrator.image.registry" .}}{{"/"}}{{ include "tp-cp-orchestrator.image.repository" .}}{{"/"}}{{ include "tp-cp-orchestrator.image.name" .}}:{{ include "orchestrator.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.orchestrator }}:{{ include "orchestrator.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.orchestrator }}
         securityContext:
@@ -160,6 +160,20 @@ spec:
             secretKeyRef:
               name: cporch-encryption-secret
               key: CP_ENCRYPTION_SECRET
+        - name: CP_INSTANCE_ID
+          value: {{ include "cp-core-configuration.cp-instance-id" . | quote }}
+        - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+          value: {{ include "cp-core-configuration.isSingleNamespace" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
+          value: {{ include "cp-core-configuration.container-registry-image-pull-secret-name" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_USERNAME
+          value: {{ include "cp-core-configuration.cp-container-registry-username" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_PASSWORD
+          value: {{ include "cp-core-configuration.cp-container-registry-password" . | quote }}         
+        - name: CP_CONTAINER_REGISTRY_REPO
+          value: {{ include "cp-core-configuration.image-repository" . | quote }}
+        - name: CP_CONTAINER_REGISTRY
+          value: {{ include "cp-core-configuration.container-registry" . | quote }}
         - name: SYSTEM_DOCKER_REGISTRY
           value: {{ include "cp-core-configuration.container-registry" . }}
         - name: SYSTEM_DP_JFROG_CONTAINER_REGISTRY
@@ -279,7 +293,11 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-cp-orchestrator.consts.cp.db.configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: MasterWriterHost
+              {{- else }}
               key: DBHost
+              {{- end }}
         - name: PGPORT
           valueFrom:
             configMapKeyRef:
@@ -289,7 +307,11 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-cp-orchestrator.consts.cp.db.configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: LocalReaderHost
+              {{- else }}
               key: DBHost
+              {{- end }}
         - name: READ_PGPORT
           valueFrom:
             configMapKeyRef:
@@ -360,7 +382,7 @@ spec:
           subPath: tsc/certificates
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "tp-cp-orchestrator.image.registry" .}}{{"/"}}{{ include "tp-cp-orchestrator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}

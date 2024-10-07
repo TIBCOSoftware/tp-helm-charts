@@ -72,25 +72,25 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
       - name: check-pod-dependencies
-        image: {{ include "tp-cp-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-web-server.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
         {{- if .Values.global.containerSecurityContext.webServer }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.webServer | nindent 10 }}
         {{- end }}
-        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-provider to be running; sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_IDP_HOST:9893/ping" 2>&1 | grep "HTTP/"); done' ]
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
         env:
-          - name: TP_CP_IDP_HOST
+          - name: TP_CP_IDM_HOST
             valueFrom:
               configMapKeyRef:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
-                key: TP_CP_IDP_HOST
+                key: TP_CP_IDM_HOST
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
       {{ end }}
       containers:
       - name: cpwebserver
-        image: {{ include "tp-cp-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-web-server.image.repository" .}}{{"/"}}{{ include "tp-cp-web-server.image.name" .}}:{{ include "web-server.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.webserver }}:{{ include "web-server.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.webServer }}
         securityContext:
@@ -152,6 +152,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_IDM_HOST
+        - name: TP_CP_IDP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDP_HOST
         - name: TP_CP_MONITORING_HOST
           valueFrom:
             configMapKeyRef:
@@ -162,6 +167,21 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_QUERYNODE_HOST
+        - name: TP_CP_BW5_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW5_HOST
+        - name: TP_CP_BW6_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW6_HOST
+        - name: TP_CP_BE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BE_HOST
         - name: SYSTEM_WHO
           value: {{ include "cp-core-configuration.cp-instance-id" . }}
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
@@ -194,6 +214,8 @@ spec:
           value: {{ include "tp-cp-web-server.consts.web.server.log.enabled" . | quote }}
         - name: TSC_DOMAIN
           value: https://$(TSC_DNS_DOMAIN)
+        - name: FINOPS
+          value: {{ .Values.global.tibco.finops }}
         - name: ADMIN_DOMAIN
           value: https://$(TSC_ADMIN_DNS_DOMAIN)
         - name: REGION
@@ -206,11 +228,17 @@ spec:
         - name: TSC_CONFIG_LOCATION
           value: /private/tsc
         - name: CP_HELM_REPO
-          value: {{ .Values.global.CP_HELM_REPO }}
-        - name: CP_PROD_HELM_REPO
-          value: {{ .Values.global.CP_PROD_HELM_REPO }}
-        - name: CP_STAGING_HELM_REPO
-          value: {{ .Values.global.CP_STAGING_HELM_REPO }}
+          value: {{ .Values.global.external.helmRepo }}
+        - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
+          value: {{ include "cp-core-configuration.container-registry-image-pull-secret-name" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_USERNAME
+          value: {{ include "cp-core-configuration.cp-container-registry-username" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_PASSWORD
+          value: {{ include "cp-core-configuration.cp-container-registry-password" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_REPO
+          value: {{ include "cp-core-configuration.image-repository" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_URL
+          value: {{ include "cp-core-configuration.container-registry" . | quote }}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
@@ -229,7 +257,7 @@ spec:
             subPath: tsc/tools
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "tp-cp-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-web-server.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
@@ -506,6 +534,24 @@ spec:
       allowXFrameOptions: false
   - path: /cp/sm-ui-content
     internalPath: /sm-ui-content
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/apim-ui-content
+    internalPath: /apim-ui-content
     port: 3000
     protocol: http
     proxies:

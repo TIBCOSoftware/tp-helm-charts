@@ -131,6 +131,10 @@
         "create": {
           "description": "Specifies whether a configMap should be created (true by default).",
           "type": "boolean"
+        },
+        "existingName": {
+          "description": "Specifies an existing configMap to be mounted to the pod",
+          "type": "string"
         }
       }
     },
@@ -788,6 +792,21 @@
         },
         "extraLabels": {
           "type": "object"
+        },
+        "relabelings": {
+          "type": "array",
+          "description": "The relabelings Schema",
+          "default": [],
+          "items": {}
+        },
+        "metricRelabelings": {
+            "type": "array",
+            "default": [],
+            "title": "The metricRelabelings Schema",
+            "items": {},
+            "examples": [
+                []
+            ]
         }
       },
       "required": ["enabled"]
@@ -919,6 +938,9 @@
         }
     },
     "useGOMEMLIMIT": {
+      "type": "boolean"
+    },
+    "shareProcessNamespace": {
       "type": "boolean"
     }
   },

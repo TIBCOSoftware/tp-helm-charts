@@ -31,7 +31,7 @@ rules:
   resources: ["ingressclasses", "ingresses"]
   verbs:   ["get", "list", "watch"]
 - apiGroups: ["gateway.networking.k8s.io"]
-  resources: ["ingressclasses", "ingresses"]
+  resources: ["referencegrants", "httproutes", "gateways", "gatewayclasses", "ingressclasses", "ingresses"]
   verbs:   ["get", "list", "watch"]
 - apiGroups: ["networking.x-k8s.io"]
   resources: ["gateways", "gatewayclasses", "httproutes", "tlsroutes", "tcproutes", "udproutes", "backendpolicies"]

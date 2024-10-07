@@ -33,7 +33,7 @@ spec:
   - http:
       paths:
       - pathType: Prefix
-        path: /tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/
+        path: /tibco/agent/msg/ems/{{ $emsParams.dp.instanceId }}/rest/
         backend:
           service:
             name: "{{ $svcEms }}active"

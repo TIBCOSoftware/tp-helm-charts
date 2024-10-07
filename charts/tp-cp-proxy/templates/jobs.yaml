@@ -31,6 +31,10 @@ spec:
         - name: post-install-job
           image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.job.resources }}
+          resources:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
           args:
             - configure
             - -i
@@ -44,8 +48,20 @@ spec:
               value: {{ .Values.global.cp.dataplaneId }}
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
-          securityContext:
-            readOnlyRootFilesystem: true
+            {{- with .Values.global.cp.proxy }}
+            {{- if .httpProxy }}
+            - name: http_proxy
+              value: {{ .httpProxy }}
+            {{- end }}
+            {{- if .httpsProxy }}
+            - name: https_proxy
+              value: {{ .httpsProxy }}
+            {{- end }}
+            {{- if .noProxy }}
+            - name: no_proxy
+              value: {{ .noProxy | quote }}
+            {{- end }}          
+            {{- end }}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
 
@@ -76,6 +92,10 @@ spec:
         - name: pre-delete-job
           image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.job.resources }}
+          resources:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
           args:
             - delete
             - -s
@@ -85,5 +105,21 @@ spec:
               value: {{ .Values.global.cp.dataplaneId }}
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
+            {{- with .Values.global.cp.proxy }}
+            {{- if .httpProxy }}
+            - name: http_proxy
+              value: {{ .httpProxy }}
+            {{- end }}
+            {{- if .httpsProxy }}
+            - name: https_proxy
+              value: {{ .httpsProxy }}
+            {{- end }}
+            {{- if .noProxy }}
+            - name: no_proxy
+              value: {{ .noProxy | quote }}
+            {{- end }}          
+            {{- end }}
+          securityContext:
+            readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}

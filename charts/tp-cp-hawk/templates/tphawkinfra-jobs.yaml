@@ -1,7 +1,7 @@
 # Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-
+{{- if eq .Values.global.tibco.is_replica_region false }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -220,8 +220,8 @@ spec:
 
 
 
----
 
+---
 
 apiVersion: batch/v1
 kind: Job
@@ -437,3 +437,6 @@ spec:
               path: USERNAME
             - key: PASSWORD
               path: PASSWORD
+
+
+{{- end }}

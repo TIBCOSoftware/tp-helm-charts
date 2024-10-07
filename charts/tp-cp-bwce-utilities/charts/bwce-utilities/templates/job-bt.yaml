@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -46,6 +46,8 @@ spec:
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        resources:
+        {{- toYaml $.Values.scripts.resources | nindent 10 }}
         command:
           - "sh"
           - "-c"
@@ -62,10 +64,12 @@ spec:
       - name: {{ $name }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: Always
-        {{- if $.Values.securityContext }}
+        {{- with $.Values.securityContext }}
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        resources:
+        {{- toYaml $.Values.buildtype.resources | nindent 10 }}
         env:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $image.tag }}"

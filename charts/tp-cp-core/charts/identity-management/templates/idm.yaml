@@ -76,7 +76,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
       - name: check-pod-dependencies
-        image: {{ include "tp-identity-management.image.registry" .}}{{"/"}}{{ include "tp-identity-management.image.repository" .}}{{"/distroless-base-debian-debug:12"}}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
         {{- if .Values.global.containerSecurityContext.idm }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.idm | nindent 10 }}
@@ -95,7 +95,7 @@ spec:
       {{ end }}
       containers:
       - name: idm
-        image: {{ include "tp-identity-management.image.registry" .}}{{"/"}}{{ include "tp-identity-management.image.repository" .}}{{"/"}}{{ include "tp-identity-management.image.name" .}}:{{ include "identity-management.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.identityManagement }}:{{ include "identity-management.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.idm }}
         securityContext:
@@ -141,6 +141,11 @@ spec:
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 1
+        {{- if .Values.global.tibco.idpsConfOverride }}
+        envFrom:
+          - secretRef:
+              name: {{ include "tp-identity-management.consts.appName" . }}-idps-conf-override
+        {{ end }}
         env:
         - name: IDENTITY_MANAGEMENT_POD_NAMESPACE
           valueFrom:
@@ -200,21 +205,19 @@ spec:
         - name: IDENTITY_MANAGEMENT_OPTS
           value: -DrootLogLevel=DEBUG
         - name: IDENTITY_MANAGEMENT_JWT_KEYSTORE_URL
-          value: $(TSC_CONFIG_LOCATION)/config/idm/own-keystores/jwt.p12
-        - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEYSTORE_URL
           valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-env-configmap" . }}
-              key: {{ .Chart.Name }}.tibcoaccountKeystoreUrl
+            secretKeyRef:
+              name: {{ include "identity-management-jwt-keystore-url" . }}
+              key: IDENTITY_MANAGEMENT_JWT_KEYSTORE_URL
         - name: IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: identity-management-jwt-key-store-password
+              name: {{ include "identity-management-jwt-key-store-password" . }}
               key: IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD
         - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEY_STORE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: identity-management-sp-key-store-password
+              name: {{ include "identity-management-sp-key-store-password" . }}
               key: IDENTITY_MANAGEMENT_SP_KEY_STORE_PASSWORD
         - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEY_STORE_KEY_ALIAS
           valueFrom:
@@ -231,8 +234,10 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: CP_JWKS_URI
+          value: {{ .Values.global.tibco.idm_cp_jwks_uri }}
         - name: TSC_HOST_MAPPING
-          value: '{"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "allowExpiredSubscription": true, "jwksUri": "$(TSC_CONFIG_LOCATION)/config/idm/own-keystores/cic_cli_host.pem"}'
+          value: '{"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "allowExpiredSubscription": true, "jwksUri": "$(CP_JWKS_URI)"}'
         - name: ADMIN_HOST_MAPPING
           value: '{"host": "$(TSC_ADMIN_DNS_DOMAIN)", "tenantId": "ADMIN", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "maxValidityForAccessToken": "8h"}'
         - name: IDENTITY_MANAGEMENT_HOST_MAPPINGS
@@ -276,18 +281,13 @@ spec:
         - name: IDENTITY_MANAGEMENT_CLIENT_ID_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: identity-management-client-id-secret-key
+              name: {{ include "identity-management.client-id-secret-key" . }}
               key: IDENTITY_MANAGEMENT_CLIENT_ID_SECRET_KEY
         - name: TSC_COOKIE_NAME
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.cookieName
-        - name: IDENTITY_MANAGEMENT_IDP_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-env-configmap" . }}
-              key: {{ .Chart.Name }}.identityManagementIdpName
         - name: IDENTITY_MANAGEMENT_IDP_LOCATION
           value: /private/tsc/config/idm/idp/idps.conf
         - name: IDENTITY_MANAGEMENT_ADMIN_CONFIGURATION_FILE_NAME
@@ -347,7 +347,7 @@ spec:
           subPath: tsc/config
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "tp-identity-management.image.registry" .}}{{"/"}}{{ include "tp-identity-management.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
@@ -568,7 +568,7 @@ spec:
       fqdn: ${TSC_DNS_DOMAIN}
       methods:
       - POST
-  - path: /idm/v1/oauth2/tokens$
+  - path: /idm/v1/oauth2/tokens
     internalPath: /v1/oauth2/tokens
     port: 7831
     protocol: http
@@ -680,6 +680,17 @@ spec:
     - listener: virtual
       config: empty
       fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+  # PDP-3049: Router calls IdM directly instead of public API to avoid supporting proxy configuration in Router
+  - path: /idm/v1/management/oauth2/jwks-uri
+    internalPath: /v1/oauth2/jwks-uri
+    port: 7831
+    protocol: http
+    proxies:
+    - listener: intercom
+      config: empty
+      fqdn: ""
       methods:
       - GET
   - path: /public/v1/oauth2/userinfo
@@ -1034,7 +1045,7 @@ spec:
     port: 7831
     proxies:
     - listener: virtual
-      config: secure_optional
+      config: empty
       enableRedirects: true
       fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
       methods:

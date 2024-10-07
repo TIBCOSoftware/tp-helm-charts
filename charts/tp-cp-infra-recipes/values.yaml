@@ -12,8 +12,8 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for cp proxy, default is latest
-    version: "1.2.9"
-    tag: "137"
+    version: "1.3.6"
+    tag: "146"
     # Timestamp of capability release
     releaseDate: "2024/02/22"
     # Either a link to document or the document itself specifying _what was fixed in this release.
@@ -29,8 +29,21 @@ capabilities:
     releaseNotes: "Enhancements, Bug fixes, etc."
     # helm chart and image version for artifact manager, default helm chart version is latest
     artifactmanager:
-      version: "1.2.9"
-      tag: "68"
+      version: "1.3.4"
+      tag: "73"
+  apimanager:
+    # if set to true then existing recipe will be overwritten by latest recipe.
+    overwriteRecipe: "false"
+    # set to true for latest version of recipe
+    isLatest: "true"
+    # Timestamp of capability release
+    releaseDate: "2024/08/22"
+    # Either a link to document or the document itself specifying _what was fixed in this release.
+    releaseNotes: "Enhancements, Bug fixes, etc."
+    # helm chart and image version for apim, default helm chart version is latest
+    apim:
+      version: "1.3.12"
+      tag: "71"
 
   o11y:
     default:
@@ -44,13 +57,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.2.26"
+        version: "1.3.32"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
-        version: "0.89.2"
+        version: "0.101.2"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.10"
+        version: "0.72.19"
     withResources:
       # if set to true then existing recipe will be overwritten by latest recipe.
       overwriteRecipe: "false"
@@ -62,13 +75,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.2.26"
+        version: "1.3.32"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
-        version: "0.89.2"
+        version: "0.101.2"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.10"
+        version: "0.72.19"
 
   monitorAgent:
     # if set to true then existing recipe will be overwritten by latest recipe.
@@ -76,19 +89,27 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for monitor-agent, default is latest
-    version: "1.2.118"
+    version: "1.3.136"
     tag: "94"
     # Timestamp of capability release
-    releaseDate: "2024/02/22"
+    releaseDate: "2024/07/22"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "Enhancements, Bug fixes, etc."
 
 image:
-  name: distroless-base-debian-debug
-  registry: ""
-  repo: ""
+  name: common-distroless-base-debian-debug
   tag: 12
   pullPolicy: IfNotPresent
+
+# Resources
+# https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources:
+  requests:
+    cpu: 50m
+    memory: 30Mi
+  limits:
+    cpu: 100m
+    memory: 60Mi
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.

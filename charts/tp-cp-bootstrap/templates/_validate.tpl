@@ -80,8 +80,11 @@ in the license file that is distributed with this file.
 {{- if empty .Values.global.external.clusterInfo.nodeCIDR }}
 {{- fail (printf "external.clusterInfo.nodeCIDR is required, if Network Policy is enabled.\nIf Node CIDR and Pod CIDR are different, both need to be passed from values.\nOtherwise same values will be used for global.external.clusterInfo.nodeCIDR and global.external.clusterInfo.podCIDR.\n\nUse --set global.external.clusterInfo.nodeCIDR=<Node_IP_CIDR>\nNode_IP_CIDR=<IP range of Nodes VPC or VNet address space (CIDR notation)> e.g. 10.180.0.0/16\n\nUse --set global.external.clusterInfo.podCIDR=<Pod_IP_CIDR>\nPod_IP_CIDR=<IP range of Pod IP CIDR (CIDR notation)> e.g. 192.168.0.0/16") }}
 {{- end }}
+{{- if empty .Values.global.external.clusterInfo.serviceCIDR }}
+{{- fail (printf "external.clusterInfo.serviceCIDR is required, if Network Policy is enabled.\n\nUse --set global.external.clusterInfo.serviceCIDR=<Service_CIDR>\nService_CIDR=<IP range of Service CIDR (CIDR notation)> e.g. 172.20.0.0/16") }}
+{{- end }}
 {{- else }}
-{{- fail (printf "external.clusterInfo.nodeCIDR is required, if Network Policy is enabled.\nIf Node CIDR and Pod CIDR are different, both need to be passed from values.\nOtherwise same values will be used for global.external.clusterInfo.nodeCIDR and global.external.clusterInfo.podCIDR.\n\nUse --set global.external.clusterInfo.nodeCIDR=<Node_IP_CIDR>\nNode_IP_CIDR=<IP range of Nodes VPC or VNet address space (CIDR notation)> e.g. 10.180.0.0/16\n\nUse --set global.external.clusterInfo.podCIDR=<Pod_IP_CIDR>\nPod_IP_CIDR=<IP range of Pod IP CIDR (CIDR notation)> e.g. 192.168.0.0/16") }}
+{{- fail (printf "external.clusterInfo.nodeCIDR and external.clusterInfo.serviceCIDR are required and external.clusterInfo.podCIDR is optional, if Network Policy is enabled.\n\nUse --set global.external.clusterInfo.nodeCIDR=<Node_IP_CIDR>\nNode_IP_CIDR=<IP range of Nodes VPC or VNet address space (CIDR notation)> e.g. 10.180.0.0/16\n\nUse --set global.external.clusterInfo.podCIDR=<Pod_IP_CIDR>\nPod_IP_CIDR=<IP range of Pod IP CIDR (CIDR notation)> e.g. 192.168.0.0/16\n\nUse --set global.external.clusterInfo.serviceCIDR=<Service_CIDR>\nService_CIDR=<IP range of Service CIDR (CIDR notation)> e.g. 172.20.0.0/16") }}
 {{- end }}
 {{- end }}
 

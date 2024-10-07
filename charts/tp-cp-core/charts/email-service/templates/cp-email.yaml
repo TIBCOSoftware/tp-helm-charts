@@ -86,7 +86,7 @@ spec:
       {{ end }}
       containers:
       - name: cpemailservice
-        image: {{ include "tp-cp-email-service.image.registry" .}}{{"/"}}{{ include "tp-cp-email-service.image.repository" .}}{{"/"}}{{ include "tp-cp-email-service.image.name" .}}:{{ include "email-service.generated.buildNumber" . }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.emailService }}:{{ include "email-service.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.emailService }}
         securityContext:
@@ -186,7 +186,7 @@ spec:
           subPath: tsc/config
 {{- if (include "cp-core-configuration.enableLogging" .)}}
       - name: fluentbit
-        image: {{ include "tp-cp-email-service.image.registry" .}}{{"/"}}{{ include "tp-cp-email-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.containerSecurityContext.fluentbit }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}

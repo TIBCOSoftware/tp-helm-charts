@@ -24,21 +24,7 @@ f{{/*
 
 {{- define "tp-hawk-infra-querynode.consts.hawkDbPrefix" }}{{ include "tp-hawk-infra-querynode.cp-instance-id" . | replace "-" "_" }}_{{ end -}}
 
-{{- define "tp-hawk-infra-querynode.consts.jfrogImageRepo" }}tibco-platform-local-docker/hawk{{end}}
-{{- define "tp-hawk-infra-querynode.consts.ecrImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-querynode.consts.acrImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-querynode.consts.harborImageRepo" }}infra-hawk/control-tower{{end}}
-{{- define "tp-hawk-infra-querynode.consts.defaultImageRepo" }}infra-hawk/control-tower{{end}}
-
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra-querynode.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-hawk-infra-querynode.image.registry" .) }}
-    {{- include "tp-hawk-infra-querynode.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-hawk-infra-querynode.image.registry" .) }}
-    {{- include "tp-hawk-infra-querynode.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-hawk-infra-querynode.image.registry" .) }}
-    {{- include "tp-hawk-infra-querynode.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-hawk-infra-querynode.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}

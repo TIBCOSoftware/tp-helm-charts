@@ -63,6 +63,9 @@ rules:
 - apiGroups: ["batch"]
   resources: ["jobs"]
   verbs: ["create", "get", "delete", "update", "list", "watch"]
+- apiGroups: ["traefik.io"]
+  resources: ["middlewares"]
+  verbs: ["list", "get", "create", "update", "delete", "patch"]
 
 ---
 

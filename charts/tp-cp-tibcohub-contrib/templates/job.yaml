@@ -39,7 +39,7 @@ spec:
         - name: DOCKER_REGISTRY
           value: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}           # docker registry where source image is present
         - name: SOURCE_DOCKER_IMAGE
-          value: "{{ include "tp-cp-tibcohub-contrib.image.registry" .}}/{{ include "tp-cp-tibcohub-contrib.tibcoHub.image.repository" .}}/{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"               # source docker image name
+          value: "{{ include "tp-cp-tibcohub-contrib.image.registry" .}}/{{ include "tp-cp-tibcohub-contrib.image.repository" .}}/{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"               # source docker image name
         - name: IMAGE_TEMP_DIR
           value: "/efs/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
         - name: SOURCE_DIRS 

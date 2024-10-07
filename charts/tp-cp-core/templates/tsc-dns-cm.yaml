@@ -36,3 +36,7 @@ data:
   REGION: {{ .Values.global.tibco.region }}
   SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST: {{ include "tpcontrol-plane.consts.computeServiceName" . }}
   TP_CP_QUERYNODE_HOST: {{ include "tpcontrol-plane.consts.cpQueryNodeServiceName" . }}
+  TP_CP_BW5_HOST: {{ include "tpcontrol-plane.consts.tpCpBW5ServiceName" . }}
+  TP_CP_BW6_HOST: {{ include "tpcontrol-plane.consts.tpCpBW6ServiceName" . }}
+  TP_CP_BE_HOST: {{ include "tpcontrol-plane.consts.tpCpBEServiceName" . }}
+  

@@ -16,11 +16,52 @@ global:
     containerRegistry:
       secret: ""
       url: reldocker.tibco.com
+      repository: "tibco-platform-docker-prod"
     environmentType: ""
     resources:
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
+      resourcemapping:
+        O11Y: o11yv3
+      o11yv3:
+        tracesServer:
+          config:
+            exporter:
+              enabled: true
+              kind: elasticSearch
+              elasticSearch:
+                endpoint: somevalue
+                username: somevalue
+              openSearch:
+                endpoint: somevalue
+                username: somevalue
+            proxy:
+              enabled: true
+              kind: elasticSearch
+              elasticSearch:
+                endpoint: somevalue
+                username: somevalue
+              openSearch:
+                endpoint: somevalue
+                username: somevalue
+          secret:
+            exporter:
+              elasticSearch:
+                headers: {}
+                password: somevalue
+              openSearch:
+                headers: {}
+                password: somevalue
+            proxy:
+              enabled: true
+              kind: elasticSearch
+              elasticSearch:
+                headers: {}
+                password: somevalue
+              openSearch:
+                headers: {}
+                password: somevalue
       o11y:
         tracesServer:
           kind: "jaeger"

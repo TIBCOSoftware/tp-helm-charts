@@ -1,5 +1,9 @@
 #!/bin/bash
-# Copyright (c) 2023-2024 Cloud Software Group, Inc. All Rights Reserved. Confidential and Proprietary.
+#
+# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
 set -x
 base="$(cd "${0%/*}" 2>/dev/null; echo "$PWD")"
 export CONTRIB_LIST="${CONTRIB_LIST:-"ems pulsar"}"

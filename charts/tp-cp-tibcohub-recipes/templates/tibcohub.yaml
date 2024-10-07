@@ -12,7 +12,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.2.0",
+      "capabilityVersion": "1.3.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
@@ -43,7 +43,7 @@ data:
           {
             "version": [
               1,
-              2,
+              3,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -75,7 +75,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: 1.2.11
+        version: 1.3.18
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -103,6 +103,12 @@ data:
                 enabled: true
                 className: ${INGRESS_CLASSNAME}
                 host: ${HOSTNAME}
+              publicApi:
+                  ingress:
+                    controllerName: ${INGRESS_CONTROLLER_NAME}
+                    config:
+                      className: ${INGRESS_CLASS_NAME}
+                      fqdn: ${INGRESS_FQDN}
         flags:
           install: true
           createNamespace: false
@@ -118,7 +124,7 @@ metadata:
   labels:
     {{- include "tp-cp-tibcohub-recipes.labels" . | nindent 4 }}
 spec:
-  ttlSecondsAfterFinished: 60
+  ttlSecondsAfterFinished: 750
   template:
     metadata:
       labels:
@@ -144,7 +150,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.2.0"
+          value: "1.3.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

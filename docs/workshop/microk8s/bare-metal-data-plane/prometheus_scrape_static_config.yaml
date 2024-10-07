@@ -1,0 +1,7 @@
+extraScrapeConfigs: |
+  - job_name: otel-metrics_%%dataplane_id%%
+    scrape_interval: 30s
+    metrics_path: /tibco/agent/o11y/%%dataplane_id%%/exporter/metrics
+    static_configs:
+    - targets:
+      - %%host_name_fqdn%%:80

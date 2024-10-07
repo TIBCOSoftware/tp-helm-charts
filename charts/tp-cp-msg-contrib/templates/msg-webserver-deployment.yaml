@@ -23,6 +23,7 @@ spec:
         egress.networking.platform.tibco.com/internet-all: enable
         egress.networking.cloud.tibco.com/internet-all: enable
         egress.networking.cloud.tibco.com/hybrid-server: enable
+        networking.platform.tibco.com/kubernetes-api: enable
     spec:
       nodeSelector:
           kubernetes.io/os: linux
@@ -40,6 +41,7 @@ spec:
         - >
           ( mkdir -p /data/boot ; cd /data/boot ;
               for x in /boot/mk-*.sh ; do bash < $x ; done | tee -a boot.out ) ;
+          ( cp /boot/*.sh /data/boot/ ; chmod +x /data/boot/*.sh ) ;
           mkdir -p /logs/msg-webserver ;
           source /boot/msg-web-setup.sh >> /logs/msg-webserver/setup.log ;
           exec /usr/local/watchdog/bin/watchdog ;
@@ -76,12 +78,20 @@ spec:
           value: "/data/boot/watchdog.yml"
         - name: LOG_ALERT_PORT
           value: "8099"
-        - name: ENV_TYPE
+        - name: MSGDP_ENV_TYPE
           value: "{{ $cpParams.cp.ENV_TYPE }}"
-        - name: LOGGING_FLUENTBIT_ENABLED
+        - name: MSGDP_LOGGING_FLUENTBIT_ENABLED
           value: "{{ $cpParams.cp.LOGGING_FLUENTBIT_ENABLED }}"
-        - name: OTEL_SERVICE
+        - name: MSGDP_OTEL_SERVICE
           value: "{{ $cpParams.cp.OTEL_SERVICE }}"
+        - name: MSGDP_DNS_DOMAIN
+          value: "{{ $cpParams.cp.DNS_DOMAIN }}"
+        - name: MSGDP_ADMIN_DNS_DOMAIN
+          value: "{{ $cpParams.cp.ADMIN_DNS_DOMAIN }}"
+        - name: MSGDP_SUBSCRIPTION_SINGLE_NAMESPACE
+          value: "{{ $cpParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
+        - name: MSGDP_SYSTEM_WHO
+          value: "{{ $cpParams.cp.SYSTEM_WHO }}"
         - name: ACME_HOST
           value: "{{ $cpParams.cp.ADMIN_DNS_DOMAIN }}"
         - name: SUBSCRIPTION_SINGLE_NAMESPACE
@@ -103,3 +113,4 @@ spec:
       {{ include "msg.pv.vol.def" $cpParams.cp.cic_dns | nindent 6 }}
       {{ include "msg.pv.vol.def" $cpParams.cp.cp_extra | nindent 6 }}
       {{ include "msg.webserver.security.pod" $cpParams | nindent 6 }}
+      serviceAccountName: "{{ $cpParams.cp.serviceAccount }}"

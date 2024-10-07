@@ -36,10 +36,8 @@ hpa:
   mem: 70
 
 image:
-  name: platform-hybrid-proxy
-  registry: ""
-  repo: ""
-  tag: 36-distroless
+  name: infra-hybrid-proxy
+  tag: 38-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -81,6 +79,7 @@ global:
     serviceAccount: ""
     containerRegistry:
       url: ""
+      repository: "tibco-platform-docker-prod"      
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""
@@ -93,10 +92,10 @@ global:
       fluentbit:
         enabled: true
         image:
-          name: "fluentbit"
+          name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.0.2
+          tag: 3.1.4
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false

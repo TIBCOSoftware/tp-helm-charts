@@ -6,6 +6,7 @@
 {{ include "dp-configure-namespace.validate-namespace" . }}
 {{- if .Values.networkPolicy.create -}}
 Node CIDR: {{ include "dp-configure-namespace.nodeCidr" . }}
+Service CIDR: {{ include "dp-configure-namespace.serviceCidr" . }}
 Pod CIDR: {{ include "dp-configure-namespace.podCidr" . }}
 {{- if eq (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
 To use a different Pod CIDR, please use --set networkPolicy.podCidrIpBlock=<PodIpCidr>

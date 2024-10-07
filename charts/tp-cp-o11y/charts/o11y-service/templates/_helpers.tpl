@@ -71,31 +71,13 @@ helm.sh/chart: {{ include "o11y-service.shared.labels.chartLabelValue" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end -}}
 
-{{- define "o11y-service.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "o11y-service.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.defaultImageRepo" }}stratosphere{{end}}
-
 {{- define "o11y-service.image.registry" }}
-   {{- if .Values.image.registry }}
-      {{- .Values.image.registry }}
-    {{- else }}
-      {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-    {{- end }}
+    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "o11y-service.image.repository" -}}
-  {{- if contains "jfrog.io" (include "o11y-service.image.registry" .) }}
-    {{- include "o11y-service.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "o11y-service.image.registry" .) }}
-    {{- include "o11y-service.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "o11y-service.image.registry" .) }}
-    {{- include "o11y-service.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "o11y-service.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
 {{- end -}}
 
 {{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
@@ -142,4 +124,26 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- include "cp-env.get" (dict "key" "CP_LOGGING_FLUENTBIT_ENABLED" "default" "true" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{- define "o11y-service.cp-dp-url" }}dp-%s.{{ .Release.Namespace }}.svc.cluster.local{{ end -}}
+{{- define "o11y-service.cp-dp-url" -}}
+  {{- if (include "o11y-service.isSingleNamespace" .) }}
+    {{- "dp-%s."}}{{ .Release.Namespace }}{{".svc.cluster.local" -}}
+  {{- else }}
+    {{- "dp-%s."}}{{include "o11y-service.cp-instance-id" .}}{{"-tibco-sub-%s.svc.cluster.local" -}}
+  {{- end -}}
+{{ end -}}
+
+{{- define "o11y-service.isSingleNamespace" }}
+  {{- $isSubscriptionSingleNamespace := "" -}}
+    {{- if eq "true" (include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )) -}}
+        {{- $isSubscriptionSingleNamespace = "1" -}}
+    {{- end -}}
+  {{ $isSubscriptionSingleNamespace }}
+{{- end }}
+
+{{- define "o11y-service.CPCustomerEnv" }}
+  {{- $isCPCustomerEnv := "false" -}}
+    {{- if eq "true" (include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )) -}}
+        {{- $isCPCustomerEnv = "true" -}}
+    {{- end -}}
+  {{ $isCPCustomerEnv }}
+{{- end }}

@@ -6,21 +6,7 @@
 
 ---
 {{- define "servicemesh.proxy.image" }}
-  {{- if contains "jfrog.io" .Values.global.cp.containerRegistry.url }}
-    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}tibco-platform-local-docker/servicemesh/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- else if contains "amazonaws.com" .Values.global.cp.containerRegistry.url }}
-    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}servicemesh/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- else if contains "azurecr.io" .Values.global.cp.containerRegistry.url }}
-    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}servicemesh/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- else if contains "reldocker.tibco.com" .Values.global.cp.containerRegistry.url }}
-    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}servicemesh/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- else if contains "gcr.io" .Values.global.cp.containerRegistry.url }}
-    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}servicemesh/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- else if contains "docker.io" .Values.global.cp.containerRegistry.url }}
-    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}istio/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- else }}
-    {{ .Values.pilot.hub | default .Values.global.hub }}{{"/"}}istio/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
-  {{- end }}
+    {{- .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}
 {{- end }}
 {{- define "resources"  }}
   {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}

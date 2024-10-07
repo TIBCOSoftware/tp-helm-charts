@@ -17,7 +17,240 @@ data:
   otel-recv-logs-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.logs.name }}
   otel-recv-metrics-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.metrics.name }}
   otel-recv-traces-name: {{ .Values.global.cp.resources.o11y.config.otel.receiver.traces.name }}
-  #logsserver
+  {{- if and (.Values.global.cp.dataplane.hostCloudType) (eq .Values.global.cp.dataplane.hostCloudType "control-tower") }}
+  hawktargets: |
+    - targets:
+      - {{ include "hawkconsole.conn.url" . }}
+      labels:
+        __metrics_path__: "/hawkconsole/exporter/hawk/metrics/hawk_trao11y_getserviceinstancesdetails"
+    - targets:
+      - {{ include "hawkconsole.conn.url" . }}
+      labels:
+        __metrics_path__: "/hawkconsole/exporter/hawk/metrics/hawk_trao11y_onnewstatusorcmd"
+    - targets:
+      - {{ include "hawkconsole.conn.url" . }}
+      labels:
+        __metrics_path__: "/hawkconsole/exporter/hawk/metrics/hawk_bw5o11y_getprocessdefinitions"
+  {{- else }}
+  hawktargets: |
+    []
+  {{- end }}
+{{- if eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3" }}
+#------------------------------------------------------------------------
+# Multiple exporter O11y Model >= 1.3.0
+#------------------------------------------------------------------------
+{{- $appLogRec := "'[otlp]'" -}}
+{{- $appLogProc := "'[filter/devnull-logs]'" -}}
+{{- $appLogExp := "'[logging]'" -}}
+{{- $svcLogRec := "'[otlp]'" -}}
+{{- $svcLogProc := "'[filter/devnull-logs]'" -}}
+{{- $svcLogExp := "'[logging]'" -}}
+{{- $appMetricsRec := "'[otlp]'" }}
+{{- $appMetricsProc := "'[filter/devnull]'" -}}
+{{- $appMetricsExp := "'[logging]'" -}}
+{{- $promMetricsRec := "'[otlp]'" -}}
+{{- $promMetricsProc := "'[filter/devnull]'" -}}
+{{- $promMetricsExp := "'[logging]'" -}}
+{{- $traceRec := "'[otlp]'" -}}
+{{- $traceProc := "'[filter/devnull-traces]'" -}}
+{{- $traceExp := "'[logging]'" }}
+{{- $appLogOtlpUrl := "localhost:4317" }}
+{{- $svcLogOtlpUrl := "localhost:4317" }}
+{{- $metricsOtlpUrl := "localhost:4317" }}
+{{- $traceOtlpUrl := "localhost:4317" }}
+{{- $esEndpoint := "https://elasticsearch-master:9200" }}
+{{- $appLogExpESOpt := false }}
+{{- $svcLogExpESOpt := false }}
+##logsserver:userapp exporter
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "elasticSearch" }}
+  LOGS_EXPORTER_APP_ES_INDEX_NAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.logIndex }}
+  LOGS_EXPORTER_APP_ES_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.endpoint }}
+  LOGS_EXPORTER_APP_ES_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.username }}
+  {{- $appLogExpESOpt = true -}}
+  {{- $appLogExp = "'[elasticsearch/log]'" -}}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "kafka" }}
+  LOGS_EXPORTER_APP_KAFKA_BROKERS: '{{ include "logs.exporters.userapp.kafka.brokers" . }}'
+  LOGS_EXPORTER_APP_KAFKA_PROTOCOL_VERSION: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kafka.protocol_version }}
+  LOGS_EXPORTER_APP_KAFKA_TOPIC: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kafka.topic }}
+  LOGS_EXPORTER_APP_KAFKA_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kafka.username }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kafka.username ""}}
+  {{- $appLogExp = "'[kafka/logs-export]'" -}}
+  {{- else }}
+  {{- $appLogExp = "'[kafka/logs-export-auth]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "otlp" }}
+  {{- $appLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.endpoint}}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.type "grpc" }}
+  {{- $appLogExp = "'[otlp/logs-export]'" -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.type "http"}}
+  {{- $appLogExp = "'[otlphttp/logs-export]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.global.cp.enableClusterScopedPerm }}
+  {{- $appLogProc = "'[k8sattributes/general, transform/logs, memory_limiter, batch]'" -}}
+  {{- else }}
+  {{- $appLogProc = "'[k8sattributes/general-ns, transform/logs, memory_limiter, batch]'" -}}
+  {{- end }}
+{{- end }}
+##logsserver:userapp proxy
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.kind "elasticSearch" }}
+  logserver-proxy-app-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.elasticSearch.logIndex }}
+  logserver-proxy-app-endpoint: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.elasticSearch.endpoint }}
+  logserver-proxy-app-userName: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.elasticSearch.username }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.kind "openSearch" }}
+  logserver-proxy-app-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.openSearch.logIndex }}
+  logserver-proxy-app-endpoint: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.openSearch.endpoint }}
+  logserver-proxy-app-userName: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.openSearch.username }}
+  {{- end }}
+{{- end }}
+##logsserver:service exporter
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "elasticSearch" }}
+  LOGS_EXPORTER_SVC_ES_INDEX_NAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.logIndex }}
+  LOGS_EXPORTER_SVC_ES_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.endpoint }}
+  LOGS_EXPORTER_SVC_ES_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.username }}
+  {{- $svcLogExpESOpt = true -}}
+  {{- $svcLogExp = "'[elasticsearch/log]'" -}}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "kafka" }}
+  LOGS_EXPORTER_SVC_KAFKA_BROKERS: '{{ include "logs.exporters.services.kafka.brokers" . }}'
+  LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kafka.protocol_version }}
+  LOGS_EXPORTER_SVC_KAFKA_TOPIC: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kafka.topic }}
+  LOGS_EXPORTER_SVC_KAFKA_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kafka.username }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kafka.username ""}}
+  {{- $svcLogExp = "'[kafka/service-logs-export]'" }}
+  {{- else }}
+  {{- $svcLogExp = "'[kafka/service-logs-export-auth]'" }}
+  {{- end }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "otlp" }}
+  {{- $svcLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.type "grpc" }}
+  {{- $svcLogExp = "'[otlp/service-logs-export]'" -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.type "http"}}
+  {{- $svcLogExp = "'[otlphttp/service-logs-export]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.global.cp.enableClusterScopedPerm }}
+  {{- $svcLogProc = "'[k8sattributes/general, memory_limiter, batch]'" -}}
+  {{- else }}
+  {{- $svcLogProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
+  {{- end }}
+{{- end }}
+##metricsserver:exporter
+{{- if .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "prometheus" }}
+  {{- $appMetricsExp = "'[prometheus/user]'" -}}
+  {{- $promMetricsExp = "'[prometheus/user]'" -}}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "kafka" }}
+  METRICS_EXPORTER_KAFKA_BROKERS: '{{ include "metrics.exporters.kafka.brokers" . }}'
+  METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.protocol_version }}
+  METRICS_EXPORTER_KAFKA_TOPIC: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.topic }}
+  METRICS_EXPORTER_KAFKA_USERNAME: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.username }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.username ""}}
+  {{- $appMetricsExp = "'[kafka/metrics-export]'" -}}
+  {{- $promMetricsExp = "'[kafka/metrics-export]'" -}}
+  {{- else }}
+  {{- $appMetricsExp = "'[kafka/metrics-export-auth]'" -}}
+  {{- $promMetricsExp = "'[kafka/metrics-export-auth]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "otlp" }}
+  {{- $metricsOtlpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.type "grpc" }}
+  {{- $appMetricsExp = "'[otlp/metrics-export]'" -}}
+  {{- $promMetricsExp = "'[otlp/metrics-export]'" -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.type "http"}}
+  {{- $appMetricsExp = "'[otlphttp/metrics-export]'" -}}
+  {{- $promMetricsExp = "'[otlphttp/metrics-export]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.global.cp.enableClusterScopedPerm }}
+  {{- $promMetricsRec = "'[prometheus/receive]'" -}}
+  {{- $appMetricsProc = "'[k8sattributes/general, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa, transform/msg, memory_limiter, batch]'" -}}
+  {{- else}}
+  {{- $promMetricsRec = "'[prometheus/receive-ns]'" -}}
+  {{- $appMetricsProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- end }}
+{{- end }}
+##metricsserver:proxy
+{{- if .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.kind "prometheus" }}
+  promserver-proxy-endpoint: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint }}
+  promserver-proxy-userName: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.username }}
+  {{- end }}
+{{- end }}
+##traceserver:exporter
+{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch" }}
+  {{- $traceExp = "'[otlp/trace]'" -}}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch" }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "kafka" }}
+  TRACES_EXPORTER_KAFKA_BROKERS: '{{ include "traces.exporters.kafka.brokers" . }}'
+  TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kafka.protocol_version }}
+  TRACES_EXPORTER_KAFKA_TOPIC: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kafka.topic }}
+  TRACES_EXPORTER_KAFKA_USERNAME: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kafka.username }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kafka.username "" }}
+  {{- $traceExp = "'[kafka/traces-export]'" -}}
+  {{- else }}
+  {{- $traceExp = "'[kafka/traces-export-auth]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "otlp" }}
+  {{- $traceOtlpUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.type "grpc" }}
+  {{- $traceExp = "'[otlp/traces-export]'" -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.type "http" }}
+  {{- $traceExp = "'[otlphttp/traces-export]'" -}}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.global.cp.enableClusterScopedPerm }}
+  {{- $traceProc = "'[k8sattributes/general, transform/traces, memory_limiter, batch]'" -}}
+  {{- else }}
+  {{- $traceProc = "'[k8sattributes/general-ns, transform/traces, memory_limiter, batch]'" -}}
+  {{- end }}
+{{- end }}
+{{- if not $appLogExpESOpt }}
+  LOGS_EXPORTER_APP_ES_ENDPOINT: {{ $esEndpoint }}
+{{- end }}
+{{- if not $svcLogExpESOpt }}
+  LOGS_EXPORTER_SVC_ES_ENDPOINT: {{ $esEndpoint }}
+{{- end }}
+  LOGS_EXPORTER_APP_OTLP_URL: {{ $appLogOtlpUrl }}
+  LOGS_EXPORTER_SVC_OTLP_URL: {{ $svcLogOtlpUrl }}
+  METRICS_EXPORTER_OTLP_URL: {{ $metricsOtlpUrl }}
+  TRACES_EXPORTER_OTLP_URL: {{ $traceOtlpUrl }}
+##pipeline:userapp logs
+  app_logs_receiver: {{ $appLogRec }}
+  app_logs_processor: {{ $appLogProc }}
+  app_logs_exporter: {{ $appLogExp }}
+##pipeline:service logs
+  svc_logs_receiver: {{ $svcLogRec }}
+  svc_logs_processor: {{ $svcLogProc }}
+  svc_logs_exporter: {{ $svcLogExp }}
+##pipeline:metrics
+  metrics_appengines_rec: {{ $appMetricsRec }}
+  metrics_appengines_proc: {{ $appMetricsProc }}
+  metrics_appengines_exp: {{ $appMetricsExp }}
+  metrics_prom_rec: {{ $promMetricsRec }}
+  metrics_prom_proc: {{ $promMetricsProc }}
+  metrics_prom_exp: {{ $promMetricsExp }}
+##pipeline:traces
+  traces_receiver: {{ $traceRec }}
+  traces_processor: {{ $traceProc }}
+  traces_exporter: {{ $traceExp }}
+{{- else }}
+#Exporter O11y Model <= 1.2.0 DO NOT MODIFY THE BELOW
 {{- if eq .Values.global.cp.resources.o11y.logsServer.kind "elasticSearch" }}
   ###log-exporter-userapp-indexname
   ES_EXPORTER_LOG_INDEX_NAME: {{ .Values.global.cp.resources.o11y.logsServer.config.userapp.logindex }}
@@ -40,11 +273,11 @@ data:
   app-logs-receiver: '[otlp]'
 {{- if .Values.global.cp.enableClusterScopedPerm }}
   app-logs-processor: '[k8sattributes/general, transform/logs, memory_limiter, batch]'
-{{- else}}
+{{- else }}
   app-logs-processor: '[k8sattributes/general-ns, transform/logs, memory_limiter, batch]'
 {{- end }}
   app-logs-exporter: '[elasticsearch/log]'
-{{- else}}
+{{- else }}
   app-logs-receiver: '[otlp]'
   app-logs-processor: '[filter/devnull-logs]'
   app-logs-exporter: '[logging]'
@@ -53,16 +286,16 @@ data:
   svc-logs-receiver: '[otlp]'
 {{- if .Values.global.cp.enableClusterScopedPerm }}
   svc-logs-processor: '[k8sattributes/general, memory_limiter, batch]'
-{{- else}}
+{{- else }}
   svc-logs-processor: '[k8sattributes/general-ns, memory_limiter, batch]'
 {{- end }}
   svc-logs-exporter: '[elasticsearch/log]'
-{{- else}}
+{{- else }}
   svc-logs-receiver: '[otlp]'
   svc-logs-processor: '[filter/devnull-logs]'
   svc-logs-exporter: '[logging]'
 {{- end }}
-  #metrcisserver
+#metrcisserver
 {{- if eq .Values.global.cp.resources.o11y.metricsServer.kind "prometheus" }}
   promserver-proxy-endpoint: {{ .Values.global.cp.resources.o11y.metricsServer.config.proxy.endpoint }}
   promserver-proxy-userName: {{ .Values.global.cp.resources.o11y.metricsServer.config.proxy.username }}
@@ -76,7 +309,7 @@ data:
   metrics-prom-proc: '[transform/metrics, k8sattributes/pa, transform/msg, memory_limiter, batch]'
   metrics-prom-rec: '[prometheus/receive]'
   metrics-prom_rec: '[prometheus]'
-{{- else}}
+{{- else }}
   metrics-appengines-exp: '[prometheus/user]'
   metrics-appengines-proc: '[k8sattributes/general-ns, memory_limiter, batch]'
   metrics-appengines-rec: '[otlp]'
@@ -85,7 +318,7 @@ data:
   metrics-prom-rec: '[prometheus/receive-ns]'
   metrics-prom_rec: '[prometheus]'
 {{- end }}
-{{- else}}
+{{- else }}
   metrics-appengines-exp: '[logging]'
   metrics-appengines-proc: '[filter/devnull]'
   metrics-appengines-rec: '[otlp]'
@@ -106,17 +339,18 @@ data:
   traces-receiver: '[otlp]'
   traces-processor: '[k8sattributes/general, transform/traces, memory_limiter, batch]'
   traces-exporter: '[otlp/trace]'
-{{- else}}
+{{- else }}
   traces-server-enabled: 'true'
   traces-receiver: '[otlp]'
   traces-processor: '[k8sattributes/general-ns, transform/traces, memory_limiter, batch]'
   traces-exporter: '[otlp/trace]'
-{{- end}}
-{{- else}}
+{{- end }}
+{{- else }}
   traces-server-enabled: 'false'
   traces-receiver: '[otlp]'
   traces-processor: '[filter/devnull-traces]'
   traces-exporter: '[logging]'
+{{- end }}
 {{- end }}
   JAEGER_COLLECTOR_ENDPOINT: {{ include "o11y-service.jaeger-collector-endpoint" . }}
   #finops
@@ -125,4 +359,4 @@ data:
     Control Panel","items":[{"label":"Home","url":"../../../../cp"},{"label":"Data
     Planes","url":"../../../../cp/app/subscription"},{"label":"Observability","url":"../../../../cp/metrics"}]}],"linkPatterns":[{"type":"tags","key":"app_id","url":"../../../../cp/#{app_type}/appdetails/processes?dp_id=#{dataplane_id}&capability_instance_id=#{capability_instance_id}&app_id=#{app_id}","text":"Open app details #{app_name}"}]}'
   #app namespace
-  app-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+  app_namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}

@@ -1,0 +1,89 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: ${TP_CLUSTER_NAME}
+  region: ${TP_CLUSTER_REGION}
+  version: "${TP_KUBERNETES_VERSION}"
+nodeGroups:
+  - name: ng-1
+    instanceType: ${TP_NODEGROUP_INSTANCE_TYPE}
+    # adjust the capacity of node groups depending on the workload
+    desiredCapacity: ${TP_NODEGROUP_INITIAL_COUNT}
+    # volumeIOPS: 3000
+    # volumeThroughput: 125
+    volumeSize: 100
+    volumeType: gp3
+    privateNetworking: true
+    iam:
+      withAddonPolicies:
+        efs: true
+        # required for dataplane
+        ebs: true
+iam:
+  withOIDC: true
+  serviceAccounts:
+    - metadata:
+        name: efs-csi-controller-sa
+        namespace: kube-system
+      wellKnownPolicies:
+        efsCSIController: true
+    - metadata:
+        name: aws-load-balancer-controller
+        namespace: kube-system
+      wellKnownPolicies:
+        awsLoadBalancerController: true
+    - metadata:
+        name: external-dns
+        namespace: external-dns-system
+      wellKnownPolicies:
+        externalDNS: true
+    - metadata:
+        name: cert-manager
+        namespace: cert-manager
+      wellKnownPolicies:
+        certManager: true
+    # required for dataplane
+    - metadata:
+        name: ebs-csi-controller-sa
+        namespace: kube-system
+      wellKnownPolicies:
+        ebsCSIController: true
+vpc:
+  cidr: ${TP_VPC_CIDR}
+  clusterEndpoints:
+    privateAccess: true
+    publicAccess: true
+  publicAccessCIDRs:
+    - 0.0.0.0/0
+kubernetesNetworkConfig:
+  serviceIPv4CIDR: ${TP_SERVICE_CIDR}
+addons:
+  - name: vpc-cni # no version is specified so it deploys the default version
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+    # set the following to false to disable network policy
+    configurationValues: |-
+      enableNetworkPolicy: "${TP_ENABLE_NETWORK_POLICY}"
+  - name: kube-proxy
+    version: latest
+  - name: coredns
+    version: latest
+  - name: aws-efs-csi-driver
+    wellKnownPolicies:      # add IAM and service account
+      efsCSIController: true
+  # required for dataplane
+  - name: aws-ebs-csi-driver
+    wellKnownPolicies:      # add IAM and service account
+      ebsCSIController: true
+    # disable snapshotter to avoid installing external snapshotter which does not have helm chart and need to install before this addon
+    # update addon: eksctl update addon -f config.yaml
+    configurationValues: |
+      {
+        "sidecars":
+          {
+            "snapshotter":
+              {
+                "forceEnable": false
+              }
+          }
+      }

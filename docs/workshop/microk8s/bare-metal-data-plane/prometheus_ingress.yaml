@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  name: nginx-prometheus
+  namespace: prometheus
+spec:
+  ingressClassName: %%REPLACE_WITH_YOUR_INGRESS_CLASS_NAME%%
+  rules:
+  - host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+    http:
+      paths:
+      - backend:
+          service:
+            name: prometheus-server
+            port:
+              number: 80
+        path: /o11y/metrics-server(/|$)(.*)
+        pathType: ImplementationSpecific

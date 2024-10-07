@@ -3,6 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
+{{- if eq .Values.global.tibco.is_replica_region false }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -42,7 +43,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.finopsJob | nindent 10 }}
         {{- end }}
-        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
+        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/tel-finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -150,7 +151,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.finopsJob | nindent 10 }}
         {{- end }}
-        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
+        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/tel-finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -261,7 +262,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.finopsJob | nindent 10 }}
         {{- end }}
-        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
+        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/tel-finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -370,7 +371,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.finopsJob | nindent 10 }}
         {{- end }}
-        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
+        image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/tel-finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -434,3 +435,4 @@ spec:
               path: USERNAME
             - key: PASSWORD
               path: PASSWORD
+{{- end }}

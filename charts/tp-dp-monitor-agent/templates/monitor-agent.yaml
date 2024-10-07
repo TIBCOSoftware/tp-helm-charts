@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2023-2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -105,18 +105,18 @@ spec:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
       containers:
       - name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
-        image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tp-dp-monitor-agent:{{ include "tp-dp-monitor-agent.generated.buildNumber" . }}
+        image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tel-monitor-agent:{{ include "tp-dp-monitor-agent.generated.buildNumber" . }}
         {{- if .Values.securityContext.monitorAgent }}
         securityContext:
           {{- toYaml .Values.securityContext.monitorAgent | nindent 10 }}
         {{- end }}
         resources:
           requests:
-            cpu: 125m
-            memory: 768Mi
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
           limits:
-            cpu: 250m
-            memory: 1024Mi
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
         ports:
         - containerPort: 7831
           name: server
@@ -155,7 +155,7 @@ spec:
           value: {{ .Values.global.cp.subscriptionId }}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tp-dp-monitor-fluentbit:{{ include "tp-dp-monitor-agent.consts.fluentbit.buildNumber" . }}
+        image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         {{- if .Values.global.cp.fluentbit.securityContext }}
         securityContext:
           {{- toYaml .Values.global.cp.fluentbit.securityContext | nindent 10 }}

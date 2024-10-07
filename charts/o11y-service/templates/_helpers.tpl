@@ -109,25 +109,38 @@ helm.sh/chart: {{ include "o11y-service.shared.labels.chartLabelValue" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end -}}
 
-{{- define "o11y-service.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "o11y-service.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "o11y-service.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
-
 {{- define "o11y-service.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "o11y-service.image.repository" -}}
-  {{- if contains "jfrog.io" (include "o11y-service.image.registry" .) }}
-    {{- include "o11y-service.const.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "o11y-service.image.registry" .) }}
-    {{- include "o11y-service.const.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "o11y-service.image.registry" .) }}
-    {{- include "o11y-service.const.harborImageRepo" .}}
-  {{- else }}
-    {{- include "o11y-service.const.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
+
+{{- define "logs.exporters.userapp.kafka.brokers" -}}
+{{- $brokers := .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kafka.brokers -}}
+{{- $brokerList := join ", " $brokers -}}
+[{{ $brokerList }}]
+{{- end -}}
+
+{{- define "logs.exporters.services.kafka.brokers" -}}
+{{- $brokers := .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kafka.brokers -}}
+{{- $brokerList := join ", " $brokers -}}
+[{{ $brokerList }}]
+{{- end -}}
+
+{{- define "metrics.exporters.kafka.brokers" -}}
+{{- $brokers := .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.brokers -}}
+{{- $brokerList := join ", " $brokers -}}
+[{{ $brokerList }}]
+{{- end -}}
+
+{{- define "traces.exporters.kafka.brokers" -}}
+{{- $brokers := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kafka.brokers -}}
+{{- $brokerList := join ", " $brokers -}}
+[{{ $brokerList }}]
+{{- end -}}
+
+{{- define "hawkconsole.conn.url" }}tp-dp-hawk-console-connect.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local:9687{{ end -}}
+

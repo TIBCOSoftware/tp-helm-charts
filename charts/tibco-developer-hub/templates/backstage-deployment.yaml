@@ -2,7 +2,6 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{- $imageRepository := .Values.backstage.image.repository | required "The repository name of the image is required (e.g. my-backstage:tag | docker.io/my-backstage:tag) !" -}}
 {{- $installDir := .Values.backstage.installDir -}}
 ---
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
@@ -89,7 +88,7 @@ spec:
       {{- end }}
       initContainers:
         - name: check-db-ready
-          image: {{ include "postgresql.initContainer.image" . }}
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.initContainer.image.name }}:{{ .Values.initContainer.image.tag }}
           command: ['sh', '-c', 
             'until pg_isready -U {{ .Values.postgresql.auth.username }} -h {{ include "backstage.postgresql.host" . }} -p 5432; 
             do echo waiting for database; sleep 2; done;']
@@ -98,7 +97,7 @@ spec:
       {{- end }}
       containers:
         - name: backstage-backend
-          image: {{ include "backstage.image" . }}
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.backstage.image.name }}:{{ .Values.backstage.image.tag }}
           imagePullPolicy: {{ .Values.backstage.image.pullPolicy | quote -}}
           {{- if .Values.backstage.containerSecurityContext }}
           securityContext:
@@ -187,6 +186,20 @@ spec:
             {{- if .Values.backstage.extraEnvVars }}
             {{- include "common.tplvalues.render" ( dict "value" .Values.backstage.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}
+            {{- with .Values.global.cp.proxy }}
+            {{- if .httpProxy }}
+            - name: http_proxy
+              value: {{ .httpProxy }}
+            {{- end }}
+            {{- if .httpsProxy }}
+            - name: https_proxy
+              value: {{ .httpsProxy }}
+            {{- end }}
+            {{- if .noProxy }}
+            - name: no_proxy
+              value: {{ .noProxy }}
+            {{- end }}
+            {{- end }}
           ports:
             - name: backend
               containerPort: {{ .Values.backstage.containerPorts.backend }}
@@ -209,7 +222,7 @@ spec:
           {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluentbit
-          image: {{ include "fluentbit.image" . }}
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.fluentbit.image.pullPolicy }}
           {{- if .Values.fluentbit.securityContext }}
           securityContext:

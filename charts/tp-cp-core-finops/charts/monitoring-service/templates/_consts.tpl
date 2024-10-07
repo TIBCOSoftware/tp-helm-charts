@@ -60,10 +60,6 @@
 {{- end }}
 {{- end }}
 
-{{- define "cp-core-configuration.container-registry" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{- define "cp-core-configuration.enableLogging" }}
   {{- $isEnableLogging := "" -}}
     {{- if eq "true" (include "cp-env.get" (dict "key" "CP_LOGGING_FLUENTBIT_ENABLED" "default" "true" "required" "false"  "Release" .Release )) -}}

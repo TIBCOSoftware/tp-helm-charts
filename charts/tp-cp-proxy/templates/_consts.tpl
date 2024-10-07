@@ -23,12 +23,6 @@ in the license file that is distributed with this file.
 
 {{/* Secret name created as part of client credentials generation */}}
 {{- define "tp-cp-proxy.consts.outputSecretName"}}cp-proxy-client-credentials{{ end -}}
-
-{{- define "tp-cp-proxy.consts.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "tp-cp-proxy.consts.ecrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-proxy.consts.acrImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-proxy.consts.harborImageRepo" }}stratosphere{{end}}
-{{- define "tp-cp-proxy.consts.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
  
 {{- define "tp-cp-proxy.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
@@ -36,13 +30,5 @@ in the license file that is distributed with this file.
  
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-cp-proxy.image.repository" -}}
-  {{- if contains "jfrog.io" (include "tp-cp-proxy.image.registry" .) }}
-    {{- include "tp-cp-proxy.consts.jfrogImageRepo" .}}
-  {{- else if contains "amazonaws.com" (include "tp-cp-proxy.image.registry" .) }}
-    {{- include "tp-cp-proxy.consts.ecrImageRepo" .}}
-  {{- else if contains "reldocker.tibco.com" (include "tp-cp-proxy.image.registry" .) }}
-    {{- include "tp-cp-proxy.consts.harborImageRepo" .}}
-  {{- else }}
-    {{- include "tp-cp-proxy.consts.defaultImageRepo" .}}
-  {{- end }}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}

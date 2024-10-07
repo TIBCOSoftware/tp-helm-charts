@@ -12,10 +12,7 @@ global:
 ########################################  IDM common vars  #############################################
 identity-management:
   cookieName: "tsc"
-  ppts: "-DrootLogLevel=DEBUG"
-  identityManagementIdpName: "default-idp"
-  corsAllowOrigins: "https://sso.cloud.com, https://*.tcie.pro, http://localhost, https://localhost, capacitor://localhost, https://*.local.my.cic2.pro, vscode://tibco.flogo https://vscode.dev"
-  tibcoaccountKeystoreUrl: "/private/tsc/config/idm/own-keystores/on-prem-idm.p12"
+  corsAllowOrigins: "http://localhost, https://localhost, capacitor://localhost, vscode://tibco.flogo https://vscode.dev" # localhost is for native apps, ex. Spotfire's; capacitor for mobile apps; vscode is for Flogo vscode extension.
   tibcoaccountKeystoreKeyAlias: "cic_cloud"
 
 ##########################    CP-ORCH env variables , these will be overrided in prod    ############################
