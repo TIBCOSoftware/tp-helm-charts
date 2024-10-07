@@ -319,6 +319,7 @@ controller:
   ## Additional command line arguments to pass to Controller
   ## ref: https://github.com/haproxytech/kubernetes-ingress/blob/master/documentation/controller.md
   extraArgs: []
+  #  - --namespace-whitelist=default
   #  - --namespace-whitelist=namespace1
   #  - --namespace-blacklist=namespace2
   #  - --disable-ipv4
@@ -344,6 +345,8 @@ controller:
   #   annotationKey: value
 
   ## Controller Logging configuration
+  ## Careful: this block will be ignored if you use config.cr-global.
+  ## In this case, move your logging config in entry spec.log_targets in your CR.
   logging:
     ## Controller logging level
     ## This only relevant to Controller logs
@@ -352,9 +355,9 @@ controller:
     ## HAProxy traffic logs
     ## ref: https://github.com/haproxytech/kubernetes-ingress/tree/master/documentation#logging
     traffic: {}
-    #      address:  "stdout"
-    #      format:   "raw"
-    #      facility: "daemon"
+      #      address:  "stdout"
+      #      format:   "raw"
+      #      facility: "daemon"
 
   ## Mirrors the address of the service's endpoints to the
   ## load-balancer status of all Ingress objects it satisfies.
@@ -368,9 +371,9 @@ controller:
   ## Controller Service configuration
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
   service:
-    enabled: true # set to false when controller.kind is 'DaemonSet' and controller.daemonset.useHostPorts is true
+    enabled: true     # set to false when controller.kind is 'DaemonSet' and controller.daemonset.useHostPorts is true
 
-    type: NodePort # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
+    type: NodePort   # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
 
     ## Service annotations
     ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -556,12 +559,21 @@ controller:
     ## Specify the endpoints
     ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/design.md#servicemonitor
     endpoints:
-    - port: stat
-      path: /metrics
-      scheme: http
-      interval: 30s
+      - port: stat
+        path: /metrics
+        scheme: http
+        interval: 30s
 
-  ## Techdump
-  ## Toggle to add the RBAC permissions needed for the techdump tool.
-  techdump:
-    enabled: false
+  ## Controller sync mode with Kubernetes
+  ## Note: requires Enterprise Kubernetes Ingress Controller
+  ## Possible values: 'default' or 'fetch'
+  ## - 'default': the sync is done based on K8s informers (event based)
+  ## - 'fetch':  the controller pulls data periodically (from K8s or from proxy)
+  sync:
+    mode: default                                       # can be 'default' or 'fetch'
+    fetchParams:                                        # Mandatory if mode is 'fetch'
+      # period: 3s                                      # optional, default is 5s
+      source: k8s                                       # possible values are: 'proxy', 'k8s'
+    proxyParams:                                        # Mandatory if source is 'proxy'
+      replicaCount: 3                                   # number of replicas of the proxy, mandatory if source is 'proxy'
+      proxySvcLabelSelector: run:haproxy-ingress-proxy  # label selector of the proxy service, mandatory if source is 'proxy'
