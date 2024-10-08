@@ -3,7 +3,8 @@ name: Release Charts
 on:
   push:
     branches:
-      - main
+      - 'main'
+      - 'releases/**'
     paths:
       - 'charts/**'
 
@@ -24,9 +25,9 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Install Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4
         with:
-          version: '3.13.1'
+          version: '3.15.3'
 
       - name: Add dependency chart repos
         run: |      
