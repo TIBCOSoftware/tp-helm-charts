@@ -470,7 +470,7 @@ controller:
     ## Controller Metrics Service configuration
     ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
     metrics:
-      type: ClusterIP # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
+      type: ClusterIP    # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
 
       ## Service annotations
       ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -483,7 +483,7 @@ controller:
   ## Controller DaemonSet configuration
   ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
   daemonset:
-    useHostNetwork: false # also modify dnsPolicy accordingly
+    useHostNetwork: false  # also modify dnsPolicy accordingly
     useHostPort: false
     hostIP: null
     hostPorts:
@@ -508,24 +508,24 @@ controller:
   ## Controller container lifecycle handlers
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
   lifecycle: {}
-  ## Example preStop for graceful shutdown
-  # preStop:
-  #   exec:
-  #     command: ["/bin/sh", "-c", "kill -USR1 $(pidof haproxy); while killall -0 haproxy; do sleep 1; done"]
+    ## Example preStop for graceful shutdown
+    # preStop:
+    #   exec:
+    #     command: ["/bin/sh", "-c", "kill -USR1 $(pidof haproxy); while killall -0 haproxy; do sleep 1; done"]
 
   ## Set additional environment variables
   extraEnvs: []
-  ## Set TZ env to configure timezone on controller containers
-  # - name: TZ
-  #   value: "Etc/UTC"
+    ## Set TZ env to configure timezone on controller containers
+    # - name: TZ
+    #   value: "Etc/UTC"
 
   ## Add additional containers
   extraContainers: []
-  ## Example sidecar
-  # - name: sidecar
-  #   image: alpine # alpine is a simple Linux OS image
-  #   command: ["/bin/sh"]
-  #   args: ["-c", "while true; do date; sleep 5;done"]
+    ## Example sidecar
+    # - name: sidecar
+    #   image: alpine # alpine is a simple Linux OS image
+    #   command: ["/bin/sh"]
+    #   args: ["-c", "while true; do date; sleep 5;done"]
 
   ## Additional volumeMounts to the controller main container
   extraVolumeMounts: 
