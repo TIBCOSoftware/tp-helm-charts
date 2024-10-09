@@ -67,6 +67,11 @@ spec:
         image: {{ .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.global.cp.initContainer.alpine.image.name }}:{{ .Values.global.cp.initContainer.alpine.image.tag }}
         command: [ "/bin/sh", "-c", "source /etc/config/script/iat_to_clienid.sh && initialize" ]
         # command: [ "/bin/sh", "-c", "sleep 6400000" ]
+{{- if .Values.securityContext.enabled }}
+{{- $securityContext := unset .Values.securityContext "enabled" }}
+        securityContext:
+          {{- toYaml $securityContext | nindent 10 }}
+{{- end }}
         env:
           {{- with .Values.global.cp.proxy }}
           {{- if .httpProxy }}
