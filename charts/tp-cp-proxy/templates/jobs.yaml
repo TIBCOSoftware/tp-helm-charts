@@ -25,12 +25,20 @@ spec:
         egress.networking.platform.tibco.com/internet-web: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
+      {{ if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
       restartPolicy: Never
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       containers:
         - name: post-install-job
           image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext.cpProxy }}
+          securityContext:
+            {{- toYaml .Values.securityContext.cpProxy | nindent 12 }}
+          {{- end }}
           {{- with .Values.job.resources }}
           resources:
             {{- toYaml . | nindent 12}}
@@ -65,6 +73,7 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
 
+
 ---
 apiVersion: batch/v1
 kind: Job
@@ -76,6 +85,10 @@ metadata:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
+  {{ if .Values.podSecurityContext }}
+  securityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 8 }}
+  {{- end }}
   ttlSecondsAfterFinished: 18000  #cleanup after 5hr
   backoffLimit: 0
   template:
@@ -90,6 +103,10 @@ spec:
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       containers:
         - name: pre-delete-job
+          {{- if .Values.securityContext.cpProxy }}
+          securityContext:
+            {{- toYaml .Values.securityContext.cpProxy | nindent 12 }}
+          {{- end }}
           image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.job.resources }}
