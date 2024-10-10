@@ -51,7 +51,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext.bwprovisioner | nindent 12 }}
           {{- end }}
-          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}tp-bw-provisioner:{{ .Values.global.bwprovisioner.image.tag }}
+          image: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.image.repository" .}}{{"/"}}tp-bw-provisioner:529
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:
             httpGet:
@@ -90,6 +90,20 @@ spec:
               value: {{ .Chart.Version }}
             - name: CHART_APP_VERSION
               value: {{ .Chart.AppVersion }}
+            - name: BWCE_APP_HELMCHART_VERSION
+              value: 1.4.3
+            - name: BWCE_APP_HELMCHART_REPO_USERNAME
+              value: ""
+            - name: BWCE_APP_HELMCHART_REPO_PASSWORD
+              value: ""
+            - name: BWCE_APP_HELMCHART_REPO_TYPE
+              value: git
+            - name: BWCE_APP_HELMCHART_REPO_URL
+              value: https://github.com/mpandav/tp-helm-charts.git
+            - name: BWCE_APP_HELMCHART_REPO_PATH
+              value: charts/dp-bwce-app
+            - name: BWCE_APP_HELMCHART_REPO_BRANCH
+              value: main
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
