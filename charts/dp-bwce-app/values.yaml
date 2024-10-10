@@ -1,0 +1,250 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Default values for dp-bwce-app.
+
+dpConfig:
+  dataplaneId: ""
+  capabilityInstanceId: ""
+  capabilityVersion: ""
+  capabilityDefaultNamespace: ""
+
+appConfig:
+  appId: ""
+  buildId: ""
+  workloadType: "user-app"
+  appType: "bwce"
+  appVersion: "1.0"
+  originalAppName: ""
+  bwceBuildTypeTag: "2.9.2"
+  bwceBaseImageTag: "141-2.9.2-V84-al"
+  tags: ""
+  connectors: ""
+  bwProfile: "default.substvar"
+  lastUpdated: ""
+
+otel:
+  enabled: true
+  autoConfigureEnabled: true
+
+serviceMesh:
+  enabled: false
+
+executionHistory:
+  enabled: false
+  bwceMonPort: 8080
+
+networkPolicy:
+  internetAll: enable
+  internetWeb: enable
+
+replicaCount: 1
+
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  appInitImageName: "tp-bwce-app-init"
+  appInitImageTag: "33"
+  fluentBitImageName: "common-fluentbit"
+  fluentBitImageTag: "3.1.4"
+  bwceBaseImageName: "tp-bwce-base"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+workload: "deployment"
+# for future use, workload can be "statufulset", "deployment", etc
+
+serviceAccountName: ""
+
+deploymentAnnotations: {}
+
+deploymentLabels: {}
+
+podAnnotations: {}
+
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 2001
+  fsGroupChangePolicy: Always
+  runAsGroup: 2001
+  runAsNonRoot: true
+  runAsUser: 2001
+  seccompProfile:
+    type: RuntimeDefault
+
+bwapp:
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    # enabling readOnlyRootFilesystem may cause issues with supplements where files are copied in system folder example - /etc/krb5.conf
+    capabilities:
+      drop:
+      - ALL
+  resources:
+    limits:
+      cpu: "1"
+      memory: 4Gi
+    requests:
+      cpu: 250m
+      memory: 1Gi
+  # Additional volumeMounts on the output Deployment definition.
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   readOnly: true
+  env: {}
+  #  ENV_NAME: value
+  envFrom:
+    configMapRef: []
+    #  - "cm1"
+    secretRef: []
+    #  - "secret1"
+
+fluentBit:
+  enabled: true
+  configMapName: "fluentbit-config-otel-bwce"
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    runAsNonRoot: false
+    runAsUser: 0
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 10Mi
+
+appInit:
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 10Mi
+
+service:
+  serviceDiscoverable: true
+  serviceDescription: ""
+  type: ClusterIP
+  ports: []
+  #  - port: 8081
+  #    targetPort: 8081
+
+ingress:
+  enabled: false
+  className: ""
+  controllerName: ""
+  annotations: {}
+    # kubernetes.io/tls-acme: "true"
+  rules:
+    - host: example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8081
+          serviceDiscoverable: true
+          serviceDescription: ""
+          customCRDConfig: {}
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+startupProbe:
+  failureThreshold: 50
+  httpGet:
+    path: /health/startup
+    port: 8090
+    scheme: HTTP
+  periodSeconds: 6
+  successThreshold: 1
+  timeoutSeconds: 5
+livenessProbe:
+  failureThreshold: 3
+  httpGet:
+    path: /health/liveness
+    port: 8090
+    scheme: HTTP
+  initialDelaySeconds: 10
+  periodSeconds: 6
+  successThreshold: 1
+  timeoutSeconds: 5
+readinessProbe:
+  failureThreshold: 3
+  httpGet:
+    path: /health/readiness
+    port: 8090
+    scheme: HTTP
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  successThreshold: 1
+  timeoutSeconds: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# enable or disable the resources volume mounts. these are required for readOnlyRootFilesystem security context, default is true
+enableResourcesVolumes: true
+enableTmpVolume: true
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+pvc: []
+#  - name: "persistenceA"
+#    accessModes: 
+#    - ReadWriteOnce
+#    volumeMode: "Filesystem"
+#    size: "1Gi"
+#    storageClass: "standard"
+#    selector: {}
+
+strategy:
+  type: RollingUpdate
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+appProps: {}
+#  default.substvar:
+#    appprop1: value1
+#    appprop2: value2
+#  custom.substvar:
+#    appprop1: value1
+
+engineProps: {}
+#  test1: value1
+
+appSecrets: {}
+#  default.substvar:
+#    apppropsec1: value1
+#    apppropsec2: value2
+#  custom.substvar:
+#    apppropsec1: value1
+
+engineSecrets: {}
+#  test1: value1

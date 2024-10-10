@@ -1,0 +1,259 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.workload "deployment" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "dp-bwce-app.bwapp.deployment.annotations" . | nindent 4 }}
+    {{- with .Values.deploymentAnnotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "dp-bwce-app.labels" . | nindent 4 }}
+    {{- include "dp-bwce-app.bwapp.deployment.labels" . | nindent 4 }}
+    {{- with .Values.deploymentLabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ include "dp-bwce-app.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dp-bwce-app.selectorLabels" . | nindent 6 }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+      {{- include "dp-bwce-app.bwapp.pod.annotations" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "dp-bwce-app.labels" . | nindent 8 }}
+        {{- include "dp-bwce-app.bwapp.pod.labels" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: {{ .Values.networkPolicy.internetAll | quote }}
+        egress.networking.platform.tibco.com/internet-web: {{ .Values.networkPolicy.internetWeb | quote }}
+        {{- if .Values.serviceMesh.enabled }}
+        sidecar.istio.io/inject: {{ .Values.serviceMesh.enabled | quote }}
+        {{- end }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - env:
+        - name: TIBCO_INTERNAL_APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: TIBCO_INTERNAL_BUILD_ID
+          value: {{ .Values.appConfig.buildId }}
+        - name: TIBCO_INTERNAL_INSTANCE_ID
+          value: {{ .Values.dpConfig.capabilityInstanceId }}
+        - name: TIBCO_INTERNAL_DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: TIBCO_INTERNAL_BW_BUILDTYPE_TAG
+          value: {{ .Values.appConfig.bwceBuildTypeTag | quote }}
+        - name: TIBCO_INTERNAL_BW_BASE_IMAGE_TAG
+          value: {{ .Values.appConfig.bwceBaseImageTag | quote }}
+        {{- if .Values.otel.enabled }}
+        - name: BW_OTEL_ENABLED
+          value: {{ .Values.otel.enabled | quote }}
+        - name: BW_OTEL_AUTOCONFIGURED_ENABLED
+          value: {{ .Values.otel.autoConfigureEnabled | quote }}
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: http://otel-userapp-traces.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: http://otel-userapp-metrics.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
+        - name: OTEL_SERVICE_NAME
+          value: bwce-app.{{ $.Release.Namespace }}
+        {{- end }}
+        - name: BW_PROFILE
+          value: {{ .Values.appConfig.bwProfile }}
+        {{- if .Values.executionHistory.enabled }}
+        - name: ENABLE_PROCESS_MONITORING
+          value: "true"
+        - name: BW_APP_MONITORING_CONFIG
+          value: '{"url":"http://dp-bwce-mon.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:{{ .Values.executionHistory.bwceMonPort }}"}'
+        {{- end }}
+        {{- range $key, $val := .Values.bwapp.env }}
+        - name: {{ $key }}
+          value: {{ $val | quote }}
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "dp-bwce-app.fullname" . }}-appprops
+        - configMapRef:
+            name: {{ include "dp-bwce-app.fullname" . }}-engineprops
+        {{- range $val := .Values.bwapp.envFrom.configMapRef }}
+        - configMapRef:
+            name: {{ $val }}
+        {{- end }}
+        - secretRef:
+            name: {{ include "dp-bwce-app.fullname" . }}-appprops
+        - secretRef:
+            name: {{ include "dp-bwce-app.fullname" . }}-engineprops
+        {{- range $val := .Values.bwapp.envFrom.secretRef }}
+        - secretRef:
+            name: {{ $val }}
+        {{- end }}
+        image: {{ .Values.image.repository }}{{ .Values.image.bwceBaseImageName }}:{{ .Values.appConfig.bwceBaseImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        startupProbe:
+          {{- toYaml .Values.startupProbe | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.bwapp.resources | nindent 10 }}
+        name: bwapp
+        ports:
+        {{- range $svcPort := .Values.service.ports }}
+        - containerPort: {{ $svcPort.port }}
+          protocol: TCP
+        {{- end }}
+        securityContext:
+        {{- toYaml .Values.bwapp.securityContext | nindent 10 }}
+        volumeMounts:
+        - mountPath: /app/artifacts
+          name: artifacts-share
+        {{- if .Values.fluentBit.enabled }}
+        - mountPath: /app/logs
+          name: logs-share
+        {{- end }}
+        {{- if .Values.enableTmpVolume }}
+        - mountPath: /tmp
+          name: tmp
+        {{- end }}
+        {{- if .Values.enableResourcesVolumes }}
+        - mountPath: /resources/addons/plugins
+          name: resources-addons-plugins
+        - mountPath: /resources/addons/lib
+          name: resources-addons-lib
+        - mountPath: /resources/addons/jars
+          name: resources-addons-jars
+        - mountPath: /resources/addons/certs
+          name: resources-addons-certs
+        {{- end }}
+        {{- with .Values.bwapp.volumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if .Values.fluentBit.enabled }}
+      - env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_ID
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.uid
+        - name: CONTAINER_NAME
+          value: bwapp
+        - name: DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: APP_TYPE
+          value: {{ .Values.appConfig.appType }}
+        - name: WORKLOAD_TYPE
+          value: {{ .Values.appConfig.workloadType }}
+        image: {{ .Values.image.repository }}{{ .Values.image.fluentBitImageName }}:{{ .Values.image.fluentBitImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: fluent-bit
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.fluentBit.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.fluentBit.securityContext | nindent 10 }}
+        volumeMounts:
+        - mountPath: /var/log/pods/
+          name: logs-share
+        - mountPath: /fluent-bit/etc/
+          name: fluentbit-config
+      {{- end }}
+      initContainers:
+      - env:
+        - name: TIBCO_INTERNAL_APP_TYPE
+          value: bw
+        - name: TIBCO_INTERNAL_DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: TIBCO_INTERNAL_BUILD_ID
+          value: {{ .Values.appConfig.buildId }}
+        - name: TIBCO_INTERNAL_INSTANCE_ID
+          value: {{ .Values.dpConfig.capabilityInstanceId }}
+        - name: TIBCO_INTERNAL_APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: TIBCO_INTERNAL_AM_NAMESPACE
+          value: {{ .Values.dpConfig.capabilityDefaultNamespace }}
+        image: {{ .Values.image.repository }}{{ .Values.image.appInitImageName }}:{{ .Values.image.appInitImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: app-init
+        resources:
+          {{- toYaml .Values.appInit.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.appInit.securityContext | nindent 10 }}
+        volumeMounts:
+        - mountPath: /app/artifacts
+          name: artifacts-share
+      volumes:
+      - emptyDir: {}
+        name: artifacts-share
+      {{- if .Values.enableTmpVolume }}
+      - emptyDir: {}
+        name: tmp
+      {{- end }}
+      {{- if .Values.enableResourcesVolumes }}
+      - emptyDir: {}
+        name: resources-addons-lib
+      - emptyDir: {}
+        name: resources-addons-jars
+      - emptyDir: {}
+        name: resources-addons-plugins
+      - emptyDir: {}
+        name: resources-addons-certs
+      {{- end }}
+      {{- if .Values.fluentBit.enabled }}
+      - emptyDir: {}
+        name: logs-share
+      - configMap:
+          name: {{ .Values.fluentBit.configMapName }}
+        name: fluentbit-config
+      {{- end }}
+      {{- with .Values.volumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

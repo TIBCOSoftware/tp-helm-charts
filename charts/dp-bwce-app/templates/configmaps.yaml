@@ -1,0 +1,30 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "dp-bwce-app.labels" . | nindent 4 }}
+  name: {{ include "dp-bwce-app.fullname" . }}-appprops
+data:
+  {{- range $key, $val := .Values.appProps }}
+  {{- if eq $key $.Values.appConfig.bwProfile }}
+  {{- range $k, $v :=  $val }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "dp-bwce-app.labels" . | nindent 4 }}
+  name: {{ include "dp-bwce-app.fullname" . }}-engineprops 
+data:
+  {{- range $key, $val := .Values.engineProps }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
