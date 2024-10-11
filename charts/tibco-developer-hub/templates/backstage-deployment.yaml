@@ -97,7 +97,7 @@ spec:
       {{- end }}
       containers:
         - name: backstage-backend
-          image: {{ include "backstage.image.backend-registry" .}}{{"/"}}{{ include "backstage.image.backend-repository" .}}:{{ .Values.backstage.image.tag }}
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.backstage.image.name }}:{{ .Values.backstage.image.tag }}
           imagePullPolicy: {{ .Values.backstage.image.pullPolicy | quote -}}
           {{- if .Values.backstage.containerSecurityContext }}
           securityContext:
