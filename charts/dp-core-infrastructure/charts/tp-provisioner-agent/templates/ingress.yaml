@@ -13,7 +13,7 @@ spec:
   ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
   rules:
 {{- if .Values.global.ingressNoHost.enabled }}
- - http:
+  - http:
       paths:
       - pathType: Prefix
         path: /tibco/agent/infra/provisioner-agent/
