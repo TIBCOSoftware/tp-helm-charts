@@ -8,6 +8,8 @@
 # Declare variables to be passed into your templates.
 
 global:
+  ingressNoHost:
+    enabled: true
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
@@ -17,7 +19,7 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     enableClusterScopedPerm: true
-    environmentType: ""
+    environmentType: ""    
     appNamespaces:
       - app-ns1
       - app-ns2
