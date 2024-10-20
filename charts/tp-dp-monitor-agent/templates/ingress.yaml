@@ -17,18 +17,7 @@ metadata:
     {{- include "tp-dp-monitor-agent.shared.labels.standard" .| nindent 4}}
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
-  rules:
-{{- if .Values.global.ingressNoHost.enabled }}
-  - http:
-    paths:
-    - pathType: Prefix
-      path: {{ .Values.ingress.pathPrefix }}
-      backend:
-        service:
-          name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
-          port:
-            number: 7831
-{{- else }}              
+  rules:           
   - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
     http:
       paths:
@@ -39,5 +28,4 @@ spec:
             name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
             port:
               number: 7831
-{{- end }}
 {{- end }}
