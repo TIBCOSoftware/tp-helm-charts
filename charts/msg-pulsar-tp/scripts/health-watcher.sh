@@ -130,8 +130,11 @@ function sts_check_health {
     # Check health
     maxReplica=$(( $replicas - 1 ))
     for r in $(seq 0 $maxReplica ) ; do
+        # kubectl get pod d4pulsar-bookie-0 -o=jsonpath='{.status.podIP}'
         podname="$STS_NAME-$r"
-        podhost="$STS_NAME-$r.$STS_NAME.$stsNamespace"
+        # podhost="$STS_NAME-$r.$STS_NAME.$stsNamespace"
+        podhost=$( kubectl get pod $podname -o=jsonpath='{.status.podIP}' 2>/dev/null )
+        [ -z "$podhost" ] && podhost="$podname"
         if [ -n "$isLeader" ] ; then
             leaderUrl=$(echo "$isLeader" | sed -e "s;localhost;$podhost;")
             # curl -k -s -o /dev/null -w '%{http_code}' $url 
