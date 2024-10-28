@@ -663,6 +663,33 @@ entries:
     version: 1.0.15
   dp-core-infrastructure:
   - apiVersion: v2
+    appVersion: 1.3.0-HF2
+    created: "2024-10-28T08:14:39.732982511Z"
+    dependencies:
+    - condition: tibtunnel.enabled
+      name: tp-tibtunnel
+      repository: ""
+      version: 1.3.*
+    - condition: tp-provisioner-agent.enabled
+      name: tp-provisioner-agent
+      repository: ""
+      version: 1.3.*
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.0.*
+    - condition: haproxy.enabled
+      name: haproxy
+      repository: ""
+      version: 1.40.1
+    description: A Helm chart for Data Plane Infrastructure
+    digest: 5f3e5a0db2f40f07cb6ce1ec941f3373af2e59b80f41206dd8fa569ebaf53695
+    name: dp-core-infrastructure
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-core-infrastructure-1.3.16/dp-core-infrastructure-1.3.16.tgz
+    version: 1.3.16
+  - apiVersion: v2
     appVersion: 1.3.0
     created: "2024-09-11T04:28:41.605393244Z"
     dependencies:
@@ -2742,6 +2769,45 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-bootstrap
     apiVersion: v2
+    appVersion: 1.3.0-HF2
+    created: "2024-10-28T08:14:39.867147238Z"
+    dependencies:
+    - condition: hybrid-proxy.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.3.*
+    - condition: resource-set-operator.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.3.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.3.*
+    - condition: compute-services.enabled
+      name: compute-services
+      repository: ""
+      version: 1.3.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.101.*
+    description: TIBCO Platform Control Plane bootstrap chart
+    digest: 411583b48097793c442db4d1b51564a01ce5449f4794d46f64dcf806f7c35f55
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - bootstrap
+    name: tp-cp-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bootstrap-1.3.39/tp-cp-bootstrap-1.3.39.tgz
+    version: 1.3.39
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-bootstrap
+    apiVersion: v2
     appVersion: 1.3.0
     created: "2024-09-11T04:28:42.729590253Z"
     dependencies:
@@ -3746,6 +3812,24 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-infra-recipes
     apiVersion: v2
+    appVersion: 1.3.0-HF2
+    created: "2024-10-28T08:14:40.001582606Z"
+    description: TIBCO Platform Infrastructure Data Plane recipes
+    digest: 10e1fcf0f769472054587e6ea512e2dfe508e1f64294ffe4a3e6e0087071757f
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - recipes
+    name: tp-cp-infra-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-infra-recipes-1.3.60/tp-cp-infra-recipes-1.3.60.tgz
+    version: 1.3.60
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-infra-recipes
+    apiVersion: v2
     appVersion: 1.3.0
     created: "2024-09-20T05:38:47.523503524Z"
     description: TIBCO Platform Infrastructure Data Plane recipes
@@ -4720,4 +4804,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-10-28T05:10:27.859734033Z"
+generated: "2024-10-28T08:14:40.001952796Z"
