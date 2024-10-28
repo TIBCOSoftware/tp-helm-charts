@@ -8,7 +8,7 @@
 # FOR UPGRADES: Do safe pod-kills, leader last
 
 #
-{{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
 {{- $jobname := printf "%s-emsupgrade-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
@@ -20,96 +20,98 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
+  name: "{{ $jobname }}"
+  labels:
     name: "{{ $jobname }}"
-    labels:
-      name: "{{ $jobname }}"
-      {{ include "msg.dp.labels" . | indent 6 }}
-      {{ include "ems.std.labels" $emsParams | indent 6 }}
-      tib-dp-app: msg-ems-ftl
-    namespace: "{{ .Release.Namespace }}"
+    {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    tib-dp-app: msg-ems-ftl
+  namespace: "{{ .Release.Namespace }}"
 spec:
-    backoffLimit: 0
-    #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 3600
-    template:
-        metadata:
-            name: "{{ $jobname }}"
-            namespace: "{{ .Release.Namespace }}"
-            labels:
-                name: "{{ $jobname }}"
-                tib-dp-app: msg-ems-ftl
-                {{ include "msg.dp.labels" . | indent 16 }}
-                {{ include "msg.dp.net.kubectl" . | indent 16}}
-                {{ include "ems.std.labels" $emsParams | indent 16 }}
-        spec:
-            enableServiceLinks: false
-            nodeSelector:
-                kubernetes.io/os: linux
-            {{- if ne "none" $emsParams.dp.pullSecret }}
-            imagePullSecrets:
-            - name: {{ $emsParams.dp.pullSecret }}
-            {{- end }}
-            serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
-            restartPolicy: Never
-            volumes:
-            - name: scripts-vol
-              configMap:
-                name: "{{ $emsParams.ems.name }}-scripts"
-            - name: "ems-log"
-              {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
-              persistentVolumeClaim:
-                claimName: "{{ $emsParams.ems.logs.storageName }}"
-              {{ else }}
-              emptyDir: {}
-              {{ end }}
-            terminationGracePeriodSeconds: 10
-            containers:
-            -   name: "main"
-                command: ['/compliance/check_eua', 'bash', '-c' ]
-                args:
-                - >
-                  ( mkdir -p /data/boot ; cd /data/boot ;
-                      for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
-                  bash < /boot/fix-sample-certs.sh ; 
-                  echo "Upgrading pods ..." ; 
-                  kubectl get pods -l=tib-msg-stsname={{ $stsname }} | egrep -v NAME | while read x o ; do 
-                    echo "POD=$x"; done ; 
-                  export HEALTH_ACTION=redeploy ; 
-                  {{ if .Values.ems.skipRedeploy }}
-                  export HEALTH_ACTION=skip-redeploy ; 
-                  {{ end }}
-                  bash < /boot/health-watcher.sh 
-                image: "{{ $emsParams.ems.image }}"
-                imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
-                volumeMounts:
-                - mountPath: /boot
-                  name: scripts-vol
-                - mountPath: /logs
-                  name: "ems-log"
-                  {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
-                  subPathExpr: "$(MY_RELEASE)/logs"
-                  {{ end }}
-                env:
-                # CAUTION! Setting Names here overrides envFrom values
-                {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
-                - name: ACCEPT_EUA
-                  value: "y"
-                - name: MY_SVC_NAME
-                  value: "{{ $stsname }}"
-                - name: FTL_SERVICE
-                  value: "{{ $emsParams.ems.name }}-ftl"
-                - name: EMS_SERVICE
-                  value: "{{ $emsParams.ems.name }}-ems"
-                - name: REALM_PORT
-                  value: "{{ $emsParams.ems.ports.realmPort }}"
-                - name: EMS_TCP_PORT
-                  value: "{{ $emsParams.ems.ports.tcpPort }}"
-                - name: EMS_INIT_JSON
-                  value: "/data/boot/tibemsd-ftl.json"
-                - name: EMS_HTTP_PORT
-                  value: "{{ $emsParams.ems.ports.httpPort }}"
-                - name: FTL_REALM_URL
-                  # the service load-balanced REALM URL
-                  value: "http://{{ $svcFtlHost }}:$(REALM_PORT)"
+  backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  ttlSecondsAfterFinished: 3600
+  template:
+      metadata:
+          name: "{{ $jobname }}"
+          namespace: "{{ .Release.Namespace }}"
+          labels:
+              name: "{{ $jobname }}"
+              tib-dp-app: msg-ems-ftl
+              {{ include "msg.dp.labels" . | indent 14 }}
+              {{ include "msg.dp.net.kubectl" . | indent 14}}
+              {{ include "ems.std.labels" $emsParams | indent 14 }}
+      spec:
+          enableServiceLinks: false
+          nodeSelector:
+              kubernetes.io/os: linux
+          {{- if ne "none" $emsParams.dp.pullSecret }}
+          imagePullSecrets:
+          - name: {{ $emsParams.dp.pullSecret }}
+          {{- end }}
+          serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
+          restartPolicy: Never
+          volumes:
+          - name: scripts-vol
+            configMap:
+              name: "{{ $emsParams.ems.name }}-scripts"
+          - name: "ems-log"
+            {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
+            persistentVolumeClaim:
+              claimName: "{{ $emsParams.ems.logs.storageName }}"
+            {{ else }}
+            emptyDir: {}
+            {{ end }}
+          terminationGracePeriodSeconds: 10
+          containers:
+          -   name: "main"
+              command: ['/compliance/check_eua', 'bash', '-c' ]
+              args:
+              - >
+                ( mkdir -p /data/boot ; cd /data/boot ;
+                    for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
+                bash < /boot/fix-sample-certs.sh ; 
+                echo "Upgrading pods ..." ; 
+                kubectl get pods -l=tib-msg-stsname={{ $stsname }} | egrep -v NAME | while read x o ; do 
+                  echo "POD=$x"; done ; 
+                export HEALTH_ACTION=redeploy ; 
+                {{ if .Values.ems.skipRedeploy }}
+                export HEALTH_ACTION=skip-redeploy ; 
+                {{ end }}
+                bash < /boot/health-watcher.sh 
+              image: "{{ $emsParams.ems.image }}"
+              imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
+              volumeMounts:
+              - mountPath: /boot
+                name: scripts-vol
+              - mountPath: /logs
+                name: "ems-log"
+                {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
+                subPathExpr: "$(MY_RELEASE)/logs"
+                {{ end }}
+              env:
+              # CAUTION! Setting Names here overrides envFrom values
+              {{ include "msg.dp.stdenv" $emsParams | indent  14 }}
+              - name: ACCEPT_EUA
+                value: "y"
+              - name: STS_NAME
+                value: "{{ $stsname }}"
+              - name: MY_POD_DOMAIN
+                value: "{{ $emsParams.ems.headlessDomain }}"
+              - name: FTL_SERVICE
+                value: "{{ $emsParams.ems.name }}-ftl"
+              - name: EMS_SERVICE
+                value: "{{ $emsParams.ems.name }}-ems"
+              - name: REALM_PORT
+                value: "{{ $emsParams.ems.ports.realmPort }}"
+              - name: EMS_TCP_PORT
+                value: "{{ $emsParams.ems.ports.tcpPort }}"
+              - name: EMS_INIT_JSON
+                value: "/data/boot/tibemsd-ftl.json"
+              - name: EMS_HTTP_PORT
+                value: "{{ $emsParams.ems.ports.httpPort }}"
+              - name: FTL_REALM_URL
+                # the service load-balanced REALM URL
+                value: "http://{{ $svcFtlHost }}:$(REALM_PORT)"
 
 {{ end }}

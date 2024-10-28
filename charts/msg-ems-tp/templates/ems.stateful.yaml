@@ -14,19 +14,18 @@ apiVersion: apps/v1
 {{- if ne "ftl" $emsParams.ems.stores -}}
   {{- fail "Unsupported Store type" -}}
 {{- end -}}
-{{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
-{{- $svcname := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $stsname := $emsParams.ems.stsname -}}
+{{- $svcname := $emsParams.ems.stsname -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
-{{- $svcEmsHost := printf "%s.%s.svc" $svcEms .Release.Namespace -}}
-{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
+{{- $svcEmsHost := printf "%s.%s.svc" $svcEms $emsParams.ems.namespace -}}
+{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms $emsParams.ems.namespace -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
-{{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
-{{- $dataPvc := $emsParams.ems.logs.storageName -}}
+{{- $svcFtlHost := printf "%s.%s.svc" $svcFtl $emsParams.ems.namespace -}}
 #
 kind: StatefulSet
 metadata:
     name: "{{ $stsname }}"
-    namespace: "{{ .Release.Namespace }}"
+    namespace: "{{ $emsParams.ems.namespace }}"
     labels:
       {{ include "msg.dp.labels" . | indent 6 }}
       {{ include "ems.std.labels" $emsParams | indent 6 }}
@@ -36,15 +35,15 @@ metadata:
       app.kubernetes.io/name: "ems"
       app: msg-ems-ftl
       tib-msg-stsname: "{{ $stsname }}"
-      tib-msg-svcname: "{{ $emsParams.ems.name }}-ems"
+      tib-msg-svcname: "{{ $svcEms}}"
       sidecar.istio.io/inject: "{{ $emsParams.ems.istioEnable }}"
     annotations:
       {{ include "msg.dp.mon.annotations" . | indent 6 }}
       # isLeader="http://localhost:9010/isReady"
       # isInQuorum="http://localhost:9013/api/v1/available"
       platform.tibco.com/quorum-strategy: "{{ $emsParams.ems.quorumStrategy | default "none" }}"
-      platform.tibco.com/replica-min: "3"
-      platform.tibco.com/replica-max: "3"
+      platform.tibco.com/replica-min: "{{ $emsParams.ems.replicas }}"
+      platform.tibco.com/replica-min: "{{ $emsParams.ems.replicas }}"
       platform.tibco.com/leader-endpoint: "{{ $emsParams.ems.isLeader | default "none" }}"
       platform.tibco.com/is-in-quorum: "{{ $emsParams.ems.isInQuorum | default "none" }}"
 spec:
@@ -54,7 +53,7 @@ spec:
         matchLabels:
           tib-msg-stsname: "{{ $stsname }}"
           tib-dp-release: "{{ .Release.Name }}"
-    serviceName: "{{ $svcname }}"
+    serviceName: "{{ $emsParams.ems.headless }}"
     template:
         metadata:
             labels:
@@ -77,12 +76,13 @@ spec:
             {{- end }}
             # NOTE: if hostname/subdomain do not agree with podname/service
             # .. DNS pod resolution problems can occur
-            hostname: "{{ $stsname }}"
+            # hostname: "{{ $stsname }}"
+            # subdomain: "{{ $svcname }}"
             enableServiceLinks: false
-            subdomain: "{{ $svcname }}"
             nodeSelector:
               kubernetes.io/os: linux
             topologySpreadConstraints:
+            # FIXME: Use helpers
             - maxSkew: 1
               topologyKey: kubernetes.io/hostname
               {{- if eq "no" ( $emsParams.ems.allowNodeSkew | default "yes" ) }}
@@ -123,7 +123,11 @@ spec:
                 ( cd /data/certs ; 
                     for x in server.cert.pem server_root.cert.pem server.key.pem ; do 
                       [ ! -f "$x" ] && cp /opt/tibco/ems/current-version/samples/certs/$x $x ; done ) ;
+                  {{ if eq "pod-edit" $emsParams.securityProfile }}
+                exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ; 
+                  {{ else }}
                 exec /usr/local/watchdog/bin/watchdog  ; 
+                  {{ end }}
               ports:
               - name: http-port
                 containerPort: {{ int $emsParams.ems.ports.httpPort }}
@@ -191,8 +195,9 @@ spec:
                 name: tmp-vol
               terminationMessagePath: /dev/termination-log
               terminationMessagePolicy: File
-              # NOTE: tibemsd - /isLive is not true until after quorum is formed!!
+            {{ if ne "pod-edit" $emsParams.securityProfile }}
               livenessProbe:
+                # NOTE: tibemsd - /isLive is not true until after quorum is formed!!
                 httpGet:
                   path: /api/v1/server
                   port: {{ int $emsParams.ems.ports.realmPort }}
@@ -208,6 +213,7 @@ spec:
                 periodSeconds: 10
                 successThreshold: 1
                 failureThreshold: 3
+            {{ end }}
               envFrom:
                 - secretRef:
                     name: "{{ $emsParams.ems.name }}-tibadmin"
@@ -236,11 +242,17 @@ spec:
               - name: EMS_HTTP_PORT
                 value: "{{ $emsParams.ems.ports.httpPort }}"
               - name: EMS_SERVICE
-                value: "{{ $emsParams.ems.name }}-ems"
+                value: "{{ $emsParams.ems.stsname }}"
               - name: MY_SVC_NAME
                 value: "{{ $svcname }}"
+              - name: MY_STS_NAME
+                value: "{{ $emsParams.ems.stsname }}"
+              - name: MY_HEADLESS
+                value: "{{ $emsParams.ems.headless }}"
+              - name: MY_POD_DOMAIN
+                value: "{{ $emsParams.ems.headlessDomain }}"
               - name: MY_SVC_HOST
-                value: "$(MY_POD_NAME).{{ $svcname }}.{{ .Release.Namespace }}.svc"
+                value: "$(MY_POD_NAME).{{ $emsParams.ems.headlessDomain }}"
               - name: FTL_REALM_URL
                 # the service load-balanced REALM URL
                 value: "http://{{ $svcFtlHost }}:$(REALM_PORT)"
