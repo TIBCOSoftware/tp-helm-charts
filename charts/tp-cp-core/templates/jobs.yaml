@@ -300,7 +300,11 @@ spec:
           subPath: tsc
         - name: secret-volume
           mountPath: /private/tsc/secret-volume
+        - name: tmp
+          mountPath: /tmp
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

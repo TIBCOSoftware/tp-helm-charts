@@ -317,7 +317,11 @@ spec:
           subPath: hawk
         - name: secret-volume
           mountPath: /private/hawk/secret-volume
+        - name: tmp
+          mountPath: /tmp
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "tp-hawk-infra.pvc-name" . }}
