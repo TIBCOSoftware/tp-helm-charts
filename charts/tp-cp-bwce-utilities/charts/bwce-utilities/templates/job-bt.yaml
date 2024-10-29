@@ -87,6 +87,8 @@ spec:
         - mountPath: {{ $.Values.volumes.plugins.mountPath }}
           subPath: {{ $.Values.volumes.plugins.subPath }}
           name: store-vol
+        - name: tmp
+          mountPath: /tmp
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
         - mountPath: /tibco/containerregistry
@@ -95,6 +97,8 @@ spec:
       {{- end }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}

@@ -84,6 +84,8 @@ spec:
           - name: IS_AWS
             value: "true"
           volumeMounts:
+          - name: tmp
+            mountPath: /tmp
           - mountPath: {{ $.Values.volumes.plugins.mountPath }}
             name: shared-vol
             subPath: {{ $.Values.volumes.plugins.subPath }}
@@ -120,6 +122,8 @@ spec:
         {{- end }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: shared-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}

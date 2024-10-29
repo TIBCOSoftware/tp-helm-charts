@@ -62,6 +62,8 @@ spec:
         - name: CLEAN_UP_TARGET_DIRS
           value: "true"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
           subPath: {{ $.Values.toolsSubPath }}
@@ -71,6 +73,8 @@ spec:
           name: container-registry-secret
 {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}  
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}

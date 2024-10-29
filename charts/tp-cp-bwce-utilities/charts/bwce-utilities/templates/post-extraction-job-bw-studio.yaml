@@ -97,10 +97,14 @@ spec:
           - name: DELETE_BWSTUDIO_VERSIONS
             value: "{{ $.Values.bwStudioDeleteVersions }}"
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             - name: shared-vol
               mountPath: {{ $.Values.toolsMountPath }}
               subPath: {{ $.Values.toolsSubPath }}
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: shared-vol
           persistentVolumeClaim:
             claimName: {{ include "bwce-utilities.pvc-name" . }}
