@@ -89,6 +89,8 @@ spec:
 {{- end }}
           - name: settings-config-volume
             mountPath: "/etc/config"
+          - name: tmp
+            mountPath: /tmp/
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "resource-set-operator.image.registry" .}}{{"/"}}{{ include "resource-set-operator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -123,6 +125,8 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: podlogs
           hostPath:

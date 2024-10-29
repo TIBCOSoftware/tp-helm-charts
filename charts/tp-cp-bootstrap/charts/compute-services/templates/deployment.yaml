@@ -52,6 +52,8 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
+          - name: tmp
+            mountPath: /tmp
         {{- if .Values.dpHelmRepositories }}
           - mountPath: /helm/config
             name: helm-repo-config
@@ -194,6 +196,8 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
       {{- if .Values.dpHelmRepositories }}
         - name: helm-repo-config
           secret:
