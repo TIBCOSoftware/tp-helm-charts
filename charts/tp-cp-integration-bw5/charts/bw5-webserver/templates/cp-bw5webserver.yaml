@@ -145,6 +145,9 @@ spec:
           value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
           value: {{ .Values.global.cic.data.SYSTEM_REGION }}
+        volumeMounts:
+        - name: logs
+          mountPath: /usr/piap/tp-iapp-bw5-webserver/logs
 {{- if eq (include "bw5-webserver.cp-logging-fluentbit-enabled" .) "true" }}
       - name: fluentbit
         image: {{ include "bw5-webserver.image.registry" . }}{{"/"}}{{ include "bw5-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.fluentbit.image.name }}:{{ .Values.global.fluentbit.image.tag }}
@@ -200,6 +203,8 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if eq (include "bw5-webserver.cp-logging-fluentbit-enabled" .) "true" }}
         - name: podlogs
           hostPath:

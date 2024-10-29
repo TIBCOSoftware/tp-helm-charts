@@ -132,6 +132,8 @@ spec:
           - name: store-vol
             mountPath: {{ .Values.volumes.bwwebserver.mountPath }}
             subPath: {{ .Values.volumes.bwwebserver.subPath }}
+          - name: logs
+            mountPath: /usr/piap/tp-iapp-bw-webserver/logs
 {{- if eq (include "bw-webserver.cp-logging-fluentbit-enabled" .) "true" }}
       - name: fluentbit
         image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.fluentbit.image.name }}:{{ .Values.global.fluentbit.image.tag }}
@@ -187,6 +189,8 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if eq (include "bw-webserver.cp-logging-fluentbit-enabled" .) "true" }}
         - name: podlogs
           hostPath:

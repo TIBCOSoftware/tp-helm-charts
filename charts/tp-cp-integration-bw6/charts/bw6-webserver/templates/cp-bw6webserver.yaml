@@ -151,6 +151,8 @@ spec:
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         volumeMounts:
+          - name: logs
+            mountPath: /usr/piap/tp-iapp-bw6-webserver/logs
           - name: store-vol
             mountPath: {{ .Values.volumes.bw6webserver.mountPath }}
             subPath: {{ .Values.volumes.bw6webserver.subPath }}
@@ -209,6 +211,8 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if eq (include "bw6-webserver.cp-logging-fluentbit-enabled" .) "true" }}
         - name: podlogs
           hostPath:
