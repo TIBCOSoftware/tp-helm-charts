@@ -52,12 +52,16 @@ spec:
         - mountPath: /efs
           name: store-vol
           subPath: tsc/contributors
+        - mountPath: /kaniko
+          name: kaniko
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
       volumes:
+        - name: kaniko
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "tp-cp-tibcohub-contrib.pvc-name" . }}
