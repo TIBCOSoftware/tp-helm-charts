@@ -65,7 +65,7 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: kaniko
-          mountPath: /kaniko
+          mountPath: /kaniko/.docker/
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
           subPath: {{ $.Values.toolsSubPath }}
