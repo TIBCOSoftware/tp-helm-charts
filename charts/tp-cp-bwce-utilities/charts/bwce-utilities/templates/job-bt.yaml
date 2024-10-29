@@ -89,6 +89,8 @@ spec:
           name: store-vol
         - name: tmp
           mountPath: /tmp
+        - name: kaniko
+          mountPath: /kaniko
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
         - mountPath: /tibco/containerregistry
@@ -98,6 +100,8 @@ spec:
       {{- end }}
       volumes:
       - name: tmp
+        emptyDir: {}
+      - name: kaniko
         emptyDir: {}
       - name: store-vol
         persistentVolumeClaim:

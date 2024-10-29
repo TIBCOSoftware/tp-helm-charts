@@ -86,6 +86,8 @@ spec:
           volumeMounts:
           - name: tmp
             mountPath: /tmp
+          - name: kaniko
+            mountPath: /kaniko
           - mountPath: {{ $.Values.volumes.plugins.mountPath }}
             name: shared-vol
             subPath: {{ $.Values.volumes.plugins.subPath }}
@@ -123,6 +125,8 @@ spec:
       {{- end }}
       volumes:
       - name: tmp
+        emptyDir: {}
+      - name: kaniko
         emptyDir: {}
       - name: shared-vol
         persistentVolumeClaim:

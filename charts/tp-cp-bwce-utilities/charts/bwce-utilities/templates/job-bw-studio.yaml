@@ -64,6 +64,8 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        - name: kaniko
+          mountPath: /kaniko
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
           subPath: {{ $.Values.toolsSubPath }}
@@ -75,6 +77,8 @@ spec:
       volumes:
       - name: tmp
         emptyDir: {}  
+      - name: kaniko
+        emptyDir: {}
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}
