@@ -476,7 +476,11 @@ spec:
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
+        - name: tmp
+          emptyDir: {}
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
