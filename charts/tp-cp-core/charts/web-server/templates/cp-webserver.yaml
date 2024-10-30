@@ -249,6 +249,8 @@ spec:
         - name: TIBCO_INTERNAL_IAAS_VENDOR
           value: {{ include "cp-core-configuration.provider-name" . }}
         volumeMounts:
+          - name: tmp
+            mountPath: /tmp
           - name: store-vol
             mountPath: /private/tsc
             subPath: tsc
@@ -304,6 +306,8 @@ spec:
           configMap:
             name: {{ include "tp-cp-web-server.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: tmp 
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
