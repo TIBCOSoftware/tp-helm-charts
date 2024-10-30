@@ -68,6 +68,10 @@ spec:
       - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-extract
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: IfNotPresent
+        {{- with $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
         env:
         - name: SOURCE_REGISTRY
           value: "{{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.plugins.image.repository" $dot }}"
@@ -99,6 +103,10 @@ spec:
       - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-default
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: IfNotPresent
+        {{- with $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
         env:
         - name: FLOGO_CONNECTOR_NAME
           value: "{{ $name }}"
