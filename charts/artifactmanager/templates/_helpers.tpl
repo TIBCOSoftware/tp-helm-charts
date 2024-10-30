@@ -72,15 +72,6 @@ Integration storage folder pvc name
 
 {{- define "artifactmanager.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}
 
-<<<<<<< HEAD
-{{- define "artifactmanager.const.jfrogImageRepo" }}tibco-platform-local-docker/infra{{end}}
-{{- define "artifactmanager.const.ecrImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.acrImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.harborImageRepo" }}stratosphere{{end}}
-{{- define "artifactmanager.const.defaultImageRepo" }}pea-coreintegration/tibco-control-plane/tibco-platform-local-docker/infra{{end}}
-
-=======
->>>>>>> refs/heads/1.3.0
 {{- define "artifactmanager.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}

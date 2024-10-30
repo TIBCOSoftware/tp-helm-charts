@@ -12,11 +12,25 @@ Return the proper image name
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
 
-{{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "backstage.image.repository" -}}
   {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
 
+{{- define "backstage.image.backend-registry" }}
+ {{- if and (.Values.backstage.image.registry) (.Values.backstage.image.repository) -}}
+   {{- .Values.backstage.image.registry }}
+ {{- else -}}
+   {{- .Values.global.cp.containerRegistry.url }}
+ {{- end -}}
+{{- end -}}
+
+{{- define "backstage.image.backend-repository" -}}
+ {{- if and (.Values.backstage.image.registry) (.Values.backstage.image.repository) -}}
+   {{- .Values.backstage.image.repository }}
+ {{- else -}}
+   {{- printf "%s/%s" .Values.global.cp.containerRegistry.repository .Values.backstage.image.name }}
+ {{- end -}}
+{{- end -}}
 
 {{- define "postgresql.image" -}}
   {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}

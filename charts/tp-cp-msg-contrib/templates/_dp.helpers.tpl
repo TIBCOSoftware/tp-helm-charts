@@ -142,6 +142,7 @@ dp:
   subscriptionId: {{ $subscriptionId }}
   scSharedName: {{ $scSharedName }}
   release: {{ .Release.Name }}
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
   chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
   fluentbitEnabled: {{ $fluentbitEnabled }}
   enableClusterScopedPerm: {{ $enableClusterScopedPerm }}
@@ -177,7 +178,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.3.0.14"
+tib-dp-msgbuild: "1.3.0.16"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
@@ -421,6 +422,10 @@ securityContext:
 {{/*
 msg.dp.security.container - Generate a container securityContext section from $xxParams struct
 .. works with msg.dp.security.pod to standardize non-root securityContext restrictions
+Supported Profiles:
+  ems:  drop all caps, read-only root, runAsNonRoot
+  pulsar:  drop all caps, read-write root, runAsNonRoot
+  pod-edit: root, read-write, main=wait-for-shutdown, no liveness/readiness
 */}}
 {{- define "msg.dp.security.container" }}
 {{- if .dp.enableSecurityContext }}
