@@ -81,6 +81,8 @@ spec:
         args:
         - "/opt/tibco/tsc/scripts/init.sh install"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           # creating tsc as subfolder in shared EFS. Purpose is to make data privacy between TCS and TSC data on shared EFS.
@@ -88,6 +90,8 @@ spec:
         - name: secret-volume
           mountPath: /private/tsc/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

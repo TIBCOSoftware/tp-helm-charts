@@ -91,12 +91,16 @@ spec:
         args:
         - "/opt/tibco/hawk/scripts/init.sh install"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/hawk
           subPath: hawk
         - name: secret-volume
           mountPath: /private/hawk/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "tp-hawk-infra.pvc-name" . }}

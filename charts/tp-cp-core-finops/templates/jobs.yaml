@@ -90,12 +90,16 @@ spec:
         args:
         - "/opt/tibco/finops/scripts/init.sh install"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/finops
           subPath: finops
         - name: secret-volume
           mountPath: /private/finops/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
