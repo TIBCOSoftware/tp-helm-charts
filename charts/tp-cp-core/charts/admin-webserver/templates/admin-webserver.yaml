@@ -266,6 +266,8 @@ spec:
         volumeMounts:
           - name: podlogs
             mountPath: /var/log/pods
+          - name: tmp
+            mountPath: /tmp
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
@@ -279,6 +281,8 @@ spec:
           configMap:
             name: {{ include "tp-cp-admin-webserver.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
