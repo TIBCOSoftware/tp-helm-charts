@@ -86,6 +86,8 @@ spec:
         - name: FLOGO_CONNECTOR_TAG
           value: "{{ $tag }}"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: shared-vol
           mountPath: {{ $.Values.volumes.plugins.mountPath }}
           subPath: {{ $.Values.volumes.plugins.subPath }}
@@ -115,12 +117,16 @@ spec:
             mkdir -p "${path%/*}" && touch "$path"
             echo $tag > $path
         volumeMounts:
+          - name: tmp
+            mountPath: /tmp
           - name: shared-vol
             mountPath: {{ $.Values.volumes.plugins.mountPath }}
             subPath: {{ $.Values.volumes.plugins.subPath }}
       {{- end }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: shared-vol
         persistentVolumeClaim:
           claimName: {{ include "flogo-utilities.pvc-name" $dot }}

@@ -100,6 +100,8 @@ spec:
         - name: DELETE_FLOGO_VSCODE_EXTENSION_VERSIONS
           value: "{{ $.Values.flogoVSCodeExtensionDeleteVersions }}"
         volumeMounts:
+          - name: tmp
+            mountPath: /tmp
           - name: shared-vol
             mountPath: {{ $.Values.toolsMountPath }}
             subPath: {{ $.Values.toolsSubPath }}
@@ -109,6 +111,8 @@ spec:
             mountPath: /tibco/containerregistry
           {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: shared-vol
           persistentVolumeClaim:
             claimName: {{ include "flogo-utilities.pvc-name" . }}

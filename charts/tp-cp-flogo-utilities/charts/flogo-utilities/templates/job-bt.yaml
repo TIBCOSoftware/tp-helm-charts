@@ -84,6 +84,8 @@ spec:
         - name: CLEAN_UP_TARGET_DIRS
           value: "true"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: {{ $.Values.volumes.plugins.mountPath }}
           subPath: {{ $.Values.volumes.plugins.subPath }}
@@ -95,6 +97,8 @@ spec:
       {{- end }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "flogo-utilities.pvc-name" $dot }}
