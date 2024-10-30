@@ -227,6 +227,8 @@ spec:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_WILDCARD_DNS_DOMAIN
         volumeMounts:
+          - name: tmp
+            mountPath: /tmp
           - name: store-vol
             mountPath: /private/tsc/config
             subPath: tsc/config
@@ -266,8 +268,6 @@ spec:
         volumeMounts:
           - name: podlogs
             mountPath: /var/log/pods
-          - name: tmp
-            mountPath: /tmp
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}

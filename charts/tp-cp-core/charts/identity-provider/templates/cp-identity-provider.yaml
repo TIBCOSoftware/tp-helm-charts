@@ -70,7 +70,7 @@ spec:
           image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
           {{- if .Values.global.containerSecurityContext.tpcpidpservice }}
           securityContext:
-            {{- toYaml .Values.global.containerSecurityContext.tpcpidpservice | nindent 10 }}
+            {{- toYaml .Values.global.containerSecurityContext.tpcpidpservice | nindent 12 }}
           {{- end }}
           command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
           env:
