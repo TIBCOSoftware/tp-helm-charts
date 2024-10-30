@@ -341,7 +341,6 @@ securityContext:
   capabilities:
     drop:
     - ALL
-  readOnlyRootFilesystem: true
   runAsNonRoot: true
     {{- end }}
 {{- end }}

@@ -41,6 +41,7 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
