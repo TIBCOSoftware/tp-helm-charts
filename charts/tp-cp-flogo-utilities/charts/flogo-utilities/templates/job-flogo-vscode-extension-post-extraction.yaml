@@ -103,7 +103,7 @@ spec:
           - name: tmp
             mountPath: /tmp
           - name: kaniko
-            mountPath: /kaniko/.docker
+            mountPath: /kaniko/.docker/
           - name: shared-vol
             mountPath: {{ $.Values.toolsMountPath }}
             subPath: {{ $.Values.toolsSubPath }}
