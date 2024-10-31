@@ -33,13 +33,6 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
-      resources:
-        requests:
-          cpu: {{ .Values.global.resources.finopsJob.requests.cpu }}
-          memory: {{ .Values.global.resources.finopsJob.requests.memory }}
-        limits:
-          cpu: {{.Values.global.resources.finopsJob.limits.cpu }}
-          memory: {{ .Values.global.resources.finopsJob.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
@@ -52,6 +45,13 @@ spec:
         {{- end }}
         image: {{ include "tp-cp-core-finops-job.image.registry" .}}{{"/"}}{{ include "tp-cp-core-finops-job.image.repository" .}}{{"/tel-finops-scripts"}}:{{ include "tp-cp-core-finops-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.finopsJob.requests.cpu }}
+            memory: {{ .Values.global.resources.finopsJob.requests.memory }}
+          limits:
+            cpu: {{.Values.global.resources.finopsJob.limits.cpu }}
+            memory: {{ .Values.global.resources.finopsJob.limits.memory }}
         env:
         - name: DB_PREFIX
           value: {{ include "cp-core-configuration.cp-instance-id" . }}_

@@ -138,6 +138,13 @@ spec:
       - name: tibcohub
         image: {{ include "tp-cp-tibcohub-recipes.image.registry" .}}{{"/"}}{{ include "tp-cp-tibcohub-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.resources.requests.cpu}}
+            memory: {{ .Values.resources.limits.memory }}
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
