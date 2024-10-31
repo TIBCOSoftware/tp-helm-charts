@@ -22,7 +22,7 @@ spec:
             name: {{ include "tp-provisioner-agent.consts.appName" . }}
             port:
               number: 80
-  - host: "tibco-dp-{{ .Values.global.tibco.dataPlaneId}}"
+  - host: "dp-{{ .Values.global.tibco.dataPlaneId}}"
     http:
       paths:
       - pathType: Prefix
