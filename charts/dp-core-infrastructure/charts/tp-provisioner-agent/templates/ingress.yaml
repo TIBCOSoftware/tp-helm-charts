@@ -22,6 +22,16 @@ spec:
             name: {{ include "tp-provisioner-agent.consts.appName" . }}
             port:
               number: 80
+  - host: "tibco-dp-{{ .Values.global.tibco.dataPlaneId}}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
   - host: "*.eu-west.my.tibco.com"
     http:
       paths:
