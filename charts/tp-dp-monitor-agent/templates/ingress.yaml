@@ -28,4 +28,14 @@ spec:
             name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
             port:
               number: 7831
+  - host: "dp-{{ .Values.global.cp.dataplaneId }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.ingress.pathPrefix }}
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
 {{- end }}
