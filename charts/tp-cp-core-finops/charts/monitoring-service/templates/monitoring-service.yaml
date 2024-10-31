@@ -426,6 +426,9 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: tp-cp-monitoring-tibtunnel-cronjob
         spec:
           {{- if .Values.global.podSecurityContext }}
           securityContext:
@@ -480,6 +483,9 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: tp-cp-monitoring-capresources-cronjob
         spec:
           {{- if .Values.global.podSecurityContext }}
           securityContext:
@@ -534,6 +540,9 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: tp-cp-monitoring-homepage-cronjob
         spec:
           {{- if .Values.global.podSecurityContext }}
           securityContext:

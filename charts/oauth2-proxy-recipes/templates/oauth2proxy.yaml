@@ -78,6 +78,9 @@ metadata:
 spec:
   ttlSecondsAfterFinished: 3600
   template:
+    metadata:
+      labels:
+        {{- include "dp-oauth2proxy-recipes.labels" . | nindent 8 }}
     spec:
     {{- if .Values.podSecurityContext }}
       securityContext:

@@ -100,6 +100,8 @@ spec:
       - name: tp-dp-hawk-console
         image: {{ include "tp-cp-hawk-console-recipes.image.registry" .}}{{"/"}}{{ include "tp-cp-hawk-console-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+        {{- toYaml $.Values.resources | nindent 10 }}        
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}

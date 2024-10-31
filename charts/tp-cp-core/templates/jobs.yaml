@@ -41,6 +41,13 @@ spec:
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.requests.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.requests.memory }}
+          limits:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.limits.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.limits.memory }}
         env:
         - name: DB_PREFIX
           value: {{ include "cp-core-configuration.cp-instance-id" . }}_
@@ -150,6 +157,13 @@ spec:
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.requests.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.requests.memory }}
+          limits:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.limits.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.limits.memory }}
         env:
         - name: DB_PREFIX
           value: {{ include "cp-core-configuration.cp-instance-id" . }}_
@@ -257,6 +271,13 @@ spec:
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.requests.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.requests.memory }}
+          limits:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.limits.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.limits.memory }}
         env:
         - name: DB_PREFIX
           value: {{ include "cp-core-configuration.cp-instance-id" . }}_
@@ -366,6 +387,13 @@ spec:
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.requests.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.requests.memory }}
+          limits:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.limits.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.limits.memory }}
         env:
         - name: DB_PREFIX
           value: {{ include "cp-core-configuration.cp-instance-id" . }}_
@@ -468,6 +496,13 @@ spec:
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.requests.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.requests.memory }}
+          limits:
+            cpu: {{ .Values.global.resources.tpcpcoreJob.limits.cpu }}
+            memory: {{ .Values.global.resources.tpcpcoreJob.limits.memory }}
         env:
         - name: POD_NAMESPACE
           valueFrom:

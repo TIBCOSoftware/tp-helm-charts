@@ -45,6 +45,13 @@ spec:
         {{- end }}        
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.global.resources.requests.cpu }}
+            memory: {{ .Values.global.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.global.resources.limits.cpu }}
+            memory: {{ .Values.global.resources.limits.memory }}
         env:
         - name: ENVIRONMENT_TYPE
           valueFrom:

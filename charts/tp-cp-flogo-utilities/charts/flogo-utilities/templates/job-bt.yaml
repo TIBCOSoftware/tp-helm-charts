@@ -45,6 +45,8 @@ spec:
       - name: {{ $name }}-{{ $image.tag | replace "." "-" | lower }}-delete
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        resources:
+        {{- toYaml $.Values.resources | nindent 10 }}
         {{- with $.Values.securityContext }}
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}

@@ -44,6 +44,8 @@ spec:
       - name: {{ $extension.image }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        resources:
+        {{- toYaml $.Values.resources | nindent 10 }}
         {{- with $.Values.securityContext }}
         securityContext:
           {{- toYaml $.Values.securityContext | nindent 10 }}

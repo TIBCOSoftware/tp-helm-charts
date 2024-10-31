@@ -30,6 +30,13 @@ spec:
       containers:
       - name: container-image-extractor
         image: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}{{"/"}}{{ include "tp-cp-tibcohub-contrib.image.repository" .}}{{"/"}}{{ .Values.containerImageExtractor.image.name }}:{{ .Values.containerImageExtractor.image.tag}}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:

@@ -43,6 +43,8 @@ spec:
       - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-delete
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: IfNotPresent
+        resources:
+        {{- toYaml $.Values.resources | nindent 10 }}
         {{- with $.Values.securityContext }}
         securityContext:
           {{- toYaml $.Values.securityContext | nindent 10 }}
