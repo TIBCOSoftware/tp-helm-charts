@@ -45,7 +45,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
+  - host: "*.cp1-my.localhost.dataplanes.pro"
     http:
       {{- if $.Values.jaeger.ingress.hostsOverride -}}
       paths:
@@ -95,7 +95,7 @@ spec:
               port:
                 number: {{ $.Values.jaeger.service.port }}
       {{- end }}
-  - host: "*.eu-west.my.tibco.com"
+  - host: "*.cp1-ns.svc.cluster.local"
     http:
       {{- if $.Values.jaeger.ingress.hostsOverride -}}
       paths:

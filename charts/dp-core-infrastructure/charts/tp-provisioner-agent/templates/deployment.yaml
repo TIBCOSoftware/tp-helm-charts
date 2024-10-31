@@ -46,6 +46,8 @@ spec:
             value: {{ .Release.Name }}
           - name: DATAPLANE_ID
             value: {{ .Values.global.tibco.dataPlaneId }}
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
           # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
           - name: HELM_CACHE_HOME
             value: /tmp/.cache/helm

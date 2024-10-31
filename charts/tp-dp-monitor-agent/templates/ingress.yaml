@@ -18,7 +18,7 @@ metadata:
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:           
-  - host: "*.prod-tibco-sub-{{ .Values.global.cp.subscriptionId}}.svc.cluster.local"
+  - host: "*.cp1-my.localhost.dataplanes.pro"
     http:
       paths:
       - pathType: Prefix
