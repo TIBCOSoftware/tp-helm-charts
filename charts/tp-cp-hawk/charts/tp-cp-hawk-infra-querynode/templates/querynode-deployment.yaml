@@ -101,6 +101,9 @@ spec:
             - containerPort: 9681
               protocol: TCP
               name: rest-querynode
+          readinessProbe:
+            tcpSocket:
+              port: 9681
           volumeMounts:
             - name: store-vol
               mountPath: /private/tsc/certificates

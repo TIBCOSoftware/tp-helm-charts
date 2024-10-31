@@ -55,6 +55,9 @@ spec:
             value: {{ include "tp-cp-subscription.consts.appName" . }}      
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 7778
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: fluentbit
           image: {{ include "tp-cp-subscription.image.registry" .}}{{"/"}}{{ include "tp-cp-subscription.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}

@@ -52,6 +52,9 @@ spec:
           ports:
             - containerPort: 9090
               name: prometheus
+          readinessProbe:
+            tcpSocket:
+              port: 9090
           volumeMounts:
             - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-prom-volume
               mountPath: /etc/prometheus/
@@ -72,6 +75,16 @@ spec:
           ports:
             - containerPort: 9000
               name: prometheus-ds
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+          resources:
+            requests:
+              cpu: {{ .Values.prometheusds.resources.requests.cpu }}
+              memory: {{ .Values.prometheusds.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.prometheusds.resources.limits.cpu }}
+              memory: {{ .Values.prometheusds.resources.limits.memory }}
           env:
             - name: hawkconsole_target_input_file
               value: /etc/prometheus-discovery/hawkconsoletargets.json

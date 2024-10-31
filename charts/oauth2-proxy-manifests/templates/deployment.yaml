@@ -71,6 +71,8 @@ spec:
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
 {{- end }}
+        resources:
+          {{- toYaml .Values.global.cp.initContainer.resources | nindent 10 }}
         env:
           {{- with .Values.global.cp.proxy }}
           {{- if .httpProxy }}

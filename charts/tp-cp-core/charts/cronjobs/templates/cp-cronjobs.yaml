@@ -87,6 +87,13 @@ spec:
               configMapKeyRef:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
                 key: TP_CP_IDM_HOST
+        resources:
+          requests:
+            cpu: {{ .Values.cpcronjobservice.resources.requests.cpu }}
+            memory: {{ .Values.cpcronjobservice.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.cpcronjobservice.resources.limits.cpu }}
+            memory: {{ .Values.cpcronjobservice.resources.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}

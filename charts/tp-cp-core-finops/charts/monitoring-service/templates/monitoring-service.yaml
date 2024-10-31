@@ -416,6 +416,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: tp-cp-monitoring-tibtunnel-cronjob
+  labels:
+    app.kubernetes.io/name: tp-cp-monitoring-tibtunnel-cronjob
 spec:
   schedule: {{ .Values.monitoringtibtunnel.schedule | quote}}
   concurrencyPolicy: Forbid
@@ -468,6 +470,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: tp-cp-monitoring-capresources-cronjob
+  labels:
+    app.kubernetes.io/name: tp-cp-monitoring-capresources-cronjob
 spec:
   schedule: {{ .Values.monitoringcapresources.schedule | quote}}
   concurrencyPolicy: Forbid
@@ -520,6 +524,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: tp-cp-monitoring-homepage-cronjob
+  metadata:
+    labels: tp-cp-monitoring-homepage-cronjob
 spec:
   schedule: {{ .Values.monitoringhomepagemetrics.schedule | quote}}
   concurrencyPolicy: Forbid

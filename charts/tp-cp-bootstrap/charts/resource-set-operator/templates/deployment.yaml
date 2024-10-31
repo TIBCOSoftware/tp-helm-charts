@@ -81,6 +81,9 @@ spec:
             name: metrics
           - containerPort: 9443
             name: webhook
+        readinessProbe:
+            tcpSocket:
+              port: 8080
         volumeMounts:
 {{- if .Values.enableWebHooks }}
           - mountPath: /tmp/k8s-webhook-server/serving-certs

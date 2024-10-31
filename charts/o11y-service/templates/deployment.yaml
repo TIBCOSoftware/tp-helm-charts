@@ -47,6 +47,9 @@ spec:
           ports:
             - containerPort: 7820
               name: tp-o11yservice
+          readinessProbe:
+            tcpSocket:
+              port: 7820
           env:
             - name: IS_CP
               value: "false"

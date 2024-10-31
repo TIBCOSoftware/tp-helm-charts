@@ -102,6 +102,13 @@ spec:
                 configMapKeyRef:
                   key: TP_CP_PERMISSIONS_ENGINE_HOST
                   name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          resources:
+            requests:
+              cpu: {{ .Values.init.resources.requests.cpu }}
+              memory: {{ .Values.init.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.init.resources.limits.cpu }}
+              memory: {{ .Values.init.resources.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}

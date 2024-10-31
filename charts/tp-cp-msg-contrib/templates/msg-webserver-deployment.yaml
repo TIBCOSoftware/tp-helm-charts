@@ -47,6 +47,16 @@ spec:
           exec /usr/local/watchdog/bin/watchdog ;
         ports:
           - containerPort: 7513
+        readinessProbe:
+          tcpSocket:
+            port: 7513
+        resources:
+          requests:
+            cpu: {{ .Values.webserver.resources.requests.cpu }}
+            memory: {{ .Values.webserver.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.webserver.resources.limits.cpu }}
+            memory: {{ .Values.webserver.resources.limits.memory }}
         {{ include "msg.webserver.security.container" $cpParams | nindent 8 }}
         volumeMounts:
         - mountPath: /boot

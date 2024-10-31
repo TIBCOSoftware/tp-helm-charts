@@ -36,6 +36,14 @@ global:
       capabilities:
         drop:
           - ALL
+  resources:
+    finopsJob:
+      requests:
+        cpu: "100m"
+        memory: "100Mi"
+      limits:
+        cpu: "150m"
+        memory: "150Mi"
   CP_HELM_REPO: "https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages"
   CP_PROD_HELM_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
   CP_STAGING_HELM_REPO: "https://tibcosoftware.github.io/tp-helm-charts"

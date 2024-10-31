@@ -33,6 +33,13 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
+      resources:
+        requests:
+          cpu: {{ .Values.global.resources.finopsJob.requests.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.requests.memory }}
+        limits:
+          cpu: {{.Values.global.resources.finopsJob.limits.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
@@ -145,6 +152,13 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
+      resources:
+        requests:
+          cpu: {{ .Values.global.resources.finopsJob.requests.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.requests.memory }}
+        limits:
+          cpu: {{.Values.global.resources.finopsJob.limits.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
@@ -256,6 +270,13 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
+      resources:
+        requests:
+          cpu: {{ .Values.global.resources.finopsJob.requests.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.requests.memory }}
+        limits:
+          cpu: {{.Values.global.resources.finopsJob.limits.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
@@ -369,6 +390,13 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
+      resources:
+        requests:
+          cpu: {{ .Values.global.resources.finopsJob.requests.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.requests.memory }}
+        limits:
+          cpu: {{.Values.global.resources.finopsJob.limits.cpu }}
+          memory: {{ .Values.global.resources.finopsJob.limits.memory }}
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}

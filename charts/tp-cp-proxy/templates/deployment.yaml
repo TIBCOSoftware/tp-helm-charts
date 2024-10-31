@@ -76,6 +76,9 @@ spec:
         ports:
         - containerPort: 3125
           name: proxy
+        readinessProbe:
+          tcpSocket:
+            port: 3125
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}

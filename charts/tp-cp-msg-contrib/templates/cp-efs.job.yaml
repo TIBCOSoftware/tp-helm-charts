@@ -11,6 +11,7 @@ metadata:
     labels:
       name: "msg-cp-efs"
       app.kubernetes.io/component: msg 
+      app.kubernetes.io/name: "tp-cp-msg-job-{{ .Release.Name }}-{{ randAlphaNum 4 | lower }}"
     namespace: "{{ .Release.Namespace }}"
 spec:
     backoffLimit: 0
@@ -24,6 +25,7 @@ spec:
           labels:
             name: "msg-cp-efs"
             app.kubernetes.io/component: msg 
+            app.kubernetes.io/name: "msg-cp-efs-{{ .Release.Name }}"
         spec:
             enableServiceLinks: false
             nodeSelector:
@@ -57,6 +59,13 @@ spec:
                 - mountPath: /private/tsc
                   name: efs-vol
                   subPath: tsc
+                resources:
+                  requests:
+                    cpu: {{ .Values.job.resources.requests.cpu }}
+                    memory: {{ .Values.job.resources.requests.memory }}
+                  limits:
+                    cpu: {{ .Values.job.resources.limits.cpu }}
+                    memory: {{ .Values.job.resources.limits.memory }}
                 env:
                 - name: TARGET_PATH
                   value: "{{ $cpParams.cp.TARGET_PATH }}"

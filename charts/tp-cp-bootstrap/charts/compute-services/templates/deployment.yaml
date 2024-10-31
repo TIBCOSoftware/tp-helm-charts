@@ -67,6 +67,9 @@ spec:
         ports:
         - containerPort: 9979
           name: server
+        readinessProbe:
+          tcpSocket:
+            port: 9979
         env:
           - name: SUBSCRIPTION_RESOURCE_SET_TEMPLATE
             value: cp-subscription

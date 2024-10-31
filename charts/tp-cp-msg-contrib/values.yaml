@@ -35,6 +35,24 @@ cp:
   enableJobSecurityContext: true
 
 
+webserver:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "150m"
+      memory: "150Mi"
+
+job:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "150m"
+      memory: "150Mi"
+
 # Sleep after completing update, and before pod exits for auditing
 jobPostSleep:
 # ##### EXAMPLE VALUES SECTIONS
