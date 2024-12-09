@@ -9,6 +9,7 @@
 #
 # HELPER VARIABLE DEFINITIONS
 {{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
+{{- $svcHeadless := printf "%s" $emsParams.ems.headless -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcProm := printf "%s-%s" $emsParams.ems.name "prom" -}}
@@ -58,6 +59,44 @@ spec:
     protocol: TCP
   - name: ems-admin-port
     port: {{ int $emsParams.ems.ports.adminPort }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $stsname }}"
+...
+---
+# Headless service for Pod-based DNS names per spec + GKE requirements
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcHeadless }}"
+  labels:
+    {{ include "msg.dp.labels" . | indent 4 }}
+    {{ include "ems.std.labels" $emsParams | indent 4 }}
+    tib-msg-stsname: "{{ $stsname }}"
+    tib-msg-svcname: "{{ $svcHeadless }}"
+spec:
+  clusterIP: None
+  ports:
+  - name: http-port
+    port: {{ int $emsParams.ems.ports.httpPort }}
+    protocol: TCP
+  - name: tcp-port
+    port: {{ int $emsParams.ems.ports.tcpPort }}
+    protocol: TCP
+  - name: ssl-port
+    port: {{ int $emsParams.ems.ports.sslPort }}
+    protocol: TCP
+  - name: realm-port
+    port: {{ int $emsParams.ems.ports.realmPort }}
+    protocol: TCP
+  - name: admin-port
+    port: {{ int $emsParams.ems.ports.adminPort }}
+    protocol: TCP
+  - name: watchdog-port
+    port: {{ int $emsParams.ems.ports.watchdogPort }}
+    protocol: TCP
+  - name: logger-port
+    port: {{ int $emsParams.ems.ports.loggerPort }}
     protocol: TCP
   selector:
     tib-msg-stsname: "{{ $stsname }}"

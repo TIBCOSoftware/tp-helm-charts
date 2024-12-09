@@ -10,7 +10,7 @@ cmd="${0##*/}"
 usage="
 $cmd [stsname] -- DP STS health actions based on health monitoring annotations
 ENV OPTIONS:
-    STS_NAME            - Set name to watch
+    MY_STS_NAME            - Set name to watch
     HEALTH_INTERVAL     - override default collection interval of 20s
     HEALTH_CSV          - override ./health.csv summary filename
     HEALTH_ACTION       - Choose action (watcher, redeploy )
@@ -20,8 +20,11 @@ csvfile="${HEALTH_CSV:-./health.csv}"
 stsdata="my-sts.json"
 interval="${HEALTH_INTERVAL:-20}"
 action="${HEALTH_ACTION:-watcher}"
-STS_NAME="${STS_NAME:-$MY_SVC_NAME}"
-STS_NAME="${1:-$STS_NAME}"
+export podBase="${HOSTNAME%-*}"
+export STS_NAME="${STS_NAME:-$podBase}"
+[ -n "$1" ] && STS_NAME="$1" && echo "Using arg=$1"
+echo "Setting STS_NAME=$STS_NAME"
+## STS_NAME="${1:-$STS_NAME}"
 ## more portable, but no milliseconds:  
 ## fmtTime="+%y%m%dT%H:%M:%S"
 ## Ubuntu preferred: 
@@ -65,10 +68,14 @@ function rotate_log() {
 
 function sts_get_config {
     quorumStrategy="" replicas="" isLeader="" quorumMin="1" 
+    echo "#+: " kubectl get sts "$STS_NAME" -o json " > $stsdata"
     kubectl get sts "$STS_NAME" -o json > $stsdata
     [ $? -ne 0 ] && log " No STS data, not watching health ..." && return 1
-    quorumStrategy="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/quorum-strategy"]' )"
     replicas="$(cat $stsdata | jq '.spec.replicas' )"
+    namespace="$(cat $stsdata | jq -r '.metadata.namespace' )"
+    headless="$(cat $stsdata | jq -r '.spec.servicename' )"
+    export podDomain="${MY_POD_DOMAIN:-$headless.$namespace.svc}"
+    quorumStrategy="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/quorum-strategy"]' )"
     lastReplicas=$replicas
     isLeader="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/leader-endpoint"]' )"
     [ "$isLeader" = "null" ] && isLeader=""
@@ -91,12 +98,12 @@ function sts_get_config {
     if [ "$replicas" -gt "$replicaMax" ] ; then
         alert "spec-alert $STS_NAME: replicas = $replicas, max=$replicaMax"
     fi
-    stsNamespace="$(cat $stsdata | jq -r '.metadata.namespace' )"
     # isInQuorum="http://localhost:9013/api/v1/available"
     isInQuorum="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/is-in-quorum"]' )"
     [ "$isInQuorum" = "null" ] && isInQuorum=""
     [ "$quorumStrategy" = "quorum-based" ] && quorumMin=$(( $replicas / 2 + 1 ))
-    podhost="$STS_NAME-0.$STS_NAME.$stsNamespace"
+    # FIXME: headless
+    export podhost="$STS_NAME-0.${podDomain}"
     leaderUrl=$(echo "$isLeader" | sed -e "s;localhost;$podhost;")
     quorumUrl=$(echo "$isInQuorum" | sed -e "s;localhost;$podhost;")
     cat - <<!
@@ -108,7 +115,8 @@ quorumMin=$quorumMin
 isLeader=$isLeader
 isInQuorum=$isInQuorum
 replicas=$replicas
-podhost="$STS_NAME-0.$STS_NAME.$stsNamespace"
+podhost="$podhost"
+podDomain="$podDomain"
 leaderUrl=$leaderUrl
 quorumUrl=$quorumUrl
 --------------------------
@@ -131,7 +139,7 @@ function sts_check_health {
     maxReplica=$(( $replicas - 1 ))
     for r in $(seq 0 $maxReplica ) ; do
         podname="$STS_NAME-$r"
-        podhost="$STS_NAME-$r.$STS_NAME.$stsNamespace"
+        podhost="$podname.${podDomain}"
         if [ -n "$isLeader" ] ; then
             leaderUrl=$(echo "$isLeader" | sed -e "s;localhost;$podhost;")
             # curl -k -s -o /dev/null -w '%{http_code}' $url 

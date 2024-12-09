@@ -7,15 +7,17 @@
 #
 
 outfile=${1:-ftlserver.yml}
-srvBase="${EMS_SERVICE}"
-svcname="${EMS_SERVICE:-$srvBase}"
+#use:  MY_STSNAME, MY_HEADLESS, MY_POD_DOMAIN 
+podData="/data"
+podBase="${HOSTNAME##-}"
+srvBase="${EMS_SERVICE:-$podBase}"
+svcname="${MY_HEADLESS:-$srvBase}"
 namespace=$MY_NAMESPACE
 ftlport="${FTL_REALM_PORT:-9013}"
 EMS_TCP_PORT="${EMS_TCP_PORT-9011}"
+EMS_HTTP_PORT="${EMS_HTTP_PORT-9010}"
 # EMS_LISTEN_URLS="tcp://0.0.0.0:${EMS_TCP_PORT}"
 EMS_LISTEN_URLS="${EMS_LISTEN_URLS:-tcp://0.0.0.0:${EMS_TCP_PORT}}"
-podData="/data"
-podData="/data"
 # loglevel=${FTL_LOGLEVEL:-"info;quorum:debug"}
 loglevel=${FTL_LOGLEVEL:-"info"}
 cat - <<EOF > $outfile
