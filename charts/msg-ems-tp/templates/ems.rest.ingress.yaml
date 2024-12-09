@@ -20,7 +20,7 @@ metadata:
   name: "{{ $svcEms }}-admin"
   namespace: {{ .Release.Namespace }}
   annotations:
-    ingress.kubernetes.io/path-rewrite: '/tibco/msg/ems/{{ $emsParams.dp.instanceId }}/rest/(.*) /\1'
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ems/{{ $emsParams.dp.instanceId }}/rest/(.*) /\1'
   labels:
     {{ include "msg.dp.labels" . | indent 4 }}
     {{ include "ems.std.labels" $emsParams | indent 4 }}
