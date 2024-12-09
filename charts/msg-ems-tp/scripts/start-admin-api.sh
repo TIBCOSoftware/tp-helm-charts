@@ -15,14 +15,17 @@ $cmd -- Start the tibemsrestd REST ADMIN API server
 ## fmtTime="+%y%m%dT%H:%M:%S"
 ## Ubuntu preferred: 
 fmtTime="--rfc-3339=ns"
-svcname="${EMS_SERVICE}"
+podBase="${HOSTNAME%-*}"
+export STS_NAME="${STS_NAME:-$podBase}"
 namespace=$MY_NAMESPACE
+headlessSvc="${MY_HEADLESS:-$STS_NAME}"
+export MY_POD_DOMAIN="${MY_POD_DOMAIN:-$headlessSvc.$namespace.svc}"
 realmPort="${FTL_REALM_PORT-9013}"
 emsTcpPort="${EMS_TCP_PORT:-9011}"
 emsSslPort="${EMS_SSL_PORT:-9012}"
 emsAdminPort="${EMS_ADMIN_PORT:-9014}"
-export insideSvcHostPort="${svcname}.${namespace}.svc:${emsTcpPort}"
-export insideActiveHostPort="${svcname}active.${namespace}.svc:${emsTcpPort}"
+export insideSvcHostPort="${STS_NAME}.${namespace}.svc:${emsTcpPort}"
+export insideActiveHostPort="${STS_NAME}active.${namespace}.svc:${emsTcpPort}"
 
 # Set signal traps
 function log
@@ -48,7 +51,7 @@ trap do_sighup SIGHUP
 cat - <<! > ./emsrest.config.yaml
 loglevel: info
 proxy:
-  name: "${EMS_SERVICE}-rest"
+  name: "$STS_NAME-rest"
   listeners:
     - ":$emsAdminPort"
   session_timeout: 86400

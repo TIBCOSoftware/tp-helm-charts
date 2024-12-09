@@ -11,6 +11,7 @@ usage="
     -u <username>   : set username
     -p <password>   : set password
     -b <bear-token> : use a bearer token
+    -c              : confirm
     *               : pass everything else to curl
 ENV overrides:
     EMS_ADMIN_URL   : http schema://host:port of rest proxy
@@ -32,6 +33,7 @@ auth_opts=()
 EMS_REST_API=
 EMS_ADMIN_USER=${EMS_ADMIN_USER:-admin}
 EMS_ADMIN_PORT=${EMS_ADMIN_PORT:-9014}
+confirm=
 # Allow ENV Overrides for:
 # EMS_ADMIN_HOST=
 # EMS_ADMIN_URL=
@@ -43,6 +45,7 @@ while [ $# -gt 0 ] ; do arg="$1"
     -u) EMS_ADMIN_USER="${2}" ; shift ;;
     -p) EMS_ADMIN_PASSWORD="${2}" ; shift ;;
     -b) EMS_ADMIN_BEARER="${2}" ; shift ;;
+    -c) confirm=true ;;
     -debug|--debug)  set -x ;;
     -help) echo "$usage" ; exit 1 ;;
     * ) cmd_opts+=("$1") ;;
@@ -73,6 +76,16 @@ export LD_LIBRARY_PATH=
 > curl.debug
 curl "${curl_opts[@]}" "${auth_opts[@]}" -i -X POST  "$EMS_ADMIN_URL"/connect >> curl.debug 2>> curl.debug 
 
+if [ "$confirm" ] ; then
+    response=$(curl "${curl_opts[@]}" "${auth_opts[@]}"  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}" 2>> curl.debug)
+    response=(${response[@]})
+    confirmation_code=$(echo "${response[-1]}" | jq -r '.confirmation')
+    if [[ $EMS_REST_API == *'?'* ]]; then
+        EMS_REST_API="${EMS_REST_API}&confirmation=${confirmation_code}"
+    else
+        EMS_REST_API="${EMS_REST_API}?confirmation=${confirmation_code}"
+    fi
+fi
 curl "${curl_opts[@]}" "${auth_opts[@]}"  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}" 2>> curl.debug
 
 curl "${curl_opts[@]}" "${auth_opts[@]}" -i -X POST  "$EMS_ADMIN_URL"/disconnect >> curl.debug 2>> curl.debug

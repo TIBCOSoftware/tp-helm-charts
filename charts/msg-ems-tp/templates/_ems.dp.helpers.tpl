@@ -18,6 +18,7 @@ need.msg.ems.params
 {{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-4" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
+{{- $namespace := .Values.namespace | default .Release.Namespace -}}
 {{- $sizing := ternary  "small" .Values.ems.sizing ( not  .Values.ems.sizing ) -}}
 {{- $use := ternary  "dev" .Values.ems.use ( not  .Values.ems.use ) -}}
 {{- $tcpListen := printf "tcp://0.0.0.0:%d" ( .Values.ems.ports.tcpPort | int ) -}}
@@ -112,8 +113,8 @@ ops:
   image: {{ $opsDefaultFullImage }}
 ems:
   name: {{ $name }}
+  namespace: {{ $namespace }}
   image: {{ $emsImage }}
-  replicas: 3
   sizing: {{ $sizing }}
   use: {{ $use }}
   isProduction: {{ $isProduction }}
@@ -154,13 +155,6 @@ ems:
     storageName: none
   skipRedeploy: "{{ .Values.ems.skipRedeploy }}"
   istioEnable: "{{ .Values.ems.istioEnable | default "false" }}"
-  ports:
-{{ .Values.ems.ports | toYaml | indent 4 }}
-  stores: {{ $stores }}
-  listens: {{ .Values.ems.listens | default $emsListens }}
-  quorumStrategy: {{ $quorumStrategy }}
-  isLeader: {{ printf "http://localhost:%d/isReady" ( int .Values.ems.ports.httpPort ) }}
-  isInQuorum: {{ printf "http://localhost:%d/api/v1/available" ( int .Values.ems.ports.realmPort ) }}
   allowNodeSkew: "{{ .Values.ems.allowNodeSkew | default $allowNodeSkew }}"
   allowZoneSkew: "{{ .Values.ems.allowZoneSkew | default $allowZoneSkew }}"
   resources:
@@ -174,6 +168,19 @@ ems:
       memory: {{ $memLim }}
       cpu: {{ $cpuLim }}
     {{ end }}
+  # Computed settings below, not intended for user changes
+  # use -pods instead of -headless to avoid reducing STS name size
+  stsname: "{{ $name }}-ems"
+  headless: "{{ $name }}-ems-pods"
+  headlessDomain: "{{ $name }}-ems-pods.{{ $namespace }}.svc"
+  replicas: 3
+  ports:
+{{ .Values.ems.ports | toYaml | indent 4 }}
+  stores: {{ $stores }}
+  listens: {{ .Values.ems.listens | default $emsListens }}
+  quorumStrategy: {{ $quorumStrategy }}
+  isLeader: {{ printf "http://localhost:%d/isReady" ( int .Values.ems.ports.httpPort ) }}
+  isInQuorum: {{ printf "http://localhost:%d/api/v1/available" ( int .Values.ems.ports.realmPort ) }}
 toolset:
   lbHost: "nlbNameHere"
   enableIngress: true
