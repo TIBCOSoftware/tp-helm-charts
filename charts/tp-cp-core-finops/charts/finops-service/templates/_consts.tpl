@@ -58,14 +58,6 @@
 {{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "false"  "Release" .Release )}}
 {{- end }}
 {{- end }}
-{{/* Provider name for control plane. Fail if the pvc not exist */}}
-{{- define "cp-core-configuration.provider-name" }}
-{{- if .Values.providerName }}
-  {{- .Values.providerName }}
-{{- else }}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-{{- end }}
 
 {{- define "cp-core-configuration.enableLogging" }}
   {{- $isEnableLogging := "" -}}

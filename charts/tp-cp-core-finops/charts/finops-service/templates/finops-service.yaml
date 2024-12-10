@@ -180,7 +180,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "finops-service.consts.cp.db.configuration" . }}
-              key: DBHost
+              key: LocalReaderHost
         - name: READ_PGPORT
           valueFrom:
             configMapKeyRef:
@@ -217,10 +217,7 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "finops-service.consts.cp.db.configuration" . }}
-              key: DBSSLRootCert
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           valueFrom:
             configMapKeyRef:
@@ -231,14 +228,11 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "finops-service.consts.cp.db.configuration" . }}
-              key: DBSSLRootCert
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         volumeMounts:
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "finops-service.image.registry" .}}{{"/"}}{{ include "finops-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -294,6 +288,9 @@ spec:
           configMap:
             name: {{ include "finops-service.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
