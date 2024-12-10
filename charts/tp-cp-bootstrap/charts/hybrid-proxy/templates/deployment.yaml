@@ -67,21 +67,18 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         ports:
-        - containerPort: 8080
-          name: metrics
+        {{- $ports := include "hybrid-proxy.shared.podPortsConfig" . }}
+        {{- if $ports }}
+          {{- $ports | nindent 8 }}
+        {{- end }}
+        {{- if .Values.enableWebHooks }}
         - containerPort: 9443
           name: webhook
-        - containerPort: 88
-          name: api
-          protocol: TCP
-        {{/* 443 is opened on node by security groups, hence exposing the container ports */}}
-        - containerPort: 443
-          name: tunnel
-          protocol: TCP
+        {{- end }}
         readinessProbe:
           httpGet:
-            path: /version
-            port: 88
+            path: {{ .Values.readinessProbe.httpGet.path }}
+            port: {{ .Values.readinessProbe.httpGet.port }}
           failureThreshold: 60 # 60 * 5sec = 5min
           successThreshold: 1
           timeoutSeconds: 3
@@ -91,8 +88,8 @@ spec:
         # TODO: might need revisiting in future K8s versions. See https://github.com/kubernetes/kubernetes/issues/27114
         livenessProbe:
           httpGet:
-            path: /version
-            port: 88
+            path: {{ .Values.livenessProbe.httpGet.path }}
+            port: {{ .Values.livenessProbe.httpGet.port }}
           failureThreshold: 1
           successThreshold: 1
           timeoutSeconds: 3

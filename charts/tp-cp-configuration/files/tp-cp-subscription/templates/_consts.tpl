@@ -52,11 +52,6 @@ in the license file that is distributed with this file.
     {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
-{{/* control plane deployment target */}}
-{{- define "tp-cp-subscription.cp-provider" }}
-{{- .Values.global.external.provider -}}
-{{- end }}
-
 {{/* Node CIDR for the cluster */}}
 {{- define "tp-cp-subscription.nodeCIDR" }}
 {{- .Values.global.external.clusterInfo.nodeCIDR -}}
