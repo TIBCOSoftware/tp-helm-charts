@@ -46,11 +46,6 @@ spec:
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
         env:
-        - name: ENVIRONMENT_TYPE
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-ops.consts.cp-env-configmap" . }}
-              key: CP_PROVIDER
         - name: REGION
           valueFrom:
             configMapKeyRef:
@@ -82,7 +77,7 @@ spec:
           - |
             set -o nounset
             set -o errexit
-            if [ "${ENVIRONMENT_TYPE}" == "local" ]; then region="global"; else region=${REGION}; fi
+            region=${REGION}
             echo "Provisioning the Admin Subscription for ${EMAIL_ID}.."
             curl -sS -XPOST -H 'x-atmosphere-for-user: ProvisioningUser' -H "Content-type: application/json" -H "Host: ${TSC_DNS_DOMAIN}" -H "x-real-ip: 0.0.0.0" -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"admin","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' 'http://'${TP_CP_ORCH_HOST}:8833'/v1/tibco-subscriptions'
             echo "Subscription for ${EMAIL_ID} provisioned successfully."
