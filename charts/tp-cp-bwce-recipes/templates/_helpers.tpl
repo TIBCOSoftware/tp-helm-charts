@@ -105,8 +105,3 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "dp-bwce-recipes.cp-instance-id" }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
-
-{{/* Control plane provider */}}
-{{- define "dp-bwce-recipes.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
