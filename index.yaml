@@ -4316,6 +4316,31 @@ entries:
     version: 1.2.20
   tp-cp-hawk:
   - apiVersion: v2
+    appVersion: 1.3.0-HF3
+    created: "2024-12-10T17:03:04.015763714Z"
+    dependencies:
+    - condition: tp-cp-hawk-infra-querynode.enabled
+      name: tp-cp-hawk-infra-querynode
+      repository: ""
+      version: 1.3.*
+    - condition: tp-cp-hawk-infra-prometheus.enabled
+      name: tp-cp-hawk-infra-prometheus
+      repository: ""
+      version: 1.3.*
+    description: TIBCO Platform Control Plane - Hawk Infra Bundle
+    digest: 46933959fcc76bb193388dbc115638c61e586aa51dcab4d76e3ae689701bd359
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    keywords:
+    - tibco-platform
+    - control-plane
+    - hawk
+    maintainers:
+    - name: TIBCO Cloud Hawk Team
+    name: tp-cp-hawk
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-1.3.22/tp-cp-hawk-1.3.22.tgz
+    version: 1.3.22
+  - apiVersion: v2
     appVersion: 1.3.0
     created: "2024-09-11T23:36:58.40944956Z"
     dependencies:
@@ -4391,6 +4416,23 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-1.2.13/tp-cp-hawk-1.2.13.tgz
     version: 1.2.13
   tp-cp-hawk-console-recipes:
+  - annotations:
+      app.helm.sh/component: tibco-platform-data-plane
+      app.helm.sh/name: tp-cp-hawk-console-recipes
+    apiVersion: v2
+    appVersion: 1.3.0-HF3
+    created: "2024-12-10T17:03:04.190298362Z"
+    description: TIBCO Platform Hawk Data Plane recipes
+    digest: 0059e3e56332698d54a26c40457e22b5214587810608de150eabbe4e4e071218
+    keywords:
+    - tibco-platform
+    - infra
+    - recipes
+    name: tp-cp-hawk-console-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-console-recipes-1.3.28/tp-cp-hawk-console-recipes-1.3.28.tgz
+    version: 1.3.28
   - annotations:
       app.helm.sh/component: tibco-platform-data-plane
       app.helm.sh/name: tp-cp-hawk-console-recipes
@@ -5444,6 +5486,17 @@ entries:
   tp-dp-hawk-console:
   - apiVersion: v2
     appVersion: 1.3.0
+    created: "2024-12-10T17:03:04.331619936Z"
+    description: A Helm chart for deploying the tp-dp-hawk-console service
+    digest: 53f270c697e7bba9b77438e444df31549a7ef8cb0384251b71dfebf7c87a3963
+    keywords:
+    - hawk-console
+    name: tp-dp-hawk-console
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-hawk-console-1.3.28/tp-dp-hawk-console-1.3.28.tgz
+    version: 1.3.28
+  - apiVersion: v2
+    appVersion: 1.3.0
     created: "2024-09-11T23:36:58.669236185Z"
     description: A Helm chart for deploying the tp-dp-hawk-console service
     digest: 54c63085632ff1b7015520c0a2e8831c3b9172c7b2e80e2edfd551cacf0750cd
@@ -5643,4 +5696,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2024-12-10T16:50:24.424491988Z"
+generated: "2024-12-10T17:03:04.33212934Z"
