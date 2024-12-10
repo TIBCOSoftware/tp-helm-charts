@@ -59,7 +59,7 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- if eq ( include "cp-core-configuration.provider-name" . ) "aws" }}
+      {{- if eq .Values.global.external.emailServerType "ses" }}
       serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
       {{- else }}
       automountServiceAccountToken: false

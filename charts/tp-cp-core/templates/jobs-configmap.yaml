@@ -21,8 +21,13 @@ data:
   DBName: {{ .Values.global.external.db_name }}
   DBPort: {{ .Values.global.external.db_port | quote }}
   DBSSLMode: {{ .Values.global.external.db_ssl_mode | quote }}
-  DBSSLRootCert: {{ .Values.global.external.db_ssl_root_cert | quote }}
-  {{- if eq .Values.global.tibco.is_replica_region true }}
+  {{- if .Values.global.external.db_master_writer_host }}
   MasterWriterHost: {{ .Values.global.external.db_master_writer_host }}
+  {{- else }}
+  MasterWriterHost: {{ .Values.global.external.db_host }}
+  {{- end }}
+  {{- if .Values.global.external.db_local_reader_host }}
   LocalReaderHost: {{ .Values.global.external.db_local_reader_host }}
+  {{- else }}
+  LocalReaderHost: {{ .Values.global.external.db_host }}
   {{- end }}
