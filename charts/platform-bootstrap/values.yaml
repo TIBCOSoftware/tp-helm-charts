@@ -57,30 +57,3 @@ global:
       # 3  to use pre-configured storageClass, uncomment storageClassName and pass the value
       # volumeName: ""
       # storageClassName: ""
-
-    # deployment target. Example: aws, azure, local.
-    provider: "aws"
-
-    # ingress creates an application load balancer with pre-defined annotations which is used for application traffic
-    # values for ingress
-    ingress:
-      # ingress class name. Example: alb, nginx.
-      ingressClassName: ""
-      # certificate arn for dns domain
-      certificateArn: ""
-      # reference for alb annotations https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/ingress/annotations/
-      # reference for nginx annotations https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md
-      annotations: {}
-
-    # values specific for aws cloud provider
-    aws:
-      # load balancer service creates a network load balancer with pre-defined annotations which is used for tunnel connection
-      # values for load balancer service
-      tunnelService:
-        # load balancer class. Default: service.k8s.aws/nlb
-        loadBalancerClass: ""
-        # certificate arn for tunnel domain
-        certificateArn: ""
-        # additional annotations for network load balancer service
-        annotations: {}
-          # reference for annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/service/annotations/
