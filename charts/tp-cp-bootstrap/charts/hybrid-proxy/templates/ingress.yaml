@@ -11,10 +11,10 @@
 apiVersion: "networking.k8s.io/v1"
 kind: Ingress
 metadata:
-  name: {{ include "router-operator.consts.appName" . }}
+  name: {{ include "hybrid-proxy.consts.appName" $root }}
   namespace: {{ $root.Release.Namespace }}
   labels:
-    {{- include "router-operator.shared.labels.standard" $root | nindent 4 }}
+    {{- include "hybrid-proxy.shared.labels.standard" $root | nindent 4 }}
   {{- if .annotations }}
   annotations:
     {{- range $key, $value := .annotations }}
@@ -47,7 +47,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "router-operator.consts.appName" $root }}
+                name: {{ include "hybrid-proxy.consts.appName" $root }}
                 port:
                   number: {{ .port }}
           {{- end }}

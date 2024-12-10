@@ -236,7 +236,7 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           value: {{ .Values.global.external.db_ssl_mode }}
         - name: READ_POSTGRES_DATABASE_SSL_CERT
@@ -244,7 +244,7 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: S3_CONFIGURATION_LOCATION
           value: file:///private/tsc/config/tscorch/tscorch.json
         - name: DISABLE_CONFIGURATION_REFRESH
@@ -265,8 +265,6 @@ spec:
               key: TSC_DNS_DOMAIN
         - name: TSC_DNS_DOMAIN
           value: https://$(TSC_DNS)
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: NEW_USER_MANAGEMENT
           value: enable
         - name: UTM_SECURED_MODE
@@ -275,9 +273,9 @@ spec:
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -327,6 +325,9 @@ spec:
           configMap:
             name: {{ include "tp-cp-user-subscriptions.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

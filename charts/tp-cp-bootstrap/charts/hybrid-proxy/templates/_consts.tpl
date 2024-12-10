@@ -38,21 +38,3 @@ in the license file that is distributed with this file.
 {{- define "hybrid-proxy.image.repository" -}}
     {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
-
-{{/* set annotations for load balancer creating network load balancer in AWS */}}
-{{- define "hybrid-proxy.aws.tunnelService.annotations" -}}
-external-dns.alpha.kubernetes.io/hostname: "*.{{ .Values.global.external.dnsTunnelDomain }}"
-service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=false
-service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-service.beta.kubernetes.io/aws-load-balancer-type: external
-service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
-{{- if .Values.global.external.aws }}
-{{- if .Values.global.external.aws.loadBalancer }}
-{{- if .Values.global.external.aws.tunnelService.certificateArn }}
-service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "{{ .Values.global.external.aws.tunnelService.certificateArn }}"
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end -}}

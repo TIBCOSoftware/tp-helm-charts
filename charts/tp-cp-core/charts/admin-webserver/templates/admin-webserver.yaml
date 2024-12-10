@@ -209,8 +209,6 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: REGION
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: TSC_DNS_DOMAIN
           valueFrom:
             configMapKeyRef:

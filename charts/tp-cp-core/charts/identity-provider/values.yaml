@@ -9,6 +9,8 @@ global:
     image_name:
       identityProvider: ""
     image_repo_path: ""
+    db_ssl_root_cert_secretname: "db-ssl-root-cert"
+    db_ssl_root_cert_filename: "db_ssl_root.cert"
     logging:
       fluentbit:
         image:
@@ -21,6 +23,7 @@ global:
   external:
     enableLogging: false
     region: ""
+    db_ssl_mode: "disable"
 
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.

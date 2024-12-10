@@ -42,5 +42,22 @@ webhooks:
     resources:
     - tibcotunnelroutes
 
+---
+
+{{/* service for webhook */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hybrid-proxy.consts.webhook" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hybrid-proxy.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    app.kubernetes.io/name: {{ include "hybrid-proxy.consts.appName" . }}
+
 {{/* DON'T PLACE ANYTHING AFTER THIS */}}
 {{- end }}

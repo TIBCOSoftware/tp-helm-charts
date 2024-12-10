@@ -176,14 +176,18 @@ spec:
         - name: POSTGRES_DATABASE_DRIVER
           value: postgres
         - name: POSTGRES_DATABASE_SSL_ROOT_CERT_FILE_LOCATION
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          {{- if eq .Values.global.external.db_ssl_mode "disable" }}
+          value: ""
+          {{- else }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+          {{- end }}
         volumeMounts:
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
 {{- if (include "cp-core-configuration.enableLogging" .)}}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -233,6 +237,9 @@ spec:
           configMap:
             name: {{ include "tp-cp-identity-provider.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

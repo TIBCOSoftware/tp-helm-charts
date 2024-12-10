@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-
+{{- if or (.Values.service.enabled) (.Values.ingress.enabled) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -12,17 +12,37 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "router-operator.shared.labels.standard" . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  annotations:
+    {{- range $key, $value := .Values.service.annotations }}
+    {{- printf "%s: %s" $key (tpl $value $ | quote) | nindent 4 }}
+    {{- end }}
+  {{- end }}
 spec:
+  type: {{ .Values.service.type }}
+  {{- if .Values.service.clusterIP }}
+  clusterIP: {{ .Values.service.clusterIP }}
+  {{- end }}
+  {{- if and .Values.service.loadBalancerIP (eq .Values.service.type "LoadBalancer") }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and .Values.service.loadBalancerSourceRanges (eq .Values.service.type "LoadBalancer") }}
+  loadBalancerSourceRanges:
+    {{- range .Values.service.loadBalancerSourceRanges }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- $ports := include "router-operator.shared.servicePortsConfig" . }}
+  {{- if $ports }}
+  ports:
+    {{- $ports | nindent 4 }}
+  {{- end }}
   selector:
     {{- include "router-operator.shared.labels.selector" . | nindent 4 }}
-  ports:
-  - name: api
-    port: 88
-    protocol: TCP
-    targetPort: api
-  - name: virtual
-    port: 100
-    protocol: TCP
-    targetPort: virtual
-  sessionAffinity: None
-  type: ClusterIP
+  {{- if .Values.service.internalTrafficPolicy }}
+  internalTrafficPolicy: {{ .Values.service.internalTrafficPolicy }}
+  {{- end }}
+  {{- if and (eq .Values.service.type "LoadBalancer") (.Values.service.externalTrafficPolicy) }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+{{- end }}
