@@ -122,11 +122,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- include "cp-env.get" (dict "key" "CP_DNS_DOMAIN" "default" "local" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "tp-hawk-infra.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "local" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{/* Control plane OTEl service */}}
 {{- define "tp-hawk-infra.otelServiceName" -}}
 {{- include "cp-env.get" (dict "key" "CP_OTEL_SERVICE" "default" "" "required" "false"  "Release" .Release )}}

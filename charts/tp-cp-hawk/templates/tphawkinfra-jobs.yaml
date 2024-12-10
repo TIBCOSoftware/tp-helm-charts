@@ -74,7 +74,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: IAAS_VENDOR
-          value: {{ include "tp-hawk-infra.cp-provider" . }}
+          value: ""
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/hawk/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -185,7 +185,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: IAAS_VENDOR
-          value: {{ include "tp-hawk-infra.cp-provider" . }}
+          value: ""
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/hawk/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -295,7 +295,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: IAAS_VENDOR
-          value: {{ include "tp-hawk-infra.cp-provider" . }}
+          value: ""
         - name: DeleteDBOnUninstall
           value: {{ .Values.hawk.deleteDBOnUninstall | quote }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -405,7 +405,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: IAAS_VENDOR
-          value: {{ include "tp-hawk-infra.cp-provider" . }}
+          value: ""
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/hawk/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
