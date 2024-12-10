@@ -79,9 +79,7 @@ spec:
         {{- end }}
     {{- else if (eq $paramKey "restoreFrom") }}
     restoreFrom:
-      {{- range $restoreKey, $restoreValue := $paramValue }}
-      {{ $restoreKey }}: {{ $restoreValue }}
-      {{- end }}
+      {{- toYaml $paramValue | nindent 6 }}
     {{- else }}
     {{ $paramKey }}: {{ $paramValue }}
     {{- end }}
