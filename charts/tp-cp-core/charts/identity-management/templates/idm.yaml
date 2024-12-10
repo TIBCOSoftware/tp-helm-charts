@@ -272,8 +272,8 @@ spec:
           value: http://$(TP_CP_IDM_HOST):7831/v1/management/xregion-operations/
         - name: IDENTITY_MANAGEMENT_IDM_DIRECT_ACCESS_API_PATH
           value: http://$(TP_CP_IDM_HOST):7831/v1/management/direct-access/notify
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
           value: {{ .Values.global.tibco.region }}
         - name: IDENTITY_MANAGEMENT_REGION_TO_PREFIX
@@ -318,7 +318,7 @@ spec:
         - name: IDENTITY_MANAGEMENT_DATABASE_ENDPOINT_URL
           value: "$(PGHOST):$(PGPORT)"
         - name: IDENTITY_MANAGEMENT_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: IDENTITY_MANAGEMENT_DATABASE_MAX_OPEN_CONNECTIONS
           valueFrom:
             configMapKeyRef:
@@ -331,17 +331,13 @@ spec:
               key: TSC_ADMIN_DNS_DOMAIN
         - name: IDENTITY_MANAGEMENT_CP_SUFFIX
           value: {{ include "cp-core-configuration.cp-dns-domain" . }}
-        {{- if eq (include "cp-core-configuration.provider-name" .) "local" }}
-        - name: TIBCO_INTERNAL_VAGRANT
-          value: "true"
-        {{- end }}
         volumeMounts:
         - name: store-vol
           mountPath: /mnt/heapdumps
           subPath: tsc/idm/heapdumps
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
@@ -394,6 +390,9 @@ spec:
           configMap:
             name: {{ include "tp-identity-management.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -727,6 +726,7 @@ spec:
       fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
       methods:
       - POST
+      - GET
       configVariables:
         SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
         SECURE_REDIRECT_SKIP_EULA_CHECK: "true"

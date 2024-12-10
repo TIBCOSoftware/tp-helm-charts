@@ -10,6 +10,8 @@ global:
     idm_cp_jwks_uri: "/private/tsc/config/idm/own-keystores/cic_cli_host.pem"
     region: "global"
     region_to_prefix: ""
+    db_ssl_root_cert_secretname: "db-ssl-root-cert"
+    db_ssl_root_cert_filename: "db_ssl_root.cert"
     image_name:
       identityManagement: ""
     image_repo_path: ""
@@ -25,6 +27,7 @@ global:
   external:
     region: ""
     enableLogging: false
+    environment: ""
 
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.

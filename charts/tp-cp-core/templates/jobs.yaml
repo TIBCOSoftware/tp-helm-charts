@@ -65,8 +65,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/tsc/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -170,8 +168,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -277,8 +273,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}}
         - name: DeleteDBOnUninstall
           value: {{ .Values.cp.deleteDBOnUninstall | quote }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -382,8 +376,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/tsc/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
