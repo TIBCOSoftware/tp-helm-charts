@@ -81,7 +81,7 @@ spec:
               value: "$(PGHOST):$(PGPORT)"
             {{- if eq .Values.global.external.db_ssl_mode "verify-full" }}
             - name: datasource_tls_cacert_file
-              value: {{ .Values.global.external.db_ssl_root_cert }}
+              value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
             - name: DATASOURCE_TLS_SKIP_HOSTNAME_VERIFICATION
               value: "false"
             {{- end }}
@@ -102,10 +102,10 @@ spec:
               protocol: TCP
               name: rest-querynode
           volumeMounts:
-            - name: store-vol
+            - name: db-cert-secret-vol
               mountPath: /private/tsc/certificates
-              subPath: tsc/certificates
+              readOnly: true
       volumes:
-        - name: store-vol
-          persistentVolumeClaim:
-          claimName: {{ include "tp-hawk-infra-querynode.pvc-name" . }}
+        - name: db-cert-secret-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
