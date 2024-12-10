@@ -3,6 +3,7 @@
 # in the license file that is distributed with this file.
 
 {{- $installDir := .Values.backstage.installDir -}}
+{{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
 ---
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
@@ -170,6 +171,8 @@ spec:
           env:
             - name: APP_CONFIG_backend_listen_port
               value: {{ .Values.backstage.containerPorts.backend | quote }}
+            - name: CP_URL
+              value: {{ $cpHostname }}
             {{- if .Values.postgresql.enabled }}
             - name: POSTGRES_HOST
               value: {{ include "backstage.postgresql.host" . }}
