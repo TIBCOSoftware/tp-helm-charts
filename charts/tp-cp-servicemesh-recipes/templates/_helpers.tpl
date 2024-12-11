@@ -106,8 +106,3 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "tp-cp-servicemesh-recipes.cp-instance-id" }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
-
-{{/* Control plane provider */}}
-{{- define "tp-cp-servicemesh-recipes.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
