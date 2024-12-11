@@ -115,11 +115,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "bw-webserver.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{/* Service account configured for control plane. fail if service account not exist */}}
 {{- define "bw-webserver.service-account-name" }}
 {{- if .Values.serviceAccount }}

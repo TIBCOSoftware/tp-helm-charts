@@ -1,4 +1,4 @@
-{{- define "tp-cp-core-finops.generated.buildNumber" }}457{{end -}}
-{{- define "tp-cp-core-finops.generated.buildTimestamp" }}10-17-24_14.54.58_PM{{end -}}
-{{- define "tp-cp-core-finops-job.generated.buildNumber" }}457{{end -}}
+{{- define "tp-cp-core-finops.generated.buildNumber" }}479{{end -}}
+{{- define "tp-cp-core-finops.generated.buildTimestamp" }}11-29-24_22.15.54_PM{{end -}}
+{{- define "tp-cp-core-finops-job.generated.buildNumber" }}479{{end -}}
 {{- define "tp-cp-core-finops.generated.debug.buildNumber" }}14{{end -}}
