@@ -41,7 +41,7 @@ spec:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "tp-cp-tibcohub-contrib.image.registry" .}}/{{ include "tp-cp-tibcohub-contrib.image.repository" .}}/{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"               # source docker image name
         - name: IMAGE_TEMP_DIR
-          value: "/efs/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
+          value: "/tmp/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
         - name: SOURCE_DIRS 
           value: {{ .Values.source.directory | quote }}               # directory in SOURCE_DOCKER_IMAGE which needs to be copied to TARGET_DIRS 
         - name: TARGET_DIRS
@@ -52,12 +52,17 @@ spec:
         - mountPath: /efs
           name: store-vol
           subPath: tsc/contributors
+        - mountPath: /tmp
+          name: temp
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
       volumes:
+        - name: temp
+          emptyDir:
+            sizeLimit: 500Mi
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "tp-cp-tibcohub-contrib.pvc-name" . }}
