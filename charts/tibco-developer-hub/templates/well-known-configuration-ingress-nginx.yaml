@@ -29,6 +29,6 @@ spec:
                 name: {{ include "common.names.fullname" . }}
                 port:
                   number: {{ .Values.service.ports.backend }}
-            path: /tibco/hub/.well-known/openid-configuration
+            path: /tibco/hub/.well-known/openid-configuration/
             pathType: Exact
 {{- end }}
