@@ -66,8 +66,10 @@ spec:
           - name: KEYSPACE
             value: {{ .Values.storage.cassandra.keyspace }}
         {{- end }}
+        {{- if .Values.global.cp.enableResourceConstraints }}
         resources:
           {{- toYaml .Values.schema.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         {{- range .Values.schema.extraConfigmapMounts }}
           - name: {{ .name }}

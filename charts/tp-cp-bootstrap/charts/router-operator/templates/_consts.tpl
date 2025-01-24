@@ -38,27 +38,3 @@ in the license file that is distributed with this file.
 {{- define "router-operator.image.repository" -}}
     {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
-
-{{/* set annotations for application load balancer ingress in AWS */}}
-{{- define "router-operator.ingress.annotations" -}}
-{{- if .Values.global.external.ingress }}
-{{- if .Values.global.external.ingress.ingressClassName }}
-{{- if eq .Values.global.external.ingress.ingressClassName "alb" }}
-external-dns.alpha.kubernetes.io/hostname: "*.{{ .Values.global.external.dnsDomain }}"
-alb.ingress.kubernetes.io/group.name: "{{ .Values.global.external.dnsDomain }}"
-alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-alb.ingress.kubernetes.io/backend-protocol: HTTP
-alb.ingress.kubernetes.io/scheme: internet-facing
-alb.ingress.kubernetes.io/success-codes: 200-399
-alb.ingress.kubernetes.io/target-type: ip
-alb.ingress.kubernetes.io/healthcheck-port: '88'
-alb.ingress.kubernetes.io/healthcheck-path: "/health"
-{{- if .Values.global.external.ingress.certificateArn }}
-alb.ingress.kubernetes.io/certificate-arn: "{{ .Values.global.external.ingress.certificateArn }}"
-{{- end }}
-{{- else if eq .Values.global.external.ingress.ingressClassName "nginx" }}
-nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end -}}

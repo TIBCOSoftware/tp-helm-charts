@@ -13,14 +13,23 @@ resources:
     memory: 256Mi
   limits:
     cpu: 1000m
-    memory: 1000Mi
+    memory: 1024Mi
 
 # no of replicas
 replicaCount: "1"
 
+# log level for the provisioner agent
+logLevel: "info"
+
+# set this variable to force-pull helm chart and avoid cached helm chart
+forcePull: "false"
+
+# set this variable to clean up the helm cache
+cacheCleanupInterval: "8h"
+
 image:
   name: infra-provisioner-agent
-  tag: 356
+  tag: 414
   pullPolicy: Always
 
 nodeSelector:
@@ -52,17 +61,6 @@ global:
     fluentbit:
       enabled: true
 
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-      securityContext:
-        runAsNonRoot: false
-        runAsUser: 0
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
     # proxy configuration for the outward traffic from cp proxy
     # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
     proxy:
@@ -71,17 +69,16 @@ global:
       noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
 fluentbit:
   image:
-    registry: cr.fluentbit.io/fluent/fluent-bit
-    tag: 3.1.4
+    tag: 3.2.2
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
       cpu: 10m
-      memory: 20Mi
+      memory: 15Mi
     limits:
       cpu: 50m
-      memory: 50Mi
+      memory: 30Mi
 hpa:
   minReplicas: 1
   maxReplicas: 3
@@ -105,8 +102,8 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-  provisionerAgent:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

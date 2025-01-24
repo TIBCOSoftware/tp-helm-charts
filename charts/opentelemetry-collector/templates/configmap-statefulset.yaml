@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if and (eq .Values.mode "statefulset") (.Values.configMap.create) }}
+{{ if and (eq .Values.mode "statefulset") (.Values.configMap.create) (not .Values.configMap.existingName) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

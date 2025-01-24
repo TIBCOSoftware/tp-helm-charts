@@ -44,13 +44,15 @@ spec:
       - name: resource-set-operator
         image: {{ include "resource-set-operator.image.registry" .}}{{"/"}}{{ include "resource-set-operator.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext.resourceSetOperator }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.resourceSetOperator | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- end }}
         env:
           - name: POD_NAMESPACE
@@ -81,21 +83,63 @@ spec:
             name: metrics
           - containerPort: 9443
             name: webhook
+          - containerPort: 8081
+            name: healthz
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: 8081
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: 8081
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 10
         volumeMounts:
+          - name: logs
+            mountPath: /tmp/logs
 {{- if .Values.enableWebHooks }}
           - mountPath: /tmp/k8s-webhook-server/serving-certs
             name: cert
             readOnly: true
 {{- end }}
+          - name: empty-dir
+            mountPath: "/tmp/helm"
           - name: settings-config-volume
             mountPath: "/etc/config"
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "resource-set-operator.image.registry" .}}{{"/"}}{{ include "resource-set-operator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
-        {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with .Values.global.tibco.logging.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- end }}
         env:
           - name: POD_NAMESPACE
@@ -116,18 +160,52 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        ports:
+        - containerPort: 2020
+          protocol: TCP  
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
           - name: config-volume
             mountPath: /fluent-bit/etc/
+          - name: db
+            mountPath: /var/log/db
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "resource-set-operator.consts.appName" . }}-fluentbit-config
@@ -141,5 +219,7 @@ spec:
         - name: settings-config-volume
           configMap:
             name: {{ include "resource-set-operator.consts.appName" . }}-settings
+        - name: empty-dir
+          emptyDir: {}
       imagePullSecrets:
         - name: {{ include "resource-set-operator.container-registry.secret" . }}

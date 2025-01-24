@@ -6,8 +6,8 @@
 
 
 router:
-  # list of cluster envs that are expected to be overwritten by cloudops. Each item in this
-  # list will generate a TibcoClusterEnv CR. The fields are as follows:
+  # List of cluster envs that are expected to be overwritten by cloudops. Each item in this
+  # List will generate a TibcoClusterEnv CR. The fields are as follows:
   #   name = the name of the TibcoClusterEnv CR that will be generated, in the router namespace
   #   group = the group that the settings belong top
   #   setting = the name of the cluster setting
@@ -17,13 +17,15 @@ router:
       group: "infra.router"
       setting: "LOG_LEVEL"
       value: "info"
-  # comma-separated list of domains with which TibcoClusterEnv CR of VALID_TIBCO_DOMAINS is to be created
-  # validTibcoDomains: ""
+  # Comma-separated list of domains with which TibcoClusterEnv CR of VALID_TIBCO_DOMAINS is to be created
+  # e.g. For domains abc.example1.com and xyz.example2.com, the value should be set as ".example1.com, .example2.com"
+  # If not set, the default will be the top level domain of the dnsDomain e.g. for dnsDomain acme.abc.example.com, the value will be ".example.com"
+  # validDomains: ""
 
 fluentbit:
   image:
     name: "common-fluentbit"
-    tag: 3.1.4
+    tag: 3.2.2
     pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -44,6 +46,7 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL

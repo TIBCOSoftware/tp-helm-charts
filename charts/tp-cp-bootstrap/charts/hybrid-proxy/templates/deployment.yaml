@@ -58,30 +58,29 @@ spec:
       - name: hybrid-proxy
         image: {{ include "hybrid-proxy.image.registry" .}}{{"/"}}{{ include "hybrid-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext.platformHybridProxy }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.platformHybridProxy | nindent 10 }}
-        {{- end }} 
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }} 
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- end }}
         ports:
-        - containerPort: 8080
-          name: metrics
+        {{- $ports := include "hybrid-proxy.shared.podPortsConfig" . }}
+        {{- if $ports }}
+          {{- $ports | nindent 8 }}
+        {{- end }}
+        {{- if .Values.enableWebHooks }}
         - containerPort: 9443
           name: webhook
-        - containerPort: 88
-          name: api
-          protocol: TCP
-        {{/* 443 is opened on node by security groups, hence exposing the container ports */}}
-        - containerPort: 443
-          name: tunnel
-          protocol: TCP
+        {{- end }}
         readinessProbe:
           httpGet:
-            path: /version
-            port: 88
+            path: {{ .Values.readinessProbe.httpGet.path }}
+            port: {{ .Values.readinessProbe.httpGet.port }}
           failureThreshold: 60 # 60 * 5sec = 5min
           successThreshold: 1
           timeoutSeconds: 3
@@ -91,8 +90,8 @@ spec:
         # TODO: might need revisiting in future K8s versions. See https://github.com/kubernetes/kubernetes/issues/27114
         livenessProbe:
           httpGet:
-            path: /version
-            port: 88
+            path: {{ .Values.livenessProbe.httpGet.path }}
+            port: {{ .Values.livenessProbe.httpGet.port }}
           failureThreshold: 1
           successThreshold: 1
           timeoutSeconds: 3
@@ -107,6 +106,8 @@ spec:
           value: "{{ .Values.waitForBackendPodToBeReady }}"
         - name: IS_CIC2_ENV
           value: "true"
+        - name: ENABLE_WEBHOOKS
+          value: "{{ .Values.enableWebHooks }}"
       {{- if .Values.global.tibco.useSingleNamespace }}
         - name: WATCH_NAMESPACE
           value: "{{ .Release.Namespace }}"
@@ -137,6 +138,8 @@ spec:
         volumeMounts:
           - name: settings-config-volume
             mountPath: "/etc/config"
+          - name: logs
+            mountPath: /tmp/logs
 {{- if .Values.enableWebHooks }}
           - mountPath: /tmp/k8s-webhook-server/serving-certs
             name: cert
@@ -146,10 +149,16 @@ spec:
       - name: fluentbit
         image: {{ include "hybrid-proxy.image.registry" .}}{{"/"}}{{ include "hybrid-proxy.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
-        {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}  
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with .Values.global.tibco.logging.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -169,21 +178,55 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        ports:
+        - containerPort: 2020
+          protocol: TCP  
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
           - name: config-volume
             mountPath: /fluent-bit/etc/
+          - name: db
+            mountPath: /var/log/db
 {{- end }}
       volumes:
         - name: settings-config-volume
           configMap:
             name: {{ include "hybrid-proxy.consts.appName" . }}-settings
+        - name: logs
+          emptyDir: {}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "hybrid-proxy.consts.appName" . }}-fluentbit-config

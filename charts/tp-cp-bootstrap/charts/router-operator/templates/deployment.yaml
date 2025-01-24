@@ -58,42 +58,32 @@ spec:
       - name: router
         image: {{ include "router-operator.image.registry" .}}{{"/"}}{{ include "router-operator.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext.router }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.router | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- end }}
         ports:
-        - containerPort: 8080
-          name: metrics
+        {{- $ports := include "router-operator.shared.podPortsConfig" . }}
+        {{- if $ports }}
+          {{- $ports | nindent 8 }}
+        {{- end }}
+        {{- if .Values.enableWebHooks }}
         - containerPort: 9876
           name: webhook
-        - containerPort: 88
-          name: api
-        - containerPort: 8888
-          name: redirect
-        - containerPort: 89
-          name: tibcoapps
-        - containerPort: 90
-          name: intercom
-        - containerPort: 91
-          name: ops
-        - containerPort: 98
-          name: cloudops
-        - containerPort: 302
-          name: fallback
-        - containerPort: 100
-          name: virtual
+        {{- end }}
         # make sure that the readiness returns success as fast as possible, but
         # wait up to 5 mins
         # see https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
         readinessProbe:
           httpGet:
-            path: /health
-            port: 88
+            path: {{ .Values.readinessProbe.httpGet.path }}
+            port: {{ .Values.readinessProbe.httpGet.port }}
           failureThreshold: 120 # 120 * 5sec = 10min
           successThreshold: 1
           timeoutSeconds: 5
@@ -103,8 +93,8 @@ spec:
         # TODO: might need revisiting in future K8s versions. See https://github.com/kubernetes/kubernetes/issues/27114
         livenessProbe:
           httpGet:
-            path: /health
-            port: 88
+            path: {{ .Values.livenessProbe.httpGet.path }}
+            port: {{ .Values.livenessProbe.httpGet.port }}
           failureThreshold: 2
           successThreshold: 1
           timeoutSeconds: 5
@@ -142,6 +132,8 @@ spec:
         volumeMounts:
         - name: router-basicauth-vol
           mountPath: /usr/router/files/current/basicauth
+        - name: logs
+          mountPath: /tmp/logs
 {{- if .Values.enableWebHooks }}
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
@@ -151,9 +143,15 @@ spec:
       - name: fluentbit
         image: {{ include "router-operator.image.registry" .}}{{"/"}}{{ include "router-operator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
-        {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with .Values.global.tibco.logging.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- end }}
         env:
           - name: POD_NAMESPACE
@@ -174,18 +172,52 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        ports:
+        - containerPort: 2020
+          protocol: TCP  
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
           - name: config-volume
             mountPath: /fluent-bit/etc/
+          - name: db
+            mountPath: var/log/db
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "router-operator.consts.appName" . }}-fluentbit-config

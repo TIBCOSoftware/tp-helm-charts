@@ -24,11 +24,14 @@ topologySpreadConstraints:
 # Resource values for production like setup
 resources:
   requests:
-    cpu: 500m
-    memory: 500Mi
+    cpu: 200m
+    memory: 256Mi
   limits:
-    cpu: 1250m
-    memory: 1000Mi
+    cpu: 500m
+    memory: 1024Mi
+
+# Common labels to add to all hybrid-proxy resources. Evaluated as a template.
+additionalLabels: {}
 
 # HPA
 hpa:
@@ -37,8 +40,100 @@ hpa:
 
 image:
   name: infra-hybrid-proxy
-  tag: 38-distroless
+  tag: 50-distroless
   pullPolicy: IfNotPresent
+
+ports:
+  api:
+    enabled: true
+    serviceEnabled: true
+    containerPort: 88
+    servicePort: 88
+    protocol: TCP
+    targetPort: api
+  tunnel:
+    enabled: true
+    serviceEnabled: true
+    containerPort: 443
+    servicePort: 105
+    protocol: TCP
+    targetPort: tunnel
+
+# liveness probe configuration
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+##
+livenessProbe:
+  httpGet:
+    port: 88
+    path: /version
+
+# readiness probe configuration
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+##
+readinessProbe:
+  httpGet:
+    port: 88
+    path: /version
+
+service:
+  # Enable the creation of a Service.
+  enabled: true
+
+  type: ClusterIP
+  # type: LoadBalancer
+  # loadBalancerIP: 1.2.3.4
+  # loadBalancerSourceRanges: []
+  # loadBalancerClass: ""
+
+  # You can optionally disable node port allocation for a Service of type: LoadBalancer, by setting the field spec.allocateLoadBalancerNodePorts to false.
+  # This should only be used for load balancer implementations that route traffic directly to pods as opposed to using node ports.
+  # By default, spec.allocateLoadBalancerNodePorts is true and type LoadBalancer Services will continue to allocate node ports.
+  # allocateLoadBalancerNodePorts: false
+
+  # By default, Service of type 'LoadBalancer' will be created setting 'externalTrafficPolicy: Cluster'
+  # unless other value is explicitly set.
+  # Possible values are Cluster or Local (https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip)
+  # externalTrafficPolicy: Cluster
+
+  annotations: {}
+
+  # By default, Service will be created setting 'internalTrafficPolicy: Local' on mode = daemonset
+  # unless other value is explicitly set.
+  # Setting 'internalTrafficPolicy: Cluster' on a daemonset is not recommended
+  # internalTrafficPolicy: Cluster
+
+ingress:
+  enabled: false
+  annotations: {}
+  # ingressClassName: nginx
+  # hosts:
+  #   - host: hybrid-proxy.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  #         port: 105
+  # tls:
+  #   - secretName: hybrid-proxy-tls
+  #     hosts:
+  #       - hybrid-proxy.example.com
+
+  # Additional ingresses - only created if ingress.enabled is true
+  # Useful for when differently annotated ingress services are required
+  # Each additional ingress needs key "name" set to something unique
+  additionalIngresses: []
+  # - name: cloudwatch
+  #   ingressClassName: nginx
+  #   annotations: {}
+  #   hosts:
+  #     - host: hybrid-proxy.example.com
+  #       paths:
+  #         - path: /
+  #           pathType: Prefix
+  #           port: 105
+  #   tls:
+  #     - secretName: hybrid-proxy-tls
+  #       hosts:
+  #         - hybrid-proxy.example.com
 
 # no of replicas
 replicaCount: "1"
@@ -67,11 +162,11 @@ securityContext:
   # This section of the configuration is for the platform hybrid proxy.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  platformHybridProxy:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
         
 global:
   tibco:
@@ -94,31 +189,15 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.1.4
+          tag: 3.2.2
           pullPolicy: IfNotPresent
-        securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
 
   external:
     dnsTunnelDomain: ""
-
-    # deployment target. Example: aws (Default), azure, local
-    provider: "aws"
-
-    # values specific for aws cloud provider
-    aws:
-      # values for load balancer service
-      loadBalancer:
-        # load balancer class. Default: service.k8s.aws/nlb
-        loadBalancerClass: ""
-        # certificate arn for tunnel domain
-        certificateArn: ""
-        # annotations for network load balancer service
-        annotations: {}
-          # reference for annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/service/annotations/
-

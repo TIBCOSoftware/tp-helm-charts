@@ -32,9 +32,9 @@ spec:
       - name: cp-proxy
         image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext.cpProxy }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.cpProxy | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         env:
           - name: CLIENT_ID
@@ -69,20 +69,32 @@ spec:
           - start
           - -o
           - "https://{{ .Values.global.cp.cpHostname }}"
+        {{- if .Values.global.cp.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10}}
         {{- end }}
+        {{- end }}
         ports:
         - containerPort: 3125
           name: proxy
+        readinessProbe:
+          tcpSocket:
+            port: 3125
+        volumeMounts:
+        {{- if .Values.global.cp.cpCertificateSecret }}
+          - name: cp-certs
+            mountPath: /etc/ssl/certs/
+        {{- end }}
+          - name: logs
+            mountPath: /tmp/logs
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-cp-proxy.image.registry" .}}{{"/"}}{{ include "tp-cp-proxy.image.repository" .}}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         env:
           - name: POD_NAMESPACE
@@ -103,20 +115,64 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        {{- if .Values.global.cp.enableResourceConstraints }}
         {{- with .Values.global.cp.logging.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
-        {{- end }}    
+        {{- end }} 
+        {{- end }}
+        ports: 
+        - containerPort: 2020
+          protocol: TCP  
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5 
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
           - name: config-volume
             mountPath: /fluent-bit/etc/
+          - name: db
+            mountPath: /var/log/db
+{{- end }}
       volumes:
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: logs
+          emptyDir: {}
+{{- if .Values.global.cp.cpCertificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.cp.cpCertificateSecret }}       
+{{- end }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: tp-cp-proxy-fluentbit-config

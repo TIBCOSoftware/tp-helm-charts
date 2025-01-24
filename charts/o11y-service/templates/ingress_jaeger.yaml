@@ -50,7 +50,8 @@ spec:
     - host: {{ .host | quote }}
       http:
     {{- else }}
-    - http:
+    - host: dp-{{ $.Values.global.cp.dataplaneId }}.platform.local
+      http:
     {{- end }}
         {{- if $.Values.jaeger.ingress.hostsOverride -}}
         paths:

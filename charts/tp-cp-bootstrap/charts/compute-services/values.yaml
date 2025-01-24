@@ -41,11 +41,11 @@ topologySpreadConstraints:
 # Resource values for production like setup
 resources:
   requests:
-    cpu: 500m
-    memory: 500Mi
+    cpu: 200m
+    memory: 256Mi
   limits:
-    cpu: 1250m
-    memory: 1000Mi
+    cpu: 500m
+    memory: 1024Mi
 
 # HPA
 hpa:
@@ -55,7 +55,7 @@ hpa:
 # images
 image:
   name: infra-compute-services
-  tag: 379-distroless
+  tag: 461-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -79,11 +79,11 @@ securityContext:
   # This section of the configuration is for compute services.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  computeServices:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 # list of helm repositories supported by compute service. This will be used to download and serialize the helm chart content on fly
 # supported types: "chart-museum"
@@ -136,15 +136,16 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.1.4
+          tag: 3.2.2
           pullPolicy: IfNotPresent
-        securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+
 
   external:
     dnsTunnelDomain: ""

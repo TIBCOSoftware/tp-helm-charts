@@ -18,6 +18,7 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     environmentType: ""
+    enableResourceConstraints: true
     resources:
       serviceaccount:
         namespace: ""
@@ -102,7 +103,7 @@ presets:
   kubeletMetrics:
     enabled: false
   # Configures the collector to collect kubernetes events.
-  # Adds the k8sobject receiver to the logs pipeline
+  # Adds the k8sobjects receiver to the logs pipeline
   # and collects kubernetes events by default.
   # Best used with mode = deployment or statefulset.
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-objects-receiver for details on the receiver.
@@ -121,7 +122,11 @@ configMap:
   create: true
   # Specifies an existing ConfigMap to be mounted to the pod
   # The ConfigMap MUST include the collector configuration via a key named 'relay' or the collector will not start.
+  # This also supports template content, which will eventually be converted to yaml.
   existingName: ""
+  # Specifies the relative path to custom ConfigMap template file. This option SHOULD be used when bundling a custom
+  # ConfigMap template, as it enables pod restart via a template checksum annotation.
+  # existingPath: ""
 
 # Base collector configuration.
 # Supports templating. To escape existing instances of {{ }}, use {{` <original content> `}}.
@@ -129,19 +134,22 @@ configMap:
 config:
   exporters:
     debug: {}
-    # Will be removed in a future release.
-    # Use the debug exporter instead.
-    logging: {}
   extensions:
     # The health_check extension is mandatory for this chart.
     # Without the health_check extension the collector will fail the readiness and liveliness probes.
     # The health_check extension can be modified, but should never be removed.
-    health_check: {}
-    memory_ballast: {}
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
   processors:
     batch: {}
-    # If set to null, will be overridden with values based on k8s resource limits
-    memory_limiter: null
+    # Default memory limiter configuration for the collector based on k8s resource limits.
+    memory_limiter:
+      # check_interval is the time between measurements of memory usage.
+      check_interval: 5s
+      # By default limit_mib is set to 80% of ".Values.resources.limits.memory"
+      limit_percentage: 80
+      # By default spike_limit_mib is set to 25% of ".Values.resources.limits.memory"
+      spike_limit_percentage: 25
   receivers:
 #    jaeger:
 #      protocols:
@@ -202,6 +210,22 @@ config:
 #          - otlp
 #          - jaeger
 #          - zipkin
+# Helm currently has an issue (https://github.com/helm/helm/pull/12879) when using null to remove
+# default configuration from a subchart. The result is that you cannot remove default configuration
+# from `config`, such as a specific recevier or a specific pipeline, when the chart is used as a
+# subchart.
+#
+# Until the helm bug is fixed, this field is provided as an alternative when using this chart as a subchart.
+# It is not recommended to use this field when installing the chart directly.
+#
+# When not empty, `alternateConfig` will be used to set the collector's configuration. It has NO default
+# values and IS NOT MERGED with config. Any configuration provided via `config` will be ignored when
+# `alternateConfig` is set. You MUST provide your own collector configuration.
+#
+# Reminder that the healthcheck extension (or something else that provides the same functionality) is required.
+#
+# Components configured by presets will be injected in the same way they are for `config`.
+alternateConfig: {}
 
 image:
   # If you want to use the core image `otel/opentelemetry-collector`, you also need to change `command.name` value to `otelcol`.
@@ -279,6 +303,7 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
@@ -293,7 +318,10 @@ priorityClassName: ""
 
 extraEnvs: []
 extraEnvsFrom: []
+# This also supports template content, which will eventually be converted to yaml.
 extraVolumes: []
+
+# This also supports template content, which will eventually be converted to yaml.
 extraVolumeMounts: []
 
 # Configuration for ports
@@ -346,11 +374,14 @@ ports:
     protocol: TCP
 
 # Resource limits & requests. Update according to your own use case as these values might be too low for a typical deployment.
-resources: {}
-# resources:
-#   limits:
-#     cpu: 250m
-#     memory: 512Mi
+# resources: {}
+resources:
+  limits:
+    cpu: 250m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 342Mi
 
 podAnnotations: {}
 
@@ -468,6 +499,24 @@ readinessProbe:
   httpGet:
     port: 13133
     path: /
+
+# startup probe configuration
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+##
+startupProbe: {}
+  # Number of seconds after the container has started before startup probes are initiated.
+  # initialDelaySeconds: 1
+  # How often in seconds to perform the probe.
+  # periodSeconds: 10
+  # Number of seconds after which the probe times out.
+  # timeoutSeconds: 1
+  # Minimum consecutive failures for the probe to be considered failed after having succeeded.
+  # failureThreshold: 1
+  # Duration in seconds the pod needs to terminate gracefully upon probe failure.
+  # terminationGracePeriodSeconds: 10
+  # httpGet:
+  #   port: 13133
+  #   path: /
 
 service:
   # Enable the creation of a Service.

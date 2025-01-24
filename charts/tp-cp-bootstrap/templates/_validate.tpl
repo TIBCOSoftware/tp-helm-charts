@@ -122,16 +122,4 @@ in the license file that is distributed with this file.
 {{- fail (printf "dns domain is not passed as helm values") }}
 {{- end }}
 
-{{/* Check for load balancer certificate */}}
-{{- if eq .Values.global.external.provider "aws" }}
-{{- if empty .Values.global.external.aws.tunnelService.certificateArn }}
-{{- fail (printf "load balancer certificate arn is not passed as helm values") }}
-{{- end }}
-{{/* Check for ingress class name */}}
-{{- if .Values.global.external.ingress.ingressClassName }}
-{{- else }}
-{{- fail (printf "ingressClassName is not passed as helm values") }}
-{{- end }}
-{{- end }}
-
 {{- end }}

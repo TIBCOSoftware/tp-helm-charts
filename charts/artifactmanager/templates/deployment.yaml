@@ -42,9 +42,9 @@ spec:
           ports:
             - containerPort: {{ .Values.service.port }}
               name: server
-          {{- if .Values.securityContext.artifactManager }}
+          {{- if .Values.securityContext }}
           securityContext:
-            {{- toYaml .Values.securityContext.artifactManager | nindent 12 }}
+            {{- toYaml .Values.securityContext | nindent 12 }}
           {{- end }}
           image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}{{ .Values.global.artifactmanager.image.name }}:{{ .Values.global.artifactmanager.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -54,17 +54,39 @@ spec:
               {{- if .Values.volumes.artifactmanager.subPath }}
               subPath: {{ .Values.volumes.artifactmanager.subPath }}
               {{- end }}
+            - name: logs
+              mountPath: /tmp/logs
           livenessProbe:
             httpGet:
               scheme: HTTP
-              path: v1/liveness
+              path: v1/healthz
               port: {{ .Values.service.port }}
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          startupProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
           env:
             {{- range $filename, $content :=  .Values.config }}
             {{- if $content }}
@@ -95,9 +117,9 @@ spec:
         - name: fluent-bit
           image: {{ include "artifactmanager.image.registry" .}}{{"/"}}{{ include "artifactmanager.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          {{- if .Values.securityContext }}
           securityContext:
-            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext | nindent 12 }}
           {{- end }}
           env:
             - name: POD_NAMESPACE
@@ -114,13 +136,53 @@ spec:
                   fieldPath: metadata.uid
             - name: CONTAINER_NAME
               value: {{ .Chart.Name }}
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          ports:
+            - containerPort: 2020
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          startupProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.global.cp.logging.fluentbit.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
-          {{- end }}    
+          {{- end }}
+          {{- end }}  
           volumeMounts:
-            - name: podlogs
+            - name: logs
               mountPath: /var/log/pods
+            - name: db
+              mountPath: /var/log/db
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
         {{- end }}
@@ -128,11 +190,11 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "artifactmanager.storage.pvc.name" . }}
+        - name: logs
+          emptyDir: {}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: fluent-bit-config
           configMap:
             name: {{ include "artifactmanager.fullname" . }}-fluentbit-config

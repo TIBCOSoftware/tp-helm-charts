@@ -103,23 +103,25 @@ Create chart name and version as used by the chart label.
 
 {{/* Control plane dns domain. default value example.com */}}
 {{- define "tp-cp-configuration.dns-domain" -}}
-{{- include "cp-env.get" (dict "key" "CP_DNS_DOMAIN" "default" "example.com" "required" "false"  "Release" .Release )}}
+{{- include "cp-env.get" (dict "key" "CP_DNS_DOMAIN" "default" "acme.example.com" "required" "false"  "Release" .Release )}}
 {{- end }}
 
 {{/* Control plane dns top level domain */}}
 {{- define "tp-cp-configuration.top-level-domain" -}}
-{{- include "tp-cp-configuration.dns-domain" . | splitList "." | reverse | first -}}
+{{- $domainTuples := (include "tp-cp-configuration.dns-domain" . | splitList ".") }}
+{{- reverse $domainTuples | first -}}
 {{- end }}
 
 {{/* Control plane dns domain name */}}
 {{- define "tp-cp-configuration.domain-name" -}}
-{{- $tuples := (include "tp-cp-configuration.dns-domain" .| splitList "." | reverse) -}}
-{{- index $tuples 1 }}
+{{- $domainTuples := (include "tp-cp-configuration.dns-domain" . | splitList "." | reverse) }}
+{{- index $domainTuples 1 }}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "tp-cp-configuration.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "local" "required" "false"  "Release" .Release )}}
+{{/* Control plane cookie domain */}}
+{{- define "tp-cp-configuration.cookie-domain" -}}
+{{- $domainTuples := (include "tp-cp-configuration.dns-domain" . | splitList ".") }}
+{{- slice $domainTuples 2 | join "." }}
 {{- end }}
 
 {{/* Control plane create network policy */}}
@@ -150,6 +152,11 @@ Create chart name and version as used by the chart label.
 {{/* Control plane single namespace flag */}}
 {{- define "tp-cp-configuration.useSingleNamespace" -}}
 {{- include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "tp-cp-configuration.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "true" "required" "false"  "Release" .Release )}}
 {{- end }}
 
 {{/*

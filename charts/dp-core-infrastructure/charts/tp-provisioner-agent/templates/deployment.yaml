@@ -35,9 +35,9 @@ spec:
       - name: provisioner-agent
         image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext.provisionerAgent }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.provisionerAgent | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         env:
           - name: NAMESPACE
@@ -46,9 +46,19 @@ spec:
             value: {{ .Release.Name }}
           - name: DATAPLANE_ID
             value: {{ .Values.global.tibco.dataPlaneId }}
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
+          - name: FORCE_PULL
+            value: {{ .Values.forcePull | quote }}
+          - name: CACHE_CLEANUP_INTERVAL
+            value: {{ .Values.cacheCleanupInterval | quote }}
           # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
           - name: HELM_CACHE_HOME
             value: /tmp/.cache/helm
+          - name: HELM_CONFIG_HOME
+            value: /tmp/.config/helm
+          - name: HELM_DATA_HOME
+            value: /tmp/.data/helm
           {{- with .Values.global.proxy }}
           {{- if .httpProxy }}
           - name: http_proxy
@@ -63,9 +73,11 @@ spec:
             value: {{ .noProxy | quote }}
           {{- end }}          
           {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10}}
+        {{- end }}
         {{- end }}
         ports:
         - containerPort: 3124
@@ -90,13 +102,18 @@ spec:
           timeoutSeconds: 5
           initialDelaySeconds: 10
           periodSeconds: 10
+        volumeMounts:
+        - name: helm-cache
+          mountPath: /tmp
+        - name: logs
+          mountPath: /tmp/logs
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.global.logging.fluentbit.securityContext }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.global.logging.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         env:
           - name: POD_NAMESPACE
@@ -123,22 +140,60 @@ spec:
             value: {{ .Release.Name }}
           - name: DATAPLANE_ID
             value: {{ .Values.global.tibco.dataPlaneId }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         {{- with .Values.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
-        {{- end }}            
+        {{- end }}
+        {{- end }} 
+        ports:
+        - containerPort: 2020
+          protocol: TCP  
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: helm-cache
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
 {{- if .Values.global.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-provisioner-agent.consts.appName" . }}-fluentbit-config

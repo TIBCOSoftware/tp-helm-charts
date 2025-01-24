@@ -21,22 +21,13 @@ global:
       # username: "test" # [optional] Create a imagePullSecret named <dpId> for private container registry.
       # password: "test"
       # email: "tibco-plt@cloud.com"
+
+    enableResourceConstraints: true
+    cpCertificateSecret: ""
   logging:
     fluentbit:
       enabled: true
 
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-      securityContext:
-        runAsNonRoot: false
-        runAsUser: 0
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
   # proxy configuration for the outward traffic from cp proxy
   # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
   proxy:

@@ -136,9 +136,8 @@ spec:
           - --proxy-svc-label-selector={{ .Values.controller.sync.proxyParams.proxySvcLabelSelector }}
   {{- end }}
 {{- end }}
-{{- $root := . }}
 {{- range .Values.controller.extraArgs }}
-          - {{ tpl . $root }}
+          - {{ tpl . $ }}
 {{- end }}
           {{- if .Values.controller.unprivileged }}
           securityContext:
@@ -146,6 +145,7 @@ spec:
             runAsUser:  1000
             runAsGroup: 1000
             allowPrivilegeEscalation: {{ .Values.controller.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -209,8 +209,14 @@ spec:
           {{- if .Values.controller.extraEnvs -}}
           {{- toYaml .Values.controller.extraEnvs | nindent 10 }}
           {{- end }}
+          {{- with .Values.controller.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.tibco.enableResourceConstraints }}
           resources:
             {{- toYaml .Values.controller.resources | nindent 12 }}
+          {{- end }}
           {{- if .Values.controller.lifecycle }}
           lifecycle:
             {{- if eq "string" (printf "%T" .Values.controller.lifecycle) }}

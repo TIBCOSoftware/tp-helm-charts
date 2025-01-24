@@ -8,8 +8,8 @@ apiVersion: v2
 name: tp-cp-bootstrap
 description: TIBCO Platform Control Plane bootstrap chart
 type: application
-version: 1.3.36
-appVersion: "1.3.0"
+version: 1.4.31
+appVersion: "1.4.0"
 keywords:
   - tibco-platform
   - control-plane
@@ -20,17 +20,17 @@ annotations:
   app.helm.sh/name: tp-cp-bootstrap
 dependencies:
   - name: hybrid-proxy
-    version: "1.3.*"
+    version: "1.4.*"
     condition: hybrid-proxy.enabled
   - name: resource-set-operator
-    version: "1.3.*"
+    version: "1.4.*"
     condition: resource-set-operator.enabled
   - name: router-operator
-    version: "1.3.*"
+    version: "1.4.*"
     condition: router-operator.enabled
   - name: compute-services
-    version: "1.3.*"
+    version: "1.4.*"
     condition: compute-services.enabled
   - name: otel-collector
-    version: "0.101.*"
+    version: "0.111.*"
     condition: otel-collector.enabled

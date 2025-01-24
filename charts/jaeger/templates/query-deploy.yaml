@@ -93,8 +93,10 @@ spec:
         - name: admin
           containerPort: 16687
           protocol: TCP
+        {{- if .Values.global.cp.enableResourceConstraints }}
         resources:
           {{- toYaml .Values.query.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         {{- range .Values.query.extraSecretMounts }}
           - name: {{ .name }}
@@ -172,8 +174,10 @@ spec:
         ports:
           - containerPort: {{ .Values.query.oAuthSidecar.containerPort }}
             name: oauth-proxy
+        {{- if .Values.global.cp.enableResourceConstraints }}
         resources:
           {{- toYaml .Values.query.oAuthSidecar.resources | nindent 10 }}
+        {{- end }}
         {{- if .Values.query.oAuthSidecar.livenessProbe }}
         livenessProbe:
           {{- toYaml .Values.query.oAuthSidecar.livenessProbe | nindent 10 }}
@@ -206,8 +210,10 @@ spec:
         - name: admin
           containerPort: 14271
           protocol: TCP
+        {{- if .Values.global.cp.enableResourceConstraints }}
         resources:
           {{- toYaml .Values.query.agentSidecar.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         {{- range .Values.agent.extraConfigmapMounts }}
           - name: {{ .name }}

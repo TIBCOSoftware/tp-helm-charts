@@ -146,8 +146,10 @@ spec:
           httpGet:
             path: /
             port: admin
+        {{- if .Values.global.cp.enableResourceConstraints }}
         resources:
           {{- toYaml .Values.collector.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         {{- range .Values.collector.extraConfigmapMounts }}
           - name: {{ .name }}

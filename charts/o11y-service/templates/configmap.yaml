@@ -41,19 +41,19 @@ data:
 #------------------------------------------------------------------------
 {{- $appLogRec := "'[otlp]'" -}}
 {{- $appLogProc := "'[filter/devnull-logs]'" -}}
-{{- $appLogExp := "'[logging]'" -}}
+{{- $appLogExp := "'[debug]'" -}}
 {{- $svcLogRec := "'[otlp]'" -}}
 {{- $svcLogProc := "'[filter/devnull-logs]'" -}}
-{{- $svcLogExp := "'[logging]'" -}}
+{{- $svcLogExp := "'[debug]'" -}}
 {{- $appMetricsRec := "'[otlp]'" }}
 {{- $appMetricsProc := "'[filter/devnull]'" -}}
-{{- $appMetricsExp := "'[logging]'" -}}
+{{- $appMetricsExp := "'[debug]'" -}}
 {{- $promMetricsRec := "'[otlp]'" -}}
 {{- $promMetricsProc := "'[filter/devnull]'" -}}
-{{- $promMetricsExp := "'[logging]'" -}}
+{{- $promMetricsExp := "'[debug]'" -}}
 {{- $traceRec := "'[otlp]'" -}}
 {{- $traceProc := "'[filter/devnull-traces]'" -}}
-{{- $traceExp := "'[logging]'" }}
+{{- $traceExp := "'[debug]'" }}
 {{- $appLogOtlpUrl := "localhost:4317" }}
 {{- $svcLogOtlpUrl := "localhost:4317" }}
 {{- $metricsOtlpUrl := "localhost:4317" }}
@@ -185,7 +185,9 @@ data:
 {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.kind "prometheus" }}
   promserver-proxy-endpoint: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint }}
+  {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.username }}
   promserver-proxy-userName: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.username }}
+  {{- end }}
   {{- end }}
 {{- end }}
 ##traceserver:exporter
@@ -280,7 +282,7 @@ data:
 {{- else }}
   app-logs-receiver: '[otlp]'
   app-logs-processor: '[filter/devnull-logs]'
-  app-logs-exporter: '[logging]'
+  app-logs-exporter: '[debug]'
 {{- end }}
 {{- if .Values.global.cp.resources.o11y.logsServer.config.exporter.services.enabled }}
   svc-logs-receiver: '[otlp]'
@@ -293,7 +295,7 @@ data:
 {{- else }}
   svc-logs-receiver: '[otlp]'
   svc-logs-processor: '[filter/devnull-logs]'
-  svc-logs-exporter: '[logging]'
+  svc-logs-exporter: '[debug]'
 {{- end }}
 #metrcisserver
 {{- if eq .Values.global.cp.resources.o11y.metricsServer.kind "prometheus" }}
@@ -319,10 +321,10 @@ data:
   metrics-prom_rec: '[prometheus]'
 {{- end }}
 {{- else }}
-  metrics-appengines-exp: '[logging]'
+  metrics-appengines-exp: '[debug]'
   metrics-appengines-proc: '[filter/devnull]'
   metrics-appengines-rec: '[otlp]'
-  metrics-prom-exp: '[logging]'
+  metrics-prom-exp: '[debug]'
   metrics-prom-proc: '[filter/devnull]'
   metrics-prom-rec: '[otlp]'
   metrics-prom_rec: '[otlp]'
@@ -349,7 +351,7 @@ data:
   traces-server-enabled: 'false'
   traces-receiver: '[otlp]'
   traces-processor: '[filter/devnull-traces]'
-  traces-exporter: '[logging]'
+  traces-exporter: '[debug]'
 {{- end }}
 {{- end }}
   JAEGER_COLLECTOR_ENDPOINT: {{ include "o11y-service.jaeger-collector-endpoint" . }}

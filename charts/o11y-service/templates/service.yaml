@@ -16,8 +16,8 @@ metadata:
 spec:
   ports:
     - name: server
-      port: 7820
+      port: {{ .Values.service.port }}
       protocol: TCP
-      targetPort: 7820
+      targetPort: {{ .Values.service.targetPort }}
   selector:
     {{- include "o11y-service.shared.labels.selector" . | nindent 4 }}

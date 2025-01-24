@@ -36,8 +36,8 @@ metadata:
 spec:
   group: "infra.router"
   setting: "VALID_TIBCO_DOMAINS"
-  {{- if .Values.router.validTibcoDomains }}
-  value: {{ .Values.router.validTibcoDomains | quote }}
+  {{- if .Values.router.validDomains }}
+  value: {{ .Values.router.validDomains | quote }}
   {{- else }}
   value: ".{{ include "tp-cp-configuration.domain-name" . }}.{{ include "tp-cp-configuration.top-level-domain" . }}"
   {{- end }}
@@ -54,7 +54,7 @@ metadata:
 spec:
   group: "infra.router"
   setting: "SUPPORTED_DOMAINS_REGEX"
-  value: "[^.]+\\.([^.]+\\.{{ include "tp-cp-configuration.domain-name" . }}\\.{{ include "tp-cp-configuration.top-level-domain" . }})"
+  value: "[^.]+\\.([^.]+\\.{{ include "tp-cp-configuration.cookie-domain" . | replace "." "\\\\." }})"
 
 {{- if not $hasTscSessionKey }}
 ---
