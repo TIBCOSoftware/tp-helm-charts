@@ -14,7 +14,7 @@ subscriptionId: ""
 
 image:
   name: infra-hybrid-server
-  tag: 33-distroless
+  tag: 49-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -40,19 +40,19 @@ securityContext:
   # This section of the configuration is for the hybrid server.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  hybridServer:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 resources:
-  limits: 
-    cpu: 500m
-    memory: 512Mi
   requests:
     cpu: 200m
     memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
 
 nodeSelector:
@@ -86,17 +86,18 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 3.1.4
+          tag: 3.2.2
           pullPolicy: IfNotPresent
-        securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
         
     useSingleNamespace: false
+    enableResourceConstraints: true
   
   external:
     clusterInfo:

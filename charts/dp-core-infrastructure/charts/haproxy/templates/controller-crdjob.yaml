@@ -31,7 +31,9 @@ limitations under the License.
 #     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 # spec:
 # {{- if or (.Capabilities.APIVersions.Has "batch/v1alpha1") (semverCompare ">=1.23.0-0" .Capabilities.KubeVersion.Version) }}
-#   ttlSecondsAfterFinished: 120
+# {{- if .Values.crdjob.ttlSecondsAfterFinished }}
+#   ttlSecondsAfterFinished: {{ .Values.crdjob.ttlSecondsAfterFinished }}
+# {{- end }}
 # {{- end }}
 #   backoffLimit: 0
 #   template:
@@ -42,9 +44,16 @@ limitations under the License.
 #         {{- if .Values.controller.podLabels }}
 # {{ toYaml .Values.controller.podLabels | indent 8 }}
 #         {{- end }}
+#       {{- $podAnnotations := dict }}
+#       {{- if .Values.crdjob.podAnnotations }}
+#         {{- $podAnnotations = merge $podAnnotations .Values.crdjob.podAnnotations }}
+#       {{- end }}
 #       {{- if .Values.controller.podAnnotations }}
+#         {{- $podAnnotations = merge $podAnnotations .Values.controller.podAnnotations }}
+#       {{- end }}
+#       {{- if not (empty $podAnnotations) }}
 #       annotations:
-# {{ toYaml .Values.controller.podAnnotations | indent 8 }}
+# {{ toYaml $podAnnotations | indent 8 }}
 #       {{- end }}
 #     spec:
 #       restartPolicy: Never
@@ -90,10 +99,10 @@ limitations under the License.
 #             seccompProfile:
 #               type: RuntimeDefault
 #             {{- end }}
-#          resources:
-#            {{- toYaml .Values.controller.resources | nindent 12 }}
-#          {{- end }}
-#      {{- with .Values.controller.nodeSelector }}
+#           resources:
+#             {{- toYaml .Values.controller.resources | nindent 12 }}
+#           {{- end }}
+#       {{- with .Values.controller.nodeSelector }}
 #       nodeSelector:
 #         {{- toYaml . | nindent 8 }}
 #       {{- end }}

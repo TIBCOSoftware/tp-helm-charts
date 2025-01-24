@@ -68,7 +68,9 @@ spec:
             {{- with .Values.esRollover.initHook.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
           resources: {{- toYaml .Values.esRollover.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
           {{- range .Values.esRollover.extraConfigmapMounts }}
             - name: {{ .name }}

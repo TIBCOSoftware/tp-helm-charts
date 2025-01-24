@@ -42,15 +42,14 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{- end }}
+          {{- if eq (include "o11y-service.enableResourceConstraints" . ) "true" }}
+          {{- with .Values.resources }}
           resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 1024Mi
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
           ports:
-            - containerPort: 7820
+            - containerPort: {{ .Values.service.port }}
               name: tp-o11yservice
           env:
             - name: WHO
@@ -65,13 +64,49 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          startupProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+          volumeMounts:
+            - name: logs
+              mountPath: /tmp/logs
   {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}
         - name: fluentbit
           image: {{ include "o11y-service.image.registry" .}}{{"/"}}{{ include "o11y-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
-          {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+          {{- if .Values.securityContext }}
           securityContext:
-            {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if eq (include "o11y-service.enableResourceConstraints" . ) "true" }}
+          {{- with .Values.global.tibco.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           env:
             - name: POD_NAMESPACE
@@ -92,18 +127,52 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+          ports:
+            - containerPort: 2020
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          startupProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
           volumeMounts:
-            - name: podlogs
+            - name: logs
               mountPath: /var/log/pods
+            - name: db
+              mountPath: /var/log/db
             - name: config-volume
               mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "o11y-service.consts.appName" . }}-fluentbit-config

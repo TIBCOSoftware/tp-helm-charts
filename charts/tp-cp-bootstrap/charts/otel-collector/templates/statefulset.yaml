@@ -37,7 +37,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap-statefulset.yaml") . | sha256sum }}
+        {{- include "otel-collector.configTemplateChecksumAnnotation" . | nindent 8 }}
         {{- include "otel-collector.podAnnotations" . | nindent 8 }}
       labels:
         {{- include "otel-collector.selectorLabels" . | nindent 8 }}

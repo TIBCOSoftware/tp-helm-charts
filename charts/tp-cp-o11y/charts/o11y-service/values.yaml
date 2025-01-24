@@ -24,7 +24,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.1.4
+          tag: 3.2.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -43,9 +43,31 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
+service:
+  type: ClusterIP
+  port: 7820
+  targetPort: 7820
+
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    failureThreshold: 3
+    periodSeconds: 10
+    timeoutSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    failureThreshold: 3
+    periodSeconds: 3
+    timeoutSeconds: 3
+  startup:
+    initialDelaySeconds: 20
+    failureThreshold: 30
+    periodSeconds: 5
+    timeoutSeconds: 5
+
 image:
   pullPolicy: IfNotPresent
-  tag: 2033
+  tag: 2159
 
 tibcoRouter:
   path: /o11y

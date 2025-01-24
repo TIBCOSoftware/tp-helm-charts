@@ -17,6 +17,7 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     enableClusterScopedPerm: true
+    enableResourceConstraints: true
     environmentType: ""
     appNamespaces:
       - app-ns1
@@ -392,7 +393,7 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 3.1.4
+          tag: 3.2.2
         resources:
           requests:
             cpu: 10m
@@ -400,13 +401,6 @@ global:
           limits:
             cpu: 50m
             memory: 30Mi
-        securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
 
   otel:
     finops:
@@ -418,7 +412,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 2033
+      tag: 2159
 
 
 replicaCount: 1
@@ -455,6 +449,7 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
@@ -499,8 +494,18 @@ affinity: {}
 
 probes:
   liveness:
-    initialDelaySeconds: 3
-    failureThreshold: 5
+    initialDelaySeconds: 15
+    failureThreshold: 3
+    periodSeconds: 10
+    timeoutSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    failureThreshold: 3
+    periodSeconds: 3
+    timeoutSeconds: 3
+  startup:
+    initialDelaySeconds: 20
+    failureThreshold: 30
     periodSeconds: 5
     timeoutSeconds: 5
 

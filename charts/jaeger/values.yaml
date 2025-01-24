@@ -18,6 +18,7 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     environmentType: ""
+    enableResourceConstraints: true
     resources:
       serviceaccount:
         namespace: ""
@@ -141,6 +142,29 @@ allInOne:
   #     cpu: 256m
   #     memory: 128Mi
   nodeSelector: {}
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    # This section of the configuration is for the artifact manager.
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
 
 storage:
   # allowed values (cassandra, elasticsearch)
@@ -289,6 +313,7 @@ schema:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -328,6 +353,7 @@ ingester:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -403,6 +429,7 @@ agent:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -500,6 +527,7 @@ collector:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -578,13 +606,13 @@ collector:
       #   hosts:
       #     - chart-example.local
     pathType:
-  resources: {}
-    # limits:
-    #   cpu: 1
-    #   memory: 1Gi
-    # requests:
-    #   cpu: 500m
-    #   memory: 512Mi
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 768Mi
   serviceAccount:
     create: true
     # Explicitly mounts the API credentials for the Service Account
@@ -715,6 +743,7 @@ query:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -771,13 +800,13 @@ query:
     pathType:
     health:
       exposed: false
-  resources: {}
-    # limits:
-    #   cpu: 500m
-    #   memory: 512Mi
-    # requests:
-    #    cpu: 256m
-    #    memory: 128Mi
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 256m
+      memory: 342Mi
   serviceAccount:
     create: true
     # Explicitly mounts the API credentials for the Service Account
@@ -894,6 +923,7 @@ esIndexCleaner:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -955,6 +985,7 @@ esRollover:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -1024,6 +1055,7 @@ esLookback:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
@@ -1088,6 +1120,7 @@ hotrod:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL

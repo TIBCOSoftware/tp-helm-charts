@@ -12,7 +12,18 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
   rules:
-  - http:
+  - host: "dp-{{ .Values.global.tibco.dataPlaneId }}.platform.local" # only allow host dp-dpId or host header dp-dpId. The caller is expected from Control plane.
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+  - host: "cpdpproxy" # tibtunnel probes the provisioner agent via haproxy hence the host is the HAProxy service name.
+    http:
       paths:
       - pathType: Prefix
         path: /tibco/agent/infra/provisioner-agent/

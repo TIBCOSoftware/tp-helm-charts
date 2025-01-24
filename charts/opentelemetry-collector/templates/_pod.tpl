@@ -14,6 +14,9 @@ securityContext:
 hostAliases:
   {{- toYaml . | nindent 2 }}
 {{- end }}
+{{- if $.Values.shareProcessNamespace }}
+shareProcessNamespace: true
+{{- end }}
 containers:
   - name: {{ include "opentelemetry-collector.lowercase_chartname" . }}
     {{- if .Values.command.name }}
@@ -111,9 +114,32 @@ containers:
       httpGet:
         path: {{ .Values.readinessProbe.httpGet.path }}
         port: {{ .Values.readinessProbe.httpGet.port }}
+    {{- if .Values.startupProbe }}
+    startupProbe:
+      {{- if .Values.startupProbe.initialDelaySeconds | empty | not }}
+      initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+      {{- end }}
+      {{- if .Values.startupProbe.periodSeconds | empty | not }}
+      periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+      {{- end }}
+      {{- if .Values.startupProbe.timeoutSeconds | empty | not }}
+      timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+      {{- end }}
+      {{- if .Values.startupProbe.failureThreshold | empty | not }}
+      failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+      {{- end }}
+      {{- if .Values.startupProbe.terminationGracePeriodSeconds | empty | not }}
+      terminationGracePeriodSeconds: {{ .Values.startupProbe.terminationGracePeriodSeconds }}
+      {{- end }}
+      httpGet:
+        path: {{ .Values.startupProbe.httpGet.path }}
+        port: {{ .Values.startupProbe.httpGet.port }}
+    {{- end }}
+    {{- if .Values.global.cp.enableResourceConstraints }}
     {{- with .Values.resources }}
     resources:
       {{- toYaml . | nindent 6 }}
+    {{- end }}
     {{- end }}
     volumeMounts:
       {{- if or .Values.configMap.create .Values.configMap.existingName }}
@@ -155,7 +181,7 @@ volumes:
   {{- if or .Values.configMap.create .Values.configMap.existingName }}
   - name: {{ include "opentelemetry-collector.lowercase_chartname" . }}-configmap
     configMap:
-      name: {{ include "opentelemetry-collector.fullname" . }}{{ .configmapSuffix }}
+      name: {{ include "opentelemetry-collector.configName" . }}
       items:
         - key: relay
           path: relay.yaml

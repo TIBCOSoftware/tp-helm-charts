@@ -217,8 +217,13 @@ ingress-nginx:
   enabled: true
   controller:
     config:
-      # required by apps swagger
+      # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/configmap.md to know more about the following configuration options
+      # to support passing the incoming X-Forwarded-* headers to upstreams (required by apps swagger)
       use-forwarded-headers: "true"
+      # to support large file upload from Control Plane
+      proxy-body-size: "150m"
+      # to set the size of the buffer used for reading the first part of the response received
+      proxy-buffer-size: 16k
 ## following section is required to send traces using nginx
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 #       enable-opentelemetry: "true"
@@ -282,6 +287,7 @@ traefik:
   enabled: true
   additionalArguments:
     - '--entryPoints.web.forwardedHeaders.insecure' #You can also use trustedIPs instead of insecure to trust the forwarded headers https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
+    - '--serversTransport.insecureSkipVerify=true' #Please refer https://doc.traefik.io/traefik/routing/overview/#transport-configuration 
 ## following section is required to send traces using traefik
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 #  tracing:

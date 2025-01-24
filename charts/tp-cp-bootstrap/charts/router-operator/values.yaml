@@ -21,16 +21,103 @@ topologySpreadConstraints:
 # Resource values for production like setup
 resources:
   requests:
-    cpu: 1500m
-    memory: 500Mi
+    cpu: 200m
+    memory: 256Mi
   limits:
-    cpu: 3000m
-    memory: 1000Mi
+    cpu: 500m
+    memory: 1024Mi
+
+# Common labels to add to all router-operator resources. Evaluated as a template.
+additionalLabels: {}
 
 image:
   name: infra-router
-  tag: 625-distroless
+  tag: 676-distroless
   pullPolicy: IfNotPresent
+
+ports:
+  api:
+    enabled: true
+    containerPort: 88
+    servicePort: 88
+    protocol: TCP
+    targetPort: api
+  virtual:
+    enabled: true
+    containerPort: 100
+    servicePort: 100
+    protocol: TCP
+    targetPort: virtual
+
+# liveness probe configuration
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+##
+livenessProbe:
+  httpGet:
+    port: 88
+    path: /health
+
+# readiness probe configuration
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+##
+readinessProbe:
+  httpGet:
+    port: 88
+    path: /health
+
+service:
+  # Enable the creation of a Service.
+  enabled: true
+
+  type: ClusterIP
+  # type: LoadBalancer
+  # loadBalancerIP: 1.2.3.4
+  # loadBalancerSourceRanges: []
+
+  # By default, Service of type 'LoadBalancer' will be created setting 'externalTrafficPolicy: Cluster'
+  # unless other value is explicitly set.
+  # Possible values are Cluster or Local (https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip)
+  # externalTrafficPolicy: Cluster
+
+  annotations: {}
+
+  # By default, Service will be created setting 'internalTrafficPolicy: Local' on mode = daemonset
+  # unless other value is explicitly set.
+  # Setting 'internalTrafficPolicy: Cluster' on a daemonset is not recommended
+  # internalTrafficPolicy: Cluster
+
+ingress:
+  enabled: false
+  annotations: {}
+  # ingressClassName: nginx
+  # hosts:
+  #   - host: router.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  #         port: 100
+  # tls:
+  #   - secretName: router-tls
+  #     hosts:
+  #       - router.example.com
+
+  # Additional ingresses - only created if ingress.enabled is true
+  # Useful for when differently annotated ingress services are required
+  # Each additional ingress needs key "name" set to something unique
+  additionalIngresses: []
+  # - name: cloudwatch
+  #   ingressClassName: nginx
+  #   annotations: {}
+  #   hosts:
+  #     - host: router.example.com
+  #       paths:
+  #         - path: /
+  #           pathType: Prefix
+  #           port: 105
+  #   tls:
+  #     - secretName: router-tls
+  #       hosts:
+  #         - router.example.com
 
 # no of replicas
 replicaCount: "1"
@@ -65,11 +152,11 @@ securityContext:
   # This section of the configuration is for the router.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  router:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
         
 global:
   tibco:
@@ -94,30 +181,18 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 3.1.4
+          tag: 3.2.2
           pullPolicy: IfNotPresent
-        securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
 
   external:
     clusterInfo:
       nodeCIDR: ""
       podCIDR: ""
     dnsDomain: ""
-
-    # deployment target. Example: aws, azure, local.
-    provider: "aws"
-
-    ingress:
-      # ingress class name. Example: alb, nginx.
-      ingressClassName: ""
-      # certificate arn for dns domain
-      certificateArn: ""
-      # reference for alb annotations https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/ingress/annotations/
-      # reference for nginx annotations https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md
-      annotations: {}

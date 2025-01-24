@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if and .Values.prometheusRule.enabled .Values.serviceMonitor.enabled  }}
+{{ if .Values.prometheusRule.enabled  }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

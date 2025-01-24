@@ -33,16 +33,53 @@ spec:
         {{- /* @input: "tp-tibtunnel connect --remote-debug -s localhost:80 connecturl" */}}
         {{- /* @output: ["tp-tibtunnel", "connect", "--remote-debug","-s","localhost:80","connecturl"] */}}
         command: [{{- range $v := (mustRegexSplit " +" (include "tp-tibtunnel.helpers.command.connect" .) -1) -}}"{{- $v -}}",{{- end -}}]
-        {{- if .Values.securityContext.tibtunnel }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.tibtunnel | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10}}
         {{- end }}
+        {{- end }}
+        ports:
+        - containerPort: 3127
+          name: healthz
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: 3127
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: 3127
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: 3127
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 10
         env:
+        - name: USE_FILE_LOGGING
+          value: "true"
         {{- with .Values.global.proxy }}
         {{- if .httpProxy }}
         - name: http_proxy
@@ -58,15 +95,21 @@ spec:
         {{- end }}          
         {{- end }}
         volumeMounts:
+      {{- if .Values.global.tibco.cpCertificateSecret }}
+        - name: cp-certs
+          mountPath: /etc/ssl/certs/
+      {{- end }}
         - name: config-dir
           mountPath: /etc/config
+        - name: logs
+          mountPath: /tmp/logs
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.fluentbit.image.name }}:{{ .Values.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.global.logging.fluentbit.securityContext }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.global.logging.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         env:
           - name: POD_NAMESPACE
@@ -87,13 +130,49 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         {{- with .Values.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- end }}
+        ports:
+        - containerPort: 2020
+          protocol: TCP  
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
@@ -102,9 +181,9 @@ spec:
         image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         command: [{{- range $v := (mustRegexSplit " +" (include "tp-tibtunnel.helpers.command.configure" .) -1) -}}"{{- $v -}}",{{- end -}}]
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext.tibtunnel }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.tibtunnel | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         env:
           - name: ACCESS_KEY
@@ -112,6 +191,9 @@ spec:
               secretKeyRef:
                 key: ACCESS_KEY
                 name: {{ include "tp-tibtunnel.consts.appName" .}}
+          - name: USE_FILE_LOGGING
+            value: "true"
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         resources:
           requests:
             cpu: 10m
@@ -119,18 +201,22 @@ spec:
           limits:
             cpu: 30m
             memory: 40Mi
+        {{- end }}
         volumeMounts:
         - name: config-dir
           mountPath: /etc/config
+        - name: logs
+          mountPath: /tmp/logs
       {{ if .Values.provisionerAgentProbe.enable -}}
       - name: provisioner-agent-probe
         image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
         command: ["tp-tibtunnel","probe","--http","{{ tpl .Values.provisionerAgentProbe.url . }}","--interval","{{ .Values.provisionerAgentProbe.interval }}","--retries","{{.Values.provisionerAgentProbe.retries}}"]
-        {{- if .Values.securityContext.tibtunnel }}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext.tibtunnel | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
         resources:
           requests:
             cpu: 20m
@@ -138,6 +224,7 @@ spec:
           limits:
             cpu: 50m
             memory: 40Mi
+        {{- end }}
       {{- end }}
       imagePullSecrets:
         {{- if .Values.global.tibco.containerRegistry.username }}{{if .Values.global.tibco.containerRegistry.password }}
@@ -158,11 +245,17 @@ spec:
       volumes:
         - name: config-dir
           emptyDir: {}
+        - name: logs
+          emptyDir: {}
+{{- if .Values.global.tibco.cpCertificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.tibco.cpCertificateSecret }}       
+{{- end }}
 {{- if .Values.global.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: tp-tibtunnel-fluentbit-config

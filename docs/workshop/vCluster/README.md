@@ -167,7 +167,6 @@ global:
       serviceCIDR: "${TP_SERVICE_CIDR}"
     dnsTunnelDomain: "${TP_TUNNEL_DOMAIN}"
     dnsDomain: "${TP_DOMAIN}"
-    provider: "aws"
     storage:
       storageClassName: "${TP_STORAGE_CLASS_EFS}"
         # uncomment following section if logging is enabled

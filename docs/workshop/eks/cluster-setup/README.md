@@ -78,8 +78,8 @@ export TP_CLUSTER_REGION="${AWS_REGION}"
 export TP_VPC_CIDR="10.180.0.0/16" # vpc cidr for the cluster
 export TP_SERVICE_CIDR="172.20.0.0/16" # service IPv4 cidr for the cluster
 export TP_CLUSTER_NAME="eks-cluster-${TP_CLUSTER_REGION}" # name of the cluster to be prvisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.30" # please refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html; use 1.29 or above
-export TP_NODEGROUP_INSTANCE_TYPE="r5ad.xlarge" # Instance type for the EC2 Machines, please refer https://aws.amazon.com/ec2/instance-types/ 
+export TP_KUBERNETES_VERSION="1.31" # please refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html; use 1.30 or above
+export TP_NODEGROUP_INSTANCE_TYPE="m5a.xlarge" # Instance type for the EC2 Machines, please refer https://aws.amazon.com/ec2/instance-types/ 
 export TP_NODEGROUP_INITIAL_COUNT=3 # Number of desired nodes for the EKS cluster
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 

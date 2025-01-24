@@ -47,6 +47,8 @@ spec:
     {{- end }}
     - name: global.tibco.useSingleNamespace
       value: {{ include "tp-cp-configuration.useSingleNamespace" . | quote }}
+    - name: global.tibco.enableResourceConstraints
+      value: {{ include "tp-cp-configuration.enableResourceConstraints" . | quote }}
     - name: global.tibco.serviceAccount
       value: {{ include "tp-cp-configuration.service-account-name" . }}
     {{- if (include "tp-cp-configuration.container-registry-username" .) }}

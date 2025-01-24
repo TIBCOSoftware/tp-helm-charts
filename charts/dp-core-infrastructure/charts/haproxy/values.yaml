@@ -16,12 +16,11 @@
 ## ref: https://github.com/haproxytech/kubernetes-ingress/tree/master/documentation
 
 podSecurityPolicy:
+  ## Specify pod annotations
+  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
+  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
+  ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
   annotations: {}
-    ## Specify pod annotations
-    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
-    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
-    ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
-    ##
     # apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
     # apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
     # seccomp.security.alpha.kubernetes.io/allowedProfileNames: runtime/default
@@ -257,13 +256,15 @@ controller:
     restoreToOriginalReplicaCount: false
     scaledObject:
       annotations: {}
-    behavior: {}
-    #  scaleDown:
-    #    stabilizationWindowSeconds: 300
-    #    policies:
-    #    - type: Percent
-    #      value: 100
-    #      periodSeconds: 15
+    horizontalPodAutoscalerConfig: {}
+      # name: ""
+      # behavior:
+      #  scaleDown:
+      #    stabilizationWindowSeconds: 300
+      #    policies:
+      #    - type: Percent
+      #      value: 100
+      #      periodSeconds: 15
     triggers: []
     #  - type: prometheus
     #    metadata:
@@ -519,6 +520,13 @@ controller:
     # - name: TZ
     #   value: "Etc/UTC"
 
+  ## Use envFrom to add env vars from a secret or ConfigMap to the HAProxy container
+  ## ref: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+  extraEnvFrom: []
+  ## Example passing the pod IP into a container
+  #  - configMapRef:
+  #      name: ha-env-config
+
   ## Add additional containers
   extraContainers: []
     ## Example sidecar
@@ -528,24 +536,20 @@ controller:
     #   args: ["-c", "while true; do date; sleep 5;done"]
 
   ## Additional volumeMounts to the controller main container
-  extraVolumeMounts: []
-    ## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
-    # - name: etc-haproxy
-    #   mountPath: /etc/haproxy
-    # - name: tmp
-    #   mountPath: /tmp
-    # - name: var-state-haproxy
-    #   mountPath: /var/state/haproxy
+  extraVolumeMounts:
+  ## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
+   - name: etc-haproxy
+     mountPath: /etc/haproxy
+   - name: var-state-haproxy
+     mountPath: /var/state/haproxy
 
   ## Additional volumes to the controller pod
-  extraVolumes: []
-    ## Example empty volumes when using securityContext->readOnlyRootFilesystem
-    # - name: etc-haproxy
-    #   emptyDir: {}
-    # - name: tmp
-    #   emptyDir: {}
-    # - name: var-state-haproxy
-    #   emptyDir: {}
+  extraVolumes:
+  ## Example empty volumes when using securityContext->readOnlyRootFilesystem
+   - name: etc-haproxy
+     emptyDir: {}
+   - name: var-state-haproxy
+     emptyDir: {}
 
   ## ServiceMonitor
   ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md
@@ -581,3 +585,16 @@ controller:
     proxyParams:                                        # Mandatory if source is 'proxy'
       replicaCount: 3                                   # number of replicas of the proxy, mandatory if source is 'proxy'
       proxySvcLabelSelector: run:haproxy-ingress-proxy  # label selector of the proxy service, mandatory if source is 'proxy'
+
+## CRD job default values
+crdjob:
+  ## Additional annotations to add to the pod container metadata
+  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  ## All annotations from the controller (if set) are added to the pod metadata
+  ## If the annotation key is set for both controller and crdjob, the crdjob annotation will be used
+  podAnnotations: {}
+  # key: value
+
+  ## Automatic job cleanup
+  ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/
+  ttlSecondsAfterFinished: 600

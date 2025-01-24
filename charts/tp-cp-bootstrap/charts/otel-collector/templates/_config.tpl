@@ -7,7 +7,11 @@ in the license file that is distributed with this file.
 */}}
 
 {{- define "otel-collector.baseConfig" -}}
+{{- if .Values.alternateConfig }}
+{{- .Values.alternateConfig | toYaml }}
+{{- else}}
 {{- .Values.config | toYaml }}
+{{- end }}
 {{- end }}
 
 {{/*

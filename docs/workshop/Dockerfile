@@ -35,18 +35,6 @@ RUN apk add --no-cache --update python3 py3-pip && \
     find / -name __pycache__ | xargs -r rm -rf
 
 #---------------------------------------------------------------------------------------------
-# GKE docker 
-
-FROM python:3.11.7-alpine3.19 as builder-gcloud
-ARG GCLOUD_CLI_VERSION
-WORKDIR /gcloud
-RUN apk add --no-cache \
-    curl \
-    && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz \
-    && tar -xf google-cloud-cli-linux-x86_64.tar.gz \
-    && ./google-cloud-sdk/install.sh -q 
-#---------------------------------------------------------------------------------------------
-
 # actual run time docker image
 FROM alpine:3.19
 
@@ -65,12 +53,6 @@ RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws
 COPY --from=builder-azure /azure /azure
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /usr/local/bin/az
 
-# COPY gcloud cli to BASE_IMAGE and install beta and auth components
-COPY --from=builder-gcloud /gcloud /gcloud
-RUN ln -s /gcloud/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud
-RUN gcloud components install beta -q
-RUN gcloud components install gke-gcloud-auth-plugin -q
- 
 RUN { [ -n "${KUBECTL_VERSION}" ] || KUBECTL_VERSION="1.30.2"; } && \
     echo "KUBECTL_VERSION=${KUBECTL_VERSION}" && \
     curl -sLO https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl && \
@@ -86,7 +68,6 @@ RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.181.0"; } && \
 # copy directories
 COPY ["eks", "/home/workshop/eks/"]
 COPY ["aks", "/home/workshop/aks/"]
-COPY ["gke", "/home/workshop/gke/"]
 
 WORKDIR /home/workshop
 

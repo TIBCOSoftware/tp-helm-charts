@@ -3,7 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{ if and (eq .Values.mode "daemonset") (.Values.configMap.create) }}
+{{ if and (eq .Values.mode "daemonset") (.Values.configMap.create) (not .Values.configMap.existingName) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

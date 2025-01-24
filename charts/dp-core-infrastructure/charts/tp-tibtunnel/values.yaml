@@ -19,19 +19,6 @@ global:
     fluentbit:
       enabled: true
 
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-      securityContext:
-        runAsNonRoot: false
-        runAsUser: 0
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
-
 # tibtunnel cli flags
 connect:
   debug: true  # Enable debug logging
@@ -67,7 +54,7 @@ replicaCount: "2"
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 153
+  tag: 178
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -78,18 +65,17 @@ tolerations: {}
 
 fluentbit:
   image:
-    registry: cr.fluentbit.io/fluent/fluent-bit
-    tag: 3.1.4
+    tag: 3.2.2
     name: common-fluentbit
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
-      cpu: 30m
-      memory: 20Mi
+      cpu: 10m
+      memory: 15Mi
     limits:
-      cpu: 100m
-      memory: 50Mi
+      cpu: 50m
+      memory: 30Mi
 
 # probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
 provisionerAgentProbe:
@@ -116,8 +102,8 @@ securityContext:
   # This section of the configuration is for the tibtunnel.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  tibtunnel:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

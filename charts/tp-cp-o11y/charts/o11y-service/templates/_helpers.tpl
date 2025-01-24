@@ -147,3 +147,8 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
     {{- end -}}
   {{ $isCPCustomerEnv }}
 {{- end }}
+
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "o11y-service.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "true" "required" "false"  "Release" .Release )}}
+{{- end }}

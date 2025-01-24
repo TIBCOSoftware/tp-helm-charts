@@ -31,7 +31,7 @@ metadata:
         {{- include "resource-set-operator.shared.labels.standard" . | nindent 8 }}
 spec:
     secretName: {{ include "resource-set-operator.consts.appName" . }}-ca
-    duration: 43800h # 5y
+    duration: 2280h # 95d
     renewBefore: 360h #15d
     commonName: {{ .Release.Namespace }}.svc
     issuerRef:
@@ -62,13 +62,11 @@ metadata:
         {{- include "resource-set-operator.shared.labels.standard" . | nindent 8 }}
 spec:
     secretName: {{ include "resource-set-operator.consts.webhook" . }}-tls
-    duration: 8760h # 1y
+    duration: 2160h # 90d
     renewBefore: 360h #15d
     issuerRef:
         name: {{ include "resource-set-operator.consts.appName" . }}-tls
     dnsNames:
-        - {{ include "resource-set-operator.consts.webhook" . }}
-        - {{ include "resource-set-operator.consts.webhook" . }}.{{ .Release.Namespace }}
         - {{ include "resource-set-operator.consts.webhook" . }}.{{ .Release.Namespace }}.svc
 
 {{/* DON'T PLACE ANYTHING AFTER THIS */}}
