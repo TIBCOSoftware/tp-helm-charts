@@ -47,6 +47,10 @@ spec:
       - name: oauth2-proxy-secret-pre-delete-job
         image: {{ .Values.global.cp.containerRegistry.url }}{{"/"}}{{ .Values.global.cp.containerRegistry.repository }}{{"/"}}{{ .Values.global.cp.initContainer.alpine.image.name }}:{{ .Values.global.cp.initContainer.alpine.image.tag }}
         command: [ "/bin/sh", "-c", "source /etc/config/script/iat_to_clienid.sh && cleanup" ]
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
         env:
         {{- with .Values.global.cp.proxy }}
         {{- if .httpProxy }}
