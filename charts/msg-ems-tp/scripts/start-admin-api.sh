@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -56,7 +56,7 @@ proxy:
     - ":$emsAdminPort"
   session_timeout: 86400
   session_inactivity_timeout: 3600
-  page_limit: 100
+  page_limit: 0
   disable_tls: true
   certificate: /opt/tibco/ems/current-version/samples/certs/server.cert.pem
   private_key: /opt/tibco/ems/current-version/samples/certs/server.key.p8

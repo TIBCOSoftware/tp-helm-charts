@@ -93,6 +93,8 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.proxy "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.proxy "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "proxy-init" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - >-
@@ -105,12 +107,19 @@ spec:
               sleep 3;
             done;
             {{- end}}
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
+        volumeMounts:
+        - mountPath: /pulsar/logs
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
       # This init container will wait for at least one broker to be ready before
       # deploying the proxy
       - name: wait-broker-ready
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.proxy "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.proxy "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "proxy-init" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - >-
@@ -121,6 +130,11 @@ spec:
               sleep 10;
               brokerServiceNumber="$(nslookup -timeout=10 {{ template "pulsar.fullname" . }}-{{ .Values.broker.component }} | grep Name | wc -l)";
             done;
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
+        volumeMounts:
+        - mountPath: /pulsar/logs
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
       containers:
       - name: "{{ template "pulsar.fullname" . }}-{{ .Values.proxy.component }}"
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.proxy "root" .) }}"
@@ -156,13 +170,8 @@ spec:
           timeoutSeconds: {{ .Values.proxy.probe.startup.timeoutSeconds }}
           failureThreshold: {{ .Values.proxy.probe.startup.failureThreshold }}
         {{- end }}
-      {{- if .Values.proxy.resources }}
         resources:
-{{ toYaml .Values.proxy.resources | indent 10 }}
-      {{- else }}
-        resources:
-{{- include "apd.sts.resources" (dict "comp" "proxy" "param" $apdParams ) | nindent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "proxy" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
@@ -171,7 +180,7 @@ spec:
           {{ .Values.proxy.additionalCommand }}
         {{- end }}
           bin/apply-config-from-env.py conf/proxy.conf &&
-          echo "OK" > status &&
+          echo "OK" > /pulsar/logs/status &&
           OPTS="${OPTS} -Dlog4j2.formatMsgNoLookups=true" exec /usr/local/watchdog/bin/watchdog
         ports:
         # prometheus needs to access /metrics endpoint
@@ -214,6 +223,8 @@ spec:
             {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 12 }}
           - mountPath: /pulsar/conf/log4j2.yaml
             {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 12 }}
+          - mountPath: /var/tmp
+            {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 12 }}
         {{- if or .Values.proxy.extraVolumeMounts .Values.auth.authentication.enabled (and .Values.tls.enabled (or .Values.tls.proxy.enabled .Values.tls.broker.enabled)) }}
           {{- if .Values.auth.authentication.enabled }}
           {{- if eq .Values.auth.authentication.provider "jwt" }}
@@ -248,6 +259,7 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
         {{- end }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       {{- if or .Values.proxy.extraVolumes .Values.auth.authentication.enabled (and .Values.tls.enabled .Values.tls.proxy.enabled) }}
         {{- if .Values.proxy.extraVolumes }}
 {{ toYaml .Values.proxy.extraVolumes | indent 8 }}

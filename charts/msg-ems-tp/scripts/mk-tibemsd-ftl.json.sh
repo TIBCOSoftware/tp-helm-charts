@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -137,7 +137,7 @@ cat - <<EOF > $outfile
     "user_auth": "local,oauth2",
     "oauth2_server_validation_key": "/data/boot/cp-oauth2.jwks.json",
     "oauth2_user_claim": "email",
-    "oauth2_group_claim": "rolX",
+    "oauth2_group_claim": "gsbc",
     "always_exit_on_disk_error":true,
     "authorization":false,
     "console_trace": "DEFAULT,+CONNECT",

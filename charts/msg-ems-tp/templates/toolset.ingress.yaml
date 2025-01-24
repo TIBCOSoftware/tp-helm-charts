@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -13,7 +13,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: "{{ $stsname }}-old"
+  name: "{{ $stsname }}-api"
   namespace: {{ .Release.Namespace }}
   annotations:
     ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ems/{{ $emsParams.dp.instanceId }}/toolset/(.*) /\1'
@@ -25,7 +25,8 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ $emsParams.dp.name }}
   rules:
-  - http:
+  - host: "dp-{{ .Values.global.cp.dataplaneId }}.platform.local"
+    http:
       paths:
       - pathType: Prefix
         path: /tibco/agent/msg/ems/{{ $emsParams.dp.instanceId }}/toolset/
@@ -50,7 +51,8 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ $emsParams.dp.name }}
   rules:
-  - http:
+  - host: "{{ .Values.global.cp.cpHostname }}"
+    http:
       paths:
       - pathType: Prefix
         path: /tibco/agent/msg/ops/shell/ems/{{ $emsParams.dp.instanceId }}/toolset/

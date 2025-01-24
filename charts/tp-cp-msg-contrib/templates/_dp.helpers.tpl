@@ -2,7 +2,7 @@
 {{/*
 MSG DP Common Helpers
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -36,6 +36,7 @@ need.msg.dp.params
   {{- $instanceId := "no-instanceId" -}}
   {{- $fluentbitEnabled := .Values.global.cp.logging.fluentbit.enabled -}}
   {{- $enableClusterScopedPerm := .Values.global.cp.enableClusterScopedPerm -}}
+  {{- $enableResourceConstraints := .Values.global.cp.enableResourceConstraints -}}
   {{- $enableSecurityContext := true -}}
   {{- $enableHaproxy := true -}}
   # These 3 are currently unused!
@@ -116,6 +117,9 @@ need.msg.dp.params
       {{- if hasKey .Values.dp "enableClusterScopedPerm" -}}
         {{- $enableClusterScopedPerm = .Values.dp.enableClusterScopedPerm -}}
       {{- end -}}
+      {{- if hasKey .Values.dp "enableResourceConstraints" -}}
+        {{- $enableResourceConstraints = .Values.dp.enableResourceConstraints -}}
+      {{- end -}}
       {{- if hasKey .Values.dp "enableSecurityContext" -}}
         {{- $enableSecurityContext = .Values.dp.enableSecurityContext -}}
       {{- end -}}
@@ -146,6 +150,7 @@ dp:
   chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
   fluentbitEnabled: {{ $fluentbitEnabled }}
   enableClusterScopedPerm: {{ $enableClusterScopedPerm }}
+  enableResourceConstraints: {{ $enableResourceConstraints }}
   enableSecurityContext: {{ $enableSecurityContext }}
   enableHaproxy: {{ $enableHaproxy }}
 {{- end }}
@@ -178,7 +183,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.3.0.18"
+tib-dp-msgbuild: "1.4.0.20"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
@@ -438,6 +443,7 @@ securityContext:
   capabilities:
     drop:
     - ALL
+    - CAP_NET_RAW
   readOnlyRootFilesystem: true
   runAsNonRoot: true
     {{- end }}
@@ -450,7 +456,9 @@ securityContext:
   capabilities:
     drop:
     - ALL
-  readOnlyRootFilesystem: false
+    - CAP_NET_RAW
+  # readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
   runAsNonRoot: true
     {{- end }}
   {{- end }}

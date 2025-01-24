@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -16,7 +16,7 @@ recipe:
           host: "${HELM_REPO}"
       values:
         - content: |
-            apdVersion: "3.0.2-32"
+            apdVersion: "3.0.2-36"
             apd:
               name: ${SERVER_NAME}
               use: ${ENV_USE}
@@ -24,4 +24,4 @@ recipe:
             cp: 
               adminUser: "${PROVISIONING_USER_EMAIL}"
               jwks: "${JWKS}"
-      version: "1.3.18"
+      version: "1.4.20"

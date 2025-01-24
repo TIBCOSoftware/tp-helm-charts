@@ -2,7 +2,7 @@
 {{/*
 MSGDP Pulsar Pod sizing 
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -125,6 +125,12 @@ broker:
     jvmMs: 256m
     jvmDir: 256m
     jvmMx: 1526m
+broker-init:
+  medium:
+    cpuRq: 100m
+    cpuLm: 1000m
+    memRq: 2048Mi
+    memLm: 3072Mi
 proxy:
   small:
     replicas: 2
@@ -162,6 +168,12 @@ proxy:
     jvmMs: 256m
     jvmDir: 256m
     jvmMx: 1526m
+proxy-init:
+  medium:
+    cpuRq: 100m
+    cpuLm: 1000m
+    memRq: 2048Mi
+    memLm: 3072Mi
 recovery:
   small:
     replicas: 1
@@ -200,6 +212,52 @@ toolset:
     jvmMs: 256m
     jvmDir: 256m
     jvmMx: 1526m
+job:
+  medium:
+    replicas: 1
+    cpuRq: 100m
+    cpuLm: 1000m
+    memRq: 512Mi
+    memLm: 4096Mi
+{{ end }}
+
+{{ define "msg.apd.sizing.values" }}
+zookeeper:
+  {{- if .Values.zookeeper.resources }}
+{{ toYaml .Values.zookeeper.resources | indent 2 }}
+ {{- end }}
+bookkeeper:
+  {{- if .Values.bookkeeper.resources }}
+{{ toYaml .Values.bookkeeper.resources | indent 2 }}
+  {{- end }}
+broker:
+  {{- if .Values.broker.resources }}
+{{ toYaml .Values.broker.resources | indent 2 }}
+  {{- end }}
+proxy:
+  {{- if .Values.proxy.resources }}
+{{ toYaml .Values.proxy.resources | indent 2 }}
+  {{- end }}
+recovery:
+  {{- if .Values.autorecovery.resources }}
+{{ toYaml .Values.autorecovery.resources | indent 2 }}
+  {{- end }}
+toolset:
+  {{- if .Values.toolset.resources }}
+{{ toYaml .Values.toolset.resources | indent 2 }}
+  {{- end }}
+pulsar-init:
+  {{- if .Values.pulsar_metadata.resources }}
+{{ toYaml .Values.pulsar_metadata.resources | indent 2 }}
+  {{- end }}
+bookkeeper-init:
+  {{- if .Values.bookkeeper.metadata.resources }}
+{{ toYaml .Values.bookkeeper.metadata.resources | indent 2 }}
+  {{- end }}
+job:
+  {{- if .Values.job.resources }}
+{{ toYaml .Values.job.resources | indent 2 }}
+  {{- end }}
 {{ end }}
 
 {{/*
@@ -207,6 +265,12 @@ apd.sts.resources - get Pulsar sts pod resources
 call with (dict "comp" $component "param" $apdParams "root" . )
 */}}
 {{- define "apd.sts.resources" -}}
+{{- if .param.dp.enableResourceConstraints }}
+{{- $sizeValues := include "msg.apd.sizing.values" . | fromYaml -}}
+{{- $compValues := dict -}}
+    {{- if hasKey $sizeValues .comp -}}
+        {{- $compValues = get $sizeValues .comp -}}
+    {{- end -}}
 {{-  $sizeSpec := include "msg.apd.sizing.spec" . | fromYaml -}}
 {{- $compSpec := get $sizeSpec "toolset" -}}
     {{- if hasKey $sizeSpec .comp -}}
@@ -216,6 +280,9 @@ call with (dict "comp" $component "param" $apdParams "root" . )
     {{- if hasKey $compSpec .param.apd.sizing -}}
         {{- $spec = get $compSpec .param.apd.sizing -}}
     {{- end }}
+{{- if $compValues }}
+{{ toYaml $compValues | indent 2 }}
+{{- else if $spec }}
 requests:
     {{- if .param.apd.isProduction }}
   cpu: {{ $spec.cpuLm | quote }}
@@ -227,6 +294,8 @@ requests:
 limits:
   cpu: {{ $spec.cpuLm | quote }}
   memory: {{ $spec.memLm | quote }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{/*

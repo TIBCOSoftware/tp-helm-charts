@@ -1,9 +1,9 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{-  $cpParams := include "need.msg.cp.params" . | fromYaml }}
+{{-  $webserverParams := include "need.msg.webserver.params" . | fromYaml }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,14 +27,20 @@ spec:
     spec:
       nodeSelector:
           kubernetes.io/os: linux
-      {{- if $cpParams.cp.pullSecret }}
+      {{- if $webserverParams.cp.pullSecret }}
       imagePullSecrets:
-      - name: {{ $cpParams.cp.pullSecret }}
+      - name: {{ $webserverParams.cp.pullSecret }}
       {{- end }}
       containers:
       - name: msg-gems
-        image: "{{ $cpParams.cp.imageFullName }}"
-        imagePullPolicy: {{ $cpParams.cp.pullPolicy }}
+        image: "{{ $webserverParams.cp.imageFullName }}"
+        imagePullPolicy: {{ $webserverParams.cp.pullPolicy }}
+        {{- if $webserverParams.cp.enableResourceConstraints }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+        {{- end }}
         command: ['/compliance/check_eua', 'bash', '-c' ]
         #exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;  
         args:
@@ -47,10 +53,28 @@ spec:
           exec /usr/local/watchdog/bin/watchdog ;
         ports:
           - containerPort: 7513
-        {{ include "msg.webserver.security.container" $cpParams | nindent 8 }}
+        {{ include "msg.cp.security.container" $webserverParams | nindent 8 }}
+        {{ if ne "pod-edit" $webserverParams.securityProfile }}
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: 7513
+          initialDelaySeconds: 3
+          periodSeconds: 15
+          successThreshold: 1
+          failureThreshold: 4
+        readinessProbe:
+          httpGet:
+            path: /livez
+            port: 7513
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        {{ end }}
         volumeMounts:
         - mountPath: /boot
-          {{ include "msg.pv.vol.mount" $cpParams.cp.boot | nindent 10 }}
+          {{ include "msg.pv.vol.mount" $webserverParams.webserver.boot | nindent 10 }}
         - mountPath: /data
           name: msg-webserver-data
         - mountPath: /logs
@@ -59,15 +83,15 @@ spec:
           name: efs-vol
           subPath: tsc
         - mountPath: /cm/cp-env
-          {{ include "msg.pv.vol.mount" $cpParams.cp.cp_env | nindent 10 }}
+          {{ include "msg.pv.vol.mount" $webserverParams.cp.cp_env | nindent 10 }}
         - mountPath: /cm/cic-env
-          {{ include "msg.pv.vol.mount" $cpParams.cp.cic_env | nindent 10 }}
+          {{ include "msg.pv.vol.mount" $webserverParams.cp.cic_env | nindent 10 }}
         - mountPath: /cm/cp-dns
-          {{ include "msg.pv.vol.mount" $cpParams.cp.cp_dns | nindent 10 }}
+          {{ include "msg.pv.vol.mount" $webserverParams.cp.cp_dns | nindent 10 }}
         - mountPath: /cm/cic-dns
-          {{ include "msg.pv.vol.mount" $cpParams.cp.cic_dns | nindent 10 }}
+          {{ include "msg.pv.vol.mount" $webserverParams.cp.cic_dns | nindent 10 }}
         - mountPath: /cm/cp-extra
-          {{ include "msg.pv.vol.mount" $cpParams.cp.cp_extra | nindent 10 }}
+          {{ include "msg.pv.vol.mount" $webserverParams.cp.cp_extra | nindent 10 }}
         env:
         {{ include "msg.envStdPodRefs" . | indent  8 }}
         - name: ACCEPT_EUA
@@ -79,38 +103,38 @@ spec:
         - name: LOG_ALERT_PORT
           value: "8099"
         - name: MSGDP_ENV_TYPE
-          value: "{{ $cpParams.cp.ENV_TYPE }}"
+          value: "{{ $webserverParams.cp.ENV_TYPE }}"
         - name: MSGDP_LOGGING_FLUENTBIT_ENABLED
-          value: "{{ $cpParams.cp.LOGGING_FLUENTBIT_ENABLED }}"
+          value: "{{ $webserverParams.cp.LOGGING_FLUENTBIT_ENABLED }}"
         - name: MSGDP_OTEL_SERVICE
-          value: "{{ $cpParams.cp.OTEL_SERVICE }}"
+          value: "{{ $webserverParams.cp.OTEL_SERVICE }}"
         - name: MSGDP_DNS_DOMAIN
-          value: "{{ $cpParams.cp.DNS_DOMAIN }}"
+          value: "{{ $webserverParams.cp.DNS_DOMAIN }}"
         - name: MSGDP_ADMIN_DNS_DOMAIN
-          value: "{{ $cpParams.cp.ADMIN_DNS_DOMAIN }}"
+          value: "{{ $webserverParams.cp.ADMIN_DNS_DOMAIN }}"
         - name: MSGDP_SUBSCRIPTION_SINGLE_NAMESPACE
-          value: "{{ $cpParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
+          value: "{{ $webserverParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
         - name: MSGDP_SYSTEM_WHO
-          value: "{{ $cpParams.cp.SYSTEM_WHO }}"
+          value: "{{ $webserverParams.cp.SYSTEM_WHO }}"
         - name: ACME_HOST
-          value: "{{ $cpParams.cp.ADMIN_DNS_DOMAIN }}"
+          value: "{{ $webserverParams.cp.ADMIN_DNS_DOMAIN }}"
         - name: SUBSCRIPTION_SINGLE_NAMESPACE
-          value: "{{ $cpParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
+          value: "{{ $webserverParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
         - name: SYSTEM_WHO
-          value: "{{ $cpParams.cp.SYSTEM_WHO }}"
+          value: "{{ $webserverParams.cp.SYSTEM_WHO }}"
       volumes:
-      {{ include "msg.pv.vol.def" $cpParams.cp.boot | nindent 6 }}
+      {{ include "msg.pv.vol.def" $webserverParams.webserver.boot | nindent 6 }}
       - name: msg-webserver-data
         emptyDir: {}
       - name: msg-webserver-logs
         emptyDir: {}
       - name: efs-vol
         persistentVolumeClaim:
-          claimName: "{{ $cpParams.cp.CP_VOLUME_CLAIM }}"
-      {{ include "msg.pv.vol.def" $cpParams.cp.cp_env | nindent 6 }}
-      {{ include "msg.pv.vol.def" $cpParams.cp.cic_env | nindent 6 }}
-      {{ include "msg.pv.vol.def" $cpParams.cp.cp_dns | nindent 6 }}
-      {{ include "msg.pv.vol.def" $cpParams.cp.cic_dns | nindent 6 }}
-      {{ include "msg.pv.vol.def" $cpParams.cp.cp_extra | nindent 6 }}
-      {{ include "msg.webserver.security.pod" $cpParams | nindent 6 }}
-      serviceAccountName: "{{ $cpParams.cp.serviceAccount }}"
+          claimName: "{{ $webserverParams.cp.CP_VOLUME_CLAIM }}"
+      {{ include "msg.pv.vol.def" $webserverParams.cp.cp_env | nindent 6 }}
+      {{ include "msg.pv.vol.def" $webserverParams.cp.cic_env | nindent 6 }}
+      {{ include "msg.pv.vol.def" $webserverParams.cp.cp_dns | nindent 6 }}
+      {{ include "msg.pv.vol.def" $webserverParams.cp.cic_dns | nindent 6 }}
+      {{ include "msg.pv.vol.def" $webserverParams.cp.cp_extra | nindent 6 }}
+      {{ include "msg.cp.security.pod" $webserverParams | nindent 6 }}
+      serviceAccountName: "{{ $webserverParams.cp.serviceAccount }}"

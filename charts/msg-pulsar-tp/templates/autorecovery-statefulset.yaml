@@ -93,34 +93,70 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.autorecovery "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.autorecovery "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "recovery" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
+          cp -R /pulsar-conf/* /pulsar/conf/ ;
           {{- include "pulsar.autorecovery.init.verify_cluster_id" . | nindent 10 }}
         envFrom:
         - configMapRef:
             name: "{{ template "pulsar.fullname" . }}-{{ .Values.autorecovery.component }}"
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         volumeMounts:
         - mountPath: /boot
           {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 10 }}
+        - mountPath: /pulsar/logs
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
+        - mountPath: /pulsar/conf
+          {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         {{- include "pulsar.autorecovery.certs.volumeMounts" . | nindent 8 }}
       containers:
       - name: "{{ template "pulsar.fullname" . }}-{{ .Values.autorecovery.component }}"
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.autorecovery "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.autorecovery "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
-      {{- if .Values.autorecovery.resources }}
+        {{- if .Values.autorecovery.probe.liveness.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /inquorum
+            port: {{ .Values.autorecovery.ports.health }}
+          initialDelaySeconds: {{ .Values.autorecovery.probe.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.autorecovery.probe.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.autorecovery.probe.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.autorecovery.probe.liveness.failureThreshold }}
+        {{- end }}
+        {{- if .Values.autorecovery.probe.readiness.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /inquorum
+            port: {{ .Values.autorecovery.ports.health }}
+          initialDelaySeconds: {{ .Values.autorecovery.probe.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.autorecovery.probe.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.autorecovery.probe.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.autorecovery.probe.readiness.failureThreshold }}
+        {{- end }}
+        {{- if .Values.autorecovery.probe.startup.enabled }}
+        startupProbe:
+          httpGet:
+            path: /inquorum
+            port: {{ .Values.autorecovery.ports.health }}
+          initialDelaySeconds: {{ .Values.autorecovery.probe.startup.initialDelaySeconds }}
+          periodSeconds: {{ .Values.autorecovery.probe.startup.periodSeconds }}
+          timeoutSeconds: {{ .Values.autorecovery.probe.startup.timeoutSeconds }}
+          failureThreshold: {{ .Values.autorecovery.probe.startup.failureThreshold }}
+        {{- end }}
         resources:
-{{ toYaml .Values.autorecovery.resources | indent 10 }}
-      {{- else }}
-        resources:
-{{- include "apd.sts.resources" (dict "comp" "recovery" "param" $apdParams ) | nindent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "recovery" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
           source /boot/pulsar-setup.bash /pulsar/bin/bookkeeper autorecovery ; 
           bin/apply-config-from-env.py conf/bookkeeper.conf;
+          mkdir -p /tmp/recovery-health/health ;
+          echo 'true' > /tmp/recovery-health/health/inquorum ;
           {{- include "pulsar.autorecovery.zookeeper.tls.settings" . | nindent 10 }}
           OPTS="${OPTS} -Dlog4j2.formatMsgNoLookups=true" exec /usr/local/watchdog/bin/watchdog
         ports:
@@ -130,6 +166,8 @@ spec:
         {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         - name: STS_NAME
           value: "{{ template "pulsar.fullname" . }}-{{ .Values.autorecovery.component }}"
+        - name: TCM_WATCHDOG_CONFIG
+          value: "/pulsar/logs/recovery-watchdog.yml"
         - name: POD_DISK_MON
           value: "/pulsar/data,/pulsar/logs"
         - name: PULSAR_LOG_FILE
@@ -150,6 +188,10 @@ spec:
           {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         - mountPath: /pulsar/conf/log4j2.yaml
           {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 10 }}
+        - mountPath: /var/tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+        - mountPath: /tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
         {{- include "pulsar.autorecovery.certs.volumeMounts" . | nindent 8 }}
       volumes:
       {{ include "msg.pv.vol.def" $apdParams.apd.boot | nindent 6 }}
@@ -159,9 +201,9 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
         {{- end }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       {{- include "pulsar.autorecovery.certs.volumes" . | nindent 6 }}
       {{- include "pulsar.imagePullSecrets" . | nindent 6}}
-  # FIXME: generally not needed ??
   volumeClaimTemplates:
         {{- if eq "use-pulsar-data" $apdParams.apd.logs.storageType }}
   {{ include "msg.pv.vol.vct" $apdParams.apd.msgData | nindent 2 }}
