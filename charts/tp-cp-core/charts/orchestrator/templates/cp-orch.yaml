@@ -85,9 +85,11 @@ spec:
       initContainers:
       - name: check-pod-dependencies
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
-        {{- if .Values.global.containerSecurityContext.orchestrator }}
+        {{- if .Values.global.containerSecurityContext }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.orchestrator | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         command: ['sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for user-subscription to be running;
          sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_USER_SUB_HOST:9832/v1/monitor/ping" 2>&1 | grep "HTTP/"); done; unset wget_result;
@@ -112,9 +114,9 @@ spec:
       - name: cporchservice
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.orchestrator }}:{{ include "orchestrator.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
-        {{- if .Values.global.containerSecurityContext.orchestrator }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.orchestrator | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -167,9 +169,17 @@ spec:
         - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
           value: {{ include "cp-core-configuration.container-registry-image-pull-secret-name" . | quote }}
         - name: CP_CONTAINER_REGISTRY_USERNAME
-          value: {{ include "cp-core-configuration.cp-container-registry-username" . | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: cp-env
+              key: CP_CONTAINER_REGISTRY_USERNAME
+              optional: true
         - name: CP_CONTAINER_REGISTRY_PASSWORD
-          value: {{ include "cp-core-configuration.cp-container-registry-password" . | quote }}         
+          valueFrom:
+            secretKeyRef:
+              name: cp-env
+              key: CP_CONTAINER_REGISTRY_PASSWORD
+              optional: true
         - name: CP_CONTAINER_REGISTRY_REPO
           value: {{ include "cp-core-configuration.image-repository" . | quote }}
         - name: CP_CONTAINER_REGISTRY
@@ -354,7 +364,7 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           value: {{ .Values.global.external.db_ssl_mode }}
         - name: READ_POSTGRES_DATABASE_SSL_CERT
@@ -362,30 +372,36 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: TSC_CONFIG_LOCATION
           value: /private/tsc
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: TSC_BILLING_EMAIL_ALIAS
           value: {{ (.Values.global.external.cronJobReportsEmailAlias) }}
         - name: TRANSACTIONAL_EMAIL_CC_ADDRESSES
           value: {{ (.Values.global.external.platformEmailNotificationCcAddresses) }}
+        - name: EXTERNAL_IDP_REQUEST_TO_ADDRESSES
+          value: {{ (.Values.global.external.externalIdpRequestToAddresses) }}
+        - name: EXTERNAL_IDP_REQUEST_CC_ADDRESSES
+          value: {{ (.Values.global.external.externalIdpRequestCcAddresses) }}
         - name: CP_HELM_REPO
           value: {{ .Values.global.external.helmRepo }}
+        - name: DP_DEFAULT_HELM_REPO
+          value: {{ .Values.global.tibco.helm | toJson | quote }}
         volumeMounts:
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
+        - name: logs
+          mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -394,6 +410,39 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -414,21 +463,26 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
 {{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-orchestrator.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -649,6 +703,19 @@ spec:
         allowClientCache: false
         allowXFrameOptions: false
         enableRedirects: true
+  - path: /cp-orchestrator/v1/dataplanes/([^/]+)/helm-repo
+    internalPath: /v1/dataplanes/$1/helm-repo
+    port: 8833
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_DNS_DOMAIN}
+        methods:
+          - GET
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
   - path: /api/v1/members
     internalPath: /api/v1/members
     port: 10833

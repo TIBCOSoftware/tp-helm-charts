@@ -73,9 +73,11 @@ spec:
       initContainers:
       - name: check-pod-dependencies
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
-        {{- if .Values.global.containerSecurityContext.adminWebServer }}
+        {{- if .Values.global.containerSecurityContext }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.adminWebServer | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
         env:
@@ -92,9 +94,9 @@ spec:
       - name: cpadminwebserver
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.adminWebserver }}:{{ include "admin-webserver.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
-        {{- if .Values.global.containerSecurityContext.adminWebServer }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.adminWebServer | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -209,8 +211,6 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: REGION
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: TSC_DNS_DOMAIN
           valueFrom:
             configMapKeyRef:
@@ -230,12 +230,16 @@ spec:
           - name: store-vol
             mountPath: /private/tsc/config
             subPath: tsc/config
+          - name: logs
+            mountPath: /tmp/logs
+          - name: file-watcher
+            mountPath: /tmp
 {{- if (include "cp-core-configuration.enableLogging" .)}}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -244,6 +248,39 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -264,21 +301,25 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
 {{- if (include "cp-core-configuration.enableLogging" .)}}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-admin-webserver.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: file-watcher
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -296,7 +337,7 @@ spec:
     kind: Deployment
     name: {{ include "tp-cp-admin-webserver.consts.appName" . }}
   minReplicas: {{ .Values.replicaCount }}
-  maxReplicas: {{ add 1 .Values.replicaCount }}
+  maxReplicas: {{ add 2 .Values.replicaCount }}
   metrics:
     - type: Resource
       resource:
@@ -440,17 +481,6 @@ spec:
       enableRedirects: true
       allowClientCache: true
       allowXFrameOptions: false
-  - path: /.well-known/jwks
-    internalPath: /admin/v1/public/jwks-file
-    port: 3000
-    protocol: http
-    proxies:
-    - config: empty
-      enableRedirects: true
-      fqdn: ${TSC_ADMIN_DNS_DOMAIN}
-      listener: virtual
-      methods:
-      - GET
   - path: /admin/v1
     internalPath: /admin/v1
     port: 3000
@@ -488,3 +518,13 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+  - path: /api/v1/paid-subscriptions
+    internalPath: /api/v1/paid-subscriptions
+    protocol: http
+    port: 3000
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+      methods:
+      - POST
