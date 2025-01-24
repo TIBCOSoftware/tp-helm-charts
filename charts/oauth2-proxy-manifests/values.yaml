@@ -72,7 +72,7 @@ alphaConfig:
 
 image:
   name: core-tp-oauth-proxy
-  tag: "v1.3.4"
+  tag: "v1.4.11"
   pullPolicy: "IfNotPresent"
   # appVersion is used by default
 
@@ -253,11 +253,11 @@ readinessProbe:
 # Configure Kubernetes security context for container
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 securityContext:
-  enabled: true
   allowPrivilegeEscalation: false
   capabilities:
     drop:
     - ALL
+    - CAP_NET_RAW
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 2000
@@ -285,7 +285,12 @@ podDisruptionBudget:
 
 # Configure Kubernetes security context for pod
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
-podSecurityContext: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
 
 # whether to use http or https
 httpScheme: http
@@ -306,12 +311,11 @@ initContainers:
       capabilities:
         drop:
           - ALL
+          - CAP_NET_RAW
       readOnlyRootFilesystem: true
       runAsNonRoot: true
       runAsUser: 65534
       runAsGroup: 65534
-      seccompProfile:
-        type: RuntimeDefault
     timeout: 180
 
 # Additionally authenticate against a htpasswd file. Entries must be created with "htpasswd -B" for bcrypt encryption.
@@ -429,7 +433,9 @@ global:
     svc:
       name: tp-identity-management
       port: 7831
+
   cp:
+    cpCertificateSecret: ""
     cpHostName: ""   # CP HOST NAME
     # dataplaneId: "abcd"   # DP ID
     # subscriptionId : "sub1"
@@ -473,7 +479,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: "3.1.4"
+          tag: "3.2.2"
         enabled: true
         resources:
           requests:
@@ -482,10 +488,12 @@ global:
           limits:
             cpu: 50m
             memory: 30Mi
-        securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+
+    generateOauth2ProxySecret:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+        limits:
+          cpu: 30m
+          memory: 50Mi
