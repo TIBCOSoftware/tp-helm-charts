@@ -214,10 +214,12 @@ spec:
           - name: PLATFORM
             value: "{{ .Values.global.platform }}"
           resources:
+{{- if .Values.global.cp.enableResourceConstraints }}
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{- end }}
 {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
