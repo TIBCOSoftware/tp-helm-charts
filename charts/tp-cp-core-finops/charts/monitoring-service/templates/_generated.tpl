@@ -1,2 +1,2 @@
-{{- define "monitoring-service.generated.buildNumber" }}267{{end -}}
-{{- define "monitoring-service.generated.buildTimestamp" }}09-11-24_05.39.57_AM{{end -}}
+{{- define "monitoring-service.generated.buildNumber" }}337-1.4.0{{end -}}
+{{- define "monitoring-service.generated.buildTimestamp" }}01-10-25_00.39.46_AM{{end -}}

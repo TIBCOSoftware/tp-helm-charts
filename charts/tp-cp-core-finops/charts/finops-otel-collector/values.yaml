@@ -109,9 +109,11 @@ config:
       resource_to_telemetry_conversion:
         enabled: true
   extensions:
-    health_check: {}
-    memory_ballast:
-      size_in_percentage: 40
+    # The health_check extension is mandatory for this chart.
+    # Without the health_check extension the collector will fail the readiness and liveliness probes.
+    # The health_check extension can be modified, but should never be removed.
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
   processors:
     memory_limiter:
       check_interval: 5s
@@ -133,7 +135,6 @@ config:
       metrics: {}
     extensions:
       - health_check
-      - memory_ballast
     pipelines:
       metrics:
         receivers:
@@ -214,10 +215,12 @@ podSecurityContext:
     type: RuntimeDefault
 
 securityContext:
+  readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
   capabilities:
     drop:
       - ALL
+      - CAP_NET_RAW
 
 nodeSelector: {}
 tolerations: []
@@ -291,11 +294,11 @@ ports:
 # Resource limits & requests. Update according to your own use case as these values might be too low for a typical deployment.
 resources:
   requests:
-    cpu: 500m
-    memory: 2Gi
+    cpu: 200m
+    memory: 512Mi
   limits:
     cpu: 500m
-    memory: 4Gi
+    memory: 1024Mi
 
 podAnnotations: {}
 
@@ -405,6 +408,24 @@ readinessProbe:
     port: 13133
     path: /
 
+# startup probe configuration
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+##
+startupProbe: {}
+  # Number of seconds after the container has started before startup probes are initiated.
+  # initialDelaySeconds: 1
+  # How often in seconds to perform the probe.
+  # periodSeconds: 10
+  # Number of seconds after which the probe times out.
+  # timeoutSeconds: 1
+  # Minimum consecutive failures for the probe to be considered failed after having succeeded.
+  # failureThreshold: 1
+  # Duration in seconds the pod needs to terminate gracefully upon probe failure.
+  # terminationGracePeriodSeconds: 10
+  # httpGet:
+  #   port: 13133
+  #   path: /
+
 service:
   # Enable the creation of a Service.
   # By default, it's enabled on mode != daemonset.
@@ -496,8 +517,8 @@ autoscaling:
   enabled: true
   minReplicas: 1
   maxReplicas: 3
-  targetCPUUtilizationPercentage: 80
-  targetMemoryUtilizationPercentage: 80
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
 
 #autoscaling:
 #  enabled: false
@@ -587,4 +608,3 @@ networkPolicy:
 # In a future release this setting will be enabled by default.
 # See https://github.com/open-telemetry/opentelemetry-helm-charts/issues/891
 # for more details.
-useGOMEMLIMIT: true

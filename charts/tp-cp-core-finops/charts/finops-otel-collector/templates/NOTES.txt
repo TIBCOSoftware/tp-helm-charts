@@ -1,3 +1,7 @@
+{{- if not .Values.image.repository }}
+{{ fail "[ERROR] 'image.repository' must be set. See https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/UPGRADING.md for instructions." }}
+{{ end }}
+
 {{- if and (not (eq .Values.mode "daemonset")) (not (eq .Values.mode "deployment")) (not (eq .Values.mode "statefulset")) }}
 {{ fail "[ERROR] 'mode' must be set. See https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/finops-otel-collector/UPGRADING.md for instructions." }}
 {{ end }}
@@ -15,8 +19,17 @@
 {{ end }}
 {{ end }}
 
+{{/* validate extensions must include health_check */}}
+{{- if not (has "health_check" .Values.config.service.extensions) }}
+{{ fail "[ERROR] The otel-collector chart requires that the health_check extension to be included in the extension list." }}
+{{- end}}
+
 {{- if not .Values.configMap.create }}
 [WARNING] "configMap" wil not be created and "config" will not take effect.
+{{ end }}
+
+{{- if and .Values.configMap.create .Values.configMap.existingName }}
+{{ fail "[ERROR] Cannot set configMap.existingName when configMap.create is true" }}
 {{ end }}
 
 {{- if not .Values.resources }}
@@ -31,10 +44,3 @@
 [WARNING] "useGOMEMLIMIT" is enabled but memory limits have not been supplied, which means no GOMEMLIMIT env var was configured but the Memory Ballast Extension was removed. It is highly recommended to only use "useGOMEMLIMIT" when memory limits have been set.
 {{ end }}
 
-{{- if .Values.configMap.create }}
-{{- range $key, $value := (((.Values.config).service).pipelines) }}
-{{- if has "logging" ($value.exporters) }}
-[WARNING] The logging exporter is deprecated.  Use the debug exporter instead.
-{{- end }}
-{{- end }}
-{{- end }}

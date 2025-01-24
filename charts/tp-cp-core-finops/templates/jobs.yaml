@@ -72,8 +72,6 @@ spec:
             configMapKeyRef:
               key: REGION
               name: {{ include "tp-cp-core-finops.tp-env-configmap" . }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/finops/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -90,12 +88,16 @@ spec:
         args:
         - "/opt/tibco/finops/scripts/init.sh install"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/finops
           subPath: finops
         - name: secret-volume
           mountPath: /private/finops/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -180,8 +182,6 @@ spec:
             configMapKeyRef:
               key: REGION
               name: {{ include "tp-cp-core-finops.tp-env-configmap" . }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -200,12 +200,16 @@ spec:
         args:
         - "/opt/tibco/finops/scripts/init.sh upgrade"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/finops
           subPath: finops
         - name: secret-volume
           mountPath: /private/finops/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -291,8 +295,6 @@ spec:
             configMapKeyRef:
               key: REGION
               name: {{ include "tp-cp-core-finops.tp-env-configmap" . }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: DeleteDBOnUninstall
           value: {{ .Values.finops.deleteDBOnUninstall | quote }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -311,12 +313,16 @@ spec:
         args:
         - "/opt/tibco/finops/scripts/init.sh delete"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/finops
           subPath: finops
         - name: secret-volume
           mountPath: /private/finops/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -400,8 +406,6 @@ spec:
             configMapKeyRef:
               key: REGION
               name: {{ include "tp-cp-core-finops.tp-env-configmap" . }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/finops/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -418,12 +422,16 @@ spec:
         args:
         - "/opt/tibco/finops/scripts/init.sh rollback"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/finops
           subPath: finops
         - name: secret-volume
           mountPath: /private/finops/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

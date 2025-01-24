@@ -71,6 +71,7 @@ spec:
           {{- toYaml .Values.global.containerSecurityContext.monitoringService | nindent 10 }}
         {{- end }}        
         image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/tel-monitoring-service"}}:{{ include "monitoring-service.generated.buildNumber" . }}
+        {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
         resources:
           requests:
             cpu: {{ .Values.monitoringservice.resources.requests.cpu }}
@@ -78,6 +79,7 @@ spec:
           limits:
             cpu: {{ .Values.monitoringservice.resources.limits.cpu }}
             memory: {{ .Values.monitoringservice.resources.limits.memory }}
+        {{- end }}
         ports:
         - containerPort: 7831
           name: server
@@ -219,7 +221,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
-              key: DBHost
+              key: LocalReaderHost
         - name: READ_PGPORT
           valueFrom:
             configMapKeyRef:
@@ -256,10 +258,7 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
-              key: DBSSLRootCert
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           valueFrom:
             configMapKeyRef:
@@ -270,21 +269,21 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
-              key: DBSSLRootCert
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         volumeMounts:
-        - name: store-vol
+        - name: logs
+          mountPath: /tmp/logs
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext.monitoringService }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
-        {{- end }}        
+          {{- toYaml .Values.global.containerSecurityContext.monitoringService | nindent 10 }}
+        {{- end }}
+        {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
         resources:
           requests:
             cpu: {{ .Values.fluentbit.resources.requests.cpu }}
@@ -292,6 +291,40 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        {{- end }}
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -312,27 +345,26 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-            - name: podlogs
+            - name: logs
               mountPath: /var/log/pods
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers
+            - name: db
+              mountPath: /var/log/db          
             - name: config-volume
               mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "monitoring-service.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -416,6 +448,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: tp-cp-monitoring-tibtunnel-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-tibtunnel-cronjob"
 spec:
   schedule: {{ .Values.monitoringtibtunnel.schedule | quote}}
   concurrencyPolicy: Forbid
@@ -424,6 +458,9 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-tibtunnel-cronjob"
         spec:
           {{- if .Values.global.podSecurityContext }}
           securityContext:
@@ -432,7 +469,7 @@ spec:
           {{- if (include "cp-core-configuration.container-registry.secret" .) }}
           imagePullSecrets:
             - name: {{ include "cp-core-configuration.container-registry.secret" . }}
-          {{ end }}
+          {{- end }}
           containers:
           - name: tibtunnel-refresh
             {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
@@ -441,6 +478,7 @@ spec:
             {{- end }}
             image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
             imagePullPolicy: IfNotPresent
+            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
             resources:
               requests:
                 cpu: {{ .Values.monitoringtibtunnel.resources.requests.cpu }}
@@ -448,6 +486,7 @@ spec:
               limits:
                 cpu: {{ .Values.monitoringtibtunnel.resources.limits.cpu }}
                 memory: {{ .Values.monitoringtibtunnel.resources.limits.memory }}
+            {{- end }}
             command: ['sh']
             args:
               - -c
@@ -468,6 +507,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: tp-cp-monitoring-capresources-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-capresources-cronjob"
 spec:
   schedule: {{ .Values.monitoringcapresources.schedule | quote}}
   concurrencyPolicy: Forbid
@@ -476,6 +517,9 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-capresources-cronjob"
         spec:
           {{- if .Values.global.podSecurityContext }}
           securityContext:
@@ -493,6 +537,7 @@ spec:
             {{- end }}
             image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
             imagePullPolicy: IfNotPresent
+            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
             resources:
               requests:
                 cpu: {{ .Values.monitoringcapresources.resources.requests.cpu }}
@@ -500,6 +545,7 @@ spec:
               limits:
                 cpu: {{ .Values.monitoringcapresources.resources.limits.cpu }}
                 memory: {{ .Values.monitoringcapresources.resources.limits.memory }}
+            {{- end }}
             command: ['sh']
             args:
               - -c
@@ -520,6 +566,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: tp-cp-monitoring-homepage-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
 spec:
   schedule: {{ .Values.monitoringhomepagemetrics.schedule | quote}}
   concurrencyPolicy: Forbid
@@ -528,6 +576,9 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
         spec:
           {{- if .Values.global.podSecurityContext }}
           securityContext:
@@ -545,6 +596,7 @@ spec:
             {{- end }}          
             image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
             imagePullPolicy: IfNotPresent
+            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
             resources:
               requests:
                 cpu: {{ .Values.monitoringhomepagemetrics.resources.requests.cpu }}
@@ -552,6 +604,7 @@ spec:
               limits:
                 cpu: {{ .Values.monitoringtibtunnel.resources.limits.cpu }}
                 memory: {{ .Values.monitoringtibtunnel.resources.limits.memory }}
+            {{- end }}
             command: ['sh']
             args:
               - -c
