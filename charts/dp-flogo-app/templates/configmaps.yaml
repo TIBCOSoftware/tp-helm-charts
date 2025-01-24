@@ -1,0 +1,26 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "dp-flogo-app.labels" . | nindent 4 }}
+  name: {{ include "dp-flogo-app.fullname" . }}-appprops
+data:
+  {{- range $key, $val := .Values.appProps }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "dp-flogo-app.labels" . | nindent 4 }}
+  name: {{ include "dp-flogo-app.fullname" . }}-engineprops 
+data:
+  {{- range $key, $val := .Values.engineProps }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}

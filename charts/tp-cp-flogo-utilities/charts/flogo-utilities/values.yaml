@@ -12,7 +12,7 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 98-distroless
+  tag: 106-distroless
   pullPolicy: IfNotPresent
 
 debug:
@@ -25,6 +25,42 @@ podAnnotations: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+flogoVSCodeExtension:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 75Mi
+    limits:
+      cpu: 100m
+      memory: 150Mi
+
+buildtype:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+    limits:
+      cpu: 200m
+      memory: 200Mi
+
+plugins:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 150Mi
+    limits:
+      cpu: 100m
+      memory: 300Mi
+
+scripts:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 75Mi
+    limits:
+      cpu: 100m
+      memory: 150Mi
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
@@ -44,21 +80,11 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
-
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+      - CAP_NET_RAW
 
 toolsMountPath: /downloads/tools
 toolsSubPath: tsc/tools
@@ -74,14 +100,18 @@ flogoVSCodeExtensionExtract: true
 flogoVSCodeExtensionImages:
   - image: tp-flogo-vscode-extension
     path: /opt/downloads/
-    tag: 1.1.0-b538-vscode-1.1.0
+    tag: 1.1.1-b751-vscode-1.1.1
     target_location: flogo-vscode-extension
 flogoVSCodeDelete: false
 flogoVSCodeDeleteVersions: ""
 
+flogopluginsExtractA: true
+flogopluginsExtractB: true
+flogopluginsExtractC: true
+flogopluginsExtractD: true
+flogopluginsExtractE: true
 
-flogopluginsExtract: true
-flogoplugins:
+flogopluginsA:
   tp-flogo-connector-amazons3:
     tags:
       - 1.3.1-b02
@@ -104,12 +134,14 @@ flogoplugins:
     default: 1.1.1-b03
   tp-flogo-connector-azservicebus:
     tags:
-      - 1.4.1-b01
-    default: 1.4.1-b01
+      - 1.4.3-b02
+    default: 1.4.3-b02
   tp-flogo-connector-azstorage:
     tags:
-      - 1.1.3-b01
-    default: 1.1.3-b01
+      - 1.2.0-b04
+    default: 1.2.0-b04
+
+flogopluginsB:
   tp-flogo-connector-docusign:
     tags:
       - 3.0.1-hf1-b01
@@ -124,20 +156,22 @@ flogoplugins:
     default: 1.0.1-b01
   tp-flogo-connector-general:
     tags:
-      - 1.6.2-b02
-    default: 1.6.2-b02
+      - 1.6.3-b01
+    default: 1.6.3-b01
   tp-flogo-connector-http:
     tags:
       - 1.1.1-b03
     default: 1.1.1-b03
   tp-flogo-connector-kafka:
     tags:
-      - 1.3.2-b01
-    default: 1.3.2-b01
+      - 1.3.3-b01
+    default: 1.3.3-b01
   tp-flogo-connector-lambda:
     tags:
       - 1.3.2-b01-flogo-2.25.1
     default: 1.3.2-b01-flogo-2.25.1
+
+flogopluginsC:
   tp-flogo-connector-mongodb:
     tags:
       - 1.1.1-b01
@@ -152,20 +186,22 @@ flogoplugins:
     default: 2.4.5-b03
   tp-flogo-connector-oracledb:
     tags:
-      - 1.2.1-b06
-    default: 1.2.1-b06
+      - 1.2.2-b03
+    default: 1.2.2-b03
   tp-flogo-connector-postgres:
     tags:
       - 2.7.1-b01
     default: 2.7.1-b01
   tp-flogo-connector-pulsar:
     tags:
-      - 1.3.3-b09
-    default: 1.3.3-b09
+      - 1.3.4-b03
+    default: 1.3.4-b03
   tp-flogo-connector-redis:
     tags:
       - 1.3.0-b06
     default: 1.3.0-b06
+
+flogopluginsD:
   tp-flogo-connector-salesforce:
     tags:
       - 1.3.7-b01
@@ -194,6 +230,8 @@ flogoplugins:
     tags:
       - 1.1.2-b05
     default: 1.1.2-b05
+
+flogopluginsE:
   tp-flogo-connector-odata:
     tags:
       - 1.0.0-b07
@@ -203,11 +241,13 @@ flogoplugins:
       - 1.0.1-b03-flogo-2.25.0
     default: 1.0.1-b03-flogo-2.25.0
 
-  
 buildtypesExtract: true
 images:
   tp-flogo-buildtype:
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.25.1-b130
+    tag: 2.25.2-b162
     target_location: flogo/buildtypes
+
+probes:
+  startupProbe: {}

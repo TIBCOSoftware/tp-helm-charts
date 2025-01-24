@@ -1,0 +1,71 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.ingress.enabled -}}
+{{- if eq .Values.ingress.controllerName "kong" -}}
+{{- $dot := . }}
+{{- range $rule := .Values.ingress.rules -}}
+{{- range $path := $rule.paths }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+  labels:
+    {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
+    platform.tibco.com/service-discoverable: {{ $path.serviceDiscoverable | quote }}
+  annotations:
+    konghq.com/plugins: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+    konghq.com/rewrite: /$2
+    {{- if $path.serviceDiscoverable }}
+    platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
+    {{- end }}
+    {{- with $.Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ $.Values.ingress.className }}
+  {{- if $.Values.ingress.tls }}
+  tls:
+    {{- range $.Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+  - host: {{ $rule.host | quote }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ include "dp-flogo-app.fullname" $dot }}
+            port:
+              number: {{ $path.port }}
+        path: {{ $path.path }}(/|$)(.*)
+        pathType: {{ $path.pathType }}
+
+--- 
+apiVersion: configuration.konghq.com/v1
+config:
+  {{- if $path.customCRDConfig }}
+  {{- toYaml $path.customCRDConfig | nindent 2 }}
+  {{- else }}
+  access:
+  - ngx.var.upstream_x_forwarded_prefix='{{ $path.path }}'
+  - ngx.var.upstream_x_forwarded_proto='https'
+  - ngx.var.upstream_x_forwarded_port='443'
+  {{- end }}
+kind: KongPlugin
+metadata:
+  labels:
+    {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
+  name: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+plugin: post-function
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

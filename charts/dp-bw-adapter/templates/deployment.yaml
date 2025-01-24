@@ -60,8 +60,10 @@ spec:
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
           env:
             - name: DATAPLANE_ID
               value: {{ .Values.global.cp.dataplaneId }}
@@ -87,6 +89,11 @@ spec:
               value: {{ .Values.global.cp.containerRegistry.secret }}
             - name: SOURCE_REGISTRY
               value: {{ include "bwadapter.image.registry" .}}{{"/"}}{{ include "bwadapter.image.repository" .}}{{"/"}}
+          volumeMounts:
+            - name: tmp-workspace
+              mountPath: /tmp/bw-adapter/workspace
+            - name: logs-share
+              mountPath: /tmp/logs/share
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
           image: {{ include "bwadapter.image.registry" .}}{{"/"}}{{ include "bwadapter.integration.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
@@ -95,9 +102,15 @@ spec:
           securityContext:
             {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
           {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.probes.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.global.cp.logging.fluentbit.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           env:
             - name: POD_NAMESPACE
@@ -115,18 +128,18 @@ spec:
             - name: CONTAINER_NAME
               value: {{ .Chart.Name }}
           volumeMounts:
-            - name: podlogs
+            - name: logs-share
               mountPath: /var/log/pods
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
         {{- end }}
-{{- if .Values.global.cp.logging.fluentbit.enabled }}
       volumes:
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - emptyDir: {}
+          name: tmp-workspace
+        - name: logs-share
+          emptyDir: {}
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit-config
           configMap:
             name: {{ include "bwadapter.fullname" . }}-fluentbit-config
-{{- end }}
+        {{- end }}

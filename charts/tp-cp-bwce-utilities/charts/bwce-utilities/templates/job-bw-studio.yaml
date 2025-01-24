@@ -42,12 +42,18 @@ spec:
       - name: {{ $studio.image }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- with $.Values.securityContext }}
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if eq (include "bwce-utilities.enableResourceConstraints" $dot ) "true" }}
         resources:
         {{- toYaml $.Values.studio.resources | nindent 10 }}
+        {{- end }}
         env:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $studio.image }}:{{ $studio.tag }}"
@@ -65,6 +71,10 @@ spec:
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
           subPath: {{ $.Values.toolsSubPath }}
+        - name: tmp-vol
+          mountPath: /tmp
+        - name: kaniko-vol
+          mountPath: /kaniko/.docker
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
         - mountPath: /tibco/containerregistry
@@ -74,6 +84,10 @@ spec:
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

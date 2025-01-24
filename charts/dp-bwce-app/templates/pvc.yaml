@@ -1,0 +1,28 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- $dot := . }}
+{{- range $pvc := .Values.pvc }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ $pvc.name | quote }}
+  labels:
+    {{- include "dp-bwce-app.labels" $dot | nindent 4 }}
+spec:
+  {{- with $pvc.accessModes }}
+  accessModes:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  volumeMode: {{ $pvc.volumeMode | quote }}
+  resources:
+    requests:
+      storage: {{ $pvc.size | quote }}
+  storageClassName: {{ $pvc.storageClass | quote }}
+  {{- with $pvc.selector }}
+  selector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

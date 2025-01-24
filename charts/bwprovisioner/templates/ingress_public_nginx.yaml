@@ -11,15 +11,9 @@ metadata:
     nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-User,X-Auth-Request-Email,X-Forwarded-Access-Token,X-Auth-Request-Access-Token,X-Atmosphere-Token
     nginx.ingress.kubernetes.io/auth-signin: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/start?rd=$escaped_request_uri
     nginx.ingress.kubernetes.io/auth-url: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/auth
-    nginx.ingress.kubernetes.io/configuration-snippet: "auth_request_set $token $upstream_http_authorization;\nproxy_set_header
-      Authorization $token;\nproxy_pass_header Authorization; \n"
     nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
     nginx.ingress.kubernetes.io/proxy-body-size: "200m"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
-    nginx.ingress.kubernetes.io/auth-snippet: |
-      if ( $request_uri !~ "{{ .Values.publicApi.ingress.config.pathPrefix }}/(.*)" ) {
-            return 200;
-      }
     nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.publicApi.ingress.config.pathPrefix }}
     nginx.ingress.kubernetes.io/use-regex: "true"
     {{- with .Values.global.cp.resources.ingress.annotations }}
@@ -38,5 +32,5 @@ spec:
             port:
               number: {{ $.Values.publicApiService.targetPort }}
         path: {{ .Values.publicApi.ingress.config.pathPrefix }}/(.*)
-        pathType: Prefix
+        pathType: ImplementationSpecific
 {{- end }}

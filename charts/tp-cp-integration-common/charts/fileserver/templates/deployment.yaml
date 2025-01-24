@@ -36,7 +36,7 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           ports:
-            - containerPort: {{ .Values.service.port }}
+            - containerPort: {{ .Values.service.targetPort }}
               name: server
           {{- with $.Values.securityContext }}
           securityContext:
@@ -44,15 +44,28 @@ spec:
           {{- end }}
           image: {{ include "fileserver.image.registry" . }}{{"/"}}{{ include "fileserver.integration.image.repository" . }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /health/liveness
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
           volumeMounts:
+            - mountPath: /tmp
+              name: tmp-share
             - mountPath: /usr/share/nginx/html
               name: shared-volume
               subPath: {{ .Values.volumes.fileserver.subPath }}
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
+          {{- if eq (include "fileserver.enableResourceConstraints" . ) "true" }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -66,6 +79,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        - emptyDir: {}
+          name: tmp-share
         - name: shared-volume
           persistentVolumeClaim:
             claimName: {{ include "fileserver.pvc-name" . }}

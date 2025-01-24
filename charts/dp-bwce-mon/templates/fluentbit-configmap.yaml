@@ -16,6 +16,9 @@ data:
       Log_Level         info
       Daemon            off
       Parsers_File      parsers.conf
+      HTTP_Server     On
+      HTTP_Listen     0.0.0.0
+      HTTP_Port       2020
 
     @INCLUDE input.conf
     @INCLUDE filter.conf
@@ -25,9 +28,9 @@ data:
     [INPUT]
       Name              tail
       Tag               dp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
-      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      Path              /var/log/pods/bwce-mon.log
       multiline.parser  docker, cri
-      DB                /var/log/flb_kube.db
+      DB                /var/log/pods/flb_kube.db
       Mem_Buf_Limit     5MB
       Skip_Long_Lines   On
       Refresh_Interval  10
@@ -43,9 +46,14 @@ data:
       Name              parser
       Match             dp.*
       key_name          log
-      parser            tsc-node-logger
+      parser            json_decode
       Reserve_Data      On
       Preserve_Key      On
+    [FILTER]
+      Name lua
+      Match dp.*
+      Script update_record.lua
+      Call update_record
 
   output.conf: |
     [OUTPUT]
@@ -65,8 +73,21 @@ data:
 
   parsers.conf: |
     [PARSER]
-      Name tsc-node-logger
-      Format regex
-      Regex ^*(?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) \[.*\] (?<tscparserlogger>[^ ]*) (?<tscparsermessage>.*)$
-      Skip_Empty_Values False
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+  update_record.lua: |
+    function update_record(tag, timestamp, record)
+      for key, val in pairs(record) do
+        if(key ~= "time" ) then
+            local newMsg = { msg = record.log }
+            record.log = newMsg
+         end
+      end
+      return 2, timestamp, record
+    end
 {{- end }}

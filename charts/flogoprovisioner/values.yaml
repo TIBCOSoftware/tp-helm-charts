@@ -15,6 +15,9 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     environmentType: ""
+    enableResourceConstraints: true
+    # insecureSkipVerify is true by default because we are calling own services. To be more generally addressed in upcoming release.
+    authInsecureIngressController: true
     resources:
       serviceaccount:
         nameSpace: ""
@@ -36,7 +39,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 3.1.4
+          tag: 3.2.2
         resources:
           requests:
             cpu: 10m
@@ -44,13 +47,26 @@ global:
           limits:
             cpu: 50m
             memory: 30Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
         securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
               - ALL
+              - CAP_NET_RAW
     # proxy configuration for the outward traffic from cp proxy
     # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
     proxy:
@@ -62,8 +78,6 @@ global:
       noProxy: ""
   flogoprovisioner:
     serviceAccount: ""
-    data:
-      namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       tag: 452
@@ -85,16 +99,6 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-serviceAccount:
-  enabled: false
-  # Specifies whether a service account should be created
-  create: false
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
 
 podAnnotations: {}
 
@@ -118,9 +122,11 @@ securityContext:
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   flogoprovisioner:
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
+        - CAP_NET_RAW
 
 service:
   type: ClusterIP
@@ -138,7 +144,7 @@ ingress:
   hostsOverride: false
   className: haproxy
   hosts:
-    - host: ""
+    - host: "placeholder"
       paths:
         - path: /
           pathType: Prefix
@@ -154,7 +160,13 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
+resources:
+  requests:
+    cpu: "2"
+    memory: 2Gi
+  limits:
+    cpu: "4"
+    memory: 4Gi
 
 autoscaling:
   enabled: false
@@ -168,6 +180,36 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+topologySpreadConstraints: []
+# -- Additional environment variables.
+
+extraEnvVars: []
+#  - name: NAME
+#    value: value
+
+# The name of ConfigMap containing additional environment variables.
+extraEnvVarsCM: ""
+
+# The name of Secret containing extra additional environment variables.
+extraEnvVarsSecret: ""
+
+# -- Extra volumeMounts for the integration services container.
+# More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
+extraVolumeMounts: []
+  # - name: example
+  #   mountPath: /opt/tibco/example.txt
+#   subPath: example.txt
+
+# -- Extra volumes for the integration services container.
+# More info: `kubectl explain deployment.spec.template.spec.volumes`.
+extraVolumes: []
+  # - name: example
+  #   persistentVolumeClaim:
+#     claimName: exampleClaim
+
+# -- Additional init containers to add to the automationservices pod.
+extraInitContainers: []
 
 probes:
   liveness:

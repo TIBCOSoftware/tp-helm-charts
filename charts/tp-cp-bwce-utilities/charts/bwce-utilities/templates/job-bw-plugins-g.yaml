@@ -40,12 +40,18 @@ spec:
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-delete
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with $.Values.securityContext }}
           securityContext:
           {{- toYaml $.Values.securityContext | nindent 12 }}
           {{- end }}
+          {{- if eq (include "bwce-utilities.enableResourceConstraints" $dot ) "true" }}
           resources:
           {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
           command:
             - "sh"
             - "-c"
@@ -57,17 +63,25 @@ spec:
             - name: shared-vol
               mountPath: {{ $.Values.volumes.plugins.mountPath }}
               subPath: {{ $.Values.volumes.plugins.subPath }}
+            - name: tmp-vol
+              mountPath: /tmp
         {{- end }}
         {{- range $tag := $plugin.tags }}
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-img-extract
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
           imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with $.Values.securityContext }}
           securityContext:
           {{- toYaml $.Values.securityContext | nindent 12 }}
           {{- end }}
+          {{- if eq (include "bwce-utilities.enableResourceConstraints" $dot ) "true" }}
           resources:
           {{- toYaml $.Values.plugins.resources | nindent 12 }}
+          {{- end }}
           env:
           - name: SOURCE_REGISTRY
             value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.plugins.image.repository" $dot }}"
@@ -87,6 +101,10 @@ spec:
           - mountPath: {{ $.Values.volumes.plugins.mountPath }}
             name: shared-vol
             subPath: {{ $.Values.volumes.plugins.subPath }}
+          - name: tmp-vol
+            mountPath: /tmp
+          - name: kaniko-vol
+            mountPath: /kaniko/.docker
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
           - mountPath: /tibco/containerregistry
@@ -95,12 +113,18 @@ spec:
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-default
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with $.Values.securityContext }}
           securityContext:
           {{- toYaml $.Values.securityContext | nindent 12 }}
           {{- end }}
+          {{- if eq (include "bwce-utilities.enableResourceConstraints" $dot ) "true" }}
           resources:
           {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
           command:
             - "sh"
             - "-c"
@@ -117,12 +141,18 @@ spec:
             - name: shared-vol
               mountPath: {{ $.Values.volumes.plugins.mountPath }}
               subPath: {{ $.Values.volumes.plugins.subPath }}
+            - name: tmp-vol
+              mountPath: /tmp
         {{- end }}
       {{- end }}
       volumes:
       - name: shared-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

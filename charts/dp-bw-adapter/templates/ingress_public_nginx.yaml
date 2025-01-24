@@ -25,5 +25,5 @@ spec:
             port:
               number: {{ $.Values.service.targetPort }}
         path: {{ .Values.global.cp.resources.ingress.pathPrefix }}/(.*)
-        pathType: Prefix
+        pathType: ImplementationSpecific
 {{- end }}

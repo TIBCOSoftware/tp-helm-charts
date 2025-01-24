@@ -86,11 +86,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "fileserver.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{/* Service account configured for control plane. fail if service account not exist */}}
 {{- define "fileserver.service-account-name" }}
 {{- if .Values.serviceAccount }}
@@ -100,7 +95,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- end }}
 
-
-
-
-
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "fileserver.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
+{{- end }}

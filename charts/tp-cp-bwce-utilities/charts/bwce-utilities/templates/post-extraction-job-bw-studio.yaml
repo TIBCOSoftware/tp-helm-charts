@@ -35,12 +35,19 @@ spec:
       containers:
         - name: post-extractor
           image: {{ include "bwce-utilities.image.registry" .}}{{"/"}}{{ include "bwce-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with $.Values.securityContext }}
           securityContext:
           {{- toYaml $.Values.securityContext | nindent 12 }}
           {{- end }}
+          {{- if eq (include "bwce-utilities.enableResourceConstraints" . ) "true" }}
           resources:
           {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
           command:
             - "sh"
             - "-c"
@@ -100,10 +107,14 @@ spec:
             - name: shared-vol
               mountPath: {{ $.Values.toolsMountPath }}
               subPath: {{ $.Values.toolsSubPath }}
+            - name: tmp-vol
+              mountPath: /tmp
       volumes:
         - name: shared-vol
           persistentVolumeClaim:
             claimName: {{ include "bwce-utilities.pvc-name" . }}
+        - emptyDir: {}
+          name: tmp-vol
 {{- if (include "bwce-utilities.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "bwce-utilities.container-registry.secret" . }}

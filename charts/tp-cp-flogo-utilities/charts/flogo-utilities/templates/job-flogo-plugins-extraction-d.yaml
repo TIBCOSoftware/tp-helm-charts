@@ -2,12 +2,12 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{- if .Values.flogopluginsExtract }}
+{{- if .Values.flogopluginsExtractD }}
 {{- $dot := . }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "flogo-utilities.fullname" $dot }}-plugins-extract-{{ randAlphaNum 4 | lower }}
+  name: {{ include "flogo-utilities.fullname" $dot }}-plugins-extract-d-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -31,18 +31,26 @@ spec:
       restartPolicy: Never
       {{- with $.Values.podSecurityContext }}
       securityContext:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- if (include "flogo-utilities.container-registry.secret" .) }}
+      {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
       imagePullSecrets:
-        - name: {{ include "flogo-utilities.container-registry.secret" . }}
+        - name: {{ include "flogo-utilities.container-registry.secret" $dot }}
       {{- end }}
       containers:
-      {{- range $name, $plugin := .Values.flogoplugins }}
+      {{- range $name, $plugin := .Values.flogopluginsD }}
       {{- range $tag := $plugin.deleteTags }}
       - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-delete
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: IfNotPresent
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}        
+        {{- if eq (include "flogo-utilities.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.scripts.resources | nindent 12 }}
+        {{- end }}        
         {{- with $.Values.securityContext }}
         securityContext:
           {{- toYaml $.Values.securityContext | nindent 10 }}
@@ -63,11 +71,25 @@ spec:
           - name: shared-vol
             mountPath: {{ $.Values.volumes.plugins.mountPath }}
             subPath: {{ $.Values.volumes.plugins.subPath }}
+          - name: tmp-vol
+            mountPath: /tmp
       {{- end }}
       {{- range $tag := $plugin.tags }}
       - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-extract
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: IfNotPresent
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 12 }}
+        {{- end }} 
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 12 }}
+        {{- end }}
+        {{- if eq (include "flogo-utilities.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.plugins.resources | nindent 12 }}
+        {{- end }}
         env:
         - name: SOURCE_REGISTRY
           value: "{{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.plugins.image.repository" $dot }}"
@@ -86,9 +108,13 @@ spec:
         - name: FLOGO_CONNECTOR_TAG
           value: "{{ $tag }}"
         volumeMounts:
-        - name: shared-vol
-          mountPath: {{ $.Values.volumes.plugins.mountPath }}
+        - mountPath: {{ $.Values.volumes.plugins.mountPath }}
+          name: shared-vol
           subPath: {{ $.Values.volumes.plugins.subPath }}
+        - name: tmp-vol
+          mountPath: /tmp
+        - name: kaniko-vol
+          mountPath: /kaniko/.docker
         # mount this secret only if private container registry is configured for CP.
         {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
         - mountPath: /tibco/containerregistry
@@ -97,6 +123,18 @@ spec:
       - name: {{ $name }}-{{ randAlphaNum 4 | lower }}-default
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: IfNotPresent
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 12 }}
+        {{- end }}
+        {{- if eq (include "flogo-utilities.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.scripts.resources | nindent 12 }}
+        {{- end }}
         env:
         - name: FLOGO_CONNECTOR_NAME
           value: "{{ $name }}"
@@ -118,12 +156,18 @@ spec:
           - name: shared-vol
             mountPath: {{ $.Values.volumes.plugins.mountPath }}
             subPath: {{ $.Values.volumes.plugins.subPath }}
+          - name: tmp-vol
+            mountPath: /tmp
       {{- end }}
       {{- end }}
       volumes:
       - name: shared-vol
         persistentVolumeClaim:
           claimName: {{ include "flogo-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
       {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

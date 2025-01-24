@@ -15,6 +15,9 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     environmentType: ""
+    enableResourceConstraints: true
+    # insecureSkipVerify is true by default because we are calling own services. To be more generally addressed in upcoming release.
+    authInsecureIngressController: true
     resources:
       serviceaccount:
         namespace: ""
@@ -36,7 +39,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 3.1.4
+          tag: 3.2.2
         resources:
           requests:
             cpu: 10m
@@ -44,18 +47,29 @@ global:
           limits:
             cpu: 50m
             memory: 30Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
         securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
               - ALL
+              - CAP_NET_RAW
 
   bwprovisioner:
     serviceAccount: ""
-    data:
-      namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       tag: 452
@@ -100,9 +114,11 @@ securityContext:
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   bwprovisioner:
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
+        - CAP_NET_RAW
 
 service:
   type: ClusterIP
@@ -120,7 +136,7 @@ ingress:
   hostsOverride: false
   className: haproxy
   hosts:
-    - host: ""
+    - host: "placeholder"
       paths:
         - path: /
           pathType: Prefix
@@ -156,6 +172,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+topologySpreadConstraints: []
 
 probes:
   liveness:
@@ -198,6 +216,9 @@ extraInitContainers: []
 config:
   ARTIFACT_MANAGER_PORT: "7813"
   APP_INIT_IMAGE_TAG: "32"
+  BWCE_APP_HELMCHART_NAME: "dp-bwce-app"
+  BWCE_APP_HELMCHART_VERSION: "1.4.2"
+  PROVISIONER_AGENT_SERVICE_PORT: "80"
 
 publicApi:
   ingress:

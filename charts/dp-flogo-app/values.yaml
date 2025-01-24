@@ -1,0 +1,271 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Default values for dp-flogo-app.
+
+dpConfig:
+  dataplaneId: ""
+  capabilityInstanceId: ""
+  capabilityVersion: ""
+  capabilityDefaultNamespace: ""
+  helmRepoAlias: ""
+
+appConfig:
+  appId: ""
+  buildId: ""
+  workloadType: "user-app"
+  appVersion: "1.0.0"
+  originalAppName: ""
+  flogoBuildTypeTag: "2.25.2-b162"
+  flogoBaseImageTag: "2.25.2-b162"
+  tags: ""
+  connectors: ""
+  lastUpdated: ""
+  flogoAppPropsEnv: "auto"
+  flogoExposeSwaggerEp: true
+  flogoHttpServicePort: 7777
+  flogoAppMetrics: true
+
+otel:
+  traces:
+    enabled: true
+  metrics:
+    enabled: true
+
+serviceMesh:
+  enabled: false
+
+networkPolicy:
+  internetAll: enable
+  internetWeb: enable
+
+replicaCount: 1
+
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  appInitImageName: "tp-flogo-app-init"
+  appInitImageTag: "35"
+  fluentBitImageName: "common-fluentbit"
+  fluentBitImageTag: "3.2.2"
+  flogoBaseImageName: "tp-flogo-app-base"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+# for future use, workload can be "statufulset", "deployment", etc
+workload: "deployment"
+
+serviceAccountName: ""
+
+deploymentAnnotations: {}
+
+deploymentLabels: {}
+
+podAnnotations: {}
+
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  fsGroupChangePolicy: Always
+  runAsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+flogoapp:
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    # enabling readOnlyRootFilesystem may cause issues with supplements where files are copied in system folder example - /etc/krb5.conf
+    capabilities:
+      drop:
+      - ALL
+      - CAP_NET_RAW
+  resources: {}
+  #  limits:
+  #    cpu: "1"
+  #    memory: 2Gi
+  #  requests:
+  #    cpu: 250m
+  #    memory: 1Gi
+  # Additional volumeMounts on the output Deployment definition.
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   readOnly: true
+  envs: []
+  # - name: foo
+  #   value: bar
+  envFrom:
+    configMapRef: []
+    #  - "cm1"
+    secretRef: []
+    #  - "secret1"
+  startupProbe:
+    failureThreshold: 50
+    httpGet:
+      path: /ping
+      port: 7777
+      scheme: HTTP
+    periodSeconds: 6
+    successThreshold: 1
+    timeoutSeconds: 5
+  livenessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /ping
+      port: 7777
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 6
+    successThreshold: 1
+    timeoutSeconds: 5
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /ping
+      port: 7777
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    successThreshold: 1
+    timeoutSeconds: 5
+
+fluentBit:
+  enabled: true
+  configMapName: "otel-config-flogo"
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+      - CAP_NET_RAW
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  resources: {}
+  #  limits:
+  #    cpu: 100m
+  #    memory: 100Mi
+  #  requests:
+  #    cpu: 10m
+  #    memory: 10Mi
+  livenessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /api/v1/health
+      port: 2020
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+
+appInit:
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+      - ALL
+      - CAP_NET_RAW
+  resources: {}
+  #  limits:
+  #    cpu: 100m
+  #    memory: 100Mi
+  #  requests:
+  #    cpu: 10m
+  #    memory: 10Mi
+
+service:
+  serviceDiscoverable: true
+  serviceDescription: ""
+  type: ClusterIP
+  ports: []
+  #  - port: 9999
+  #    targetPort: 9999
+
+ingress:
+  enabled: false
+  className: ""
+  # currently supported controllerName are: nginx, kong, traefik
+  controllerName: ""
+  annotations: {}
+    # kubernetes.io/tls-acme: "true"
+  rules:
+    - host: example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 9999
+          serviceDiscoverable: true
+          serviceDescription: ""
+          customCRDConfig: {}
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Enable or disable tmp volume mounts. This is required for readOnlyRootFilesystem security context, default is true
+enableTmpVolume: true
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+pvc: []
+#  - name: "persistenceA"
+#    accessModes:
+#    - ReadWriteOnce
+#    volumeMode: "Filesystem"
+#    size: "1Gi"
+#    storageClass: "standard"
+#    selector: {}
+
+strategy:
+  type: RollingUpdate
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+topologySpreadConstraints: []
+
+appProps: {}
+#  appProp1: value1
+#  appProp2: value2
+
+engineProps: {}
+#  test1: value1
+
+appSecrets: {}
+#  appSecret1: value1
+#  appSecret2: value2
+
+engineSecrets: {}
+#  test1: value1
+
+# additional Custom Resource Definition(CRD) to be created
+crds: []
+#  - apiVersion: apiextensions.k8s.io/v1
+#    kind: CustomResourceDefinition
+#    metadata:
+#      name: crd1
+#    spec:
+#      group: example.com
