@@ -92,11 +92,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "bwce-utilities.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{/* Service account configured for control plane. fail if service account not exist */}}
 {{- define "bwce-utilities.service-account-name" }}
 {{- if .Values.serviceAccount }}
@@ -104,4 +99,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- else }}
   {{- include "cp-env.get" (dict "key" "CP_SERVICE_ACCOUNT_NAME" "default" "control-plane-sa" "required" "false"  "Release" .Release )}}
 {{- end }}
+{{- end }}
+
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "bwce-utilities.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
 {{- end }}

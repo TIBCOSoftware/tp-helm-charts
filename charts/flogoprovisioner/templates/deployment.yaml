@@ -35,8 +35,6 @@ spec:
       - name: {{ .Values.global.cp.containerRegistry.secret }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
-      {{- else }}
-      serviceAccountName: {{ include "flogoprovisioner.sa" . }}
       {{- end }}
       {{- if .Values.podSecurityContext }}
       securityContext:
@@ -51,7 +49,7 @@ spec:
               name: publicapiserver
           {{- if .Values.securityContext.flogoprovisioner }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext.flogoprovisioner | nindent 12 }}
           {{- end }}
           image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}tp-flogo-provisioner:{{ .Values.global.flogoprovisioner.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -64,8 +62,10 @@ spec:
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
           env:
             {{- range $filename, $content :=  .Values.config }}
             {{- if $content }}
@@ -148,6 +148,11 @@ spec:
                   name: {{ include "flogoprovisioner.o11yservice.configmap" . }}
                   key: otel-recvservice-port
                   optional: true
+          volumeMounts:
+            - name: logs-share
+              mountPath: /tmp/logs/share
+            - name: tmp-workspace
+              mountPath: /tmp
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
           image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
@@ -156,9 +161,15 @@ spec:
           securityContext:
             {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
           {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.probes.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.global.cp.logging.fluentbit.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           env:
             - name: POD_NAMESPACE
@@ -176,18 +187,34 @@ spec:
             - name: CONTAINER_NAME
               value: {{ .Chart.Name }}
           volumeMounts:
-            - name: podlogs
+            - name: logs-share
               mountPath: /var/log/pods
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
         {{- end }}
-      {{- if .Values.global.cp.logging.fluentbit.enabled }}
       volumes:
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - emptyDir: {}
+          name: tmp-workspace
+        - emptyDir: {}
+          name: logs-share        
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit-config
           configMap:
             name: {{ include "flogoprovisioner.fullname" . }}-fluentbit-config
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
       {{- end }}

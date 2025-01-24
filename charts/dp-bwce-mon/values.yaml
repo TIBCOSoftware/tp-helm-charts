@@ -15,6 +15,7 @@ global:
       url: reldocker.tibco.com
       repository: "tibco-platform-docker-prod"
     environmentType: ""
+    enableResourceConstraints: true
     resources:
       dbconfig:
         dbHost: foo
@@ -37,7 +38,7 @@ global:
       fluentbit:
         enabled: true
         image:
-          tag: 3.1.4
+          tag: 3.2.2
         resources:
           requests:
             cpu: 10m
@@ -45,13 +46,26 @@ global:
           limits:
             cpu: 50m
             memory: 30Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
         securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1000
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop:
               - ALL
+              - CAP_NET_RAW
 
   bwcemon:
     serviceAccount: ""
@@ -88,9 +102,11 @@ securityContext:
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   bwcemon:
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
+        - CAP_NET_RAW
 
 service:
   type: ClusterIP
@@ -103,7 +119,7 @@ ingress:
   hostsOverride: false
   className: haproxy
   hosts:
-    - host: ""
+    - host: "placeholder"
       paths:
         - path: /
           pathType: Prefix
@@ -139,6 +155,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+topologySpreadConstraints: []
 
 probes:
   liveness:

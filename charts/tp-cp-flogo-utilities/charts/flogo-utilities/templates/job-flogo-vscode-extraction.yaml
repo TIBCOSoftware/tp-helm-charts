@@ -35,24 +35,32 @@ spec:
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       {{- end }}
+      {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
       imagePullSecrets:
-        {{- if (include "flogo-utilities.container-registry.secret" .) }}
-        - name: {{ include "flogo-utilities.container-registry.secret" . }}
-        {{- end }}
+        - name: {{ include "flogo-utilities.container-registry.secret" $dot }}
+      {{- end }}
       containers:
       {{- range $extension := .Values.flogoVSCodeExtensionImages }}
       - name: {{ $extension.image }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- with $.Values.securityContext }}
         securityContext:
-          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if eq (include "flogo-utilities.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.flogoVSCodeExtension.resources | nindent 10 }}
+        {{- end }}        
         env:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.flogo.image.repository" $dot }}{{"/"}}{{ $extension.image }}:{{ $extension.tag }}"
         - name: IMAGE_TEMP_DIR
-          value: "/tmp/{{ $extension.image }}/"
+          value: "/tmp/{{ $extension.image }}-{{ $extension.tag }}/"
         - name: SOURCE_DIRS
           value: "{{ $extension.path }}"
         - name: TARGET_DIRS
@@ -65,6 +73,10 @@ spec:
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
           subPath: {{ $.Values.toolsSubPath }}
+        - name: tmp-vol
+          mountPath: /tmp
+        - name: kaniko-vol
+          mountPath: /kaniko/.docker
         # mount this secret only if private container registry is configured for CP.
         {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
         - name: container-registry-secret
@@ -75,6 +87,10 @@ spec:
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "flogo-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
       {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

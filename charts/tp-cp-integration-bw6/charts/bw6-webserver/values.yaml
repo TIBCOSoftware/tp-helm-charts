@@ -9,9 +9,6 @@ enabled: true
 
 # Global section will apply to this chart and all of its subcharts.
 global:
-  cic:
-    data:
-      BW6_WEBSERVER_IMAGE_TAG: "38"
   cp:
     data:
   external:
@@ -20,41 +17,45 @@ global:
   # In local vagrant setup,
   # .Values.global.enableLogging variable can be set to false to disable starting fluentbit side-car containers
   enableLogging: true
-  
-  #VALID_TIBCO_DOMAIN_LIST is list of allowed hosts which are allowed to register to be notified of logout requests.
-  VALID_TIBCO_DOMAIN_LIST: .tibco.com, .cloud.tibco.com, .tcie.pro, .cic2.pro
 
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "3.1.4"
+      tag: "3.2.2"
+    probes:
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /api/v1/health
+          port: 2020
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
     securityContext:
-      runAsNonRoot: false
-      runAsUser: 0
+      runAsNonRoot: true
+      runAsUser: 1000
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
           - ALL
+          - CAP_NET_RAW
 
 replicaCount: 1
+
+config:
+  BW6_WEBSERVER_IMAGE_TAG: "57"
+  HTTP_REQUEST_TIMEOUT: "120000"
+  IDLE_TIME_SECONDS: "1800"
+  WEB_SERVER_LOG_ENABLED: "true"
 
 hpa:
   cpu: 70
   memory: 70
   maxReplicas: 3
   minReplicas: 1  
-
-
-  # Set this to mimic the multi-regional TSC setup. This way we do not need to deploy TSC in three different physical (AWS) regions.
-  # We can mimic multi-regions in the one region only.
-  #mimicMultiregion: true
-
-  # Optional "parent" WHO.
-  # Set this to point to the WHO that contains your onboarding chart which has the shared resources deployed.
-  # This chart will then copy the output configurations for those resources, without having to re-deploy them.
-  #primaryWho: null
-
-deploy: false
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
@@ -74,9 +75,11 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
+      - CAP_NET_RAW
 
 volumes:
   bw6webserver:
@@ -86,20 +89,48 @@ volumes:
 bw6webserver:
   resources:
     requests:
-      cpu: 500m
-      memory: 700Mi
+      cpu: 100m
+      memory: 512Mi
     limits:
-      cpu: "1"
+      cpu: 500m
       memory: 1024Mi
 fluentbit:
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 100Mi
     limits:
-      cpu: 150m
+      cpu: 100m
       memory: 150Mi
 
-image:
-  registry: ""
-  repo: ""
+probes:
+  readinessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/api/v1/version"
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 1
+    successThreshold: 1
+  livenessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/api/v1/version"
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 1
+  startupProbe: {}
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+
+tolerations: []
+
+#topologySpreadConstraints: []

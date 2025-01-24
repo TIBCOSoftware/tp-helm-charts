@@ -76,11 +76,6 @@ Integration storage folder pvc name
 
 {{- define "flogoprovisioner.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}
 
-{{- define "flogoprovisioner.sa" }}tp-dp-{{ .Values.global.cp.dataplaneId }}-sa{{ end -}}
-{{- define "flogoprovisioner.role" }}tp-dp-{{ .Values.global.cp.dataplaneId }}-role{{ end -}}
-{{- define "flogoprovisioner.role-bind" }}tp-dp-{{ .Values.global.cp.dataplaneId }}-role-bind{{ end -}}
-
-
 {{- define "flogoprovisioner.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}

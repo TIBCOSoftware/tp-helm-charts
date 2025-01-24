@@ -37,7 +37,7 @@ volumes:
 image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 1.26.0-alpine
+  tag: 1.27-alpine
   name: integration-nginx
 
 nameOverride: ""
@@ -62,10 +62,18 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
+      - CAP_NET_RAW
 
+probes:
+  liveness:
+    initialDelaySeconds: 3
+    failureThreshold: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
 
 service:
   type: ClusterIP
@@ -74,11 +82,11 @@ service:
 
 resources:
   requests:
-    cpu: "300m"
-    memory: "700Mi"
+    cpu: "100m"
+    memory: "128Mi"
   limits:
     cpu: "500m"
-    memory: "1024Mi"
+    memory: "256Mi"
 
 nodeSelector: {}
 

@@ -33,8 +33,18 @@ spec:
 {{- end }}
     spec:
       automountServiceAccountToken: false
+      {{- with .Values.nodeSelector }}
       nodeSelector:
-        kubernetes.io/os: linux
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       topologySpreadConstraints:
       - maxSkew: 1
         topologyKey: "kubernetes.io/hostname"
@@ -56,37 +66,31 @@ spec:
       {{- end }}
       containers:
       - name: tp-iapp-bw6-server
-        image: {{ include "bw6-webserver.image.registry" . }}{{"/"}}{{ include "bw6-webserver.bwce.image.repository" . }}{{"/"}}tp-bw6-webserver:{{ .Values.global.cic.data.BW6_WEBSERVER_IMAGE_TAG }}
+        image: {{ include "bw6-webserver.image.registry" . }}{{"/"}}{{ include "bw6-webserver.bwce.image.repository" . }}{{"/"}}tp-bw6-webserver:{{ .Values.config.BW6_WEBSERVER_IMAGE_TAG }}
         imagePullPolicy: IfNotPresent
         {{- with $.Values.securityContext }}
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if eq (include "bw6-webserver.enableResourceConstraints" . ) "true" }}
         resources:
         {{- toYaml .Values.bw6webserver.resources | nindent 10 }}
+        {{- end }}
         ports:
         - containerPort: 3000
           name: server
+         {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.probes.readinessProbe }}
         readinessProbe:
-          httpGet:
-            scheme: HTTP
-            path: "/api/v1/version"
-            port: 3000
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 1
-          successThreshold: 1
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.probes.livenessProbe }}
         livenessProbe:
-          httpGet:
-            scheme: HTTP
-            path: "/api/v1/version"
-            port: 3000
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          successThreshold: 1
-          failureThreshold: 1
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         env:
         - name: TP_CP_MONITORING_HOST
           valueFrom:
@@ -139,21 +143,27 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_USER_SUB_HOST
+        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
         - name: HTTP_REQUEST_TIMEOUT
-          value: "120000"
+          value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS
-          value: "1800"
+          value: {{ .Values.config.IDLE_TIME_SECONDS | quote }}
         - name: WEB_SERVER_LOG_ENABLED
-          value: "true"
+          value: {{ .Values.config.WEB_SERVER_LOG_ENABLED | quote }}
         - name: TSC_CONFIG_LOCATION
           value: {{ .Values.volumes.bw6webserver.mountPath }}
-        # FIXME: check what it is referring to in code
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         volumeMounts:
           - name: store-vol
             mountPath: {{ .Values.volumes.bw6webserver.mountPath }}
             subPath: {{ .Values.volumes.bw6webserver.subPath }}
+          - name: logs-share
+            mountPath: /tmp/webserver-logs
 {{- if eq (include "bw6-webserver.cp-logging-fluentbit-enabled" .) "true" }}
       - name: fluentbit
         image: {{ include "bw6-webserver.image.registry" . }}{{"/"}}{{ include "bw6-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.fluentbit.image.name }}:{{ .Values.global.fluentbit.image.tag }}
@@ -161,8 +171,14 @@ spec:
         securityContext:
         {{- toYaml $.Values.global.fluentbit.securityContext | nindent 10 }}
         {{- end }}
+        {{- with $.Values.global.fluentbit.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "bw6-webserver.enableResourceConstraints" . ) "true" }}
         resources:
         {{- toYaml $.Values.fluentbit.resources | nindent 10 }}
+        {{- end }}
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -182,42 +198,14 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
-          - name: REGION
-            value: {{ .Values.global.cic.data.SYSTEM_REGION }}
-{{- if .Values.global.cp }}
-{{- if .Values.global.cp.logServer }}
-{{- if .Values.global.cp.logServer.services }}
-          - name: LOG_SERVER_USERNAME
-            valueFrom:
-              secretKeyRef:
-                name: logserver-credentials
-                key: username
-          - name: LOG_SERVER_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: logserver-credentials
-                key: password
-{{- end }}
-{{- end }}
-{{- end }}
         volumeMounts:
-          - name: podlogs
+          - name: logs-share
             mountPath: /var/log/pods
-          - name: dockercontainerlogs
-            mountPath: /var/lib/docker/containers
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
 {{- if eq (include "bw6-webserver.cp-logging-fluentbit-enabled" .) "true" }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
         - name: config-volume
           configMap:
             name: {{ include "bw6-webserver.consts.appName" . }}-fluentbit-config
@@ -225,6 +213,8 @@ spec:
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "bw6-webserver.pvc-name" . }}
+        - name: logs-share
+          emptyDir: {}
 {{- if (include "bw6-webserver.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "bw6-webserver.container-registry.secret" . }}

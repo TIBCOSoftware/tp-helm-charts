@@ -2,10 +2,6 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-# Default values for pluginsmanagerv2.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 # set to false if you want to skip deploying this chart
 enabled: true
 
@@ -15,7 +11,7 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 98-distroless
+  tag: 106-distroless
   pullPolicy: IfNotPresent
 
 debug:
@@ -45,9 +41,11 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
+      - CAP_NET_RAW
 
 scripts:
   resources:
@@ -99,16 +97,16 @@ bwStudioExtract: true
 bwStudioImages:
   - image: tp-bw-studio
     path: /opt/downloads/
-    tag: 2.9.2-linux-amd64
-    target_location: bwce-studio/2.9.2/linux-amd64/
+    tag: 2.10.0-linux-amd64
+    target_location: bwce-studio/2.10.0/linux-amd64/
   - image: tp-bw-studio
     path: /opt/downloads/
-    tag: 2.9.2-mac-amd64
-    target_location: bwce-studio/2.9.2/mac-amd64/
+    tag: 2.10.0-mac-amd64
+    target_location: bwce-studio/2.10.0/mac-amd64/
   - image: tp-bw-studio
     path: /opt/downloads/
-    tag: 2.9.2-win-amd64
-    target_location: bwce-studio/2.9.2/windows-amd64/
+    tag: 2.10.0-win-amd64
+    target_location: bwce-studio/2.10.0/windows-amd64/
 bwStudioDelete: false
 bwStudioDeleteVersions: ""
 
@@ -165,8 +163,8 @@ bwPluginsJobB:
     default: 6.1.1.v4.1-tci-2.0
   tci-bw-plugin-ap:
     tags:
-      - 6.2.0.v9-tci-2.0
-    default: 6.2.0.v9-tci-2.0
+      - 6.2.0.v10.1-tci-2.0
+    default: 6.2.0.v10.1-tci-2.0
   tci-bw-plugin-oebs:
     tags:
       - 6.1.2.v12-tci-2.0
@@ -181,8 +179,8 @@ bwPluginsJobB:
     default: 6.3.1.v12.1-tci-2.0
   tci-bw-plugin-amazons3:
     tags:
-      - 6.7.0.v5-tci-2.0
-    default: 6.7.0.v5-tci-2.0
+      - 6.7.0.v6.2-tci-2.0
+    default: 6.7.0.v6.2-tci-2.0
   tci-bw-plugin-smpp:
     tags:
       - 6.0.3.v5-tci-2.0
@@ -233,8 +231,8 @@ bwPluginsJobD:
     default: 6.1.1.v14-tci-2.0
   tci-bw-plugin-dataconversion:
     tags:
-      - 4.7.0.v5.2-tci-2.0
-    default: 4.7.0.v5.2-tci-2.0
+      - 4.7.0.v12-tci-2.0
+    default: 4.7.0.v12-tci-2.0
   tci-bw-plugin-snowflake:
     tags:
       - 6.3.0.v5-tci-2.0
@@ -249,8 +247,8 @@ bwPluginsJobD:
     default: 6.3.2.v9.1-tci-2.0
   tci-bw-plugin-eftl:
     tags:
-      - 6.0.0.v13-tci-2.0
-    default: 6.0.0.v13-tci-2.0
+      - 6.0.0.v33-tci-2.0
+    default: 6.0.0.v33-tci-2.0
   tci-bw-plugin-mq:
     tags:
       - 8.8.2.v5-tci-2.0
@@ -359,8 +357,8 @@ bwPluginsJobG:
     default: 6.0.0.v12.0.3-tci-2.0
   tci-bw-plugin-ldap:
     tags:
-      - 7.3.0.v4.1-tci-2.0
-    default: 7.3.0.v4.1-tci-2.0
+      - 7.3.0.v14-tci-2.0
+    default: 7.3.0.v14-tci-2.0
   tci-bw-plugin-oerp:
     tags:
       - 6.0.0.v14.1-tci-2.0
@@ -369,6 +367,10 @@ bwPluginsJobG:
     tags:
       - 6.6.1.v3.0.1-tci-2.0
     default: 6.6.1.v3.0.1-tci-2.0
+  tci-bw-plugin-pi:
+    tags:
+      - 6.5.0.v14.1-tci-2.0
+    default: 6.5.0.v14.1-tci-2.0
 
 volumes:
   plugins:
@@ -391,5 +393,18 @@ images:
   tp-bwce-buildtype:
     extract_image: true
     path: /var/lib/bwce/buildtypes
-    tag: 2.9.2
+    tag: 2.10.0
     target_location: bwce/buildtypes
+
+probes:
+  startupProbe: {}
+  # enable startup probe only if security policy is blocking you from deployment, otherwise its not recommended to use it
+  #  exec:
+  #    command:
+  #    - touch
+  #    - /tmp/healthy
+  #  initialDelaySeconds: 5
+  #  periodSeconds: 5
+  #  failureThreshold: 5
+  #  successThreshold: 1
+  #  timeoutSeconds: 5

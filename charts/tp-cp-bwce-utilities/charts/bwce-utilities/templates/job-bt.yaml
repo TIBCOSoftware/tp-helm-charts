@@ -42,12 +42,18 @@ spec:
       - name: {{ $name }}-{{ $image.tag | replace "." "-" | lower }}-delete
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- with $.Values.securityContext }}
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if eq (include "bwce-utilities.enableResourceConstraints" $dot ) "true" }}
         resources:
         {{- toYaml $.Values.scripts.resources | nindent 10 }}
+        {{- end }}
         command:
           - "sh"
           - "-c"
@@ -59,17 +65,25 @@ spec:
           - name: store-vol
             mountPath: {{ $.Values.volumes.plugins.mountPath }}
             subPath: {{ $.Values.volumes.plugins.subPath }}
+          - name: tmp-vol
+            mountPath: /tmp
       {{- end }}
       {{- if $image.extract_image  }}
       - name: {{ $name }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: Always
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- with $.Values.securityContext }}
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
+        {{- if eq (include "bwce-utilities.enableResourceConstraints" $dot ) "true" }}
         resources:
         {{- toYaml $.Values.buildtype.resources | nindent 10 }}
+        {{- end }}
         env:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $image.tag }}"
@@ -87,6 +101,10 @@ spec:
         - mountPath: {{ $.Values.volumes.plugins.mountPath }}
           subPath: {{ $.Values.volumes.plugins.subPath }}
           name: store-vol
+        - name: tmp-vol
+          mountPath: /tmp
+        - name: kaniko-vol
+          mountPath: /kaniko/.docker
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
         - mountPath: /tibco/containerregistry
@@ -98,6 +116,10 @@ spec:
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

@@ -33,6 +33,7 @@ in the license file that is distributed with this file.
 */}}
 
 {{- define "tp-control-plane-dnsdomain-configmap" }}tp-cp-core-dnsdomains{{ end -}}
+{{- define "bw-webserver.cp-env-configmap" }}cp-env{{ end -}}
 
 {{/*
     ===========================================================================
@@ -115,11 +116,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "bw-webserver.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{/* Service account configured for control plane. fail if service account not exist */}}
 {{- define "bw-webserver.service-account-name" }}
 {{- if .Values.serviceAccount }}
@@ -139,4 +135,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- include "cp-env.get" (dict "key" "CP_OTEL_SERVICE" "default" "otel-services" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "bw-webserver.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
+{{- end }}

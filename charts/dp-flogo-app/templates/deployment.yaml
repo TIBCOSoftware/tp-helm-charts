@@ -1,0 +1,244 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.workload "deployment" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "dp-flogo-app.flogoapp.deployment.annotations" . | nindent 4 }}
+    {{- with .Values.deploymentAnnotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "dp-flogo-app.labels" . | nindent 4 }}
+    {{- include "dp-flogo-app.flogoapp.deployment.labels" . | nindent 4 }}
+    {{- with .Values.deploymentLabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ include "dp-flogo-app.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dp-flogo-app.selectorLabels" . | nindent 6 }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+      {{- include "dp-flogo-app.flogoapp.pod.annotations" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "dp-flogo-app.labels" . | nindent 8 }}
+        {{- include "dp-flogo-app.flogoapp.pod.labels" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: {{ .Values.networkPolicy.internetAll | quote }}
+        egress.networking.platform.tibco.com/internet-web: {{ .Values.networkPolicy.internetWeb | quote }}
+        {{- if .Values.serviceMesh.enabled }}
+        sidecar.istio.io/inject: {{ .Values.serviceMesh.enabled | quote }}
+        {{- end }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: app-init
+        image: {{ .Values.image.repository }}{{ .Values.image.appInitImageName }}:{{ .Values.image.appInitImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.appInit.securityContext | nindent 10 }}
+        volumeMounts:
+        - mountPath: /app/artifacts
+          name: artifacts-share
+        env:
+        - name: TIBCO_INTERNAL_APP_TYPE
+          value: flogo
+        - name: TIBCO_INTERNAL_DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: TIBCO_INTERNAL_BUILD_ID
+          value: {{ .Values.appConfig.buildId }}
+        - name: TIBCO_INTERNAL_INSTANCE_ID
+          value: {{ .Values.dpConfig.capabilityInstanceId }}
+        - name: TIBCO_INTERNAL_APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: TIBCO_INTERNAL_AM_NAMESPACE
+          value: {{ .Values.dpConfig.capabilityDefaultNamespace }}
+        resources:
+          {{- toYaml .Values.appInit.resources | nindent 10 }}
+      containers:
+      - name: flogoapp
+        image: {{ .Values.image.repository }}{{ .Values.image.flogoBaseImageName }}:{{ .Values.appConfig.flogoBaseImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        {{- range $svcPort := .Values.service.ports }}
+        - containerPort: {{ $svcPort.port }}
+          protocol: TCP
+        {{- end }}
+        securityContext:
+        {{- toYaml .Values.flogoapp.securityContext | nindent 10 }}
+        volumeMounts:
+        - name: artifacts-share
+          mountPath: /app/artifacts
+        {{- if .Values.fluentBit.enabled }}
+        - name: logs-share
+          mountPath: /app/logs
+        {{- end }}
+        {{- if .Values.enableTmpVolume }}
+        - name: tmp
+          mountPath: /tmp
+        {{- end }}
+        {{- with .Values.flogoapp.volumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        env:
+        - name: TIBCO_INTERNAL_APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: TIBCO_INTERNAL_BUILD_ID
+          value: {{ .Values.appConfig.buildId }}
+        - name: TIBCO_INTERNAL_INSTANCE_ID
+          value: {{ .Values.dpConfig.capabilityInstanceId }}
+        - name: TIBCO_INTERNAL_DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: TIBCO_INTERNAL_FLOGO_BUILDTYPE_TAG
+          value: {{ .Values.appConfig.flogoBuildTypeTag | quote }}
+        - name: TIBCO_INTERNAL_FLOGO_BASE_IMAGE_TAG
+          value: {{ .Values.appConfig.flogoBaseImageTag | quote }}
+        - name: FLOGO_APP_PROPS_ENV
+          value: {{ .Values.appConfig.flogoAppPropsEnv | quote }}
+        - name: FLOGO_EXPOSE_SWAGGER_EP
+          value: {{ .Values.appConfig.flogoExposeSwaggerEp | quote }}
+        - name: FLOGO_HTTP_SERVICE_PORT
+          value: {{ .Values.appConfig.flogoHttpServicePort | quote }}
+        - name: FLOGO_APP_METRICS
+          value: {{ .Values.appConfig.flogoAppMetrics | quote }}
+        {{- if .Values.otel.traces.enabled }}
+        - name: FLOGO_OTEL_TRACE_OTLP_ENDPOINT
+          value: otel-userapp-traces.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
+        {{- end }}
+        {{- if .Values.otel.metrics.enabled }}
+        - name: FLOGO_OTEL_METRICS
+          value: "true"
+        - name: FLOGO_OTEL_METRICS_OTLP_ENDPOINT
+          value: otel-userapp-metrics.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
+        {{- end }}
+        - name: OTEL_SERVICE_NAME
+          value: flogo-app.{{ $.Release.Namespace }}
+        {{- with .Values.flogoapp.envs }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "dp-flogo-app.fullname" . }}-appprops
+        - configMapRef:
+            name: {{ include "dp-flogo-app.fullname" . }}-engineprops
+        {{- range $val := .Values.flogoapp.envFrom.configMapRef }}
+        - configMapRef:
+            name: {{ $val }}
+        {{- end }}
+        - secretRef:
+            name: {{ include "dp-flogo-app.fullname" . }}-appprops
+        - secretRef:
+            name: {{ include "dp-flogo-app.fullname" . }}-engineprops
+        {{- range $val := .Values.flogoapp.envFrom.secretRef }}
+        - secretRef:
+            name: {{ $val }}
+        {{- end }}
+        startupProbe:
+          {{- toYaml .Values.flogoapp.startupProbe | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.flogoapp.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.flogoapp.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.flogoapp.resources | nindent 10 }}
+      {{- if .Values.fluentBit.enabled }}
+      - name: fluent-bit
+        image: {{ .Values.image.repository }}{{ .Values.image.fluentBitImageName }}:{{ .Values.image.fluentBitImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        securityContext:
+          {{- toYaml .Values.fluentBit.securityContext | nindent 10 }}
+        livenessProbe:
+          {{-  toYaml .Values.fluentBit.livenessProbe | nindent 10 }}
+        volumeMounts:
+        - name: logs-share
+          mountPath: /var/log/pods/
+        - name: fluentbit-config
+          mountPath: /fluent-bit/etc/
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_ID
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.uid
+        - name: CONTAINER_NAME
+          value: flogoapp
+        - name: DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: APP_TYPE
+          value: flogo
+        - name: WORKLOAD_TYPE
+          value: {{ .Values.appConfig.workloadType }}
+        resources:
+          {{- toYaml .Values.fluentBit.resources | nindent 10 }}
+      {{- end }}
+      volumes:
+      - name: artifacts-share
+        emptyDir: {}
+      {{- if .Values.enableTmpVolume }}
+      - name: tmp
+        emptyDir: {}
+      {{- end }}
+      {{- if .Values.fluentBit.enabled }}
+      - name: logs-share
+        emptyDir: {}
+      - name: fluentbit-config
+        configMap:
+          name: {{ .Values.fluentBit.configMapName }}
+      {{- end }}
+      {{- with .Values.volumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

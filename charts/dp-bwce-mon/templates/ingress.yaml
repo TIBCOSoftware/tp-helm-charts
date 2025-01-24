@@ -47,7 +47,7 @@ spec:
   rules:
   {{- range .Values.ingress.hosts }}
     {{- if .host }}
-    - host: {{ .host | quote }}
+    - host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local" # only allow host dp-dpId.platform.local or host header dp-dpId.platform.local. The caller is expected from Control plane.
       http:
     {{- else }}
     - http:
