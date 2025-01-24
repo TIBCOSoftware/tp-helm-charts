@@ -9,9 +9,7 @@ enabled: true
 
 # Global section will apply to this chart and all of its subcharts.
 global:
-  be:
-    data:
-      BE_WEBSERVER_IMAGE_TAG: "31"
+
   cp:
     data:
   external:
@@ -24,16 +22,35 @@ global:
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "3.1.4"
+      tag: "3.2.2"
+    probes:
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /api/v1/health
+          port: 2020
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
     securityContext:
-      runAsNonRoot: false
-      runAsUser: 0
+      runAsNonRoot: true
+      runAsUser: 1000
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
           - ALL
+          - CAP_NET_RAW
 
 replicaCount: 1
+
+config:
+  BE_WEBSERVER_IMAGE_TAG: "47"
+  HTTP_REQUEST_TIMEOUT: "120000"
+  IDLE_TIME_SECONDS: "1800"
+  WEB_SERVER_LOG_ENABLED: "true"
 
 hpa:
   cpu: 70
@@ -58,28 +75,58 @@ podSecurityContext:
 securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  allowPrivilegeEscalation: true # false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
+      - CAP_NET_RAW
 
 bewebserver:
   resources:
     requests:
-      cpu: 500m
-      memory: 2Gi
+      cpu: 100m
+      memory: 512Mi
     limits:
       cpu: 500m
-      memory: 4Gi
+      memory: 1024Mi
 fluentbit:
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 100Mi
     limits:
-      cpu: 150m
+      cpu: 100m
       memory: 150Mi
 
-image:
-  registry: ""
-  repo: ""
+probes:
+  readinessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/api/v1/version"
+      port: 7654
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 1
+    successThreshold: 1
+  livenessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/api/v1/version"
+      port: 7654
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 1
+  startupProbe: {}
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+
+tolerations: []
+
+#topologySpreadConstraints: []
