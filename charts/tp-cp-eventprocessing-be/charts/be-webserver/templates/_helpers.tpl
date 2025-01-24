@@ -70,13 +70,8 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 */}}
 
 {{- define "be-webserver.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
     {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
-  {{- end }}
 {{- end }}
-
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "be-webserver.bews.image.repository" -}}
@@ -112,11 +107,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "be-webserver.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-
 {{/* Service account configured for control plane. fail if service account not exist */}}
 {{- define "be-webserver.service-account-name" }}
 {{- if .Values.serviceAccount }}
@@ -136,3 +126,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- include "cp-env.get" (dict "key" "CP_OTEL_SERVICE" "default" "otel-services" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "be-webserver.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
+{{- end }}
