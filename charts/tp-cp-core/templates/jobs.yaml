@@ -35,9 +35,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-setup
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -65,8 +65,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/tsc/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -77,10 +75,36 @@ spec:
           value: /opt/tibco/tsc/certificates
         - name: TSC_VOLUME_LOCATION
           value: /private/tsc
-        command: [ "/bin/bash", "-c" ]
-        args:
-        - "/opt/tibco/tsc/scripts/init.sh install"
+        - name: DB_SSL_MODE
+          value: {{ .Values.global.external.db_ssl_mode }}
+        - name: DB_SSL_CERT_SECRET_NAME
+          value: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          # Check the DB_SSL_MODE
+          if [ $DB_SSL_MODE == "disable"  ]; then
+            echo "No certificate check required. Proceeding"
+          else
+            # Check if the Kubernetes secret exists (using kubectl)
+            if [ -z $DB_SSL_CERT_SECRET_NAME ]; then
+              echo "ERROR: The value for global.tibco.db_ssl_root_cert_secretname cannot be empty when ssl mode is set to $DB_SSL_MODE. Exiting"
+              exit 1
+            else
+              #If the SSL_MODE is not disable then check the presence of the DB SSL secret in the namespace
+              if kubectl get secret $DB_SSL_CERT_SECRET_NAME >/dev/null 2>&1; then
+                  echo "Kubernetes secret $DB_SSL_CERT_SECRET_NAME found. Proceeding..."
+                else
+                  echo "ERROR: Certificate secret $DB_SSL_CERT_SECRET_NAME not found. Exiting."
+                  exit 2
+              fi
+            fi
+          fi
+          /opt/tibco/tsc/scripts/init.sh install
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           # creating tsc as subfolder in shared EFS. Purpose is to make data privacy between TCS and TSC data on shared EFS.
@@ -88,6 +112,8 @@ spec:
         - name: secret-volume
           mountPath: /private/tsc/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -140,9 +166,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-upgrade
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -170,8 +196,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -184,16 +208,44 @@ spec:
           value: /opt/tibco/tsc/certificates
         - name: TSC_VOLUME_LOCATION
           value: /private/tsc
-        command: [ "/bin/bash", "-c" ]
-        args:
-        - "/opt/tibco/tsc/scripts/init.sh upgrade"
+        - name: DB_SSL_MODE
+          value: {{ .Values.global.external.db_ssl_mode }}
+        - name: DB_SSL_CERT_SECRET_NAME
+          value: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            # Check the DB_SSL_MODE
+            if [ $DB_SSL_MODE == "disable"  ]; then
+              echo "No certificate check required. Proceeding"
+            else
+              # Check if the Kubernetes secret exists (using kubectl)
+              if [ -z $DB_SSL_CERT_SECRET_NAME ]; then
+                echo "ERROR: The value for global.tibco.db_ssl_root_cert_secretname cannot be empty when ssl mode is set to $DB_SSL_MODE. Exiting"
+                exit 1
+              else
+                #If the SSL_MODE is not disable then check the presence of the DB SSL secret in the namespace
+                if kubectl get secret $DB_SSL_CERT_SECRET_NAME >/dev/null 2>&1; then
+                    echo "Kubernetes secret $DB_SSL_CERT_SECRET_NAME found. Proceeding..."
+                  else
+                    echo "ERROR: Certificate secret $DB_SSL_CERT_SECRET_NAME not found. Exiting."
+                    exit 2
+                fi
+              fi
+            fi
+            /opt/tibco/tsc/scripts/init.sh upgrade
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
         - name: secret-volume
           mountPath: /private/tsc/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -247,9 +299,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-cleanup
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -277,8 +329,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}}
         - name: DeleteDBOnUninstall
           value: {{ .Values.cp.deleteDBOnUninstall | quote }}
         - name: PSQL_SCRIPTS_LOCATION
@@ -295,12 +345,16 @@ spec:
         args:
         - "/opt/tibco/tsc/scripts/init.sh delete"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
         - name: secret-volume
           mountPath: /private/tsc/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -352,9 +406,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-rollback
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -382,8 +436,6 @@ spec:
               fieldPath: metadata.namespace
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/tsc/scripts/postgres
         - name: BASE_SCRIPTS_LOCATION
@@ -398,12 +450,16 @@ spec:
         args:
         - "/opt/tibco/tsc/scripts/init.sh rollback"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
         - name: secret-volume
           mountPath: /private/tsc/secret-volume
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -454,9 +510,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-setup
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -473,10 +529,14 @@ spec:
         args:
         - "/opt/tibco/tsc/scripts/certs/generate-self-signed-cert.sh idm && /opt/tibco/tsc/scripts/certs/generate-self-signed-cert.sh idp"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -488,7 +548,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-default-idp
+  name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-self-signed-cert
   annotations:
     "helm.sh/hook": post-delete
     "helm.sh/hook-weight": "15" # weight 15 will ensure that this job will be run after the chart clean-up job has completed
@@ -501,7 +561,7 @@ spec:
   backoffLimit: 0
   template:
     metadata:
-      name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-default-idp
+      name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-self-signed-cert
       labels:
         {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
@@ -520,9 +580,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-setup
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -537,12 +597,16 @@ spec:
           value: /private/tsc/config
         command: [ "/bin/bash", "-c" ]
         args:
-        - "/opt/tibco/tsc/scripts/certs/uninstall-idp.sh"
+        - "/opt/tibco/tsc/scripts/certs/uninstall-self-signed-cert.sh"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -584,9 +648,9 @@ spec:
       {{ end }}
       containers:
       - name: tsc-mount
-        {{- if .Values.global.containerSecurityContext.tpcpcoreJob }}
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcpcoreJob | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "tp-cp-core-job.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
@@ -601,10 +665,14 @@ spec:
         args:
         - "/opt/tibco/tsc/scripts/init.sh mount"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: store-vol
           mountPath: /private/tsc
           subPath: tsc
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

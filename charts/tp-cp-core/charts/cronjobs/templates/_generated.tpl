@@ -1,2 +1,2 @@
-{{- define "cronjobs.generated.buildNumber" }}405{{end -}}
-{{- define "cronjobs.generated.buildTimestamp" }}08-27-24_12.08.53_PM{{end -}}
+{{- define "cronjobs.generated.buildNumber" }}542{{end -}}
+{{- define "cronjobs.generated.buildTimestamp" }}01-17-25_06.40.37_AM{{end -}}

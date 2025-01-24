@@ -18,7 +18,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 3.1.4
+          tag: 3.2.2
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
@@ -42,45 +42,40 @@ global:
       type: RuntimeDefault
 
   containerSecurityContext:
-    webServer:
-      # It specifies that privilege escalation is not allowed for security reasons.
-      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
-
-      # The fluentbit configuration section.
-      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-      # Privilege escalation is not allowed for security reasons.
-      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-    fluentbit:
-      securityContext:
-      runAsNonRoot: false
-      runAsUser: 0
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+        - CAP_NET_RAW
 
 # Resource values for production like setup
 cpwebserver:
   resources:
     requests:
-      cpu: 500m
-      memory: 2Gi
+      cpu: 200m
+      memory: 512Mi
     limits:
       cpu: 500m
-      memory: 4Gi
+      memory: 1024Mi
 fluentbit:
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 100Mi
     limits:
-      cpu: 150m
+      cpu: 100m
       memory: 150Mi
+checkPodDependencies:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"
 
 # HPA
 hpa:

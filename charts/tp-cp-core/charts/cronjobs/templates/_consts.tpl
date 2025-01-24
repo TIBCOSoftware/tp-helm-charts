@@ -75,14 +75,6 @@
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{- define "cp-core-configuration.provider-name" }}
-{{- if .Values.providerName }}
-  {{- .Values.providerName }}
-{{- else }}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-{{- end }}
-
 {{- define "cp-core-configuration.cp-dns-domain" }}
   {{- include "cp-env.get" (dict "key" "CP_DNS_DOMAIN" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}

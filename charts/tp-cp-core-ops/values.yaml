@@ -9,6 +9,10 @@ global:
     image_name:
       cpScripts: "core-cp-scripts"
     is_replica_region: false
+    check_dependencies:
+      distroless_debian:
+        name: "common-distroless-base-debian-debug"
+        tag: 12
   external:
     environment: "production"
     admin:
@@ -31,11 +35,21 @@ global:
     seccompProfile:
       type: RuntimeDefault
 
-  containerSecurityContext:
+  containerSecurityContextTpcpcoreJob:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    tpcpcoreJob:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - CAP_NET_RAW
+        - ALL
+
+checkPodDependencies:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"

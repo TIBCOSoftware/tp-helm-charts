@@ -95,9 +95,9 @@ spec:
       - name: tpcppengineservice
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.pengine }}:{{ include "pengine.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
-        {{- if .Values.global.containerSecurityContext.tpcppengineservice }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.tpcppengineservice | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -126,7 +126,7 @@ spec:
           periodSeconds: 1
           timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 60
+          failureThreshold: 180
         readinessProbe:
           httpGet:
             scheme: HTTP
@@ -190,7 +190,11 @@ spec:
         - name: POSTGRES_ENDPOINT_URL
           value: "$(PGHOST):$(PGPORT)"
         - name: POSTGRES_DATABASE_SSL_ROOT_CERT_FILE_LOCATION
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          {{- if eq .Values.global.external.db_ssl_mode "disable" }}
+          value: ""
+          {{- else }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+          {{- end }}
         - name: NOTIFICATION_PAYLOAD_THRESHOLD_SIZE_IN_BYTES
           valueFrom:
             configMapKeyRef:
@@ -220,15 +224,17 @@ spec:
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
+        - name: logs
+          mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -237,6 +243,39 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -257,21 +296,26 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
 {{- if (include "cp-core-configuration.enableLogging" .)}}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-pengine.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

@@ -49,15 +49,6 @@
 {{- end }}
 {{- end }}
 
-{{/* Provider name for control plane. Fail if the pvc not exist */}}
-{{- define "cp-core-configuration.provider-name" }}
-{{- if .Values.providerName }}
-  {{- .Values.providerName }}
-{{- else }}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
-{{- end }}
-{{- end }}
-
 {{/* Container registry for control plane. default value empty */}}
 {{- define "cp-core-configuration.container-registry" }}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false"  "Release" .Release )}}

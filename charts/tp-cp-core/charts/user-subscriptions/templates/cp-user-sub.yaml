@@ -89,9 +89,11 @@ spec:
       initContainers:
         - name: check-permissions-engine
           image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
-          {{- if .Values.global.containerSecurityContext.userSub }}
+          {{- if .Values.global.containerSecurityContext }}
+          resources:
+            {{- toYaml .Values.checkPermissionEngine.resources | nindent 12 }}
           securityContext:
-            {{- toYaml .Values.global.containerSecurityContext.userSub | nindent 12 }}
+            {{- toYaml .Values.global.containerSecurityContext | nindent 12 }}
           {{- end }}
           command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]];
            do echo waiting for permissions engine to be running; sleep 3;
@@ -108,9 +110,9 @@ spec:
       {{ end }}
       containers:
       - name: cpusersubservice
-        {{- if .Values.global.containerSecurityContext.userSub }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.userSub | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.userSubscriptions }}:{{ include "user-subscriptions.generated.buildNumber" . }}
         resources:
@@ -236,7 +238,7 @@ spec:
         - name: WRITE_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: READ_POSTGRES_DATABASE_SSL_MODE
           value: {{ .Values.global.external.db_ssl_mode }}
         - name: READ_POSTGRES_DATABASE_SSL_CERT
@@ -244,7 +246,7 @@ spec:
         - name: READ_POSTGRES_DATABASE_SSL_KEY
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: S3_CONFIGURATION_LOCATION
           value: file:///private/tsc/config/tscorch/tscorch.json
         - name: DISABLE_CONFIGURATION_REFRESH
@@ -265,8 +267,6 @@ spec:
               key: TSC_DNS_DOMAIN
         - name: TSC_DNS_DOMAIN
           value: https://$(TSC_DNS)
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
         - name: NEW_USER_MANAGEMENT
           value: enable
         - name: UTM_SECURED_MODE
@@ -275,15 +275,17 @@ spec:
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
+        - name: logs
+          mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -292,6 +294,39 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -312,21 +347,26 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
 {{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-user-subscriptions.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}

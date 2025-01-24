@@ -77,9 +77,11 @@ spec:
       initContainers:
       - name: check-pod-dependencies
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
-        {{- if .Values.global.containerSecurityContext.idm }}
+        {{- if .Values.global.containerSecurityContext }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.idm | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for orchestrator to be running; 
         sleep 1; wget_result=$(wget -S "http://$TP_CP_ORCH_HOST:9833/v1/monitor/ping" 2>&1 | grep "HTTP/"); done; rm -rf index.html' ]
@@ -97,9 +99,9 @@ spec:
       - name: idm
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.identityManagement }}:{{ include "identity-management.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
-        {{- if .Values.global.containerSecurityContext.idm }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.idm | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -188,6 +190,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_IDP_HOST
+        - name: TP_CP_ADMIN_WEB_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ADMIN_WEB_SERVER_HOST
         - name: TSC_CONFIG_LOCATION
           value: /private/tsc
         - name: TSC_DNS_DOMAIN
@@ -234,10 +241,10 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_PERMISSIONS_ENGINE_HOST
-        - name: CP_JWKS_URI
-          value: {{ .Values.global.tibco.idm_cp_jwks_uri }}
+        - name: IDENTITY_MANAGEMENT_ADMIN_WEB_SERVER_JWKS_URI_PATH
+          value: http://$(TP_CP_ADMIN_WEB_SERVER_HOST):3000/admin/public/v1/jwks
         - name: TSC_HOST_MAPPING
-          value: '{"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "allowExpiredSubscription": true, "jwksUri": "$(CP_JWKS_URI)"}'
+          value: '{"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "allowExpiredSubscription": true, "jwksUri": "$(IDENTITY_MANAGEMENT_ADMIN_WEB_SERVER_JWKS_URI_PATH)"}'
         - name: ADMIN_HOST_MAPPING
           value: '{"host": "$(TSC_ADMIN_DNS_DOMAIN)", "tenantId": "ADMIN", "errorUri": "/tsc/error/401", "suspendedUri": "/tsc/error/403", "maxValidityForAccessToken": "8h"}'
         - name: IDENTITY_MANAGEMENT_HOST_MAPPINGS
@@ -272,8 +279,8 @@ spec:
           value: http://$(TP_CP_IDM_HOST):7831/v1/management/xregion-operations/
         - name: IDENTITY_MANAGEMENT_IDM_DIRECT_ACCESS_API_PATH
           value: http://$(TP_CP_IDM_HOST):7831/v1/management/direct-access/notify
-        - name: TIBCO_INTERNAL_IAAS_VENDOR
-          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
           value: {{ .Values.global.tibco.region }}
         - name: IDENTITY_MANAGEMENT_REGION_TO_PREFIX
@@ -318,7 +325,7 @@ spec:
         - name: IDENTITY_MANAGEMENT_DATABASE_ENDPOINT_URL
           value: "$(PGHOST):$(PGPORT)"
         - name: IDENTITY_MANAGEMENT_DATABASE_SSL_ROOT_CERT
-          value: {{ .Values.global.external.db_ssl_root_cert }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
         - name: IDENTITY_MANAGEMENT_DATABASE_MAX_OPEN_CONNECTIONS
           valueFrom:
             configMapKeyRef:
@@ -331,26 +338,24 @@ spec:
               key: TSC_ADMIN_DNS_DOMAIN
         - name: IDENTITY_MANAGEMENT_CP_SUFFIX
           value: {{ include "cp-core-configuration.cp-dns-domain" . }}
-        {{- if eq (include "cp-core-configuration.provider-name" .) "local" }}
-        - name: TIBCO_INTERNAL_VAGRANT
-          value: "true"
-        {{- end }}
         volumeMounts:
         - name: store-vol
           mountPath: /mnt/heapdumps
           subPath: tsc/idm/heapdumps
-        - name: store-vol
+        - name: db-ssl-cert-vol
           mountPath: /private/tsc/certificates
-          subPath: tsc/certificates
+          readOnly: true
         - name: store-vol
           mountPath: /private/tsc/config
           subPath: tsc/config
+        - name: logs
+          mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         resources:
           requests:
@@ -359,6 +364,39 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -379,21 +417,26 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
 {{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-identity-management.consts.appName" . }}-fluentbit-config
 {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
@@ -727,6 +770,7 @@ spec:
       fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
       methods:
       - POST
+      - GET
       configVariables:
         SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
         SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
