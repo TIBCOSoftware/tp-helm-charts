@@ -18,7 +18,9 @@ metadata:
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:
-  - http:
+  # Host-based rule for Control Plane traffic using the Data Plane ID
+  - host: "dp-{{ .Values.global.cp.dataplaneId }}.platform.local"
+    http:
       paths:
       - pathType: Prefix
         path: {{ .Values.ingress.pathPrefix }}
@@ -27,7 +29,17 @@ spec:
             name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
             port:
               number: 7831
-    {{- with .Values.ingress.host }}
-    host: {{ . }}
-    {{- end }}
+
+  # Host-based rule for traffic from HAProxy (used by tibtunnel)
+  - host: "cpdpproxy"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.ingress.pathPrefix }}
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+
 {{- end }}

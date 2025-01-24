@@ -14,23 +14,26 @@ metadata:
     {{- include "finops-service.shared.labels.standard" . | nindent 4 }}
 data:
   fluent-bit.conf: |
-   [SERVICE]
-     Flush             1
-     Log_Level         info
-     Daemon            off
-     Parsers_File      parsers.conf
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+      HTTP_Server       On
+      HTTP_Listen       0.0.0.0
+      HTTP_Port         2020
  
-   @INCLUDE input.conf
-   @INCLUDE filter.conf
-   @INCLUDE output.conf
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
  
   input.conf: |
     [INPUT]
       Name              tail
       Tag               cp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
-      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      Path              /var/log/pods/*.log
+      DB                /var/log/db/flb_kube.db
       multiline.parser  docker, cri
-      DB                /var/log/flb_kube.db
       Mem_Buf_Limit     5MB
       Skip_Long_Lines   On
       Refresh_Interval  10
@@ -44,16 +47,16 @@ data:
   
     [FILTER]
       Name              parser
-      Match             cp.*
+      Match             cp.* 
       Key_Name          log
       Parser            json_decode
       Reserve_Data      True
   
     [FILTER]
-      Name lua
-      Match cp.*
-      Script update_record.lua
-      Call update_record
+      Name              lua
+      Match             cp.*
+      Script            update_record.lua
+      Call              update_record
   
   output.conf: |
     [OUTPUT]

@@ -18,3 +18,7 @@
 {{- define "finops-web-server.image.repository" -}}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false"  "Release" .Release )}}
 {{- end -}}
+
+{{- define "tp-cp-core-finops.enableResourceConstraints" -}}
+  {{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
+{{- end }}

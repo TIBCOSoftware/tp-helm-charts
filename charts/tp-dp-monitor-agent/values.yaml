@@ -10,7 +10,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 3.1.4
+          tag: 3.2.2
   cp:
     dataplaneId: "abcd"
     subscriptionId: "sub1"
@@ -21,17 +21,11 @@ global:
     resources:
       serviceaccount:
         serviceAccountName: ""
+    enableResourceConstraints: true
     logging:
       fluentbit:
         enabled: true
-    fluentbit:
-      securityContext:
-        runAsNonRoot: false
-        runAsUser: 0
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
+
 enableIngress: true
 ingress:
   annotations: {}
@@ -49,10 +43,12 @@ podSecurityContext:
 
 securityContext:
   monitorAgent:
+    readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
+        - CAP_NET_RAW
 
 resources:
   requests:
@@ -61,3 +57,11 @@ resources:
   limits:
     cpu: 200m
     memory: 512Mi
+fluentbit:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "15Mi"
+    limits:
+      cpu: "50m"
+      memory: "30Mi"

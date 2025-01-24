@@ -86,6 +86,7 @@ spec:
         {{- end }}        
         image: {{ include "finops-web-server.image.registry" .}}{{"/"}}{{ include "finops-web-server.image.repository" .}}{{"/tel-finops-web-server"}}:{{ include "finops-web-server.generated.buildNumber" . }}
         imagePullPolicy: IfNotPresent
+        {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
         resources:
           requests:
             cpu: {{ .Values.finopswebserver.resources.requests.cpu }}
@@ -93,6 +94,7 @@ spec:
           limits:
             cpu: {{ .Values.finopswebserver.resources.limits.cpu }}
             memory: {{ .Values.finopswebserver.resources.limits.memory }}
+        {{- end }}
         ports:
         - containerPort: 4000
           name: server
@@ -147,13 +149,17 @@ spec:
           value: "true"
         - name: REDIRECTION_TIME
           value: "5"
+        volumeMounts:
+        - name: logs
+          mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "finops-web-server.image.registry" .}}{{"/"}}{{ include "finops-web-server.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.containerSecurityContext.fluentbit }}
+        {{- if .Values.global.containerSecurityContext.finopsWebServer }}
         securityContext:
-          {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 10 }}
+          {{- toYaml .Values.global.containerSecurityContext.finopsWebServer | nindent 10 }}
         {{- end }}
+        {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
         resources:
           requests:
             cpu: {{ .Values.fluentbit.resources.requests.cpu }}
@@ -161,6 +167,40 @@ spec:
           limits:
             cpu: {{ .Values.fluentbit.resources.limits.cpu }}
             memory: {{ .Values.fluentbit.resources.limits.memory }}
+        {{- end }}
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -181,23 +221,19 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         volumeMounts:
-          - name: podlogs
+          - name: logs
             mountPath: /var/log/pods
-          - name: dockercontainerlogs
-            mountPath: /var/lib/docker/containers
+          - name: db
+            mountPath: /var/log/db
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "finops-web-server.consts.appName" . }}-fluentbit-config

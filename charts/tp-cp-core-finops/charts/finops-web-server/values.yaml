@@ -13,7 +13,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 3.1.4
+          tag: 3.2.2
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.
@@ -33,38 +33,27 @@ global:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     finopsWebServer:
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
           - ALL
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-    fluentbit:
-      securityContext:
-      runAsNonRoot: false
-      runAsUser: 0
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
+          - CAP_NET_RAW          
 finopswebserver:
   resources:
     requests:
-      cpu: "500m"
-      memory: "2Gi"
+      cpu: "100m"
+      memory: "512Mi"
     limits:
       cpu: "500m"
-      memory: "4Gi"
+      memory: "1024Mi"
 fluentbit:
   resources:
     requests:
-      cpu: "100m"
+      cpu: "50m"
       memory: "100Mi"
     limits:
-      cpu: "150m"
+      cpu: "100m"
       memory: "150Mi"
 # HPA
 hpa:
