@@ -1,0 +1,94 @@
+{{- if .Values.global.enableLogging }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-finops-prometheus.consts.appName" . }}-fluentbit-config
+  namespace: {{ include "tp-cp-finops-prometheus.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops-prometheus.shared.labels.standard" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               cic20.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      multiline.parser  docker, cri
+      DB                /var/log/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             cic20.*
+      Record            host.ip ${HOST_IP}
+      Record            kubernetes.pod.name ${POD_NAME}
+      Record            kubernetes.pod.uid ${POD_ID}
+      Record            kubernetes.namespace ${POD_NAMESPACE}
+      Record            kubernetes.container.name ${CONTAINER_NAME}
+      Record            cic.installation.name {{ .Values.global.cic.data.SYSTEM_INSTALLATION_NAME }}
+      Record            cic.cluster.name {{ .Values.global.cic.data.SYSTEM_CLUSTER_NAME }}
+      Record            cic.cluster.id {{ .Values.global.cic.data.SYSTEM_CLUSTER_ID }}
+      Record            cloud.account.id {{ .Values.global.cic.data.SYSTEM_AWS_ACCOUNT_ID | default "NA" }}
+      Record            cloud.region {{ .Values.global.cic.data.SYSTEM_REGION }}
+      Record            cloud.provider {{ .Values.global.cic.data.SYSTEM_WHERE }}
+      Remove_key        stream
+      Remove_key        _p
+      Remove_key        date
+    [FILTER]
+      Name              parser
+      Match             cic20.*
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
+    [FILTER]
+      Name              modify
+      Match             cic20.*
+      Rename            log msg
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Wildcard          msg
+      Nest_under        log
+
+  output.conf: |
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                *
+      Host                 {{ .Values.global.cic.data.SYSTEM_OTEL_COLLECTOR }}
+      Port                 {{ .Values.global.cic.data.SYSTEM_OTEL_COLLECTOR_PORT }}
+      Metrics_uri          /v1/metrics
+      Logs_uri             /v1/logs
+      Traces_uri           /v1/traces
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    [PARSER]
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+
+    [PARSER]
+      Name              tag_parser
+      Format            regex
+      Regex             (?<namespace_name>[^\.]+)\.(?<pod_name>[^\.]+)\.(?<pod_id>[^\.]+)\.(?<container_name>[^\.]+)
+{{- end }}

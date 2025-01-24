@@ -1,0 +1,31 @@
+# Global section will apply to this chart and all of its subcharts.
+global:
+  cic:
+    data:
+      SYSTEM_LOGGING_DOCKER_IMAGE_FULL: reldocker.tibco.com/stratosphere/fluentbit:1.9.4
+      SYSTEM_CLUSTER_NAME: "tibco-tp"
+      SYSTEM_INSTALLATION_NAME: "tibco"
+      SYSTEM_CLUSTER_ID: "tp"
+      SYSTEM_AWS_ACCOUNT_ID: ""
+  external:
+    enableLogging: false
+    environment: ""
+    region: ""
+
+# Resource values for production like setup
+finopsprometheus:
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "6Gi"
+    limits:
+      cpu: "300m"
+      memory: "12Gi"
+fluentbit:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "150m"
+      memory: "150Mi"

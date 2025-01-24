@@ -1,0 +1,33 @@
+finops:
+  ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
+  ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
+  deleteDBOnUninstall: "false"
+
+
+# Global section will apply to this chart and all of its subcharts.
+global:
+  cic:
+    data:
+      SYSTEM_CLUSTER_NAME: "tibco-cic"
+      SYSTEM_INSTALLATION_NAME: "tibco"
+      SYSTEM_CLUSTER_ID: "cic"
+      SYSTEM_AWS_ACCOUNT_ID: ""
+
+  cp:
+    data:
+      CP_DB_CONFIGURATION: provider-cp-database-config
+      CP_DB_CREDENTIALS: provider-cp-database-credentials
+
+
+  CP_HELM_REPO: "https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages"
+  CP_PROD_HELM_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+  CP_STAGING_HELM_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+  # Github repo path to read contribution ui code
+  GITHUB_CONTRIBUTORS_REPO: "https://raw.githubusercontent.com/tibco/tp-cp-web-contributors/master/releases"
+  # Valid values for UI_CONTRIBUTORS_SOURCE are "EFS" and "GitHub"
+  UI_CONTRIBUTORS_SOURCE: "GitHub"
+
+  external:
+    region: ""
+    enableLogging: false
+    environment: "vagrant"

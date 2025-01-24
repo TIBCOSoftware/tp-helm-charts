@@ -1,0 +1,47 @@
+# Global section will apply to this chart and all of its subcharts.
+global:
+  cic:
+    data:
+      SYSTEM_LOGGING_DOCKER_IMAGE_FULL: reldocker.tibco.com/stratosphere/fluentbit:1.9.4
+      SYSTEM_CLUSTER_NAME: "tibco-tp"
+      SYSTEM_INSTALLATION_NAME: "tibco"
+      SYSTEM_CLUSTER_ID: "tp"
+      SYSTEM_AWS_ACCOUNT_ID: ""
+  cp:
+    data:
+      CP_DB_CONFIGURATION: provider-cp-database-config
+
+  external:
+    enableLogging: false
+    environment: ""
+    region: ""
+  finops:
+    svcloglevel: "info"
+    serverport: "7831"
+    monitorserverport: "9831"
+
+# Resource values for production like setup
+finopsservice:
+  resources:
+    requests:
+      cpu: "125m"
+      memory: "2Gi"
+    limits:
+      cpu: "250m"
+      memory: "4Gi"
+  psql:
+    maxopenconnections: "100"
+    maxidleconnections: "100"
+    maxconnectionlifetime: "3600"
+    postgresdatabasesslmode: "verify-full"
+    postgresdatabasesslcert: ""
+    postgresdatabasesslkey: ""
+    postgresdatabasesslrootcertfilelocation: /private/finops/certificates/global-bundle.pem
+fluentbit:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "150m"
+      memory: "150Mi"

@@ -1,0 +1,265 @@
+---
+# TP CP Finops WebServer Service definition; exposes the service on targetPort 3000
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-finops-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-finops-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 4000
+    protocol: TCP
+    targetPort: 4000
+  selector:
+    {{- include "tp-cp-finops-web-server.shared.labels.selector" . | nindent 4 }}
+
+---
+
+# TP CP FinOps WebServer Deployment definition;
+# this defines the resources for the pod, liveness and readiness probes
+# along with the environment variables required by the microservice
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-finops-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-finops-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-finops-web-server.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-finops-web-server.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-web: enable
+{{- if .Values.global.external.enableLogging }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-finops-web-server.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-finops-web-server.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15  
+      containers:
+      - name: cpfinopswebserver
+        image: {{ include "cp-core-configuration.container-registry" . }}/pcp/tp-cp-finops-web-server:{{ include "tp-cp-finops-web-server-on-prem.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: {{ .Values.finopswebserver.resources.requests.cpu }}
+            memory: {{ .Values.finopswebserver.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.finopswebserver.resources.limits.cpu }}
+            memory: {{ .Values.finopswebserver.resources.limits.memory }}
+        ports:
+        - containerPort: 4000
+          name: server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/finops-ws/api/v1/version"
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/finops-ws/api/v1/version"
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: IS_CIC2_ENV
+          value: "true"
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-finops-web-server.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_USER_SUBSCRIPTIONS_HOST
+        - name: TP_CP_FINOPS_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-finops-web-server.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_FINOPS_SERVICE_HOST
+        - name: TP_CP_MONITORING_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-finops-web-server.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_MONITORING_SERVICE_HOST
+        - name: SYSTEM_WHO
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}
+        - name: HTTP_REQUEST_TIMEOUT
+          value: "120000"
+        - name: IDLE_TIME_SECONDS
+          value: "1800"
+        - name: WEB_SERVER_LOG_ENABLED
+          value: "true"
+        - name: REDIRECTION_TIME
+          value: "5"
+{{- if .Values.global.external.enableLogging }}
+      - name: fluentbit
+        image: {{ .Values.global.cic.data.SYSTEM_LOGGING_DOCKER_IMAGE_FULL }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: cpfinopswebserver
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: REGION
+            value: {{ .Values.global.external.region }}
+{{- if .Values.global.finops }}
+{{- if .Values.global.finops.logServer }}
+{{- if .Values.global.finops.logServer.default }}
+          - name: LOG_SERVER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: username
+          - name: LOG_SERVER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: logserver-credentials
+                key: password
+{{- end }}
+{{- end }}
+{{- end }}
+        volumeMounts:
+          - name: podlogs
+            mountPath: /var/log/pods
+          - name: dockercontainerlogs
+            mountPath: /var/lib/docker/containers
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if .Values.global.external.enableLogging }}
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-finops-web-server.consts.appName" . }}-fluentbit-config
+{{- end }}
+
+
+---
+
+# TIBCO Route definition; this is where you define your microservice endpoints
+
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-finops-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-finops-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-finops-web-server.consts.appName" . }}
+  env:
+  - name: CONTROL_PLANE_HOME_URL
+    valueFrom:
+      configMapKeyRef:
+        key: TSC_DNS_DOMAIN
+        name: {{ include "tp-cp-finops-web-server.tp-control-plane-dnsdomains" . }}
+  endpoints:
+  - path: /cp/finops/ws
+    internalPath: /finops-ws
+    port: 4000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${CONTROL_PLANE_HOME_URL}
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: true
+  - path: /cp/monitoring/monitoring-web-ui-content
+    internalPath: /monitoring-web-ui-content
+    port: 4000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${CONTROL_PLANE_HOME_URL}"
+      methods:
+      - GET
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/finops/finops-web-ui-content
+    internalPath: /finops-web-ui-content
+    port: 4000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${CONTROL_PLANE_HOME_URL}"
+      methods:
+      - GET
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false

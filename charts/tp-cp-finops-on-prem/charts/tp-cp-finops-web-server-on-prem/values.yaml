@@ -1,0 +1,34 @@
+# Global section will apply to this chart and all of its subcharts.
+global:
+  cic:
+    data:
+      SYSTEM_LOGGING_DOCKER_IMAGE_FULL: reldocker.tibco.com/stratosphere/fluentbit:1.9.4
+      SYSTEM_CLUSTER_NAME: "tibco-tp"
+      SYSTEM_INSTALLATION_NAME: "tibco"
+      SYSTEM_CLUSTER_ID: "tp"
+      SYSTEM_AWS_ACCOUNT_ID: ""
+
+  external:
+    enableLogging: false
+    environment: ""
+    region: ""
+
+# Resource values for production like setup
+finopswebserver:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "500m"
+      memory: "4Gi"
+fluentbit:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "150m"
+      memory: "150Mi"
+# no of replicas
+replicaCount: "3"

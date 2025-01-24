@@ -1,0 +1,168 @@
+{{- if .Values.global.enableLogging }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-finops-service.consts.appName" . }}-fluentbit-config
+  namespace: {{ include "tp-cp-finops-service.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops-service.shared.labels.standard" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               tp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/pods/${POD_NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+      multiline.parser  docker, cri
+      DB                /var/log/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             tp.*
+      Record            host.ip ${HOST_IP}
+      Record            kubernetes.pod.name ${POD_NAME}
+      Record            kubernetes.pod.uid ${POD_ID}
+      Record            kubernetes.namespace ${POD_NAMESPACE}
+      Record            kubernetes.container.name ${CONTAINER_NAME}
+      Record            cic.installation.name {{ .Values.global.cic.data.SYSTEM_INSTALLATION_NAME }}
+      Record            cic.cluster.name {{ .Values.global.cic.data.SYSTEM_CLUSTER_NAME }}
+      Record            cic.cluster.id {{ .Values.global.cic.data.SYSTEM_CLUSTER_ID }}
+      Record            cloud.account.id {{ .Values.global.cic.data.SYSTEM_AWS_ACCOUNT_ID | default "NA" }}
+      Record            cloud.region {{ .Values.global.cic.data.SYSTEM_REGION }}
+      Record            cloud.provider {{ .Values.global.cic.data.SYSTEM_WHERE }}
+      Remove_key        stream
+      Remove_key        _p
+      Remove_key        date
+    [FILTER]
+      Name              parser
+      Match             tp.*
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
+    [FILTER]
+      Name              nest
+      Match             tp.*
+      Operation         lift
+      Nested_Under      log
+      Add_prefix        log.
+    [FILTER]
+      Name              modify
+      Match             tp.*
+      Rename            log.timestamp @timestamp
+      Rename            log.msg message
+      Rename            log.file source
+    [FILTER]
+      Name              nest
+      Match             tp.*
+      Operation         nest
+      Nest_Under        kubernetes.pod
+      Wildcard          kubernetes.pod.*
+      Remove_prefix     kubernetes.pod.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        kubernetes.container
+      Wildcard          kubernetes.container.*
+      Remove_prefix     kubernetes.container.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        kubernetes
+      Wildcard          kubernetes.*
+      Remove_prefix     kubernetes.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        cic.installation
+      Wildcard          cic.installation.*
+      Remove_prefix     cic.installation.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        cic.cluster
+      Wildcard          cic.cluster.*
+      Remove_prefix     cic.cluster.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        cic.kubernetes
+      Wildcard          cic.kubernetes.*
+      Remove_prefix     cic.kubernetes.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        cic
+      Wildcard          cic.*
+      Remove_prefix     cic.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        cloud.account
+      Wildcard          cloud.account.*
+      Remove_prefix     cloud.account.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        cloud
+      Wildcard          cloud.*
+      Remove_prefix     cloud.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        host
+      Wildcard          host.*
+      Remove_prefix     host.
+    [FILTER]
+      Name              nest
+      Match             cic20.*
+      Operation         nest
+      Nest_Under        log
+      Wildcard          log.*
+      Remove_prefix     log.
+
+  output.conf: |
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                *
+      Host                 {{ .Values.global.cic.data.SYSTEM_OTEL_COLLECTOR }}
+      Port                 {{ .Values.global.cic.data.SYSTEM_OTEL_COLLECTOR_PORT }}
+      Metrics_uri          /v1/metrics
+      Logs_uri             /v1/logs
+      Traces_uri           /v1/traces
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+  parsers.conf: |
+    [PARSER]
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+
+{{- end }}

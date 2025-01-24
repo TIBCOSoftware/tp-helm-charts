@@ -1,0 +1,371 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-finops.consts.appName" . }}-setup
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-finops.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-finops.consts.appName" . }}-setup
+      labels:
+        {{- include "tp-cp-finops.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      containers:
+      - name: finops-setup
+        image: {{ include "cp-core-configuration.container-registry" . }}/pcp/finops-scripts:{{ include "tp-cp-finops-on-prem-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.cp.data.SYSTEM_AWS_REGION }}
+        - name: IAAS_VENDOR
+          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/finops/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: FINOPS_CONFIG_LOCATION
+          value: /opt/tibco/finops/config
+        - name: FINOPS_CERTIFICATES_LOCATION
+          value: /opt/tibco/finops/certificates
+        - name: TSC_VOLUME_LOCATION
+          value: /private/finops
+        - name: FINOPS_VOLUME_LOCATION
+          value: /private/finops
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/finops/scripts/init.sh install"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/finops
+          subPath: finops
+        - name: secret-volume
+          mountPath: /private/finops/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.cp.data.CP_DB_CREDENTIALS }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-finops.consts.appName" . }}-upgrade
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-finops.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-finops.consts.appName" . }}-upgrade
+      labels:
+        {{- include "tp-cp-finops.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      containers:
+      - name: finops-upgrade
+        image: {{ include "cp-core-configuration.container-registry" . }}/pcp/finops-scripts:{{ include "tp-cp-finops-on-prem-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.cp.data.SYSTEM_AWS_REGION }}
+        - name: IAAS_VENDOR
+          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/finops/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: FINOPS_CONFIG_LOCATION
+          value: /opt/tibco/finops/config
+        - name: FINOPS_CERTIFICATES_LOCATION
+          value: /opt/tibco/finops/certificates
+        - name: TSC_VOLUME_LOCATION #The postgres-helper of tsc needs this variable to be set
+          value: /private/finops
+        - name: FINOPS_VOLUME_LOCATION
+          value: /private/finops
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/finops/scripts/init.sh upgrade"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/finops
+          subPath: finops
+        - name: secret-volume
+          mountPath: /private/finops/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.cp.data.CP_DB_CREDENTIALS }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+
+---
+
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-finops.consts.appName" . }}-cleanup
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-finops.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-finops.consts.appName" . }}-cleanup
+      labels:
+        {{- include "tp-cp-finops.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      containers:
+      - name: finops-cleanup
+        image: {{ include "cp-core-configuration.container-registry" . }}/pcp/finops-scripts:{{ include "tp-cp-finops-on-prem-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.cp.data.SYSTEM_AWS_REGION }}
+        - name: IAAS_VENDOR
+          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: DeleteDBOnUninstall
+          value: {{ .Values.finops.deleteDBOnUninstall | quote }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/finops/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: FINOPS_CONFIG_LOCATION
+          value: /opt/tibco/finops/config
+        - name: FINOPS_CERTIFICATES_LOCATION
+          value: /opt/tibco/finops/certificates
+        - name: TSC_VOLUME_LOCATION #The postgres-helper of tsc needs this variable to be set
+          value: /private/finops
+        - name: FINOPS_VOLUME_LOCATION
+          value: /private/finops
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/finops/scripts/init.sh delete"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/finops
+          subPath: finops
+        - name: secret-volume
+          mountPath: /private/finops/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.cp.data.CP_DB_CREDENTIALS }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-finops.consts.appName" . }}-rollback
+  annotations:
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-finops.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-finops.consts.appName" . }}-rollback
+      labels:
+        {{- include "tp-cp-finops.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      containers:
+      - name: finops-rollback
+        image: {{ include "cp-core-configuration.container-registry" . }}/pcp/finops-scripts:{{ include "tp-cp-finops-on-prem-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.cp.data.SYSTEM_AWS_REGION }}
+        - name: IAAS_VENDOR
+          value: {{ include "cp-core-configuration.provider-name" . }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/finops/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: FINOPS_CONFIG_LOCATION
+          value: /opt/tibco/finops/config
+        - name: FINOPS_CERTIFICATES_LOCATION
+          value: /opt/tibco/finops/certificates
+        - name: TSC_VOLUME_LOCATION #The postgres-helper of tsc needs this variable to be set
+          value: /private/finops
+        - name: FINOPS_VOLUME_LOCATION
+          value: /private/finops
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/finops/scripts/init.sh rollback"
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/finops
+          subPath: finops
+        - name: secret-volume
+          mountPath: /private/finops/secret-volume
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.cp.data.CP_DB_CREDENTIALS }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD

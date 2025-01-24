@@ -110,6 +110,7 @@ spec:
         securityContext:
           {{- toYaml .Values.securityContext.monitorAgent | nindent 10 }}
         {{- end }}
+        {{- if .Values.global.cp.enableResourceConstraints }}
         resources:
           requests:
             cpu: {{ .Values.resources.requests.cpu }}
@@ -117,6 +118,7 @@ spec:
           limits:
             cpu: {{ .Values.resources.limits.cpu }}
             memory: {{ .Values.resources.limits.memory }}
+        {{- end }}
         ports:
         - containerPort: 7831
           name: server
@@ -154,12 +156,57 @@ spec:
         - name: DP_SUBSCRIPTION_ID
           value: {{ .Values.global.cp.subscriptionId }}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
+        volumeMounts:
+        - name: logs
+          mountPath: /tmp/logs
       - name: fluentbit
         image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        {{- if .Values.global.cp.fluentbit.securityContext }}
+        {{- if .Values.securityContext.monitorAgent }}
         securityContext:
-          {{- toYaml .Values.global.cp.fluentbit.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContext.monitorAgent | nindent 10 }}
         {{- end }}
+        {{- if .Values.global.cp.enableResourceConstraints }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        {{- end }}
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -196,23 +243,19 @@ spec:
 {{- end }}
 {{- end }}
         volumeMounts:
-            - name: podlogs
+            - name: logs
               mountPath: /var/log/pods
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers
+            - name: db
+              mountPath: /var/log/db 
             - name: config-volume
               mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: logs
+          emptyDir: {}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
+        - name: db
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-fluentbit-config

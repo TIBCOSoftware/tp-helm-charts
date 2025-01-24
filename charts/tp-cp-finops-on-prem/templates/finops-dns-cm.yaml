@@ -1,0 +1,18 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "tp-cp-finops.consts.appName" . }}-dnsdomains
+  namespace: {{ include "tp-cp-finops.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-finops.shared.labels.standard" . | nindent 4 }}
+data:
+  TP_CP_MONITORING_SERVICE_HOST: {{ include "tp-cp-finops.consts.finopsMonitoringServiceName" . }}
+  TP_CP_FINOPS_SERVICE_HOST: {{ include "tp-cp-finops.consts.finopsServiceName" . }}
+  TP_CP_WEB_SERVICE_HOST: {{ include "tp-cp-finops.consts.finopsWebServiceName" . }}
+  TP_CP_USER_SUBSCRIPTIONS_HOST: {{ include "tp-cp-finops.consts.cpUserSubscriptionsServiceName" . }}
+  TP_CP_ORCHESTRATOR_HOST: {{include "tp-cp-finops.consts.cpOrchestratorServiceName" . }}
+  SYSTEM_INTERNAL_MONITOR_AGENT_HOST: {{ include "tp-cp-finops.consts.monitorAgentHost" . }}
+  SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST: {{ include "tp-cp-finops.consts.hawkQueryNodeHost" . }}
+  FINOPS_PROMETHEUS_HOST: {{ include "tp-cp-finops.consts.finopsPrometheusHost" . }}
+  SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST: {{ include "tp-cp-finops.consts.provisonerAgentHost" . }}
+  SYSTEM_INTERNAL_FINOPS_OTEL_HOST: {{ include "tp-cp-finops.consts.finopsOTelHost" . }}
