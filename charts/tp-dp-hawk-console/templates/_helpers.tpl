@@ -13,8 +13,8 @@ in the license file that is distributed with this file.
 {{- define "tp-dp-hawk-console.gencerts" -}}
 {{- $fullname := include "tp-dp-hawk-console.consts.appName" . }}
 {{- $altNames := list ( printf "%s.%s" (include "tp-dp-hawk-console.consts.appName" .) .Release.Namespace ) ( printf "%s.%s.svc" (include "tp-dp-hawk-console.consts.appName" .) .Release.Namespace ) -}}
-{{- $ca := genCA "tp-dp-hawk-console-ca" 1095 -}}
-{{- $cert := genSignedCert $fullname nil $altNames 1095 $ca -}}
+{{- $ca := genCA "tp-dp-hawk-console-ca" 1825 -}}
+{{- $cert := genSignedCert $fullname nil $altNames 1825 $ca -}}
 ca.crt: {{ $ca.Cert | b64enc | quote }}
 tls.crt: {{ $cert.Cert | b64enc| quote }}
 tls.key: {{ $cert.Key | b64enc| quote }}
