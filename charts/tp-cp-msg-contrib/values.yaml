@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -26,14 +26,25 @@ data:
 cp:
   registry:
   repository:
-  useNewRepos: false
   CP_VOLUME_CLAIM:
   pullSecret:
+  pullPolicy:
   imageName:
   imageTag:
-  TARGET_PATH:
-# Sleep after completing update, and before pod exits for auditing
-jobPostSleep:
+  enableSecurityContext: true
+
+webserver:
+  securityProfile:
+
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 50Mi
+  limits:
+    cpu: "2"
+    memory: 4096Mi
+
 # ##### EXAMPLE VALUES SECTIONS
 # RECOMMENDED Multi-chart SETTINGS
 # -- EXAMPLE
@@ -57,6 +68,6 @@ jobPostSleep:
 #   repo: msg-platform-cicd
 #   CP_VOLUME_CLAIM: provider-cp-fs-store
 #   imageName: msg-cp-ui-contrib
-#   imageTag: "1.3.0-14"
+#   imageTag: "1.4.0-12"
 #   TARGET_PATH: /private/tsc/config/capabilities/platform
 #   imageFullName:

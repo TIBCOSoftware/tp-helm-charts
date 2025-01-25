@@ -98,6 +98,8 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "broker-init" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - >-
@@ -110,9 +112,13 @@ spec:
             {{- end }}
               echo "pulsar cluster {{ template "pulsar.cluster.name" . }} isn't initialized yet ... check in 3 seconds ..." && sleep 3;
             done;
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         volumeMounts:
         - mountPath: /boot
           {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 10 }}
+        - mountPath: /pulsar/logs
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
         {{- include "pulsar.broker.certs.volumeMounts" . | nindent 8 }}
       # This init container will wait for bookkeeper to be ready before
       # deploying the broker
@@ -120,9 +126,12 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "broker-init" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - >
+            cp -R /pulsar-conf/* /pulsar/conf/ ;
             {{- include "pulsar.broker.zookeeper.tls.settings" . | nindent 12 }}
             bin/apply-config-from-env.py conf/bookkeeper.conf;
             until bin/bookkeeper shell whatisinstanceid; do
@@ -138,6 +147,7 @@ spec:
             done;
             echo "bookkeeper cluster is ready";
         env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         - name: STS_NAME
           value: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
         - name: POD_DISK_MON
@@ -147,6 +157,14 @@ spec:
               name: "{{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }}"
         volumeMounts:
         {{- include "pulsar.broker.certs.volumeMounts" . | nindent 10 }}
+          - mountPath: /pulsar/logs
+            {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 12 }}
+          - mountPath: /pulsar/conf
+            {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 12 }}
+          - mountPath: /var/tmp
+            {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 12 }}
+          - mountPath: /tmp
+            {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 12 }}
       containers:
       - name: "{{ template "pulsar.fullname" . }}-{{ .Values.broker.component }}"
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
@@ -155,6 +173,7 @@ spec:
         {{- if .Values.broker.probe.liveness.enabled }}
         livenessProbe:
           httpGet:
+            # path: /admin/v2/brokers/health
             path: /status.html
             port: {{ .Values.broker.ports.http }}
           initialDelaySeconds: {{ .Values.broker.probe.liveness.initialDelaySeconds }}
@@ -165,6 +184,7 @@ spec:
         {{- if .Values.broker.probe.readiness.enabled }}
         readinessProbe:
           httpGet:
+            # path: /admin/v2/brokers/health
             path: /status.html
             port: {{ .Values.broker.ports.http }}
           initialDelaySeconds: {{ .Values.broker.probe.readiness.initialDelaySeconds }}
@@ -175,6 +195,7 @@ spec:
         {{- if .Values.broker.probe.startup.enabled }}
         startupProbe:
           httpGet:
+            # path: /admin/v2/brokers/health
             path: /status.html
             port: {{ .Values.broker.ports.http }}
           initialDelaySeconds: {{ .Values.broker.probe.startup.initialDelaySeconds }}
@@ -182,13 +203,8 @@ spec:
           timeoutSeconds: {{ .Values.broker.probe.startup.timeoutSeconds }}
           failureThreshold: {{ .Values.broker.probe.startup.failureThreshold }}
         {{- end }}
-      {{- if .Values.broker.resources }}
         resources:
-{{ toYaml .Values.broker.resources | indent 10 }}
-      {{- else }}
-        resources:
-{{- include "apd.sts.resources" (dict "comp" "broker" "param" $apdParams ) | nindent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "broker" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
@@ -198,7 +214,7 @@ spec:
         {{- end }}
           bin/apply-config-from-env.py conf/broker.conf;
           bin/gen-yml-from-env.py conf/functions_worker.yml;
-          echo "OK" > status;
+          echo "OK" > /pulsar/logs/status;
           {{- include "pulsar.broker.zookeeper.tls.settings" . | nindent 10 }}
           bin/pulsar zookeeper-shell -server {{ template "pulsar.zookeeper.connect" . }} get {{ template "pulsar.broker.znode" . }};
           while [ $? -eq 0 ]; do
@@ -249,6 +265,10 @@ spec:
             {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 12 }}
           - mountPath: /pulsar/conf/log4j2.yaml
             {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 12 }}
+          - mountPath: /var/tmp
+            {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 12 }}
+          - mountPath: /tmp
+            {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 12 }}
           {{- if .Values.auth.authentication.enabled }}
           {{- if eq .Values.auth.authentication.provider "jwt" }}
           - mountPath: "/pulsar/keys"
@@ -271,6 +291,7 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
         {{- end }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       {{- if .Values.broker.extraVolumes }}
 {{ toYaml .Values.broker.extraVolumes | indent 6 }}
       {{- end }}

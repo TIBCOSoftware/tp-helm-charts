@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -51,6 +51,7 @@ spec:
             - name: {{ $emsParams.dp.pullSecret }}
             {{- end }}
             serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
+            {{ include "msg.dp.security.pod" $emsParams | nindent 12 }}
             restartPolicy: Never
             # volumes:
             # - name: scripts-vol
@@ -83,6 +84,9 @@ spec:
 
                 image: "{{ $emsParams.ems.image }}"
                 imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
+                resources:
+{{ $emsParams.job.resources | toYaml | indent 18 }}
+                {{ include "msg.dp.security.container" $emsParams | nindent 16 }}
                 # volumeMounts:
                 # - mountPath: /boot
                 #   name: scripts-vol

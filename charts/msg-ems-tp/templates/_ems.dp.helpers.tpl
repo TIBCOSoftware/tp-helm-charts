@@ -2,7 +2,7 @@
 {{/*
 MSGDP EMS Helpers
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -14,7 +14,7 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-35" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.3.0-36" $dpParams.dp.registry $dpParams.dp.repo -}}
 {{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-4" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
@@ -158,6 +158,7 @@ ems:
   allowNodeSkew: "{{ .Values.ems.allowNodeSkew | default $allowNodeSkew }}"
   allowZoneSkew: "{{ .Values.ems.allowZoneSkew | default $allowZoneSkew }}"
   resources:
+    {{ if $dpParams.dp.enableResourceConstraints }}
     {{ if .Values.ems.resources }}
 {{ .Values.ems.resources | toYaml | indent 4 }}
     {{ else }}
@@ -167,6 +168,7 @@ ems:
     limits:
       memory: {{ $memLim }}
       cpu: {{ $cpuLim }}
+    {{ end }}
     {{ end }}
   # Computed settings below, not intended for user changes
   # use -pods instead of -headless to avoid reducing STS name size
@@ -184,6 +186,33 @@ ems:
 toolset:
   lbHost: "nlbNameHere"
   enableIngress: true
+  resources:
+    {{ if $dpParams.dp.enableResourceConstraints }}
+    {{ if and .Values.toolset .Values.toolset.resources }}
+{{ .Values.toolset.resources | toYaml | indent 4 }}
+    {{ else }}
+    requests:
+      memory: "0.5Gi"
+      cpu: "0.1"
+    limits:
+      memory: "4Gi"
+      cpu: "3"
+    {{ end }}
+    {{ end }}
+job:
+  resources:
+    {{ if $dpParams.dp.enableResourceConstraints }}
+    {{ if and .Values.job .Values.job.resources }}
+{{ .Values.job.resources | toYaml | indent 4 }}
+    {{ else }}
+    requests:
+      memory: "0.5Gi"
+      cpu: "0.1"
+    limits:
+      memory: "1Gi"
+      cpu: "1"
+    {{ end }}
+    {{ end }}
 securityProfile: "{{ .Values.ems.securityProfile | default "ems" }}"
 {{ end }}
 
@@ -201,8 +230,8 @@ tib-msg-ems-use: "{{ .ems.use }}"
 app.kubernetes.io/name: "ems"
 platform.tibco.com/app-type: "msg-ems"
 app.kubernetes.io/part-of: "{{ .ems.name }}"
-platform.tibco.com/app.resources.requests.cpu: {{ .ems.resources.requests.cpu | default "100m" | quote }}
-platform.tibco.com/app.resources.requests.memory: {{ .ems.resources.requests.memory | default "128Mi" | quote }}
-platform.tibco.com/app.resources.limits.cpu: {{ .ems.resources.limits.cpu | default "3" | quote }}
-platform.tibco.com/app.resources.limits.memory: {{ .ems.resources.limits.memory | default "4Gi" | quote }}
+platform.tibco.com/app.resources.requests.cpu: {{ if and .ems.resources .ems.resources.requests -}} {{ .ems.resources.requests.cpu | default "100m" | quote }} {{- else -}} "100m" {{- end }}
+platform.tibco.com/app.resources.requests.memory: {{ if and .ems.resources .ems.resources.requests -}}  {{ .ems.resources.requests.memory | default "128Mi" | quote }} {{- else -}} "128Mi" {{- end }}
+platform.tibco.com/app.resources.limits.cpu: {{ if and .ems.resources .ems.resources.limits -}}  {{ .ems.resources.limits.cpu | default "3" | quote }} {{- else -}} "3" {{- end }}
+platform.tibco.com/app.resources.limits.memory: {{ if and .ems.resources .ems.resources.limits -}} {{ .ems.resources.limits.memory | default "4Gi" | quote }} {{- else -}} "4Gi" {{- end }}
 {{- end }}

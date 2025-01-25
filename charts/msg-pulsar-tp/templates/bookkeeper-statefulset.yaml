@@ -96,17 +96,26 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.bookie "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.bookie "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "bookkeeper" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         # only reformat bookie if bookkeeper is running without persistence
         - >
+          cp -R /pulsar-conf/* /pulsar/conf/ ;
           {{- include "pulsar.bookkeeper.init.verify_cluster_id" . | nindent 10 }}
         envFrom:
         - configMapRef:
             name: "{{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }}"
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         volumeMounts:
         - mountPath: /boot
           {{ include "msg.pv.vol.mount" $apdParams.apd.boot | nindent 10 }}
+        - mountPath: /pulsar/logs
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
+        - mountPath: /pulsar/conf
+          {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         {{- include "pulsar.bookkeeper.certs.volumeMounts" . | nindent 8 }}
       containers:
       - name: "{{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }}"
@@ -143,13 +152,8 @@ spec:
           timeoutSeconds: {{ .Values.bookkeeper.probe.startup.timeoutSeconds }}
           failureThreshold: {{ .Values.bookkeeper.probe.startup.failureThreshold }}
         {{- end }}
-      {{- if .Values.bookkeeper.resources }}
         resources:
-{{ toYaml .Values.bookkeeper.resources | indent 10 }}
-      {{- else }}
-        resources:
-{{- include "apd.sts.resources" (dict "comp" "bookkeeper" "param" $apdParams ) | nindent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "bookkeeper" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
@@ -205,6 +209,10 @@ spec:
           {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         - mountPath: /pulsar/conf/log4j2.yaml
           {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 10 }}
+        - mountPath: /var/tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+        - mountPath: /tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
         {{- if .Values.bookkeeper.extraVolumeMounts }}
 {{ toYaml .Values.bookkeeper.extraVolumeMounts | indent 8 }}
         {{- end }}
@@ -215,6 +223,7 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.msgData | nindent 6 }}
       {{ include "msg.pv.vol.def" $apdParams.apd.journal | nindent 6 }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       {{- include "pulsar.bookkeeper.certs.volumes" . | nindent 6 }}
       {{- include "pulsar.imagePullSecrets" . | nindent 6}}
       {{- if .Values.bookkeeper.extraVolumes }}

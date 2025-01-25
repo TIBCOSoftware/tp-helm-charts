@@ -1,0 +1,75 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+# STANDARD CONTROL-PLANE SETTINGs
+global:
+  cic:
+    data:
+      CP_VOLUME_CLAIM:
+      SYSTEM_DOCKER_REGISTRY:
+      # Messaging Added
+      SYSTEM_REPO:
+      PULL_SECRET:
+      # Unused
+      # SYSTEM_WHERE: local
+      # SYSTEM_WHO: local
+      # SYSTEM_SCALE: minimal
+      # SYSTERM_SECURITY: defaulted
+
+# LEGACY CONTROL-PLANE SETTING
+data:
+  SYSTEM_DOCKER_REGISTRY:
+
+# MSGDP OVERRIDE SETTINGS
+cp:
+  registry:
+  repository:
+  CP_VOLUME_CLAIM:
+  pullSecret:
+  pullPolicy:
+  imageName:
+  imageTag:
+  enableSecurityContext: true
+
+recipes:
+  TARGET_PATH:
+  jobPostSleep: 180
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 150Mi
+  limits:
+    cpu: "1"
+    memory: 1024Mi
+webserver:
+  securityProfile:
+
+# ##### EXAMPLE VALUES SECTIONS
+# RECOMMENDED Multi-chart SETTINGS
+# -- EXAMPLE
+# global:
+#   cic:
+#     data:
+#       CP_VOLUME_CLAIM: provider-cp-fs-store
+#       SYSTEM_DOCKER_REGISTRY: 664529841144.dkr.ecr.us-west-2.amazonaws.com
+#       PULL_SECRET:
+#       SYSTEM_REPO: msg-platform-cicd
+#
+# LEGACY CONTROL-PLANE SETTING
+# data:
+#   SYSTEM_DOCKER_REGISTRY: 664529841144.dkr.ecr.us-west-2.amazonaws.com
+#
+# MSGDP OVERRIDE SETTINGS
+# .. Setting these keys will override global settings
+# .. MSGDP chart fall-back defaults are set in _cp.helpers.tpl
+# cp:
+#   registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
+#   repo: msg-platform-cicd
+#   CP_VOLUME_CLAIM: provider-cp-fs-store
+#   imageName: msg-cp-ui-contrib
+#   imageTag: "1.4.0-12"
+#   TARGET_PATH: /private/tsc/config/capabilities/platform
+#   imageFullName:

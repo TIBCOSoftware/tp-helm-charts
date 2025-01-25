@@ -78,13 +78,8 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.broker "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
-      {{- if .Values.toolset.resources }}
         resources:
-{{ toYaml .Values.toolset.resources | indent 10 }}
-      {{- else }}
-        resources:
-{{- include "apd.sts.resources" (dict "comp" "toolset" "param" $apdParams ) | nindent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "toolset" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         # exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;
         args:
@@ -105,6 +100,22 @@ spec:
           containerPort: 8376
           # Requires websocket upgrade support
           protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8376
+          initialDelaySeconds: 3
+          periodSeconds: 15
+          successThreshold: 1
+          failureThreshold: 4
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8376
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
         env:
         {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         - name: MY_SVC_HOST
@@ -145,6 +156,10 @@ spec:
           {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         - mountPath: /pulsar/conf/log4j2.yaml
           {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 10 }}
+        - mountPath: /var/tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+        - mountPath: /tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
         {{- if .Values.auth.authentication.enabled }}
         {{- if eq .Values.auth.authentication.provider "jwt" }}
         - mountPath: "/pulsar/tokens"
@@ -169,6 +184,7 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
         {{- end }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       {{ include "msg.pv.vol.def" $apdParams.apd.params | nindent 6 }}
       {{ include "msg.pv.vol.def" $apdParams.apd.toolsetData | nindent 6 }}
       {{- if .Values.auth.authentication.enabled }}

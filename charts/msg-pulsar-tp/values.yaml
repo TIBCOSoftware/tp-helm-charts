@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -9,6 +9,7 @@ global:
   cp:
     dataplaneId:
     enableClusterScopedPerm: true
+    enableResourceConstraints: true
     logging:
       fluentbit:
         enabled: true
@@ -691,8 +692,28 @@ autorecovery:
   restartPodsOnConfigMapChange: false
   ports:
     http: 8000
+    health: 8090
   # nodeSelector:
   # cloud.google.com/gke-nodepool: default-pool
+  probe:
+    liveness:
+      enabled: true
+      failureThreshold: 10
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+    readiness:
+      enabled: true
+      failureThreshold: 10
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+    startup:
+      enabled: false
+      failureThreshold: 30
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
   affinity:
     anti_affinity: true
     anti_affinity_topology_key: kubernetes.io/hostname
@@ -712,6 +733,7 @@ autorecovery:
   ## templates/autorecovery-configmap.yaml
   ##
   configData:
+    PULSAR_PREFIX_statusFilePath: "/pulsar/logs/status"
     # BOOKIE_MEM: >
     #   -Xms64m -Xmx64m
     PULSAR_PREFIX_useV2WireProtocol: "true"
@@ -834,6 +856,7 @@ broker:
   ## templates/broker-configmap.yaml
   ##
   configData:
+    PULSAR_PREFIX_statusFilePath: "/pulsar/logs/status"
     # PULSAR_MEM: >
     #   -Xms128m -Xmx256m -XX:MaxDirectMemorySize=256m
     PULSAR_GC: >
@@ -965,6 +988,7 @@ proxy:
   ## templates/proxy-configmap.yaml
   ##
   configData:
+    PULSAR_PREFIX_statusFilePath: "/pulsar/logs/status"
     # PULSAR_MEM: >
     #   -Xms64m -Xmx64m -XX:MaxDirectMemorySize=64m
     PULSAR_GC: >
@@ -1194,3 +1218,4 @@ job:
   ttl:
     enabled: true
     secondsAfterFinished: 3600
+  resources: {}

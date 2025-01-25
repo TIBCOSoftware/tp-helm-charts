@@ -2,7 +2,7 @@
 {{/*
 MSGDP Pulsar (aka. Quasar, APD) Helpers
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -16,9 +16,9 @@ need.msg.apd.params
 #
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
 #
-{{-  $apdDefaultFullImage := printf "%s/%s/msg-pulsar-all:3.0.2-32" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $apdDefaultFullImage := printf "%s/%s/msg-pulsar-all:3.0.2-36" $dpParams.dp.registry $dpParams.dp.repo -}}
 {{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-4" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $apdDefaultImageTag := "3.0.2-32" -}}
+{{-  $apdDefaultImageTag := "3.0.2-36" -}}
 # Set APD defaults
 {{- $apdImage := ternary $apdDefaultFullImage .Values.apd.image ( not .Values.apd.image ) -}}
 {{- $name := ternary .Release.Name .Values.apd.name ( not .Values.apd.name ) -}}
@@ -146,6 +146,12 @@ apd:
     storageName: {{ $name }}-conf
     subPath: "log4j2.yaml"
     readOnly: true
+  vartmp:
+    volName: vartmp
+    storageType: emptyDir
+    readOnly: false
+    permissions:
+      mode: "1777"
   params:
     volName: config-vol
     storageType: configMap
