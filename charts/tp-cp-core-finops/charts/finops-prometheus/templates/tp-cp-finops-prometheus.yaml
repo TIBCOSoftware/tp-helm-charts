@@ -39,9 +39,6 @@ spec:
       labels:
         {{- include "finops-prometheus.shared.labels.standard" . | nindent 8 }}
       annotations:
-{{- if (include "cp-core-configuration.enableLogging" .) }}
-        checksum/fluentbit-config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
-{{- end }}
         checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
     spec:
       {{- if .Values.global.podSecurityContext }}
@@ -61,6 +58,7 @@ spec:
             {{- toYaml .Values.global.containerSecurityContext.finopsPrometheus | nindent 12 }}
           {{- end }}        
           image: {{ include "finops-prometheus.image.registry" .}}{{"/"}}{{ include "finops-prometheus.image.repository" .}}{{"/tel-finops-prometheus"}}:{{ include "finops-prometheus.generated.buildNumber" . }}
+          {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
           resources:
             requests:
               cpu: {{ .Values.finopsprometheus.resources.requests.cpu }}
@@ -68,6 +66,7 @@ spec:
             limits:
               cpu: {{ .Values.finopsprometheus.resources.limits.cpu }}
               memory: {{ .Values.finopsprometheus.resources.limits.memory }}
+          {{- end }}
           volumeMounts:
             - name: config-vol
               mountPath: /etc/prometheus/conf
@@ -90,61 +89,7 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 30
             timeoutSeconds: 5
-{{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: fluentbit
-          image: {{ include "finops-prometheus.image.registry" .}}{{"/"}}{{ include "finops-prometheus.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-          {{- if .Values.global.containerSecurityContext.fluentbit }}
-          securityContext:
-            {{- toYaml .Values.global.containerSecurityContext.fluentbit | nindent 12 }}
-          {{- end }}  
-          resources:
-            requests:
-              cpu: {{ .Values.fluentbit.resources.requests.cpu }}
-              memory: {{ .Values.fluentbit.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.fluentbit.resources.limits.cpu }}
-              memory: {{ .Values.fluentbit.resources.limits.memory }}
-          env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            - name: CONTAINER_NAME
-              value: {{ include "finops-prometheus.consts.appName" . }}
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
-          volumeMounts:
-            - name: podlogs
-              mountPath: /var/log/pods
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers
-            - name: fluentbit-config
-              mountPath: /fluent-bit/etc/
-{{- end }}
       volumes:
-{{- if (include "cp-core-configuration.enableLogging" .) }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
-        - name: fluentbit-config
-          configMap:
-            name: {{ include "finops-prometheus.consts.appName" . }}-fluentbit-config
-{{- end }}
         - name: config-vol
           configMap:
             defaultMode: 420

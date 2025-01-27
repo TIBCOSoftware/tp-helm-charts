@@ -98,13 +98,8 @@ spec:
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.images.zookeeper "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.zookeeper "root" .) }}"
         {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
-      {{- if .Values.zookeeper.resources }}
         resources:
-{{ toYaml .Values.zookeeper.resources | indent 10 }}
-      {{- else }}
-        resources:
-{{- include "apd.sts.resources" (dict "comp" "zookeeper" "param" $apdParams ) | nindent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "zookeeper" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
@@ -209,6 +204,8 @@ spec:
           {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
         - mountPath: /pulsar/conf/log4j2.yaml
           {{ include "msg.pv.vol.mount" $apdParams.apd.log4j2 | nindent 10 }}
+        - mountPath: /var/tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
         {{- if and .Values.tls.enabled .Values.tls.zookeeper.enabled }}
         - mountPath: "/pulsar/certs/zookeeper"
           name: zookeeper-certs
@@ -229,6 +226,7 @@ spec:
       {{ include "msg.pv.vol.def" $apdParams.apd.msgData | nindent 6 }}
       {{ include "msg.pv.vol.def" $apdParams.apd.journal | nindent 6 }}
       {{ include "msg.pv.vol.def" $apdParams.apd.log4j2 | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       {{ if .Values.zookeeper.extraVolumes }}
 {{ toYaml .Values.zookeeper.extraVolumes | indent 6 }}
       {{- end }}

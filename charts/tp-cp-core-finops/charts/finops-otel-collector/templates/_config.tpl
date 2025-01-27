@@ -21,18 +21,6 @@ Merge user supplied config into memory limiter config.
 {{-   $_ := set $processorsConfig "memory_limiter" (include "finops-otel-collector.memoryLimiter" . | fromYaml) }}
 {{- end }}
 
-{{- if .Values.useGOMEMLIMIT }}
-  {{- if (((.Values.config).service).extensions) }}
-    {{- $_ := set .Values.config.service "extensions" (without .Values.config.service.extensions "memory_ballast") }}
-  {{- end}}
-  {{- $_ := unset (.Values.config.extensions) "memory_ballast" }}
-{{- else }}
-  {{- $memoryBallastConfig := get .Values.config.extensions "memory_ballast" }}
-  {{- if or (not $memoryBallastConfig) (not $memoryBallastConfig.size_in_percentage) }}
-  {{-   $_ := set $memoryBallastConfig "size_in_percentage" 40 }}
-  {{- end }}
-{{- end }}
-
 {{- .Values.config | toYaml }}
 {{- end }}
 

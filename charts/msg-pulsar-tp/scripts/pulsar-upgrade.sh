@@ -1,10 +1,11 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
+[ -n "$LOG_DIR" ] && mkdir -p "$LOG_DIR" && cd "$LOG_DIR"
 fmtTime="--rfc-3339=ns"
 function log
 { echo "$(date "$fmtTime"): $*" ; }

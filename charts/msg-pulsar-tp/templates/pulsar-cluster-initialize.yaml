@@ -29,6 +29,7 @@ metadata:
   annotations:
     {{ include "msg.dp.mon.annotations" . | indent 4 }}
   labels:
+    app.kubernetes.io/name: "{{ .Values.pulsar_metadata.component }}"
     {{- include "pulsar.standardLabels" . | nindent 4 }}
     component: {{ .Values.pulsar_metadata.component }}
 spec:
@@ -40,9 +41,11 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/name: "{{ .Values.pulsar_metadata.component }}"
         {{- include "pulsar.template.labels" . | nindent 8 }}
     spec:
       {{- include "pulsar.imagePullSecrets" . | nindent 6}}
+      {{ include "msg.dp.security.pod" $apdParams | nindent 6 }}
       enableServiceLinks: false
       serviceAccountName: "{{ $apdParams.apd.broker.serviceAccount }}"
       nodeSelector:
@@ -55,7 +58,9 @@ spec:
       - name: wait-cs-ready
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.pulsar_metadata.image "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
-        # imagePullPolicy: {{ .Values.pulsar_metadata.image.pullPolicy }}
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "job" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - >-
@@ -66,7 +71,9 @@ spec:
       - name: wait-zookeeper-ready
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.pulsar_metadata.image "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
-        # imagePullPolicy: {{ .Values.pulsar_metadata.image.pullPolicy }}
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "job" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - >-
@@ -79,34 +86,62 @@ spec:
               sleep 3;
             done;
             {{- end}}
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
+        volumeMounts:
+        - mountPath: /pulsar/logs
+          {{- if eq "sharedPvc" $apdParams.apd.logs.storageType }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
+          {{- else }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+          {{- end }}
       # This initContainer will wait for bookkeeper initnewcluster to complete
       # before initializing pulsar metadata
       - name: pulsar-bookkeeper-verify-clusterid
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.pulsar_metadata.image "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
-        # imagePullPolicy: {{ .Values.pulsar_metadata.image.pullPolicy }}
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
+        resources:
+{{- include "apd.sts.resources" (dict "comp" "job" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
         - >
+          cp -R /pulsar-conf/* /pulsar/conf/ ;
           bin/apply-config-from-env.py conf/bookkeeper.conf;
           {{- include "pulsar.toolset.zookeeper.tls.settings" . | nindent 10 }}
           until bin/bookkeeper shell whatisinstanceid; do
             sleep 3;
           done;
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         envFrom:
         - configMapRef:
             name: "{{ template "pulsar.fullname" . }}-{{ .Values.bookkeeper.component }}"
         volumeMounts:
         {{- include "pulsar.toolset.certs.volumeMounts" . | nindent 8 }}
+        - mountPath: /pulsar/logs
+          {{- if eq "sharedPvc" $apdParams.apd.logs.storageType }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
+          {{- else }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+          {{- end }}
+        - mountPath: /pulsar/conf
+          {{- if eq "sharedPvc" $apdParams.apd.logs.storageType }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
+          {{- else }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+          {{- end }}
+        - mountPath: /var/tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+        - mountPath: /tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
       containers:
       - name: "{{ template "pulsar.fullname" . }}-{{ .Values.pulsar_metadata.component }}"
         image: "{{ template "pulsar.imageFullName" (dict "image" .Values.pulsar_metadata.image "root" .) }}"
         imagePullPolicy: "{{ template "pulsar.imagePullPolicy" (dict "image" .Values.images.broker "root" .) }}"
-        # imagePullPolicy: {{ .Values.pulsar_metadata.image.pullPolicy }}
-      {{- if .Values.pulsar_metadata.resources }}
+        {{ include "msg.dp.security.container" $apdParams | nindent 8 }}
         resources:
-{{ toYaml .Values.pulsar_metadata.resources | indent 10 }}
-      {{- end }}
+{{- include "apd.sts.resources" (dict "comp" "job" "param" $apdParams "Values" .Values ) | nindent 10 }}
         command: ["bash", "-c"]
         args:
           - |
@@ -127,10 +162,30 @@ spec:
             {{- if .Values.extraInitCommand }}
               {{ .Values.extraInitCommand }}
             {{- end }}
+        env:
+        {{ include "msg.dp.stdenv" $apdParams | nindent 8 }}
         volumeMounts:
         {{- include "pulsar.toolset.certs.volumeMounts" . | nindent 8 }}
+        - mountPath: /pulsar/logs
+          {{- if eq "sharedPvc" $apdParams.apd.logs.storageType }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.logs | nindent 10 }}
+          {{- else }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+          {{- end }}
+        - mountPath: /pulsar/conf
+          {{- if eq "sharedPvc" $apdParams.apd.logs.storageType }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.conf | nindent 10 }}
+          {{- else }}
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+          {{- end }}
+        - mountPath: /var/tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
+        - mountPath: /tmp
+          {{ include "msg.pv.vol.mount" $apdParams.apd.vartmp | nindent 10 }}
       volumes:
       {{- include "pulsar.toolset.certs.volumes" . | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.logs | nindent 6 }}
+      {{ include "msg.pv.vol.def" $apdParams.apd.vartmp | nindent 6 }}
       restartPolicy: OnFailure
       {{- if .Values.pulsar_metadata.nodeSelector }}
       nodeSelector:

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -17,6 +17,7 @@ metadata:
     name: "{{ $jobname }}"
     labels:
       name: "{{ $jobname }}"
+      app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-uninstall"
       {{ include "msg.dp.labels" . | indent 6 }}
       {{ include "apd.std.labels" $apdParams | indent 6 }}
     namespace: "{{ .Release.Namespace }}"
@@ -35,6 +36,7 @@ spec:
             namespace: "{{ .Release.Namespace }}"
             labels:
                 name: "{{ $jobname }}"
+                app.kubernetes.io/name: "{{ template "pulsar.fullname" . }}-uninstall"
                 {{ include "msg.dp.labels" . | indent 16 }}
                 {{ include "msg.dp.net.kubectl" . | indent 16}}
                 {{ include "apd.std.labels" $apdParams | indent 16 }}
@@ -42,6 +44,7 @@ spec:
             enableServiceLinks: false
             nodeSelector:
                 kubernetes.io/os: linux
+            {{ include "msg.dp.security.pod" $apdParams | nindent 12 }}
             {{- if ne "none" $apdParams.dp.pullSecret }}
             imagePullSecrets:
             - name: {{ $apdParams.dp.pullSecret }}
@@ -61,6 +64,9 @@ spec:
 
                 image: "{{ $apdParams.apd.imageFullName }}"
                 imagePullPolicy: "{{ $apdParams.dp.pullPolicy }}"
+                {{ include "msg.dp.security.container" $apdParams | nindent 16 }}
+                resources:
+{{- include "apd.sts.resources" (dict "comp" "job" "param" $apdParams "Values" .Values ) | nindent 18 }}
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
                 {{ include "msg.dp.stdenv" $apdParams | indent  16 }}

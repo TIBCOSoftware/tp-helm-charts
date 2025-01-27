@@ -1,6 +1,6 @@
 {{ if .Release.IsUpgrade }}
 #
-# Copyright (c) 2023-2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -50,6 +50,7 @@ spec:
           - name: {{ $emsParams.dp.pullSecret }}
           {{- end }}
           serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
+          {{ include "msg.dp.security.pod" $emsParams | nindent 10 }}
           restartPolicy: Never
           volumes:
           - name: scripts-vol
@@ -62,6 +63,9 @@ spec:
             {{ else }}
             emptyDir: {}
             {{ end }}
+          - name: "ems-data"
+            # TODO: Support PVCdata during init
+            emptyDir: {}
           terminationGracePeriodSeconds: 10
           containers:
           -   name: "main"
@@ -70,6 +74,7 @@ spec:
               - >
                 ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
+                mkdir -p /logs/boot ; cd /logs/boot ;
                 bash < /boot/fix-sample-certs.sh ; 
                 echo "Upgrading pods ..." ; 
                 kubectl get pods -l=tib-msg-stsname={{ $stsname }} | egrep -v NAME | while read x o ; do 
@@ -81,6 +86,9 @@ spec:
                 bash < /boot/health-watcher.sh 
               image: "{{ $emsParams.ems.image }}"
               imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
+              resources:
+                {{ $emsParams.job.resources | toYaml | nindent 16 }}
+              {{ include "msg.dp.security.container" $emsParams | nindent 14 }}
               volumeMounts:
               - mountPath: /boot
                 name: scripts-vol
@@ -89,9 +97,11 @@ spec:
                 {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
                 subPathExpr: "$(MY_RELEASE)/logs"
                 {{ end }}
+              - mountPath: /data 
+                name: ems-data
               env:
               # CAUTION! Setting Names here overrides envFrom values
-              {{ include "msg.dp.stdenv" $emsParams | indent  14 }}
+              {{ include "msg.dp.stdenv" $emsParams | nindent  14 }}
               - name: ACCEPT_EUA
                 value: "y"
               - name: STS_NAME
