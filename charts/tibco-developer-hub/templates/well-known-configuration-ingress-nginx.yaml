@@ -15,11 +15,7 @@ metadata:
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
     {{- end }}
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-    nginx.ingress.kubernetes.io/upstream-vhost: {{ $cpHostname }}
-    nginx.ingress.kubernetes.io/rewrite-target: /.well-known/openid-configuration
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header x-cp-host {{ $cpHostname }};
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
     {{- with .Values.global.cp.resources.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -31,9 +27,9 @@ spec:
         paths:
           - backend:
               service:
-                name: {{ include "common.names.fullname" . }}-wkc
+                name: {{ include "common.names.fullname" . }}
                 port:
-                  number: 443
-            path: /tibco/hub/.well-known/openid-configuration
-            pathType: Exact
+                  number: {{ .Values.service.ports.backend }}
+            path: /tibco/hub/.well-known/openid-configuration/
+            pathType: ImplementationSpecific
 {{- end }}
