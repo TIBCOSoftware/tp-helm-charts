@@ -8,10 +8,10 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Timestamp of capability release
-    releaseDate: "2024/08/30"
+    releaseDate: "2025/01/20"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "#cshid=new_features"
-    # helm chart and image version for bwprovisioner, default helm chart version is latest
+    # helm chart and image version for devhubprovisioner, default helm chart version is latest
     tibco-developer-hub:
       version: ""
 
@@ -40,6 +40,30 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
+      - CAP_NET_RAW
+
+scripts:
+  resources:
+    requests:
+      cpu: 150m
+      memory: 150Mi
+    limits:
+      cpu: 300m
+      memory: 300Mi
+
+probes:
+  startupProbe: {}
+  # enable startup probe only if security policy is blocking you from deployment, otherwise its not recommended to use it
+  #  exec:
+  #    command:
+  #    - touch
+  #    - /tmp/healthy
+  #  initialDelaySeconds: 5
+  #  periodSeconds: 5
+  #  failureThreshold: 5
+  #  successThreshold: 1
+  #  timeoutSeconds: 5

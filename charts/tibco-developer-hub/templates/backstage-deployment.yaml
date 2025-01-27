@@ -3,6 +3,7 @@
 # in the license file that is distributed with this file.
 
 {{- $installDir := .Values.backstage.installDir -}}
+{{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
 ---
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
@@ -62,15 +63,19 @@ spec:
           configMap:
             name: backstage-app-config
         {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: techdoc
+          emptyDir: {}
+        - name: db
+          emptyDir: {}
+        {{- if .Values.global.cp.cpCertificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.cp.cpCertificateSecret }}
+        {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
-        - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
-        - name: dockercontainerlogs
-          hostPath:
-            path: /var/lib/docker/containers
-            type: DirectoryOrCreate
         - name: config-volume
           configMap:
             name: tibco-developer-hub-fluentbit-config
@@ -92,12 +97,22 @@ spec:
           command: ['sh', '-c', 
             'until pg_isready -U {{ .Values.postgresql.auth.username }} -h {{ include "backstage.postgresql.host" . }} -p 5432; 
             do echo waiting for database; sleep 2; done;']
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- if .Values.appInit.resources }}
+          resources:
+            {{- toYaml .Values.appInit.resources | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.appInit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.appInit.securityContext | nindent 12 }}
+          {{- end }}
       {{- if .Values.backstage.initContainers }}      
         {{- include "common.tplvalues.render" ( dict "value" .Values.backstage.initContainers "context" $) | nindent 8 }}
       {{- end }}
       containers:
         - name: backstage-backend
-          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.backstage.image.name }}:{{ .Values.backstage.image.tag }}
+          image: {{ include "backstage.image.backend-registry" .}}{{"/"}}{{ include "backstage.image.backend-repository" .}}:{{ .Values.backstage.image.tag }}
           imagePullPolicy: {{ .Values.backstage.image.pullPolicy | quote -}}
           {{- if .Values.backstage.containerSecurityContext }}
           securityContext:
@@ -133,8 +148,9 @@ spec:
             - "{{ $installDir }}/app-config-from-configmap.yaml"
           {{- end }}
           {{- end }}
-          {{- if .Values.backstage.resources }}
-          resources: {{- include "common.tplvalues.render" (dict "value" .Values.backstage.resources "context" $) | nindent 12 }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           {{- end }}
           {{- if or .Values.backstage.extraEnvVarsSecrets .Values.backstage.appEnvSecrets }}
           envFrom:
@@ -170,6 +186,8 @@ spec:
           env:
             - name: APP_CONFIG_backend_listen_port
               value: {{ .Values.backstage.containerPorts.backend | quote }}
+            - name: CP_URL
+              value: {{ $cpHostname }}
             {{- if .Values.postgresql.enabled }}
             - name: POSTGRES_HOST
               value: {{ include "backstage.postgresql.host" . }}
@@ -204,8 +222,16 @@ spec:
             - name: backend
               containerPort: {{ .Values.backstage.containerPorts.backend }}
               protocol: TCP
-          {{- if (or .Values.backstage.extraAppConfig .Values.backstage.appConfig (and .Values.backstage.extraVolumeMounts .Values.backstage.extraVolumes)) }}
           volumeMounts:
+            - mountPath: /app/node_modules/@backstage/plugin-techdocs-backend/static/docs
+              name: techdoc
+            - name: logs
+              mountPath: /tmp
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: cp-certs
+              mountPath: /etc/ssl/custom-certs
+            {{- end }}
+            {{- if (or .Values.backstage.extraAppConfig .Values.backstage.appConfig (and .Values.backstage.extraVolumeMounts .Values.backstage.extraVolumes)) }}
             {{- range .Values.backstage.extraAppConfig }}
             - name: {{ .configMapRef }}
               mountPath: "{{ $installDir }}/{{ .filename }}"
@@ -219,15 +245,54 @@ spec:
             {{- if .Values.backstage.extraVolumeMounts }}
               {{- include "common.tplvalues.render" ( dict "value" .Values.backstage.extraVolumeMounts "context" $ ) | nindent 12 }}
             {{- end }}
-          {{- end }}
+            {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluentbit
           image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.fluentbit.image.pullPolicy }}
-          {{- if .Values.fluentbit.securityContext }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
           securityContext:
-            {{- toYaml .Values.fluentbit.securityContext | nindent 12 }}
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
           {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: 2020
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              scheme: HTTP
+              path: /api/v1/health
+              port: 2020
+            initialDelaySeconds: 0
+            periodSeconds: 1
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 50
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /api/v1/health
+              port: 2020
+            periodSeconds: 10
+            timeoutSeconds: 2
+            initialDelaySeconds: 0
+            successThreshold: 1
+            failureThreshold: 1
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /api/v1/health
+              port: 2020
+            periodSeconds: 10
+            timeoutSeconds: 2
+            initialDelaySeconds: 0
+            successThreshold: 1
+            failureThreshold: 1
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -248,10 +313,10 @@ spec:
                 fieldRef:
                   fieldPath: status.hostIP
           volumeMounts:
-            - name: podlogs
+            - name: logs
               mountPath: /var/log/pods
-            - name: dockercontainerlogs
-              mountPath: /var/lib/docker/containers
+            - name: db
+              mountPath: /var/log/db
             - name: config-volume
               mountPath: /fluent-bit/etc/
         {{- end }}
