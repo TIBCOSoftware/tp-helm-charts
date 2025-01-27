@@ -96,6 +96,8 @@ spec:
           subPath: hawk
         - name: secret-volume
           mountPath: /private/hawk/secret-volume
+        - mountPath: /tmp
+          name: tmpfs-1
       volumes:
         - name: store-vol
           persistentVolumeClaim:
@@ -108,6 +110,8 @@ spec:
               path: USERNAME
             - key: PASSWORD
               path: PASSWORD
+        - name: tmpfs-1
+          emptyDir: {}
 
 
 
@@ -205,6 +209,8 @@ spec:
           subPath: hawk
         - name: secret-volume
           mountPath: /private/hawk/secret-volume
+        - mountPath: /tmp
+          name: tmpfs-1
       volumes:
         - name: store-vol
           persistentVolumeClaim:
@@ -217,6 +223,8 @@ spec:
               path: USERNAME
             - key: PASSWORD
               path: PASSWORD
+        - name: tmpfs-1
+          emptyDir: {}
 
 
 
@@ -317,6 +325,8 @@ spec:
           subPath: hawk
         - name: secret-volume
           mountPath: /private/hawk/secret-volume
+        - mountPath: /tmp
+          name: tmpfs-1
       volumes:
         - name: store-vol
           persistentVolumeClaim:
@@ -329,6 +339,8 @@ spec:
               path: USERNAME
             - key: PASSWORD
               path: PASSWORD
+        - name: tmpfs-1
+          emptyDir: {}
 
 
 ---
@@ -425,6 +437,8 @@ spec:
           subPath: hawk
         - name: secret-volume
           mountPath: /private/hawk/secret-volume
+        - mountPath: /tmp
+          name: tmpfs-1
       volumes:
         - name: store-vol
           persistentVolumeClaim:
@@ -437,6 +451,8 @@ spec:
               path: USERNAME
             - key: PASSWORD
               path: PASSWORD
+        - name: tmpfs-1
+          emptyDir: {}
 
 
 {{- end }}

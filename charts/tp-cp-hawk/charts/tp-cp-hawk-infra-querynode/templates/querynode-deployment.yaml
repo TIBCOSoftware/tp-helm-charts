@@ -38,8 +38,6 @@ spec:
           image: {{ include "tp-hawk-infra-querynode.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-querynode.image.repository" . }}{{"/"}}{{ .Values.images.querynode.image.name }}:{{ .Values.images.querynode.image.tag }}
           imagePullPolicy: {{ .Values.images.querynode.image.pullPolicy }}
           env:
-            - name: waitForServices
-              value: prometheus-ds-service:9000,prometheus-service:9090
             - name: unity.services.rest.host
               value: 0.0.0.0
             - name: unity.services.rest.port
@@ -71,6 +69,8 @@ spec:
                 configMapKeyRef:
                   name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
                   key: DBPort
+            - name: waitForServices
+              value: prometheus-ds-service:9000,prometheus-service:9090,$(PGHOST):$(PGPORT)
             - name: datasource_base_url
               value: "jdbc:postgresql://$(PGHOST):$(PGPORT)"
             - name: datasource_url
@@ -90,22 +90,58 @@ spec:
                 secretKeyRef:
                   name: metric-token-query-secret
                   key: metric_auth_token
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.resources }}
           resources:
-            requests:
-              cpu: {{ .Values.querynode.resources.requests.cpu }}
-              memory: {{ .Values.querynode.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.querynode.resources.limits.cpu }}
-              memory: {{ .Values.querynode.resources.limits.memory }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
           ports:
             - containerPort: 9681
               protocol: TCP
               name: rest-querynode
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: rest-querynode
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.querynode.readinessInitialDelaySeconds }}
+            periodSeconds: {{ .Values.querynode.readinessPeriodSeconds }}
+            timeoutSeconds: {{ .Values.querynode.readinessTimeoutSeconds }}
+            failureThreshold: {{ .Values.querynode.readinessFailureThreshold }}
+            successThreshold: {{ .Values.querynode.readinessSuccessThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: rest-querynode
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.querynode.livenessInitialDelaySeconds }}
+            periodSeconds: {{ .Values.querynode.livenessPeriodSeconds }}
+            timeoutSeconds: {{ .Values.querynode.livenessTimeoutSeconds }}
+            failureThreshold: {{ .Values.querynode.livenessFailureThreshold }}
+            successThreshold: {{ .Values.querynode.livenessSuccessThreshold }}
           volumeMounts:
             - name: store-vol
               mountPath: /private/tsc/certificates
               subPath: tsc/certificates
+            - mountPath: /tmp
+              name: tmpfs-1
+            - mountPath: /redtail/querynode/data/
+              name: tmpfs-2
+            - mountPath: /redtail/tmp
+              name: tmpfs-3
+            - mountPath: /redtail/data/
+              name: tmpfs-4
+
       volumes:
         - name: store-vol
           persistentVolumeClaim:
-          claimName: {{ include "tp-hawk-infra-querynode.pvc-name" . }}
+            claimName: {{ include "tp-hawk-infra-querynode.pvc-name" . }}
+        - name: tmpfs-1
+          emptyDir: {}
+        - name: tmpfs-2
+          emptyDir: {}
+        - name: tmpfs-3
+          emptyDir: {}
+        - name: tmpfs-4
+          emptyDir: {}

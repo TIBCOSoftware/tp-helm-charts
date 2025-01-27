@@ -19,16 +19,34 @@ metadata:
 spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:
-  - http:
+  - host: dp-{{ .Values.global.cp.dataplaneId }}
+    http:
       paths:
-      - pathType: Prefix
-        path: {{ .Values.ingress.pathPrefix }}
-        backend:
-          service:
-            name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
-            port:
-              number: 9687
-    {{- with .Values.ingress.host }}
-    host: {{ . }}
-    {{- end }}
+        - pathType: Prefix
+          path: {{ .Values.ingress.pathPrefix }}
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
+  - host: dp-{{ .Values.global.cp.dataplaneId }}.platform.local
+    http:
+      paths:
+        - pathType: Prefix
+          path: {{ .Values.ingress.pathPrefix }}
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
+  - host: dp-{{ .Values.global.cp.dataplaneId }}.{{ .Values.global.cp.cpInstanceId }}-tibco-sub-{{ .Values.global.cp.subscriptionId }}.svc.cluster.local
+    http:
+      paths:
+        - pathType: Prefix
+          path: {{ .Values.ingress.pathPrefix }}
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
 {{- end }}

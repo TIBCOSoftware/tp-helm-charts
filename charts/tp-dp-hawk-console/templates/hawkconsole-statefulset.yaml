@@ -59,7 +59,7 @@ spec:
             value: "9687"
           - name: DATA_PATH
             value: /redtail/hawkconsolenode/data
-          - name: EMS_CERTS_DIR
+          - name: EMS_CERTS_PATH
             value: /redtail/hawkconsolenode/emscerts
           - name: SUBSCRIPTION_ID
             value: {{ .Values.global.cp.subscriptionId }}
@@ -71,9 +71,11 @@ spec:
             value: {{ .Values.global.cp.controlTower.metricAuthToken }}
           - name: JAVA_TOOL_OPTIONS
             value: "-Xms2g -Xmx4g"
+        {{- if .Values.global.cp.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10}}
+        {{- end }}
         {{- end }}
         ports:
           - containerPort: 9687
@@ -145,9 +147,11 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+        {{- if .Values.global.cp.enableResourceConstraints }}
         {{- with .Values.global.cp.logging.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- end }}
         volumeMounts:
           - name: podlogs

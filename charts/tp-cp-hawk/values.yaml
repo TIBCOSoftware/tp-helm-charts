@@ -9,6 +9,7 @@ global:
   tibco:
     is_replica_region: false
   cp:
+    enableResourceConstraints: true
     data:
       CP_DB_CONFIGURATION: provider-cp-database-config
       security: "defaulted"
@@ -36,9 +37,11 @@ global:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     hawkinfrajobs:
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
+          - CAP_NET_RAW
           - ALL
 
     # The fluentbit configuration section.
@@ -82,7 +85,7 @@ images:
     image:
       name: hawk-scripts
       pullPolicy: IfNotPresent
-      tag: 177
+      tag: 184
 
 hawk:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
