@@ -20,7 +20,7 @@ replicaCount: "1"
 
 image:
   name: hawk-console
-  tag: 17
+  tag: 30
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -33,11 +33,13 @@ tolerations: {}
 global:
   cp:
     cpHostname: ""
-    dataplaneId: ""
-    subscriptionId: ""
+    dataplaneId: dp1
+    cpInstanceId: cp1
+    subscriptionId: sub1
     controlTower:
       authToken: ""
       metricAuthToken: ""
+    enableResourceConstraints: true
     resources:
       storage:
         storageClassName: ""
@@ -71,6 +73,7 @@ global:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+              - CAP_NET_RAW
               - ALL
 enableIngress: true
 ingress:
@@ -96,7 +99,10 @@ hawkconsole:
   # The timeout for readiness probes.
   readinessTimeoutSeconds: 10
 
-  # The number of successive failed probes before indicating livess failure.
+  # The number of successive  probes before indicating readiness success.
+  readinessSuccessThreshold: 1
+
+  # The number of successive failed probes before indicating lives failure.
   livenessFailureThreshold: 10
 
   # The initial delay for liveness probes in seconds.
@@ -107,6 +113,9 @@ hawkconsole:
 
   # The timeout for liveness probes.
   livenessTimeoutSeconds: 10
+
+  # The number of successive failed probes before indicating lives success.
+  livenessSuccessThreshold: 1
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
@@ -127,7 +136,9 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   dpHawkConsole:
+    readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
       drop:
+        - CAP_NET_RAW
         - ALL

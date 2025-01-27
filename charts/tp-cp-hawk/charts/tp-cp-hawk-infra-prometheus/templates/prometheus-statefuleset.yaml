@@ -42,13 +42,16 @@ spec:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus/'
             - '--log.level=debug'
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.resources }}
           resources:
-            requests:
-              cpu: {{ .Values.prometheus.resources.requests.cpu }}
-              memory: {{ .Values.prometheus.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.prometheus.resources.limits.cpu }}
-              memory: {{ .Values.prometheus.resources.limits.memory }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.promLivenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.promReadinessProbe | nindent 12 }}
           ports:
             - containerPort: 9090
               name: prometheus
@@ -69,6 +72,10 @@ spec:
           {{- end }}
           image: {{ include "tp-hawk-infra-prometheus.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-prometheusds.image.repository" . }}{{"/"}}{{ .Values.images.prometheusds.image.name }}:{{ .Values.images.prometheusds.image.tag }}
           imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          livenessProbe:
+            {{- toYaml .Values.promDSLivenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.promDSReadinessProbe | nindent 12 }}
           ports:
             - containerPort: 9000
               name: prometheus-ds

@@ -7,6 +7,7 @@ enabled: true
 global:
   enableLogging: true
   cp:
+    enableResourceConstraints: true
     data:
       CP_DB_CONFIGURATION: provider-cp-database-config
   # Pod Security Context configuration
@@ -29,20 +30,52 @@ global:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     querynode:
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
+          - CAP_NET_RAW
           - ALL
 
-# Resource values for production like setup
 querynode:
-  resources:
-    requests:
-      cpu: 500m
-      memory: 500Mi
-    limits:
-      cpu: 1000m
-      memory: 2Gi
+  # The number of successive failed probes before indicating readiness failure.
+  readinessFailureThreshold: 10
+
+  # The initial delay for readiness probes in seconds.
+  readinessInitialDelaySeconds: 12
+
+  # The period between readiness probes.
+  readinessPeriodSeconds: 15
+
+  # The timeout for readiness probes.
+  readinessTimeoutSeconds: 10
+
+  # The number of successive  probes before indicating readiness success.
+  readinessSuccessThreshold: 1
+
+  # The number of successive failed probes before indicating livess failure.
+  livenessFailureThreshold: 10
+
+  # The initial delay for liveness probes in seconds.
+  livenessInitialDelaySeconds: 15
+
+  # The period between liveness probes.
+  livenessPeriodSeconds: 15
+
+  # The timeout for liveness probes.
+  livenessTimeoutSeconds: 10
+
+  # The number of successive failed probes before indicating lives success.
+  livenessSuccessThreshold: 1
+
+# Resource values for production like setup
+resources:
+  requests:
+    cpu: 200m
+    memory: 1024Mi
+  limits:
+    cpu: 500m
+    memory: 2048Mi
 
 ## Images
 ##
@@ -53,7 +86,7 @@ images:
     image:
       name: hawk-querynode
       pullPolicy: IfNotPresent
-      tag: 121
+      tag: 133
 
 # no of replicas
 replicaCount: "1"

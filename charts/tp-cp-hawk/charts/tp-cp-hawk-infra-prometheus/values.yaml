@@ -6,6 +6,7 @@ enabled: true
 global:
   enableLogging: true
   cp:
+    enableResourceConstraints: true
     data:
       SYSTEM_OTEL_COLLECTOR_PORT: "4318"
   # Pod Security Context configuration
@@ -28,25 +29,28 @@ global:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     prometheus:
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
+          - CAP_NET_RAW
           - ALL
     prometheusds:
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
         drop:
+          - CAP_NET_RAW
           - ALL
 
 # Resource values for production like setup
-prometheus:
-  resources:
-    requests:
-      cpu: 200m
-      memory: 6Gi
-    limits:
-      cpu: 300m
-      memory: 12Gi
+resources:
+  requests:
+    cpu: 200m
+    memory: 1024Mi
+  limits:
+    cpu: 500m
+    memory: 2048Mi
 
 ## Images
 ##
@@ -62,4 +66,48 @@ images:
     image:
       name: hawk-prometheus-discoveryservice
       pullPolicy: IfNotPresent
-      tag: 107
+      tag: 119
+
+# Liveness and Readiness probe setting for Prometheus container
+promLivenessProbe:
+  successThreshold: 1
+  failureThreshold: 10
+  initialDelaySeconds: 15
+  periodSeconds: 15
+  timeoutSeconds: 10
+  httpGet:
+    path: /
+    port: prometheus
+    scheme: HTTP    
+promReadinessProbe:
+  successThreshold: 1
+  failureThreshold: 10
+  initialDelaySeconds: 12
+  periodSeconds: 15
+  timeoutSeconds: 10
+  httpGet:
+    path: /
+    port: prometheus
+    scheme: HTTP
+
+# Liveness and Readiness probe setting for Prometheus DS container
+promDSLivenessProbe:
+  successThreshold: 1
+  failureThreshold: 5
+  initialDelaySeconds: 15
+  periodSeconds: 15
+  timeoutSeconds: 10
+  httpGet:
+    path: /target/hawkconsole
+    port: prometheus-ds
+    scheme: HTTP    
+promDSReadinessProbe:
+  successThreshold: 1
+  failureThreshold: 5
+  initialDelaySeconds: 12
+  periodSeconds: 15
+  timeoutSeconds: 10
+  httpGet:
+    path: /target/hawkconsole
+    port: prometheus-ds
+    scheme: HTTP  
