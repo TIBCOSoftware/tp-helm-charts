@@ -16,9 +16,13 @@ global:
   imageRegistry: ""
   # Following parameters which are used in our chart, are passed during provisioning from control plane
   cp:
+    cpCertificateSecret: ""
+    # insecureSkipVerify is true by default because we are calling own services. To be more generally addressed in upcoming release.
+    authInsecureIngressController: true
     dataplaneId: "abcd"
     instanceId: ""
     cpHostname: "acme.local.my.cic2.pro"
+    enableResourceConstraints: true
     resources:
       serviceaccount:
         serviceAccountName: ""
@@ -35,8 +39,24 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 3.1.4
+          tag: 3.2.2
         enabled: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+              - CAP_NET_RAW
     # proxy configuration for the outward traffic from cp proxy
     # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
     proxy:
@@ -115,10 +135,13 @@ ingress:
 # @default -- See below
 backstage:
   image:
+    registry: ""
+
+    repository: ""
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "591"
+    tag: "689"
 
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
@@ -193,9 +216,9 @@ backstage:
   # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    fsGroup: 1000
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
     fsGroupChangePolicy: "Always"
     seccompProfile:
       type: RuntimeDefault
@@ -205,10 +228,12 @@ backstage:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   containerSecurityContext:
+    readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
+        - CAP_NET_RAW
 
   # Allows to define the appConfig as a multiline string that generates a ConfigMap
   # automatically, not requiring to have it pre provisioned as with the extraAppConfig key.
@@ -306,7 +331,7 @@ networkPolicy:
     #       - namespaceSelector:
     #           matchLabels:
     #             label: example
-    customRules: []
+    customRules: {}
 
 
 # -- PostgreSQL [chart configuration](https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml)
@@ -317,7 +342,7 @@ postgresql:
   enabled: false
   image:
     name: dx-postgresql
-    tag: 14.12.0-debian-12-r4
+    tag: 14.15.0-debian-12-r6
   commonLabels: '{{- include "tibcohub.platform.commonLabels" . -}}'
 
   # -- The authentication details of the Postgres database
@@ -362,6 +387,7 @@ postgresql:
     # # It specifies that privilege escalation is not allowed for security reasons.
     # # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
     containerSecurityContext:
+      readOnlyRootFilesystem: true
       runAsNonRoot: true
       runAsUser: 1001
       runAsGroup: 0   # see https://github.com/bitnami/charts/issues/13985#issuecomment-1411654273
@@ -369,6 +395,30 @@ postgresql:
       capabilities:
         drop:
           - ALL
+          - CAP_NET_RAW
+
+    extraVolumes:
+      - name: tmp
+        emptyDir: {}
+      - name: conf
+        emptyDir: {}
+      - name: postgrestmp
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+      - name: conf
+        mountPath: /opt/bitnami/postgresql/conf
+      - name: postgrestmp
+        mountPath: /opt/bitnami/postgresql/tmp/
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        memory: 256Mi
+        cpu: 200m
 
   # -- PostgreSQL architecture (`standalone` or `replication`)
   architecture: standalone
@@ -443,6 +493,7 @@ fluentbit:
     capabilities:
       drop:
         - ALL
+        - CAP_NET_RAW
 
 autoscaling:
 
@@ -462,7 +513,7 @@ autoscaling:
 initContainer:
   image:
     name: dx-postgresql
-    tag: 14.12.0-debian-12-r4
+    tag: 14.15.0-debian-12-r6
     digest: ""
 
 publicApi:
@@ -472,3 +523,27 @@ publicApi:
       className: nginx
       pathPrefix: /tibco/hub
       fqdn: ""
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 700Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+appInit:
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+        - CAP_NET_RAW
+  resources:
+    limits:
+      cpu: 30m
+      memory: 50Mi
+    requests:
+      cpu: 10m
+      memory: 20Mi

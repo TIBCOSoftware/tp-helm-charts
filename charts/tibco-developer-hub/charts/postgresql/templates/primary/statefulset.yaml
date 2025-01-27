@@ -94,7 +94,7 @@ spec:
         - name: copy-certs
           image: {{ include "postgresql.volumePermissions.image" . }}
           imagePullPolicy: {{ .Values.volumePermissions.image.pullPolicy | quote }}
-          {{- if .Values.primary.resources }}
+          {{- if and ( .Values.primary.resources ) ( .Values.global.cp.enableResourceConstraints ) }}
           resources: {{- toYaml .Values.primary.resources | nindent 12 }}
           {{- end }}
           # We don't require a privileged container in this case
@@ -427,7 +427,7 @@ spec:
                 {{- include "postgresql.readinessProbeCommand" . | nindent 16 }}
           {{- end }}
           {{- end }}
-          {{- if .Values.primary.resources }}
+          {{- if and ( .Values.primary.resources ) ( .Values.global.cp.enableResourceConstraints ) }}
           resources: {{- toYaml .Values.primary.resources | nindent 12 }}
           {{- end }}
           {{- if .Values.primary.lifecycleHooks }}

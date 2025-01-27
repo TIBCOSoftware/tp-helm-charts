@@ -1,4 +1,5 @@
 {{- $targetTag := (.Values.tibcoHub.image).tag | required ".Values.tibcoHub.image.tag is required." }}
+{{- $dot := . }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -31,9 +32,17 @@ spec:
       - name: container-image-extractor
         image: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}{{"/"}}{{ include "tp-cp-tibcohub-contrib.image.repository" .}}{{"/"}}{{ .Values.containerImageExtractor.image.name }}:{{ .Values.containerImageExtractor.image.tag}}
         imagePullPolicy: IfNotPresent
-        {{- if .Values.securityContext }}
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.securityContext }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "tp-cp-tibcohub-contrib.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.scripts.resources | nindent 10 }}
         {{- end }}
         env:
         - name: DOCKER_REGISTRY
@@ -41,7 +50,7 @@ spec:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "tp-cp-tibcohub-contrib.image.registry" .}}/{{ include "tp-cp-tibcohub-contrib.image.repository" .}}/{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"               # source docker image name
         - name: IMAGE_TEMP_DIR
-          value: "/efs/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
+          value: "/tmp/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
         - name: SOURCE_DIRS 
           value: {{ .Values.source.directory | quote }}               # directory in SOURCE_DOCKER_IMAGE which needs to be copied to TARGET_DIRS 
         - name: TARGET_DIRS
@@ -52,15 +61,24 @@ spec:
         - mountPath: /efs
           name: store-vol
           subPath: tsc/contributors
+        - mountPath: /tmp
+          name: temp
+        - name: kaniko-vol
+          mountPath: /kaniko/.docker
 # mount this secret only if private container registry is configured for CP.
 {{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
       volumes:
+        - name: temp
+          emptyDir:
+            sizeLimit: 500Mi
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "tp-cp-tibcohub-contrib.pvc-name" . }}
+        - emptyDir: {}
+          name: kaniko-vol
 {{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
         - name: container-registry-secret
           secret:
