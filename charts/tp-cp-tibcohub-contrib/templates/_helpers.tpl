@@ -110,7 +110,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
-{{/* Control plane provider */}}
-{{- define "tp-cp-tibcohub-contrib.cp-provider" -}}
-{{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "tp-cp-tibcohub-contrib.enableResourceConstraints" -}}
+{{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
 {{- end }}

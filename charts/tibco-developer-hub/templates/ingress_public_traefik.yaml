@@ -43,6 +43,10 @@ spec:
       - X-Auth-Request-Access-Token
       - X-Atmosphere-Token
     trustForwardHeader: true
+    {{ if .Values.global.cp.authInsecureIngressController -}}
+    tls:
+      insecureSkipVerify: true
+    {{- end }}
 
 ---
 apiVersion: traefik.io/v1alpha1
