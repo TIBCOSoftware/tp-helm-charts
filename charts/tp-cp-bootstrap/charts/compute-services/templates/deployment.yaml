@@ -57,13 +57,13 @@ spec:
         {{- if .Values.dpHelmRepositories }}
           - mountPath: /helm/config
             name: helm-repo-config
-          - name: tibco-charts-dir
-            mountPath: /helm/tibcocharts
           {{- end }}
         {{- if .Values.dpMetadata.components }}
           - name: monitor-services-file
             mountPath: /component/services
         {{- end }}
+          - name: tibco-charts-dir
+            mountPath: /helm/tibcocharts
           - name: helm-cache
             mountPath: /tmp/helm
           - name : logs
@@ -161,9 +161,9 @@ spec:
         {{- if .Values.dpHelmRepositories }}
           - name: HELM_REPO_CONFIG
             value: /helm/config/repo.json
+        {{- end }}
           - name: TIBCO_CHARTS_DIR
             value: /helm/tibcocharts
-        {{- end }}
           # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
           - name: HELM_CACHE_HOME
             value: /tmp/helm/.cache/helm
@@ -282,11 +282,11 @@ spec:
         - name: helm-repo-config
           secret:
             secretName: {{ include "compute-services.consts.appName" . }}-helm-repo-config
+      {{- end }}
         - name: tibco-charts-dir
           emptyDir: {}
         - name: helm-cache
           emptyDir: {}
-      {{- end }}
         - name: logs
           emptyDir: {}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
