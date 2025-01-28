@@ -3311,6 +3311,45 @@ entries:
       app.helm.sh/name: tp-cp-bootstrap
     apiVersion: v2
     appVersion: 1.4.0
+    created: "2025-01-28T09:53:21.628438189Z"
+    dependencies:
+    - condition: hybrid-proxy.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.4.*
+    - condition: resource-set-operator.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.4.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.4.*
+    - condition: compute-services.enabled
+      name: compute-services
+      repository: ""
+      version: 1.4.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.111.*
+    description: TIBCO Platform Control Plane bootstrap chart
+    digest: c5ae25a8a91fad6dfda9dd62d9734bb5d188ba78e6a78d52cc820bfccd5f07e9
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - bootstrap
+    name: tp-cp-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bootstrap-1.4.32/tp-cp-bootstrap-1.4.32.tgz
+    version: 1.4.32
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-bootstrap
+    apiVersion: v2
+    appVersion: 1.4.0
     created: "2025-01-24T06:17:37.121854442Z"
     dependencies:
     - condition: hybrid-proxy.enabled
@@ -6662,4 +6701,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-01-27T06:20:26.691697645Z"
+generated: "2025-01-28T09:53:21.628774467Z"
