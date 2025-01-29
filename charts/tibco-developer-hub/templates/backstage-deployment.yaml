@@ -215,7 +215,7 @@ spec:
             {{- end }}
             {{- if .noProxy }}
             - name: no_proxy
-              value: {{ .noProxy }}
+              value: {{ .noProxy | quote }}
             {{- end }}
             {{- end }}
           ports:
