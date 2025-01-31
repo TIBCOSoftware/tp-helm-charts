@@ -208,14 +208,27 @@ spec:
             {{- if .httpProxy }}
             - name: http_proxy
               value: {{ .httpProxy }}
+            - name: GLOBAL_AGENT_HTTP_PROXY
+              value: {{ .httpProxy }}
             {{- end }}
             {{- if .httpsProxy }}
             - name: https_proxy
               value: {{ .httpsProxy }}
+            - name: GLOBAL_AGENT_HTTPS_PROXY
+              value: {{ .httpsProxy }}
             {{- end }}
-            {{- if .noProxy }}
+            {{- if or .httpProxy .httpsProxy }}
+            {{- if not .noProxy }}
             - name: no_proxy
-              value: {{ .noProxy | quote }}
+              value: "127.0.0.1"
+            - name: GLOBAL_AGENT_NO_PROXY
+              value: "127.0.0.1"
+            {{- else }}
+            - name: no_proxy
+              value: "{{ .noProxy }},127.0.0.1"
+            - name: GLOBAL_AGENT_NO_PROXY
+              value: "{{ .noProxy }},127.0.0.1"
+            {{- end }}
             {{- end }}
             {{- end }}
           ports:
