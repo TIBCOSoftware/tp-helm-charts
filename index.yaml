@@ -3166,6 +3166,26 @@ entries:
   tibco-developer-hub:
   - apiVersion: v2
     appVersion: 1.4.0
+    created: "2025-01-31T13:03:14.421310438Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: ae75a7f5cc695a7d13f8c05da06a5a0140c1fbf821244249f2b5af1b2664f5e8
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.4.24/tibco-developer-hub-1.4.24.tgz
+    version: 1.4.24
+  - apiVersion: v2
+    appVersion: 1.4.0
     created: "2025-01-29T13:06:30.209118781Z"
     dependencies:
     - name: common
@@ -6526,6 +6546,26 @@ entries:
       app.helm.sh/name: tp-cp-tibcohub-recipes
     apiVersion: v2
     appVersion: 1.4.0
+    created: "2025-01-31T13:03:14.603056483Z"
+    description: TIBCO Developer Hub Data Plane Recipes
+    digest: 29ee4dd6205f99f447d64655ce0ad62164a166e833e11c3a91175a8f5373a945
+    home: https://github.com/tibco/tp-dev-hub.git
+    keywords:
+    - tibco-platform
+    - control-plane
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO CIC Compute Dev Team
+    name: tp-cp-tibcohub-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-tibcohub-recipes-1.4.24/tp-cp-tibcohub-recipes-1.4.24.tgz
+    version: 1.4.24
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-tibcohub-recipes
+    apiVersion: v2
+    appVersion: 1.4.0
     created: "2025-01-29T13:06:30.381418798Z"
     description: TIBCO Developer Hub Data Plane Recipes
     digest: 4507f3f49f06e79c55decba9285d112d8708854561c66e0458b3a2fac20dd241
@@ -6914,4 +6954,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-01-29T13:28:45.709182586Z"
+generated: "2025-01-31T13:03:14.603817709Z"
