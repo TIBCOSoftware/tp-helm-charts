@@ -28,5 +28,5 @@ spec:
                 port:
                   number: {{ .Values.service.ports.backend }}
             path: {{ .Values.publicApi.ingress.config.pathPrefix }}
-            pathType: Prefix
+            pathType: ImplementationSpecific
 {{- end }}

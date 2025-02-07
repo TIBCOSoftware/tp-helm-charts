@@ -32,5 +32,5 @@ spec:
             port:
               number: {{ $.Values.publicApiService.targetPort }}
         path: {{ .Values.publicApi.ingress.config.pathPrefix }}/(.*)
-        pathType: Prefix
+        pathType: ImplementationSpecific
 {{- end }}
