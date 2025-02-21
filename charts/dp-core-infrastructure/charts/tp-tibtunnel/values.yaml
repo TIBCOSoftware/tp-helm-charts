@@ -21,11 +21,11 @@ global:
 
 # tibtunnel cli flags
 connect:
-  debug: true  # Enable debug logging
+  debug: false  # Enable debug logging
   payload: false  # Display payload data in the debug logs. Requires flag 'debug'. WARNING: Payload might contain sensitive data!
   dataChunkSize: ""  # Set the max size(in KB) of data for a single read/write operation, default is 32
   dataAckMode: true  # Enable/disable data ack
-  remoteDebug: true  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
+  remoteDebug: false  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
   logFile: ""  # Full path to the output log file. If not specified, the logs will be printed on stdout
 
   networkCheckUrl: "https://www.google.com"  # Url to check for network connectivity
@@ -49,12 +49,12 @@ resources:
     memory: 512Mi
 
 # no of tibtunnel pods
-replicaCount: "2"
+replicaCount: "1"
 
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 178
+  tag: 184
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -71,11 +71,11 @@ fluentbit:
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
-      cpu: 10m
-      memory: 15Mi
+      cpu: 30m
+      memory: 20Mi
     limits:
-      cpu: 50m
-      memory: 30Mi
+      cpu: 100m
+      memory: 50Mi
 
 # probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
 provisionerAgentProbe:

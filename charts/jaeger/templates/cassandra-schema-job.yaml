@@ -4,8 +4,10 @@
 # in the license file that is distributed with this file.
 #
 
+{{ $collectorStorageType := include "collector.storage.type" .}}
+{{ $queryStorageType := include "query.storage.type" .}}
 {{ if .Values.collector.enabled -}}
-{{- if eq .Values.storage.type "cassandra" -}}
+{{- if or (eq $collectorStorageType "cassandra") (eq $queryStorageType "cassandra") -}}
 {{- if .Values.storage.cassandra.schemaJobEnabled }}
 apiVersion: batch/v1
 kind: Job

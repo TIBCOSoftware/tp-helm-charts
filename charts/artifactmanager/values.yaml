@@ -25,7 +25,9 @@ global:
     enableResourceConstraints: true
     resources:
       storage:
-        storageClassName: "standard"
+        storageClassName: ""
+      persistentvolumeclaim:
+        existingClaim: ""
       serviceaccount:
         nameSpace: ""
         serviceAccountName: ""
@@ -54,20 +56,7 @@ global:
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       name: infra-artifactmanager
-      tag: 89
-    deploymanager:
-      image:
-        enabled: false
-        registry: ""
-        tag: ""
-        resources: {}
-    logging:
-      enabled: true
-      image:
-        registry: "cr.fluentbit.io/fluent/"
-        name: "fluent-bit"
-        tag: "2.2.2"
-        resources: {}
+      tag: 90
 
 replicaCount: 1
 
@@ -108,6 +97,7 @@ podSecurityContext:
     type: RuntimeDefault
 
 securityContext:
+  # This section of the configuration is for the artifact manager.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false

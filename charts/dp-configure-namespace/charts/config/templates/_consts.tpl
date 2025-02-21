@@ -7,21 +7,21 @@ in the license file that is distributed with this file.
 */}}
 
 {{/* A fixed short name for the application. Can be different than the chart name */}}
-{{- define "dp-core-infrastructure-config.consts.appName" }}dp-core-infrastructure-config{{ end -}}
+{{- define "dp-configure-namespace-config.consts.appName" }}dp-configure-namespace-config{{ end -}}
 
 {{/* Tenant name. */}}
-{{- define "dp-core-infrastructure-config.consts.tenantName" }}infrastructure{{ end -}}
+{{- define "dp-configure-namespace-config.consts.tenantName" }}infrastructure{{ end -}}
 
 {{/* Component we're a part of. */}}
-{{- define "dp-core-infrastructure-config.consts.component" }}tibco-platform-data-plane{{ end -}}
+{{- define "dp-configure-namespace-config.consts.component" }}tibco-platform-data-plane{{ end -}}
 
 {{/* Team we're a part of. */}}
-{{- define "dp-core-infrastructure-config.consts.team" }}cic-compute{{ end -}}
+{{- define "dp-configure-namespace-config.consts.team" }}cic-compute{{ end -}}
 
 {{/* Data plane workload type */}}
-{{- define "dp-core-infrastructure-config.consts.workloadType" }}infra{{ end -}}
+{{- define "dp-configure-namespace-config.consts.workloadType" }}infra{{ end -}}
 
-{{- define "dp-core-infrastructure-config.consts.imageCredential" }}
+{{- define "dp-configure-namespace-config.consts.imageCredential" }}
 {{- with .Values.global.tibco.containerRegistry }}
 {{- if .username  }}
 {{- if .password }}

@@ -449,7 +449,6 @@ traefik:
   enabled: true
   additionalArguments:
     - '--entryPoints.web.forwardedHeaders.insecure' #You can also use trustedIPs instead of insecure to trust the forwarded headers https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
-    - '--serversTransport.insecureSkipVerify=true' #Please refer https://doc.traefik.io/traefik/routing/overview/#transport-configuration
 ## following section is required to send traces using traefik
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 #  tracing:
@@ -631,29 +630,29 @@ We will be using the following storage classes created with `dp-config-aks` helm
 
 ```bash
 # install eck-operator
-helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.9.0"
+helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.16.0"
 
 # install dp-config-es
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${TP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "1.0.17" -f - <<EOF
+  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "1.2.1" -f - <<EOF
 domain: ${TP_DOMAIN}
 es:
-  version: "8.9.1"
+  version: "8.17.0"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-es-http
   storage:
     name: ${TP_DISK_STORAGE_CLASS}
 kibana:
-  version: "8.9.1"
+  version: "8.17.0"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-kb-http
 apm:
   enabled: true
-  version: "8.9.1"
+  version: "8.17.0"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-apm-http

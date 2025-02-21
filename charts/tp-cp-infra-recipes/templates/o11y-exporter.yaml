@@ -15,12 +15,16 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.4.0",
+      "capabilityVersion": "1.5.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.o11y.withResources.releaseNotes | quote }},
-      "minVersionRequiredForUpgrade": "1.2.0"
+      "minVersionRequiredForUpgrade": "1.2.0",
+      "minDPVersion": {
+        "dp-core-infrastructure": "1.4.0",
+        "dp-configure-namespace": "1.4.0"
+      }
     }
   package.json: |
     {
@@ -39,6 +43,11 @@ data:
           {
             "name": "jaeger-query",
             "description": "jaeger query",
+            "monitoringPriority": "optional"
+          },
+          {
+            "name": "jaeger-allinone",
+            "description": "jaeger allinone",
             "monitoringPriority": "optional"
           },
           {
@@ -464,8 +473,15 @@ data:
                     servicePort: 4319
                     hostPort: 4319
                     protocol: TCP
+                  prometheus-ext:
+                    enabled: true
+                    containerPort: 4320
+                    servicePort: 4320
+                    hostPort: 4320
+                    protocol: TCP
                 config:
                   receivers:
+                    nop: {}
                     otlp:
                       protocols:
                         grpc:
@@ -484,8 +500,7 @@ data:
                            kubernetes_sd_configs:
                            - role: service
                              namespaces:
-                               names:
-                                 - ${env:app_namespace}
+                               names: ${env:app_namespaces}
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
@@ -505,8 +520,7 @@ data:
                            kubernetes_sd_configs:
                            - role: pod
                              namespaces:
-                               names:
-                                 - ${env:app_namespace}
+                               names: ${env:app_namespaces}
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
@@ -526,8 +540,7 @@ data:
                            kubernetes_sd_configs:
                            - role: service
                              namespaces:
-                               names:
-                                 - ${env:app_namespace}
+                               names: ${env:app_namespaces}
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_o11y]
@@ -550,8 +563,7 @@ data:
                            kubernetes_sd_configs:
                            - role: service
                              namespaces:
-                               names:
-                                 - ${env:app_namespace}
+                               names: ${env:app_namespaces}
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
@@ -886,6 +898,11 @@ data:
                       enable_open_metrics: true
                       resource_to_telemetry_conversion:
                         enabled: true
+                    prometheus/ext:
+                      endpoint: 0.0.0.0:4320
+                      enable_open_metrics: true
+                      resource_to_telemetry_conversion:
+                        enabled: true
                     otlphttp/metrics-export:
                       endpoint: ${env:METRICS_EXPORTER_OTLP_URL}
                       tls:
@@ -925,6 +942,9 @@ data:
                         receivers: ${env:metrics_prom_rec}
                         processors: ${env:metrics_prom_proc}
                         exporters: ${env:metrics_prom_exp}
+                      metrics/ext:
+                        receivers: [nop]
+                        exporters: [prometheus/ext]
           flags:
             install: true
             createNamespace: false
@@ -979,8 +999,7 @@ data:
                             kubernetes_sd_configs:
                             - role: service
                               namespaces:
-                                names:
-                                  - ${env:app_namespace}
+                                names: ${env:app_namespaces}
                             relabel_configs:
                             - action: keep
                               source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_finops]
@@ -1006,8 +1025,7 @@ data:
                             kubernetes_sd_configs:
                             - role: pod
                               namespaces:
-                                names:
-                                  - ${env:app_namespace}
+                                names: ${env:app_namespaces}
                             relabel_configs:
                             - action: keep
                               source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_scrape_finops]
@@ -1366,7 +1384,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.4.0"
+          value: "1.5.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

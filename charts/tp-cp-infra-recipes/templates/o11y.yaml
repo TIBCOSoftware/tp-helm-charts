@@ -15,12 +15,16 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.4.0",
+      "capabilityVersion": "1.5.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.o11y.default.releaseNotes | quote }},
-      "minVersionRequiredForUpgrade": "1.2.0"
+      "minVersionRequiredForUpgrade": "1.2.0",
+      "minDPVersion": {
+        "dp-core-infrastructure": "1.4.0",
+        "dp-configure-namespace": "1.4.0"
+      }
     }
   package.json: |
     {
@@ -39,6 +43,11 @@ data:
           {
             "name": "jaeger-query",
             "description": "jaeger query",
+            "monitoringPriority": "optional"
+          },
+          {
+            "name": "jaeger-allinone",
+            "description": "jaeger allinone",
             "monitoringPriority": "optional"
           },
           {
@@ -106,6 +115,17 @@ data:
                 serviceAccount:
                   create: false
                   name: ${SERVICE-ACCOUNT}
+                extraEnvs:
+                  - name: KUBE_NODE_NAME
+                    valueFrom:
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: spec.nodeName
+                extraEnvsFrom:
+                  - secretRef:
+                      name: o11y-service
+                  - configMapRef:
+                      name: o11y-service
                 ports:
                   otlp:
                     enabled: true
@@ -134,22 +154,120 @@ data:
                               - https://*
                           endpoint: 0.0.0.0:4318
                   processors:
-                    memory_limiter: null
-                    batch: {}
-                    filter/devnull:
-                      error_mode: ignore
-                      traces:
-                        span:
-                          - 'name != ""'
-                      logs:
-                        log_record:
-                          - 'IsMatch(body, "")'
                     memory_limiter:
                       check_interval: 5s
                       limit_percentage: 80
                       spike_limit_percentage: 25
+                    batch: {}
+                    filter/devnull-logs:
+                      error_mode: ignore
+                      logs:
+                        log_record:
+                          - 'IsMatch(body, "")'
+                    filter/devnull-traces:
+                      error_mode: ignore
+                      traces:
+                        span:
+                          - 'name != ""'
+                    k8sattributes/general:
+                      auth_type: "serviceAccount"
+                      passthrough: false
+                      extract:
+                        metadata:
+                          - k8s.pod.name
+                          - k8s.pod.uid
+                          - k8s.namespace.name
+                          - k8s.pod.start_time
+                        annotations:
+                          - tag_name: connectors
+                            key: platform.tibco.com/connectors
+                            from: pod
+                        labels:
+                          - tag_name: app_id
+                            key: platform.tibco.com/app-id
+                            from: pod
+                          - tag_name: app_type
+                            key: platform.tibco.com/app-type
+                            from: pod
+                          - tag_name: dataplane_id
+                            key: platform.tibco.com/dataplane-id
+                            from: pod
+                          - tag_name: workload_type
+                            key: platform.tibco.com/workload-type
+                            from: pod
+                          - tag_name: app_name
+                            key: platform.tibco.com/app-name
+                            from: pod
+                          - tag_name: app_version
+                            key: platform.tibco.com/app-version
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
+                          - tag_name: capability_instance_id
+                            key: platform.tibco.com/capability-instance-id
+                            from: pod
+                    k8sattributes/general-ns:
+                      auth_type: "serviceAccount"
+                      passthrough: false
+                      filter:
+                        namespace: ${env:app_namespace}
+                      extract:
+                        metadata:
+                          - k8s.pod.name
+                          - k8s.pod.uid
+                          - k8s.namespace.name
+                          - k8s.pod.start_time
+                        annotations:
+                          - tag_name: connectors
+                            key: platform.tibco.com/connectors
+                            from: pod
+                        labels:
+                          - tag_name: app_id
+                            key: platform.tibco.com/app-id
+                            from: pod
+                          - tag_name: app_type
+                            key: platform.tibco.com/app-type
+                            from: pod
+                          - tag_name: dataplane_id
+                            key: platform.tibco.com/dataplane-id
+                            from: pod
+                          - tag_name: workload_type
+                            key: platform.tibco.com/workload-type
+                            from: pod
+                          - tag_name: app_name
+                            key: platform.tibco.com/app-name
+                            from: pod
+                          - tag_name: app_version
+                            key: platform.tibco.com/app-version
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
+                          - tag_name: capability_instance_id
+                            key: platform.tibco.com/capability-instance-id
+                            from: pod
+                    transform/traces:
+                      trace_statements:
+                      - context: span
+                        statements:
+                          - set(attributes["pod_name"], resource.attributes["k8s.pod.name"])
+                          - set(attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
+                          - set(attributes["app_id"], resource.attributes["app_id"])
+                          - set(attributes["app_type"], resource.attributes["app_type"])
+                          - set(attributes["dataplane_id"], resource.attributes["dataplane_id"])
+                          - set(attributes["workload_type"], resource.attributes["workload_type"])
+                          - set(attributes["app_tags"], resource.attributes["app_tags"])
+                          - set(attributes["app_name"], resource.attributes["app_name"])
+                          - set(attributes["app_version"], resource.attributes["app_version"])
+                          - set(attributes["capability_instance_id"], resource.attributes["capability_instance_id"])
+                          - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
                   exporters:
                     debug: {}
+                    otlp/trace:
+                      endpoint: ${env:JAEGER_COLLECTOR_ENDPOINT}
+                      tls:
+                        insecure: true
                   extensions:
                     health_check: {}
                   service:
@@ -162,16 +280,13 @@ data:
                         exporters:
                           - debug
                         processors:
-                          - filter/devnull
+                          - filter/devnull-logs
                         receivers:
                           - otlp
                       traces:
-                        exporters:
-                          - debug
-                        processors:
-                          - filter/devnull
-                        receivers:
-                          - otlp
+                        receivers: ${env:traces_receiver}
+                        processors: ${env:traces_processor}
+                        exporters: ${env:traces_exporter}
           flags:
             install: true
             createNamespace: false
@@ -191,9 +306,34 @@ data:
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
                   egress.networking.platform.tibco.com/internet-all: enable
+                  prometheus.io/scrape: "true"
+                  prometheus.io/path: "metrics"
+                  prometheus.io/port: "4319"
                 serviceAccount:
                   create: false
                   name: ${SERVICE-ACCOUNT}
+                extraVolumes:
+                  - name: hawktargets
+                    configMap:
+                      defaultMode: 420
+                      items:
+                      - key: hawktargets
+                        path: hawktargets.yml
+                      name: o11y-service
+                extraVolumeMounts:
+                  - mountPath: /conf/hawkconsole
+                    name: hawktargets
+                extraEnvs:
+                  - name: KUBE_NODE_NAME
+                    valueFrom:
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: spec.nodeName
+                extraEnvsFrom:
+                  - secretRef:
+                      name: o11y-service
+                  - configMapRef:
+                      name: o11y-service
                 ports:
                   otlp:
                     enabled: true
@@ -210,15 +350,22 @@ data:
                     hostPort: 4318
                     protocol: TCP
                   metrics:
-                    enabled: false
+                    enabled: true
                     containerPort: 8888
                     servicePort: 8888
+                    hostPort: 8888
                     protocol: TCP
                   prometheus:
                     enabled: true
                     containerPort: 4319
                     servicePort: 4319
                     hostPort: 4319
+                    protocol: TCP
+                  prometheus-ext:
+                    enabled: true
+                    containerPort: 4320
+                    servicePort: 4320
+                    hostPort: 4320
                     protocol: TCP
                 config:
                   receivers:
@@ -232,8 +379,199 @@ data:
                               - http://*
                               - https://*
                           endpoint: 0.0.0.0:4318
+                    prometheus/receive-ns:
+                      config:
+                        scrape_configs:
+                         - job_name: monitoring-agent
+                           scrape_interval: 20s
+                           kubernetes_sd_configs:
+                           - role: service
+                             namespaces:
+                               names: ${env:app_namespaces}
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+                             regex: "tp-dp-monitor-agent"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: replace
+                             source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: envoy-stats
+                           scrape_interval: 20s
+                           kubernetes_sd_configs:
+                           - role: pod
+                             namespaces:
+                               names: ${env:app_namespaces}
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_pod_container_port_name]
+                             regex: ".*-envoy-prom"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: replace
+                             source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: ems-svc
+                           scrape_interval: 20s
+                           kubernetes_sd_configs:
+                           - role: service
+                             namespaces:
+                               names: ${env:app_namespaces}
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_o11y]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_workload_type]
+                             regex: "capability-service"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_tib_msg_group_name]
+                             regex: (.+)
+                           - action: replace
+                             source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: o11y-svc
+                           scrape_interval: 40s
+                           kubernetes_sd_configs:
+                           - role: service
+                             namespaces:
+                               names: ${env:app_namespaces}
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+                             regex: "o11y-service"
+                           - action: replace
+                             source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: hawkconsole
+                           scrape_interval: 120s
+                           scheme: https
+                           basic_auth:
+                             username: mtuser
+                             password: QPuf6#2$$A
+                           honor_labels: true
+                           tls_config:
+                             insecure_skip_verify: true
+                           file_sd_configs:
+                           - files:
+                             - /conf/hawkconsole/hawktargets.yml
+                    prometheus/receive:
+                      config:
+                        scrape_configs:
+                         - job_name: monitoring-agent
+                           scrape_interval: 20s
+                           kubernetes_sd_configs:
+                           - role: service
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+                             regex: "tp-dp-monitor-agent"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: replace
+                             source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: envoy-stats
+                           scrape_interval: 20s
+                           kubernetes_sd_configs:
+                           - role: pod
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_pod_container_port_name]
+                             regex: ".*-envoy-prom"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: replace
+                             source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: ems-svc
+                           scrape_interval: 20s
+                           kubernetes_sd_configs:
+                           - role: service
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_o11y]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_workload_type]
+                             regex: "capability-service"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_tib_msg_group_name]
+                             regex: (.+)
+                           - action: replace
+                             source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: o11y-svc
+                           scrape_interval: 40s
+                           kubernetes_sd_configs:
+                           - role: service
+                           relabel_configs:
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
+                             regex: "true"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
+                             regex: "${DATAPLANE-ID}"
+                           - action: keep
+                             source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+                             regex: "o11y-service"
+                           - action: replace
+                             source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                             target_label: __metrics_path__
+                             regex: (.+)
+                         - job_name: hawkconsole
+                           scrape_interval: 120s
+                           scheme: https
+                           basic_auth:
+                             username: mtuser
+                             password: QPuf6#2$$A
+                           honor_labels: true
+                           tls_config:
+                             insecure_skip_verify: true
+                           file_sd_configs:
+                           - files:
+                             - /conf/hawkconsole/hawktargets.yml
                   processors:
-                    memory_limiter: null
+                    memory_limiter:
+                      check_interval: 5s
+                      limit_percentage: 80
+                      spike_limit_percentage: 25
                     batch: {}
                     filter/devnull:
                       error_mode: ignore
@@ -242,12 +580,216 @@ data:
                           - 'name != ""'
                         datapoint:
                           - 'metric.name != ""'
-                    memory_limiter:
-                      check_interval: 5s
-                      limit_percentage: 80
-                      spike_limit_percentage: 25
+                    k8sattributes/general-ns:
+                      auth_type: "serviceAccount"
+                      filter:
+                        namespace: ${env:app_namespace}
+                      extract:
+                        annotations:
+                        - from: pod
+                          key: platform.tibco.com/connectors
+                          tag_name: connectors
+                        labels:
+                        - from: pod
+                          key: platform.tibco.com/app-id
+                          tag_name: app_id
+                        - from: pod
+                          key: platform.tibco.com/app-type
+                          tag_name: app_type
+                        - from: pod
+                          key: platform.tibco.com/dataplane-id
+                          tag_name: dataplane_id
+                        - from: pod
+                          key: platform.tibco.com/workload-type
+                          tag_name: workload_type
+                        - from: pod
+                          key: platform.tibco.com/app-name
+                          tag_name: app_name
+                        - from: pod
+                          key: platform.tibco.com/app-version
+                          tag_name: app_version
+                        - from: pod
+                          key: platform.tibco.com/tags
+                          tag_name: app_tags
+                        - from: pod
+                          key: platform.tibco.com/capability-instance-id
+                          tag_name: capability_instance_id
+                        metadata:
+                        - k8s.pod.name
+                        - k8s.pod.uid
+                        - k8s.namespace.name
+                        - k8s.pod.start_time
+                      passthrough: false
+                    k8sattributes/pa-ns:
+                      auth_type: "serviceAccount"
+                      filter:
+                        namespace: ${env:app_namespace}
+                      extract:
+                        annotations:
+                        - from: pod
+                          key: platform.tibco.com/connectors
+                          tag_name: connectors
+                        labels:
+                        - from: pod
+                          key: platform.tibco.com/app-id
+                          tag_name: app_id
+                        - from: pod
+                          key: platform.tibco.com/app-type
+                          tag_name: app_type
+                        - from: pod
+                          key: platform.tibco.com/dataplane-id
+                          tag_name: dataplane_id
+                        - from: pod
+                          key: platform.tibco.com/workload-type
+                          tag_name: workload_type
+                        - from: pod
+                          key: platform.tibco.com/app-name
+                          tag_name: app_name
+                        - from: pod
+                          key: platform.tibco.com/app-version
+                          tag_name: app_version
+                        - from: pod
+                          key: platform.tibco.com/tags
+                          tag_name: app_tags
+                        - from: pod
+                          key: platform.tibco.com/capability-instance-id
+                          tag_name: capability_instance_id
+                        - from: pod
+                          key: tib-msg-stsrole
+                          tag_name: tib-msg-stsrole
+                        - from: pod
+                          key: tib-msg-group-name
+                          tag_name: tib-msg-group-name
+                        metadata:
+                        - k8s.pod.name
+                        - k8s.pod.uid
+                        - k8s.namespace.name
+                        - k8s.pod.start_time
+                      passthrough: false
+                      pod_association:
+                      - sources:
+                        - from: resource_attribute
+                          name: k8s.pod.uid
+                      - sources:
+                        - from: resource_attribute
+                          name: k8s.pod.name
+                        - from: resource_attribute
+                          name: k8s.namespace.name
+                    k8sattributes/general:
+                      auth_type: "serviceAccount"
+                      passthrough: false
+                      extract:
+                        metadata:
+                          - k8s.pod.name
+                          - k8s.pod.uid
+                          - k8s.namespace.name
+                          - k8s.pod.start_time
+                        annotations:
+                          - tag_name: connectors
+                            key: platform.tibco.com/connectors
+                            from: pod
+                        labels:
+                          - tag_name: app_id
+                            key: platform.tibco.com/app-id
+                            from: pod
+                          - tag_name: app_type
+                            key: platform.tibco.com/app-type
+                            from: pod
+                          - tag_name: dataplane_id
+                            key: platform.tibco.com/dataplane-id
+                            from: pod
+                          - tag_name: workload_type
+                            key: platform.tibco.com/workload-type
+                            from: pod
+                          - tag_name: app_name
+                            key: platform.tibco.com/app-name
+                            from: pod
+                          - tag_name: app_version
+                            key: platform.tibco.com/app-version
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
+                          - tag_name: capability_instance_id
+                            key: platform.tibco.com/capability-instance-id
+                            from: pod
+                    k8sattributes/pa:
+                      auth_type: "serviceAccount"
+                      passthrough: false
+                      pod_association:
+                      - sources:
+                        - from: resource_attribute
+                          name: k8s.pod.uid
+                      - sources:
+                        - from: resource_attribute
+                          name: k8s.pod.name
+                        - from: resource_attribute
+                          name: k8s.namespace.name
+                      extract:
+                        metadata:
+                          - k8s.pod.name
+                          - k8s.pod.uid
+                          - k8s.namespace.name
+                          - k8s.pod.start_time
+                        annotations:
+                          - tag_name: connectors
+                            key: platform.tibco.com/connectors
+                            from: pod
+                        labels:
+                          - tag_name: app_id
+                            key: platform.tibco.com/app-id
+                            from: pod
+                          - tag_name: app_type
+                            key: platform.tibco.com/app-type
+                            from: pod
+                          - tag_name: dataplane_id
+                            key: platform.tibco.com/dataplane-id
+                            from: pod
+                          - tag_name: workload_type
+                            key: platform.tibco.com/workload-type
+                            from: pod
+                          - tag_name: app_name
+                            key: platform.tibco.com/app-name
+                            from: pod
+                          - tag_name: app_version
+                            key: platform.tibco.com/app-version
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
+                          - tag_name: capability_instance_id
+                            key: platform.tibco.com/capability-instance-id
+                            from: pod
+                          - tag_name: tib-msg-stsrole
+                            key: tib-msg-stsrole
+                            from: pod
+                          - tag_name: tib-msg-group-name
+                            key: tib-msg-group-name
+                            from: pod
+                    transform/metrics:
+                      metric_statements:
+                      - context: datapoint
+                        statements:
+                        - set(resource.attributes["k8s.pod.name"], attributes["Host"]) where resource.attributes["k8s.pod.uid"] == nil
+                        - set(attributes["app_tags"], attributes["tags"]) where attributes["tags"] != ""
+                        - delete_key(attributes, "tags") where attributes["tags"] != ""
+                    transform/msg:
+                      metric_statements:
+                      - context: datapoint
+                        statements:
+                        - set(attributes["app_id"], resource.attributes["capability_instance_id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
                   exporters:
                     debug: {}
+                    prometheus/user:
+                      endpoint: 0.0.0.0:4319
+                      enable_open_metrics: true
+                      resource_to_telemetry_conversion:
+                        enabled: true
+                    prometheus/ext:
+                      endpoint: 0.0.0.0:4320
+                      enable_open_metrics: true
+                      resource_to_telemetry_conversion:
+                        enabled: true
                   extensions:
                     health_check: {}
                   service:
@@ -256,13 +798,14 @@ data:
                     extensions:
                       - health_check
                     pipelines:
-                      metrics:
-                        exporters:
-                          - debug
-                        processors:
-                          - filter/devnull
-                        receivers:
-                          - otlp
+                      metrics/appengines:
+                        receivers: ${env:metrics_appengines_rec}
+                        processors: ${env:metrics_appengines_proc}
+                        exporters: ${env:metrics_appengines_exp}
+                      metrics/prom:
+                        receivers: ${env:metrics_prom_rec}
+                        processors: ${env:metrics_prom_proc}
+                        exporters: ${env:metrics_prom_exp}
           flags:
             install: true
             createNamespace: false
@@ -316,8 +859,7 @@ data:
                             kubernetes_sd_configs:
                             - role: service
                               namespaces:
-                                names:
-                                  - ${env:app_namespace}
+                                names: ${env:app_namespaces}
                             relabel_configs:
                             - action: keep
                               source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_finops]
@@ -343,8 +885,7 @@ data:
                             kubernetes_sd_configs:
                             - role: pod
                               namespaces:
-                                names:
-                                  - ${env:app_namespace}
+                                names: ${env:app_namespaces}
                             relabel_configs:
                             - action: keep
                               source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_scrape_finops]
@@ -500,9 +1041,11 @@ data:
                         tracesServer:
                           config:
                             exporter:
-                              enabled: false
+                              enabled: true
+                              kind: localStore
                             proxy:
-                              enabled: false
+                              enabled: true
+                              kind: localStore
                       o11y:
                         tracesServer:
                           enabled: false
@@ -592,7 +1135,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.4.0"
+          value: "1.5.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

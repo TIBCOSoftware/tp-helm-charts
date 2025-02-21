@@ -55,7 +55,7 @@ hpa:
 # images
 image:
   name: infra-compute-services
-  tag: 461-distroless
+  tag: 517-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -85,20 +85,6 @@ securityContext:
     drop:
       - ALL
 
-# list of helm repositories supported by compute service. This will be used to download and serialize the helm chart content on fly
-# supported types: "chart-museum"
-# auth is optional for public repos
-# remaining fields are mandatory
-# dpHelmRepositories:
-#  - alias: default
-#    default: true
-#    type: "chart-museum"
-#    conf:
-#      repoUrl: "helm-repo"
-#      auth:
-#        username: "test"
-#        password: "test"
-
 # Jfrog container registry configuration. Configuration required by compute service to create customer/subscription service-accounts in jfrog.
 # Data plane container registries supported by the Control Plane.
 # single control plane can support multiple container registries for dp.
@@ -111,6 +97,7 @@ dpContainerRegistries:
     adminBearerToken: "" # admin user bearer token to create to jfrog internal users, these users will be created by tibco on behalf of customers/subscription.
     email: ""
     customerGroup: "" #customer service account will be part of this group. This group should be pre-created in Jfrog (mothershipFqdn)
+
 
 # Global section will apply to this chart and all of its subcharts.
 global:

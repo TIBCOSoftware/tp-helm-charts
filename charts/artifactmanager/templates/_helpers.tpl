@@ -67,7 +67,7 @@ Get PVC name for persistent volume
 Integration storage folder pvc name
 */}}
 {{- define "artifactmanager.storage.pvc.name" -}}
-{{- include "artifactmanager.persistentVolumeClaim.claimName" (dict "existingClaim" .Values.volumes.artifactmanager.existingClaim "releaseName" ( include "artifactmanager.fullname" . ) "volumeName" "integration" ) -}}
+{{- include "artifactmanager.persistentVolumeClaim.claimName" (dict "existingClaim" .Values.global.cp.resources.persistentvolumeclaim.existingClaim "releaseName" ( include "artifactmanager.fullname" . ) "volumeName" "integration" ) -}}
 {{- end -}}
 
 {{- define "artifactmanager.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}

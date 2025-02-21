@@ -64,12 +64,6 @@ Encode an imagePullSecret string.
 {{- printf "{\"auths\": {\"%s\": {\"auth\": \"%s\"}}}" .Values.controller.imageCredentials.registry (printf "%s:%s" .Values.controller.imageCredentials.username .Values.controller.imageCredentials.password | b64enc) | b64enc }}
 {{- end }}
 
-{{/*
-Encode an imagePullSecret string for the default backend.
-*/}}
-{{- define "kubernetes-ingress.defaultBackend.imagePullSecret" }}
-{{- printf "{\"auths\": {\"%s\": {\"auth\": \"%s\"}}}" .Values.defaultBackend.imageCredentials.registry (printf "%s:%s" .Values.defaultBackend.imageCredentials.username .Values.defaultBackend.imageCredentials.password | b64enc) | b64enc }}
-{{- end }}
 
 {{/*
 Generate default certificate for HAProxy.
@@ -143,6 +137,13 @@ Create a default fully qualified ServiceMonitor name.
 */}}
 {{- define "kubernetes-ingress.serviceMonitorName" -}}
 {{- default (include "kubernetes-ingress.fullname" .) .Values.controller.serviceMonitor.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Create a default fully qualified PodMonitor name.
+*/}}
+{{- define "kubernetes-ingress.podMonitorName" -}}
+{{- default (include "kubernetes-ingress.fullname" .) .Values.controller.podMonitor.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*

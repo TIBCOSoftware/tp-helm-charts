@@ -92,6 +92,9 @@ spec:
             periodSeconds: {{ .Values.probes.startup.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
           volumeMounts:
+            - mountPath: /usr/tp/discovery
+              name: o11y-efs-vol
+              subPath: o11y/discovery
             - name: logs
               mountPath: /tmp/logs
   {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}
@@ -168,6 +171,9 @@ spec:
               mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+        - name: o11y-efs-vol
+          persistentVolumeClaim:
+            claimName: {{ include "o11y-service.pvc-name" . }}
         - name: logs
           emptyDir: {}
 {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}

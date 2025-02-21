@@ -4,24 +4,30 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if .Values.allInOne.enabled }}
+{{ $useBadger := include "useBadger" .}}
+{{ if eq $useBadger "true" }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ template "jaeger.query.name" . }}
   labels:
-    {{- include "jaeger.labels" . | nindent 4 }}
-    app.kubernetes.io/component: service-query
+    {{- include "jaeger.allinone.labels" . | nindent 4 }}
+    app.kubernetes.io/component: query
+    proxy.platform.tibco.com/enabled:  "true"
+  annotations:
+    proxy.platform.tibco.com/path: "/tibco/agent/o11y/{{ $.Values.global.cp.instanceId }}/jaeger-query/(.*)"
+    proxy.platform.tibco.com/port: "{{ .Values.allInOne.service.query.port }}"
+    proxy.platform.tibco.com/rewrite-target: "/$1"
 spec:
-  clusterIP: None
+  type: ClusterIP
   ports:
     - name: http-query
-      port: 16686
+      port: 80
       targetPort: 16686
     - name: grpc-query
       port: 16685
       targetPort: 16685
   selector:
-    {{- include "jaeger.selectorLabels" . | nindent 4 }}
+    {{- include "jaeger.allinone.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: all-in-one
 {{- end -}}

@@ -211,6 +211,4 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       imagePullSecrets:
-        {{- if .Values.global.tibco.containerRegistry.username }}{{if .Values.global.tibco.containerRegistry.password }}
         - name: {{ .Values.global.tibco.dataPlaneId }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
-        {{- end }}{{ end }}

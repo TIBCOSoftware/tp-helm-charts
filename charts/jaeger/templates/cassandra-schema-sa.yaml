@@ -3,8 +3,9 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-
-{{ if and (eq .Values.storage.type "cassandra") .Values.schema.serviceAccount.create }}
+{{ $collectorStorageType := include "collector.storage.type" .}}
+{{ $queryStorageType := include "query.storage.type" .}}
+{{ if and (or (eq $collectorStorageType "cassandra") (eq $queryStorageType "cassandra")) .Values.schema.serviceAccount.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

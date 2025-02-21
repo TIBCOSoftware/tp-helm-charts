@@ -10,24 +10,10 @@
 compute-services:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.4.24"
-    dpCoreInfrastructureAppVersion: "1.4.0"
-    dpConfigureNamespaceChartVersion: "1.4.5"
-    dpConfigureNamespaceAppVersion: "1.4.0"
-
-  # list of helm repositories supported by compute service. This will be used to download and serialize the helm chart content on fly
-  # supported types: "chart-museum"
-  # auth is optional for public repos
-  # remaining fields are mandatory
-  # dpHelmRepositories:
-  #  - alias: default
-  #    default: true
-  #    type: "chart-museum"
-  #    conf:
-  #      repoUrl: "helm-repo"
-  #      auth:
-  #        username: "test"
-  #        password: "test"
+    dpCoreInfrastructureChartVersion: "1.5.4"
+    dpCoreInfrastructureAppVersion: "1.5.0"
+    dpConfigureNamespaceChartVersion: "1.5.3"
+    dpConfigureNamespaceAppVersion: "1.5.0"
 
 hybrid-proxy:
   # switch to false to disable tp-hybrid-proxy
@@ -74,6 +60,11 @@ global:
     useSingleNamespace: true
 
     enableResourceConstraints: true
+
+    proxy:
+      httpProxy: ""
+      httpsProxy: ""
+      noProxy: ""
 
   external:
     dnsTunnelDomain: ""
