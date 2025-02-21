@@ -176,6 +176,7 @@ claims:
     # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html are supported
     # Mandatory configuration parameters for Aurora cluster
     mandatoryConfigurationParameters:
+      autoMinorVersionUpgrade: true
       # provide for creating primary / stand-alone cluster
       # databaseName: "postgres"
       dbInstanceClass: "db.t3.medium"
@@ -192,7 +193,6 @@ claims:
     #   allocatedStorage: 20
     #   allowMajorVersionUpgrade: "false"
     #   applyImmediately: "false"
-    #   autoMinorVersionUpgrade: "true"
     #   backupRetentionPeriod: "0"
     #   deletionProtection: "false"
     #   finalDBSnapshotIdentifier: ""

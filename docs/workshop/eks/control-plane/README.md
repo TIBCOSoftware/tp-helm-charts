@@ -238,6 +238,7 @@ crossplane-components:
         secondaryCluster:
           create: false
       mandatoryConfigurationParameters:
+        autoMinorVersionUpgrade: false
         databaseName: "postgres"
         dbInstanceClass: "db.t3.medium"
         dbParameterGroupFamily: "aurora-postgresql16"
@@ -249,7 +250,6 @@ crossplane-components:
         publiclyAccessible: false
       additionalConfigurationParameters:
         applyImmediately: "true"
-        autoMinorVersionUpgrade: "false"
         groupFamilyParameters:
           - parameterName: rds.force_ssl
             parameterValue: '1'

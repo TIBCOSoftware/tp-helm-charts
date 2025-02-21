@@ -1,0 +1,10 @@
+{{- if ne .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.tibco.primaryNamespaceName }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+    namespace.dataplane.platform.tibco.com/enabled : "true"
+{{- end -}}

@@ -3,13 +3,15 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{ if .Values.allInOne.enabled }}
+
+{{ $useBadger := include "useBadger" .}}
+{{ if eq $useBadger "true" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "jaeger.fullname" . }}
+  name: jaeger-allinone
   labels:
-    {{- include "jaeger.labels" . | nindent 4 }}
+    {{- include "jaeger.allinone.labels" . | nindent 4 }}
     app.kubernetes.io/component: all-in-one
     prometheus.io/port: "14269"
     prometheus.io/scrape: "true"
@@ -21,33 +23,38 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "jaeger.selectorLabels" . | nindent 6 }}
+      {{- include "jaeger.allinone.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: all-in-one
   template:
     metadata:
       labels:
-        {{- include "jaeger.selectorLabels" . | nindent 8 }}
+        {{- include "jaeger.allinone.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: all-in-one
+        app.kubernetes.io/name: "jaeger-all-in-one"
 {{- if .Values.allInOne.podLabels }}
         {{- toYaml .Values.allInOne.podLabels | nindent 8 }}
 {{- end }}
       annotations:
+        rollId: {{ randAlphaNum 5 | quote }}
+        checksum/config-env: {{ include (print $.Template.BasePath "/allinone-configmap.yaml") . | sha256sum }}
+{{- if .Values.allInOne.podAnnotations }}
+         {{- toYaml .Values.allInOne.podAnnotations | nindent 8 }}
+{{- end }}
         prometheus.io/port: "14269"
         prometheus.io/scrape: "true"
     spec:
       securityContext:
         {{- toYaml .Values.allInOne.podSecurityContext | nindent 8 }}
-      {{- with .Values.allInOne.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
       containers:
         - env:
           {{- if .Values.allInOne.extraEnv }}
             {{- toYaml .Values.allInOne.extraEnv | nindent 12 }}
           {{- end }}
             - name: SPAN_STORAGE_TYPE
-              value: memory
+              value: {{include "allinone.storage.type" .}}
+            {{- include "allinone.storage.env" . | nindent 12 }}
             - name: COLLECTOR_ZIPKIN_HOST_PORT
               value: :9411
             - name: JAEGER_DISABLED
@@ -61,11 +68,11 @@ spec:
         {{- with .Values.allInOne.envFrom }}
           envFrom: {{- toYaml . | nindent 12 }}
         {{- end }}
-          image: {{ .Values.allInOne.image }}:{{- .Values.allInOne.tag | default (include "jaeger.image.tag" .) }}
+          image: {{ include "jaeger.image.registry" .}}{{"/"}}{{ include "jaeger.image.repository" .}}{{"/"}}o11y-jaeger-all-in-one:{{- .Values.collector.tag | default (include "jaeger.image.tag" .) }}
           imagePullPolicy: {{ .Values.allInOne.pullPolicy }}
           name: jaeger
           securityContext:
-            {{- toYaml .Values.allInOne.securityContext | nindent 10 }}
+            {{- toYaml .Values.allInOne.securityContext | nindent 12 }}
           args:
             {{- range $arg := .Values.allInOne.args }}
             - "{{ tpl $arg $ }}"
@@ -116,6 +123,13 @@ spec:
       {{- end }}
       {{- end }}
           volumeMounts:
+        {{- if eq $useBadger "true" }}
+            - mountPath: /mnt/data
+              name: badger-data
+            - mountPath: /jaeger/config
+              name: jaeger-config
+              readOnly: true
+        {{- end }}
         {{- if .Values.allInOne.samplingConfig}}
             - name: strategies
               mountPath: /etc/conf/
@@ -126,8 +140,17 @@ spec:
               subPath: {{ .subPath }}
               readOnly: {{ .readOnly }}
         {{- end }}
-      serviceAccountName: {{ template "jaeger.fullname" . }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       volumes:
+    {{- if eq $useBadger "true" }}
+        - name: badger-data
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: jaeger-config
+          configMap:
+            name: o11y-service
+            defaultMode: 420
+    {{- end }}
     {{- if .Values.allInOne.samplingConfig}}
         - name: strategies
           configMap:

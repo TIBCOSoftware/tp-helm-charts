@@ -54,20 +54,16 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
-        {{- if .Values.dpHelmRepositories }}
-          - mountPath: /helm/config
-            name: helm-repo-config
-          {{- end }}
         {{- if .Values.dpMetadata.components }}
           - name: monitor-services-file
             mountPath: /component/services
         {{- end }}
-          - name: tibco-charts-dir
-            mountPath: /helm/tibcocharts
           - name: helm-cache
             mountPath: /tmp/helm
           - name : logs
             mountPath: /tmp/logs
+          - name: tibco-charts-dir
+            mountPath: /helm/tibcocharts
         ports:
         - containerPort: 9979
           name: server
@@ -145,23 +141,6 @@ spec:
             value: {{ .Values.dpMetadata.dpConfigureNamespaceAppVersion | quote }}
           - name: HELM_CLI_TIMEOUT_SECONDS
             value: "60"
-          - name: CONTAINER_REGISTRY_URL
-            value: "{{ .Values.global.tibco.containerRegistry.url }}"
-          - name: CONTAINER_REGISTRY_REPOSITORY
-            value: "{{ .Values.global.tibco.containerRegistry.repository }}"            
-          {{- if .Values.global.tibco.containerRegistry.username }}
-          - name: CONTAINER_REGISTRY_USERNAME
-            value: {{ .Values.global.tibco.containerRegistry.username }}
-          {{- end }}
-          {{- if .Values.global.tibco.containerRegistry.password }}
-          - name: CONTAINER_REGISTRY_PASSWORD
-            value: {{ .Values.global.tibco.containerRegistry.password }}
-          {{- end }}
-
-        {{- if .Values.dpHelmRepositories }}
-          - name: HELM_REPO_CONFIG
-            value: /helm/config/repo.json
-        {{- end }}
           - name: TIBCO_CHARTS_DIR
             value: /helm/tibcocharts
           # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
@@ -278,16 +257,11 @@ spec:
             mountPath: /var/log/db
 {{- end }}
       volumes:
-      {{- if .Values.dpHelmRepositories }}
-        - name: helm-repo-config
-          secret:
-            secretName: {{ include "compute-services.consts.appName" . }}-helm-repo-config
-      {{- end }}
-        - name: tibco-charts-dir
-          emptyDir: {}
         - name: helm-cache
           emptyDir: {}
         - name: logs
+          emptyDir: {}
+        - name: tibco-charts-dir
           emptyDir: {}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: db

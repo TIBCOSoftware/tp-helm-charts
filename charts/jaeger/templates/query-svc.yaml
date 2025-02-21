@@ -3,8 +3,8 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-
-{{ if .Values.query.enabled }}
+{{ $st := include "query.storage.type" .}}
+{{ if and (include "isO11yv3" .) ( .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled ) (eq $st "elasticsearch") }}
 apiVersion: v1
 kind: Service
 metadata:

@@ -4,7 +4,8 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if .Values.collector.enabled }}
+{{ $st := include "collector.storage.type" .}}
+{{ if and (include "isO11yv3" .) ( .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled ) (eq $st "elasticsearch" ) }}
 apiVersion: v1
 kind: Service
 metadata:

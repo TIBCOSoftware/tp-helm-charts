@@ -3,7 +3,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{ if .Values.volumes.artifactmanager.persistentVolumeClaim.create }}
+{{ if .Values.global.cp.resources.storage.storageClassName }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

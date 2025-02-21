@@ -181,7 +181,7 @@ global:
               enabled: true
               kind: prometheus
               prometheus:
-                endpoint: somevalue
+                endpoint: system
                 username: somevalue
           secret:
             exporter:
@@ -205,6 +205,8 @@ global:
               openSearch:
                 endpoint: somevalue
                 username: somevalue
+              localStore:
+                storageClassName: somevalue
               kafka:
                 brokers: {}
                 protocol_version: somevalue
@@ -222,6 +224,8 @@ global:
               openSearch:
                 endpoint: somevalue
                 username: somevalue
+              localStore:
+                storageClassName: somevalue
           secret:
             exporter:
               elasticSearch:
@@ -412,7 +416,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 2159
+      tag: 2240
 
 
 replicaCount: 1

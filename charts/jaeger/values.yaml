@@ -37,6 +37,7 @@ global:
               openSearch:
                 endpoint: somevalue
                 username: somevalue
+              localStore: {}
             proxy:
               enabled: true
               kind: elasticSearch
@@ -46,6 +47,7 @@ global:
               openSearch:
                 endpoint: somevalue
                 username: somevalue
+              localStore: {}
           secret:
             exporter:
               elasticSearch:
@@ -66,7 +68,7 @@ global:
       o11y:
         tracesServer:
           kind: "jaeger"
-          enabled: true
+          enabled: false
 
 provisionDataStore:
   cassandra: true
@@ -107,6 +109,8 @@ allInOne:
   #   }
   service:
     headless: true
+    query:
+      port: 80
     collector:
       otlp:
         grpc:
@@ -433,7 +437,7 @@ agent:
     capabilities:
       drop:
         - ALL
-  enabled: true
+  enabled: false
   annotations: {}
   image: jaegertracing/jaeger-agent
   # tag: 1.22
@@ -614,7 +618,7 @@ collector:
       cpu: 500m
       memory: 768Mi
   serviceAccount:
-    create: true
+    create: false
     # Explicitly mounts the API credentials for the Service Account
     automountServiceAccountToken: false
     name:
@@ -808,7 +812,7 @@ query:
       cpu: 256m
       memory: 342Mi
   serviceAccount:
-    create: true
+    create: false
     # Explicitly mounts the API credentials for the Service Account
     automountServiceAccountToken: false
     name:
