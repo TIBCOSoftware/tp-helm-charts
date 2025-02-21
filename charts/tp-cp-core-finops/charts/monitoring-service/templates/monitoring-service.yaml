@@ -48,6 +48,7 @@ spec:
       labels:
         {{- include "monitoring-service.shared.labels.standard" . | nindent 8 }}
         egress.networking.platform.tibco.com/cluster-all: enable
+        egress.networking.platform.tibco.com/internet-all: enable
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -569,8 +570,12 @@ metadata:
   labels:
     app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
 spec:
-  schedule: {{ .Values.monitoringhomepagemetrics.schedule | quote}}
-  concurrencyPolicy: Forbid
+  schedule: |
+    {{- if or (eq (.Values.global.external.environment | lower) "staging") (hasPrefix "prod" (.Values.global.external.environment | lower)) }}
+    {{ .Values.monitoringhomepagemetrics.prodSchedule }}
+    {{- else }}
+    {{ .Values.monitoringhomepagemetrics.schedule }}
+    {{- end }}
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 2
   jobTemplate:
@@ -610,6 +615,63 @@ spec:
               - -c
               - >
                   exit_status=$(wget --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/triggers/homepageMetrics');
+                  echo $exit_status
+                  
+            env:
+              - name: MONITORING_SERVICE_HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+                    key: TP_CP_MONITORING_SERVICE_HOST
+          restartPolicy: OnFailure
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tp-cp-monitoring-dataplane-sync-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-dataplane-sync-cronjob"
+spec:
+  schedule: {{ .Values.monitoringdataplanesync.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-dataplane-sync-cronjob"
+        spec:
+          {{- if .Values.global.podSecurityContext }}
+          securityContext:
+            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
+          {{- end }}
+          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+          imagePullSecrets:
+            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+          {{ end }}
+          containers:
+          - name: dataplane-sync
+            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
+            securityContext:
+              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
+            {{- end }}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
+            imagePullPolicy: IfNotPresent
+            resources:
+              requests:
+                cpu: {{ .Values.monitoringdataplanesync.resources.requests.cpu }}
+                memory: {{ .Values.monitoringdataplanesync.resources.requests.memory }}
+              limits:
+                cpu: {{ .Values.monitoringdataplanesync.resources.limits.cpu }}
+                memory: {{ .Values.monitoringdataplanesync.resources.limits.memory }}
+            command: ['sh']
+            args:
+              - -c
+              - >
+                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/dataplaneSync');
                   echo $exit_status
                   
             env:

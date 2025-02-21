@@ -95,7 +95,17 @@ monitoringcapresources:
       cpu: "80m"
       memory: "20Mi"
 monitoringhomepagemetrics:
-  schedule: "0 * * * *"
+  schedule: "0 * * * *"  # For dev and QA environments, runs once every hour 
+  prodSchedule: "0 * * * *"  # For production environment, runs once every hour  
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "20Mi"
+    limits:
+      cpu: "80m"
+      memory: "20Mi"
+monitoringdataplanesync:
+  schedule: "0 0 * * *" 
   resources:
     requests:
       cpu: "50m"
