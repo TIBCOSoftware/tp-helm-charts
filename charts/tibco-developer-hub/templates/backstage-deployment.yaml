@@ -4,6 +4,7 @@
 
 {{- $installDir := .Values.backstage.installDir -}}
 {{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
+{{ $cpCertificateSecretPath:= "/etc/ssl/custom-certs" }}
 ---
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
@@ -188,6 +189,10 @@ spec:
               value: {{ .Values.backstage.containerPorts.backend | quote }}
             - name: CP_URL
               value: {{ $cpHostname }}
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: CP_CERTIFICATE_SECRET_PATH
+              value: {{ $cpCertificateSecretPath }}
+            {{- end }}
             {{- if .Values.postgresql.enabled }}
             - name: POSTGRES_HOST
               value: {{ include "backstage.postgresql.host" . }}
@@ -242,7 +247,7 @@ spec:
               mountPath: /tmp
             {{- if .Values.global.cp.cpCertificateSecret }}
             - name: cp-certs
-              mountPath: /etc/ssl/custom-certs
+              mountPath: {{ $cpCertificateSecretPath }}
             {{- end }}
             {{- if (or .Values.backstage.extraAppConfig .Values.backstage.appConfig (and .Values.backstage.extraVolumeMounts .Values.backstage.extraVolumes)) }}
             {{- range .Values.backstage.extraAppConfig }}
