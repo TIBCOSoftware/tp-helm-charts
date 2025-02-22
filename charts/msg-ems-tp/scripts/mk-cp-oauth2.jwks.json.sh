@@ -13,12 +13,15 @@ $cmd -- Generate/Update EMS JWKS JSON file
 "
 outfile=${1:-cp-oauth2.jwks.json}
 
+# FIXME: EMS-10.4.0.1 Workaround
+#  echo "$EMS_CP_JWKS" | jq '.keys[] |= . + {"use": "sig"}'
+
 if echo "$EMS_CP_JWKS" | grep -q "keys" ; then
     # Have full JWKS
-    echo "$EMS_CP_JWKS" > $outfile
+    echo "$EMS_CP_JWKS" | jq '.' > $outfile
 else
     # Single key, wrap for JWKS
-    cat - <<! > $outfile
+    cat - <<! | jq '.' > $outfile
 {"keys":[ $EMS_CP_JWKS ]}
 !
 fi

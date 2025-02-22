@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $params := include "need.msg.gateway.params" . | fromYaml -}}
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $params.msggw.basename }}-scripts
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-scripts
+data:
+{{ (.Files.Glob "scripts/*").AsConfig | indent 2 }}
+# DEBUG: View final params.yaml computation
+#  params.yaml: |
+#{ include "need.msg.gateway.params" . | indent 4 }}
+...

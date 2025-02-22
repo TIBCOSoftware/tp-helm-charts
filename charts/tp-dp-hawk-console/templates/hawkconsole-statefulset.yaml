@@ -37,6 +37,8 @@ spec:
           {{- toYaml .Values.securityContext.dpHawkConsole | nindent 10 }}
         {{- end }}
         env:
+          - name: AUTH_ENABLED
+            value: "true"
           - name: LOAD_CONFIG_FROM_ENV
             value: "true"
           - name: REST_TLS_PROTOCOL
@@ -69,8 +71,10 @@ spec:
             value: {{ .Values.global.cp.controlTower.authToken }}
           - name: METRIC_AUTH_TOKEN
             value: {{ .Values.global.cp.controlTower.metricAuthToken }}
+          - name: log_level
+            value: {{ .Values.hawkconsole.log.level }}  
           - name: JAVA_TOOL_OPTIONS
-            value: "-Xms2g -Xmx4g"
+            value: {{ .Values.hawkconsole.javaOptions | quote }}
         {{- if .Values.global.cp.enableResourceConstraints }}
         {{- with .Values.resources }}
         resources:
@@ -194,7 +198,8 @@ spec:
     - metadata:
         name: {{ .Values.hawkconsole.hawkData.volClaimTemplateName }}
       spec:
-        accessModes: [ "ReadWriteMany" ]
+        accessModes: 
+          - {{ .Values.hawkconsole.hawkData.pvcAccessMode }}
         storageClassName: {{ .Values.global.cp.resources.storage.storageClassName }}
         resources:
           requests:

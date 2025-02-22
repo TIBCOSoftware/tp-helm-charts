@@ -31,7 +31,7 @@ metadata:
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 360
+    ttlSecondsAfterFinished: 14400
     template:
         metadata:
             name: "{{ $jobname }}"
@@ -53,22 +53,10 @@ spec:
             serviceAccountName: "{{ $emsParams.dp.serviceAccount }}"
             {{ include "msg.dp.security.pod" $emsParams | nindent 12 }}
             restartPolicy: Never
-            # volumes:
-            # - name: scripts-vol
-            #   configMap:
-            #     name: "{{ $emsParams.ems.name }}-scripts"
-            # - name: "ems-log"
-            #   {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
-            #   persistentVolumeClaim:
-            #     claimName: "{{ $emsParams.ems.logs.storageName }}"
-            #   {{ else }}
-            #   emptyDir: {}
-            #   {{ end }}
             terminationGracePeriodSeconds: 10
             containers:
             -   name: "main"
                 command: ['/compliance/check_eua', 'bash', '-c' ]
-                ## kubectl get pvc -l=tib-dp-release=$relname | egrep -v NAME | while read x o ; do kubectl delete pvc $x ; done
                 args:
                 - >
                   echo "Cleaning up PVCs ... " ; 
@@ -87,14 +75,6 @@ spec:
                 resources:
 {{ $emsParams.job.resources | toYaml | indent 18 }}
                 {{ include "msg.dp.security.container" $emsParams | nindent 16 }}
-                # volumeMounts:
-                # - mountPath: /boot
-                #   name: scripts-vol
-                # - mountPath: /logs
-                #   name: "ems-log"
-                #   {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
-                #   subPathExpr: "$(MY_RELEASE)/logs"
-                #   {{ end }}
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
                 {{ include "msg.dp.stdenv" $emsParams | indent  16 }}

@@ -92,6 +92,11 @@ spec:
           {{ include "msg.pv.vol.mount" $webserverParams.cp.cic_dns | nindent 10 }}
         - mountPath: /cm/cp-extra
           {{ include "msg.pv.vol.mount" $webserverParams.cp.cp_extra | nindent 10 }}
+        envFrom:
+          - configMapRef:
+              # eg. TP_CP_WEB_SERVER_HOST
+              name: "tp-cp-core-dnsdomains"
+              optional: true
         env:
         {{ include "msg.envStdPodRefs" . | indent  8 }}
         - name: ACCEPT_EUA
