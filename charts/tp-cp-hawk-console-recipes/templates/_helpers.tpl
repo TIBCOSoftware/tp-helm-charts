@@ -110,6 +110,15 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{/* Control cpIsSingleNamespace flag */}}
+{{- define "tp-cp-hawk-console-recipes.cp-is-single-namespace" }}
+{{- if .Values.cpIsSingleNamespace }}
+  {{- .Values.cpIsSingleNamespace }}
+{{- else }}
+  {{- include "cp-env.get" (dict "key" "CP_SUBSCRIPTION_SINGLE_NAMESPACE" "default" "true" "required" "false"  "Release" .Release )}}
+{{- end }}
+{{- end }}
+
 {{/* Control plane provider */}}
 {{- define "tp-cp-hawk-console-recipes.cp-provider" -}}
 {{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}

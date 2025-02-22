@@ -16,9 +16,8 @@ need.msg.apd.params
 #
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
 #
-{{-  $apdDefaultFullImage := printf "%s/%s/msg-pulsar-all:3.0.2-36" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $opsDefaultFullImage := printf "%s/%s/msg-tp-ops:1.2.0-4" $dpParams.dp.registry $dpParams.dp.repo -}}
-{{-  $apdDefaultImageTag := "3.0.2-36" -}}
+{{-  $apdDefaultFullImage := printf "%s/%s/msg-pulsar-all:3.0.2-38" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $apdDefaultImageTag := "3.0.2-38" -}}
 # Set APD defaults
 {{- $apdImage := ternary $apdDefaultFullImage .Values.apd.image ( not .Values.apd.image ) -}}
 {{- $name := ternary .Release.Name .Values.apd.name ( not .Values.apd.name ) -}}
@@ -95,8 +94,6 @@ need.msg.apd.params
   {{- end -}}
 # Fill in $apdParams yaml
 {{ include "need.msg.dp.params" . }}
-ops:
-  image: {{ $opsDefaultFullImage }}
 apd:
   name: {{ $name }}
   imageFullName: {{ $apdImage }}

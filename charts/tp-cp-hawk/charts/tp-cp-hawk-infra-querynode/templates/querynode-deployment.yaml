@@ -43,7 +43,7 @@ spec:
             - name: unity.services.rest.port
               value: "9681"
             - name: JDK_JAVA_OPTIONS
-              value: -Xms1g -Xmx2g
+              value: {{ .Values.javaOptions | quote }}
             - name: PROMETHEUS_SERVER_HOST
               value: prometheus-service
             - name: PROMETHEUS_SERVER_PORT

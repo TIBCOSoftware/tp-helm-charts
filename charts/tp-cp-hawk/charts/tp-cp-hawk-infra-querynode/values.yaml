@@ -10,6 +10,8 @@ global:
     enableResourceConstraints: true
     data:
       CP_DB_CONFIGURATION: provider-cp-database-config
+  external:
+    db_ssl_mode: ""
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.
@@ -77,6 +79,9 @@ resources:
     cpu: 500m
     memory: 2048Mi
 
+# Configure Heap size and other java options
+javaOptions: "-Xms1g -Xmx2g"
+
 ## Images
 ##
 ## Control what image to use
@@ -86,7 +91,8 @@ images:
     image:
       name: hawk-querynode
       pullPolicy: IfNotPresent
-      tag: 133
+      # tag: 134
+      tag: "1.5.0.30"
 
 # no of replicas
 replicaCount: "1"
