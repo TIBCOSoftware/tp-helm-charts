@@ -118,10 +118,10 @@
 {{- end }}
 {{- end }}
 
-{{- define "identity-management-sp-key-store-url" }}
+{{- define "identity-management-jwt-keystore-url" }}
 {{- if eq .Values.global.tibco.self_hosted_deployment true }}
-    {{- .Values.global.tibco.idm_cp_self_generated_keystore_url }}
+    {{- "identity-management-jwt-keystore-url" }}
 {{- else }}
-    {{- .Values.global.tibco.idm_cp_tibcoaccounts_keystore_url }}
+    {{- "tp-identity-management-idps-conf-override" }}
 {{- end }}
 {{- end }}
