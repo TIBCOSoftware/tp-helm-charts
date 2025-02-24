@@ -54,6 +54,7 @@ spec:
       labels:
         {{- include "finops-service.shared.labels.standard" . | nindent 8 }}
         egress.networking.platform.tibco.com/cluster-all: enable
+        egress.networking.platform.tibco.com/internet-all: enable
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

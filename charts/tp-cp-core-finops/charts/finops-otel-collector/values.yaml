@@ -113,7 +113,7 @@ config:
     # Without the health_check extension the collector will fail the readiness and liveliness probes.
     # The health_check extension can be modified, but should never be removed.
     health_check:
-      endpoint: ${env:MY_POD_IP}:13133
+      endpoint: ${env:MY_POD_IP}:13133  
   processors:
     memory_limiter:
       check_interval: 5s

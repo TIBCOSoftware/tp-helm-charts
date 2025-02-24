@@ -47,16 +47,16 @@ data:
   
     [FILTER]
       Name              parser
-      Match             cp.* 
+      Match             cp.*
       Key_Name          log
       Parser            json_decode
       Reserve_Data      True
   
     [FILTER]
-      Name              lua
-      Match             cp.*
-      Script            update_record.lua
-      Call              update_record
+      Name lua
+      Match cp.*
+      Script update_record.lua
+      Call update_record
   
   output.conf: |
     [OUTPUT]
