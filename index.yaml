@@ -2860,6 +2860,64 @@ entries:
       app.helm.sh/name: platform-base
     apiVersion: v2
     appVersion: 1.5.0
+    created: "2025-02-24T18:26:47.856031564Z"
+    dependencies:
+    - name: tp-cp-configuration
+      repository: alias:tibco-platform
+      version: 1.5.0
+    - name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.5.68
+    - name: tp-cp-o11y
+      repository: alias:tibco-platform
+      version: 1.5.8
+    - name: tp-cp-core
+      repository: alias:tibco-platform
+      version: 1.5.8686
+    - name: tp-cp-core-ops
+      repository: alias:tibco-platform
+      version: 1.5.8686
+    - name: tp-cp-core-finops
+      repository: alias:tibco-platform
+      version: 1.5.543
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.5.33
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.5.3
+    - condition: tp-cp-msg-contrib.enabled
+      name: tp-cp-msg-contrib
+      repository: alias:tibco-platform
+      version: 1.5.30
+    - condition: tp-cp-msg-recipes.enabled
+      name: tp-cp-msg-recipes
+      repository: alias:tibco-platform
+      version: 1.5.30
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.5.30
+    description: TIBCO Platform base chart
+    digest: 6cafd0f97386f10b629b86285da1781b23adcb0cd00849432594316503cf4f55
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.5.155/platform-base-1.5.155.tgz
+    version: 1.5.155
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
+    appVersion: 1.5.0
     created: "2025-02-24T10:31:10.788652497Z"
     dependencies:
     - name: tp-cp-configuration
@@ -8022,4 +8080,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-02-24T18:10:20.572979571Z"
+generated: "2025-02-24T18:26:47.856479962Z"
