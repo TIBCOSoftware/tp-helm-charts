@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -111,6 +111,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_USER_SUB_HOST
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
           valueFrom:
             configMapKeyRef:

@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -41,12 +41,11 @@ global:
           - ALL
           - CAP_NET_RAW
 
-
 config:
   HTTP_REQUEST_TIMEOUT: "120000"
   IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
-  FLOGO_WEBSERVER_IMAGE_TAG: "265-platform-1.4.0"
+  FLOGO_WEBSERVER_IMAGE_TAG: "336-platform-1.5.0"
 
 replicaCount: 1
 
@@ -54,13 +53,12 @@ hpa:
   cpu: 70
   memory: 70
   maxReplicas: 3
-  minReplicas: 1  
-  
+  minReplicas: 1
+
 volumes:
   flogowebserver:
     mountPath: /usr/share/nginx/html
     subPath: integration
-
 
 podSecurityContext:
   runAsNonRoot: true

@@ -111,3 +111,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "flogo-utilities.enableResourceConstraints" -}}
 {{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
 {{- end }}
+
+{{- define "flogo-utilities.cp-http-proxy" }}
+  {{- include "cp-env.get" (dict "key" "CP_HTTP_PROXY" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{- define "flogo-utilities.cp-https-proxy" }}
+  {{- include "cp-env.get" (dict "key" "CP_HTTPS_PROXY" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{- define "flogo-utilities.cp-no-proxy" }}
+  {{- include "cp-env.get" (dict "key" "CP_NO_PROXY" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}

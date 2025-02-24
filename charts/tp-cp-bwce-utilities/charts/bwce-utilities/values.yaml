@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -107,6 +107,10 @@ bwStudioImages:
     path: /opt/downloads/
     tag: 2.10.0-win-amd64
     target_location: bwce-studio/2.10.0/windows-amd64/
+  - image: tp-bw-studio
+    path: /opt/downloads/
+    tag: 2.10.0-HF1-hotfix-amd64
+    target_location: bwce-studio/2.10.0-HF1/hotfix-amd64/
 bwStudioDelete: false
 bwStudioDeleteVersions: ""
 
@@ -133,8 +137,8 @@ bwPluginsJobA:
     default: 6.3.2.v12-tci-2.0
   tci-bw-plugin-sftp:
     tags:
-      - 6.2.0.v2.1-tci-2.0
-    default: 6.2.0.v2.1-tci-2.0
+      - 6.2.0.v14-tci-2.0
+    default: 6.2.0.v14-tci-2.0
   tci-bw-plugin-dynamicscrm:
     tags:
       - 6.10.0.v9-tci-2.0
@@ -155,8 +159,8 @@ bwPluginsJobB:
     default: 6.10.0.v15.0.1-tci-2.0
   tci-bw-plugin-peoplesoft:
     tags:
-      - 7.3.0.v7.0.1-tci-2.0
-    default: 7.3.0.v7.0.1-tci-2.0
+      - 7.4.0.v14-tci-2.0
+    default: 7.4.0.v14-tci-2.0
   tci-bw-plugin-amazoncs:
     tags:
       - 6.1.1.v4.1-tci-2.0
@@ -171,8 +175,8 @@ bwPluginsJobB:
     default: 6.1.2.v12-tci-2.0
   tci-bw-plugin-googlecs:
     tags:
-      - 6.0.0.v9.1-tci-2.0
-    default: 6.0.0.v9.1-tci-2.0
+      - 6.0.0.v28-tci-2.0
+    default: 6.0.0.v28-tci-2.0
   tci-bw-plugin-bc:
     tags:
       - 6.3.1.v12.1-tci-2.0
@@ -189,8 +193,8 @@ bwPluginsJobB:
 bwPluginsJobC:
   tci-bw-plugin-adbplugin:
     tags:
-      - 8.6.0.v7.0.1-tci-2.0
-    default: 8.6.0.v7.0.1-tci-2.0
+      - 8.6.0.v38-tci-2.0
+    default: 8.6.0.v38-tci-2.0
   tci-bw-plugin-bigquery:
     tags:
       - 6.1.0.v9.1-tci-2.0
@@ -201,12 +205,12 @@ bwPluginsJobC:
     default: 6.0.0.v16-tci-2.0
   tci-bw-plugin-sap:
     tags:
-      - 8.8.0.v3.1-tci-2.0
-    default: 8.8.0.v3.1-tci-2.0
+      - 8.8.0.v21-tci-2.0
+    default: 8.8.0.v21-tci-2.0
   tci-bw-plugin-mongodb:
     tags:
-      - 6.4.2.v5-tci-2.0
-    default: 6.4.2.v5-tci-2.0
+      - 6.4.2.v32-tci-2.0
+    default: 6.4.2.v32-tci-2.0
   tci-bw-plugin-pdf:
     tags:
       - 6.2.2.v12-tci-2.0
@@ -217,8 +221,8 @@ bwPluginsJobC:
     default: 6.0.2.v6-tci-2.0
   tci-bw-plugin-kafka:
     tags:
-      - 6.8.1.v7.1-tci-2.0
-    default: 6.8.1.v7.1-tci-2.0
+      - 6.8.2.v6-tci-2.0
+    default: 6.8.2.v6-tci-2.0
   tci-bw-plugin-siebel:
     tags:
       - 7.3.0.v3.0.1-tci-2.0
@@ -315,12 +319,12 @@ bwPluginsJobF:
     default: 6.1.0.v9.2-tci-2.0
   tci-bw-plugin-successfactors:
     tags:
-      - 6.1.0.v12-tci-2.0
-    default: 6.1.0.v12-tci-2.0
+      - 6.1.0.v23-tci-2.0
+    default: 6.1.0.v23-tci-2.0
   tci-bw-plugin-amqp:
     tags:
-      - 6.5.0.v8.1-tci-2.0
-    default: 6.5.0.v8.1-tci-2.0
+      - 6.5.0.v17-tci-2.0
+    default: 6.5.0.v17-tci-2.0
   tci-bw-plugin-ftl:
     tags:
       - 6.7.1.v3-tci-2.0
@@ -349,8 +353,8 @@ bwPluginsJobG:
     default: 6.4.0.v8.1-tci-2.0
   tci-bw-plugin-bwlx:
     tags:
-      - 6.1.4.v14-tci-2.0
-    default: 6.1.4.v14-tci-2.0
+      - 6.1.4.v24-tci-2.0
+    default: 6.1.4.v24-tci-2.0
   tci-bw-plugin-btpservice:
     tags:
       - 6.0.0.v12.0.3-tci-2.0
@@ -393,7 +397,7 @@ images:
   tp-bwce-buildtype:
     extract_image: true
     path: /var/lib/bwce/buildtypes
-    tag: 2.10.0
+    tag: 2.10.0-HF1
     target_location: bwce/buildtypes
 
 probes:
