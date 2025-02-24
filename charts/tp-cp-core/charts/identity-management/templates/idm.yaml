@@ -212,21 +212,20 @@ spec:
         - name: IDENTITY_MANAGEMENT_OPTS
           value: -DrootLogLevel=DEBUG
         - name: IDENTITY_MANAGEMENT_JWT_KEYSTORE_URL
-          value: {{ .Values.global.tibco.idm_cp_jwt_keystore_url }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "identity-management-jwt-keystore-url" . }}
+              key: IDENTITY_MANAGEMENT_JWT_KEYSTORE_URL
         - name: IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ include "identity-management-jwt-key-store-password" . }}
               key: IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD
-        - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEYSTORE_URL
-          value: {{ include "identity-management-sp-key-store-url" . }}
         - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEY_STORE_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ include "identity-management-sp-key-store-password" . }}
               key: IDENTITY_MANAGEMENT_SP_KEY_STORE_PASSWORD
-        - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_TA_CERTS
-          value: {{ .Values.global.tibco.idm_cp_tibcoaccounts_certs }}
         - name: IDENTITY_MANAGEMENT_TIBCOACCOUNT_KEY_STORE_KEY_ALIAS
           valueFrom:
             configMapKeyRef:
