@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-base
 description: TIBCO Platform base chart
 type: application
-version: 1.4.280
-appVersion: "1.4.0"
+version: 1.5.154
+appVersion: "1.5.0"
 keywords:
   - tibco-platform
   - platform
@@ -19,42 +19,42 @@ annotations:
   app.helm.sh/name: platform-base
 dependencies:
   - name: tp-cp-configuration
-    version: "1.4.5"
+    version: "1.5.0"
     repository: alias:tibco-platform
   - name: tp-cp-recipes
-    version: "1.4.153"
+    version: "1.5.68"
     repository: alias:tibco-platform
   - name: tp-cp-o11y
-    version: "1.4.14"
+    version: "1.5.8"
     repository: alias:tibco-platform
   - name: tp-cp-core
-    version: "1.4.8589"
+    version: "1.5.8685"
     repository: alias:tibco-platform
   - name: tp-cp-core-ops
-    version: "1.4.8589"
+    version: "1.5.8685"
     repository: alias:tibco-platform
   - name: tp-cp-core-finops
-    version: "1.4.512"
+    version: "1.5.543"
     repository: alias:tibco-platform
   - name: tp-cp-integration
-    version: "1.4.62"
+    version: "1.5.33"
     repository: alias:tibco-platform
     condition: tp-cp-integration.enabled
     tags:
       - integration
   - name: tp-cp-tibcohub-contrib
-    version: "1.4.5"
+    version: "1.5.3"
     repository: alias:tibco-platform
     condition: tp-cp-tibcohub-contrib.enabled
   - name: tp-cp-msg-contrib
-    version: "1.4.20"
+    version: "1.5.30"
     repository: alias:tibco-platform
     condition: tp-cp-msg-contrib.enabled
   - name: tp-cp-msg-recipes
-    version: "1.4.20"
+    version: "1.5.30"
     repository: alias:tibco-platform
     condition: tp-cp-msg-recipes.enabled
   - name: tp-cp-hawk
-    version: "1.4.18"
+    version: "1.5.30"
     repository: alias:tibco-platform
     condition: tp-cp-hawk.enabled
