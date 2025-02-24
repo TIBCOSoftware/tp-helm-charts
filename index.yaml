@@ -4467,6 +4467,52 @@ entries:
   tp-cp-core:
   - apiVersion: v2
     appVersion: 1.5.0
+    created: "2025-02-24T18:10:20.454302937Z"
+    dependencies:
+    - condition: admin-webserver.enabled
+      name: admin-webserver
+      repository: ""
+      version: 1.5.*
+    - condition: web-server.enabled
+      name: web-server
+      repository: ""
+      version: 1.5.*
+    - condition: orchestrator.enabled
+      name: orchestrator
+      repository: ""
+      version: 1.5.*
+    - condition: user-subscriptions.enabled
+      name: user-subscriptions
+      repository: ""
+      version: 1.5.*
+    - condition: email-service.enabled
+      name: email-service
+      repository: ""
+      version: 1.5.*
+    - condition: cronjobs.enabled
+      name: cronjobs
+      repository: ""
+      version: 1.5.*
+    - condition: identity-management.enabled
+      name: identity-management
+      repository: ""
+      version: 1.5.*
+    - condition: identity-provider.enabled
+      name: identity-provider
+      repository: ""
+      version: 1.5.*
+    - condition: pengine.enabled
+      name: pengine
+      repository: ""
+      version: 1.5.*
+    description: A Helm chart for -- tp-cp-core
+    digest: 4f1c6a6b74daa9c4bf2e8b7307a48ba55372c97420c7c26ab869709d56be9ebd
+    name: tp-cp-core
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-1.5.8686/tp-cp-core-1.5.8686.tgz
+    version: 1.5.8686
+  - apiVersion: v2
+    appVersion: 1.5.0
     created: "2025-02-21T13:28:03.489501357Z"
     dependencies:
     - condition: admin-webserver.enabled
@@ -5215,6 +5261,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-finops-1.2.372/tp-cp-core-finops-1.2.372.tgz
     version: 1.2.372
   tp-cp-core-ops:
+  - apiVersion: v1
+    appVersion: 1.5.0
+    created: "2025-02-24T18:10:20.572005135Z"
+    description: TIBCO Platform Control Plane -- Bundle
+    digest: 97087076e1c834321fa4f548a7c3019cd06d6fc29949000c1c0db5be9bf3c49c
+    name: tp-cp-core-ops
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-ops-1.5.8686/tp-cp-core-ops-1.5.8686.tgz
+    version: 1.5.8686
   - apiVersion: v1
     appVersion: 1.5.0
     created: "2025-02-21T13:28:03.622759984Z"
@@ -7967,4 +8022,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-02-24T10:31:10.789222058Z"
+generated: "2025-02-24T18:10:20.572979571Z"
