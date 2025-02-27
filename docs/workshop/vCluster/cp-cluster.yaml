@@ -1,38 +1,65 @@
-# vCluster 0.19 file contents
+# vCluster 0.22 configuration file contents
+# Configuration for the control plane of the Kubernetes cluster
+controlPlane:
+  advanced:
+    workloadServiceAccount:
+      annotations:
+        # Specify the IAM role ARN that the workload service account will assume
+        eks.amazonaws.com/role-arn: "arn:aws:iam::123576567868:role/vcluster-ses" # Replace with the ARN of the IAM role
+  
+  # Configuration for the backing store, which uses etcd for data storage
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true  # Enable the deployment of etcd for data storage
+        statefulSet:
+          image:
+            registry: public.ecr.aws  # The registry where the etcd image is stored
+            repository: eks-distro/etcd-io/etcd  # The repository for the etcd image
+            tag: v3.5.9-eks-1-31-6  # Version tag for the etcd image, updated for Kubernetes 1.31
+          persistence:
+            volumeClaim:
+              storageClass: "gp2"  # Storage class for persistent volumes (gp2 is a general-purpose SSD)
+  
+  # Configuration for the Kubernetes distribution components
+  distro:
+    k8s:
+      apiServer:
+        image:
+          registry: public.ecr.aws  # The registry for the Kubernetes API server image
+          repository: eks-distro/kubernetes/kube-apiserver  # The repository for the API server image
+          tag: v1.31.0-eks-1-31-6  # Version tag for the Kubernetes API server, updated to 1.31
+      controllerManager:
+        image:
+          registry: public.ecr.aws  # The registry for the Kubernetes controller manager image
+          repository: eks-distro/kubernetes/kube-controller-manager  # The repository for the controller manager image
+          tag: v1.31.0-eks-1-31-6  # Version tag for the Kubernetes controller manager, updated to 1.31
+      enabled: true  # Enable the Kubernetes distribution components
+
+  # Configuration for host path mapping
+  hostPathMapper:
+    enabled: true  # Enable mapping of host paths to containers
+
+  # Configuration for the StatefulSet that manages the control plane components
+  statefulSet:
+    resources:
+      # Resource limits for the StatefulSet
+      limits:
+        memory: 4Gi  # Maximum memory limit for the pod
+      requests:
+        cpu: 100m     # Minimum CPU request for the pod
+        memory: 512Mi  # Minimum memory request for the pod
+    scheduling:
+      # Pod management policy for the StatefulSet
+      podManagementPolicy: OrderedReady  # Ensures pods are started in order and are ready before proceeding
+
+# Configuration for synchronization settings between the host and the cluster
 sync:
-# sync real nodes to the virtual cluster where virtual cluster pods are running
-# this is for installing kube-metrics-server & also for enabling hostpath mapping
- nodes:
-   enabled: true
-   syncAllNodes: true
-# this is needed so that nginx of host cluster can access ingresses of vCluster
- ingresses:
-   enabled: true
- ingressclasses:
-   enabled: false
-
-syncer:
- extraArgs:
- # this is needed for hostPath mapping
-   - --mount-physical-host-paths=true
- # allocated more resources to syncer to make the performance better
- resources:
-   limits:
-     ephemeral-storage: 8Gi
-     memory: 4Gi
-   requests:
-     ephemeral-storage: 400Mi
-     cpu: 100m
-     memory: 512Mi
-
-# the below settings are for using eks flavour of k8s (otherwise, for sending emails we need to add SES permissions to the node IAM role)
-etcd:
- image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6
-controller:
- image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
-api:
- image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
-# to annotate vcluster service account with IAM role having SES permissions
-workloadServiceAccount:
- annotations:
-   eks.amazonaws.com/role-arn: "arn:aws:iam::123576567868:role/vcluster-ses"  # modify this IAM role with your IAM role details
+  fromHost:
+    nodes:
+      enabled: true  # Enable synchronization of nodes from the host
+      selector:
+        all: true  # Select all nodes for synchronization
+  toHost:
+    ingresses:
+      enabled: true  # Enable synchronization of ingress resources to the host
