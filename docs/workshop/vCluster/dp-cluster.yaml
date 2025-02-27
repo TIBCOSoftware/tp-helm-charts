@@ -1,30 +1,60 @@
-# vCluster 0.19 file contents
-sync:
-# sync real nodes to the virtual cluster where virtual cluster pods are running
-# this is for installing kube-metrics-server & also for enabling hostpath mapping
- nodes:
-   enabled: true
-   syncAllNodes: true
-# this was needed so that nginx of host cluster can access ingresses of vCluster
- ingresses:
-   enabled: true
- ingressclasses:
-   enabled: false
- hoststorageclasses:
-   enabled: true
+# vCluster 0.22 configuration file contents
+controlPlane:
+  # Configuration for the backing store, which uses etcd for data storage
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+        statefulSet:
+          image:
+            registry: public.ecr.aws  # The registry where the etcd image is stored
+            repository: eks-distro/etcd-io/etcd  # The repository for the etcd image
+            tag: v3.5.9-eks-1-31-6  # Version tag for the etcd image, updated for Kubernetes 1.31
+          persistence:
+            volumeClaim:
+              storageClass: "gp2"  # Storage class for persistent volumes (gp2 is a general-purpose SSD)
+  
+  # Configuration for the Kubernetes distribution components
+  distro:
+    k8s:
+      apiServer:
+        image:
+          registry: public.ecr.aws  # The registry for the Kubernetes API server image
+          repository: eks-distro/kubernetes/kube-apiserver  # The repository for the API server image
+          tag: v1.31.0-eks-1-31-6  # Version tag for the Kubernetes API server, updated to 1.31
+      controllerManager:
+        image:
+          registry: public.ecr.aws  # The registry for the Kubernetes controller manager image
+          repository: eks-distro/kubernetes/kube-controller-manager  # The repository for the controller manager image
+          tag: v1.31.0-eks-1-31-6  # Version tag for the Kubernetes controller manager, updated to 1.31
+      enabled: true  # Enable the Kubernetes distribution components
+  
+  # Configuration for host path mapping
+  hostPathMapper:
+    enabled: true  # Enable mapping of host paths to containers
 
-syncer:
- extraArgs:
- # this is needed for hostPath mapping
-   - --mount-physical-host-paths=true
- # this is needed for syncing the real labels in host cluster for p8s scraping
-   - --sync-labels=platform.tibco.com/*,prometheus.io/*
- # allocated more resources to syncer to make the performance better
- resources:
-   limits:
-     ephemeral-storage: 8Gi
-     memory: 4Gi
-   requests:
-     ephemeral-storage: 400Mi
-     cpu: 100m
-     memory: 512Mi
+  # Configuration for the StatefulSet that manages the control plane components
+  statefulSet:
+    resources:
+      # Resource limits for the StatefulSet
+      limits:
+        memory: 4Gi  # Maximum memory limit for the pod
+      requests:
+        cpu: 100m     # Minimum CPU request for the pod
+        memory: 512Mi  # Minimum memory request for the pod
+    scheduling:
+      # Pod management policy for the StatefulSet
+      podManagementPolicy: OrderedReady  # Ensures pods are started in order and are ready before proceeding
+
+# Configuration for synchronization settings between the host and the cluster
+sync:
+  fromHost:
+    nodes:
+      enabled: true  # Enable synchronization of nodes from the host
+      selector:
+        all: true  # Select all nodes for synchronization
+    storageClasses:
+      enabled: true  # Enable synchronization of storage classes
+  toHost:
+    ingresses:
+      enabled: true   # Enable synchronization of ingress resources to the host
