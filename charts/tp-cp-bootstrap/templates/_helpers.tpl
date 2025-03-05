@@ -56,7 +56,11 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{- define "tp-cp-bootstrap.pvc" -}}
+{{- if empty .Values.global.external.pvc -}}
 {{- "control-plane-pvc" }}
+{{- else -}}
+{{- .Values.global.external.pvc | quote }}
+{{- end }}
 {{- end }}
 
 {{- define "tp-cp-bootstrap.env" -}}

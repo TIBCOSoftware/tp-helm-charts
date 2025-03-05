@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-
+{{ if .Values.global.external.storage }}
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -17,3 +17,4 @@ spec:
   accessModes:
     - ReadWriteMany
 {{- toYaml .Values.global.external.storage | nindent 2 }}
+{{- end }}
