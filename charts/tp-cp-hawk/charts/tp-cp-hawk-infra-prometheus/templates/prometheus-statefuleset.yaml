@@ -76,6 +76,12 @@ spec:
             {{- toYaml .Values.promDSLivenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.promDSReadinessProbe | nindent 12 }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
           ports:
             - containerPort: 9000
               name: prometheus-ds
