@@ -35,7 +35,7 @@ data:
   hawktargets: |
     []
   {{- end }}
-{{- if eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3" }}
+{{- if and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") }}
 #------------------------------------------------------------------------
 # Multiple exporter O11y Model >= 1.3.0
 #------------------------------------------------------------------------
@@ -145,8 +145,13 @@ data:
 ##metricsserver:exporter
 {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "prometheus" }}
-  {{- $appMetricsExp = "'[prometheus/user]'" -}}
-  {{- $promMetricsExp = "'[prometheus/user]'" -}}
+    {{- if and (.Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled) (eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint "system") }}
+    {{- $appMetricsExp = "'[prometheus/ext]'" -}}
+    {{- $promMetricsExp = "'[prometheus/ext]'" -}}
+    {{- else }}
+    {{- $appMetricsExp = "'[prometheus/user]'" -}}
+    {{- $promMetricsExp = "'[prometheus/user]'" -}}
+    {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "kafka" }}
   METRICS_EXPORTER_KAFKA_BROKERS: '{{ include "metrics.exporters.kafka.brokers" . }}'
@@ -192,7 +197,7 @@ data:
 {{- end }}
 ##traceserver:exporter
 {{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled }}
-  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch" }}
+  {{- if or (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch") (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "localStore") }}
   {{- $traceExp = "'[otlp/trace]'" -}}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch" }}
@@ -251,6 +256,21 @@ data:
   traces_receiver: {{ $traceRec }}
   traces_processor: {{ $traceProc }}
   traces_exporter: {{ $traceExp }}
+{{- else if not .Values.global.cp.resources.resourcemapping }}
+  {{- $promMetricsRec := "'[prometheus/receive]'" -}}
+  {{- $appMetricsProc := "'[k8sattributes/general, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc := "'[transform/metrics, k8sattributes/pa, transform/msg, memory_limiter, batch]'" -}}
+  {{- if not .Values.global.cp.enableClusterScopedPerm }}
+  {{- $promMetricsRec = "'[prometheus/receive-ns]'" -}}
+  {{- $appMetricsProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- end }}
+  metrics_appengines_rec: '[otlp]'
+  metrics_appengines_proc: {{ $appMetricsProc }}
+  metrics_appengines_exp: '[prometheus/ext]'
+  metrics_prom_rec: {{ $promMetricsRec }}
+  metrics_prom_proc: {{ $promMetricsProc }}
+  metrics_prom_exp: '[prometheus/ext]'
 {{- else }}
 #Exporter O11y Model <= 1.2.0 DO NOT MODIFY THE BELOW
 {{- if eq .Values.global.cp.resources.o11y.logsServer.kind "elasticSearch" }}
@@ -362,3 +382,4 @@ data:
     Planes","url":"../../../../cp/app/subscription"},{"label":"Observability","url":"../../../../cp/metrics"}]}],"linkPatterns":[{"type":"tags","key":"app_id","url":"../../../../cp/#{app_type}/appdetails/processes?dp_id=#{dataplane_id}&capability_instance_id=#{capability_instance_id}&app_id=#{app_id}","text":"Open app details #{app_name}"}]}'
   #app namespace
   app_namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+  app_namespaces: '[{{ .Values.global.cp.resources.serviceaccount.namespace }}]'

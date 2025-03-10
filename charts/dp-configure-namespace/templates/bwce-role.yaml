@@ -54,18 +54,22 @@ rules:
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["list", "get", "create", "update", "delete"]
+{{- if .Values.rbac.ingressController.kong }}
 - apiGroups: ["configuration.konghq.com"]
   resources: ["kongplugins"]
   verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "list", "create", "update", "delete", "patch"]
 - apiGroups: ["batch"]
   resources: ["jobs"]
   verbs: ["create", "get", "delete", "update", "list", "watch"]
+{{- if .Values.rbac.ingressController.traefik }}
 - apiGroups: ["traefik.io"]
   resources: ["middlewares"]
   verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
 
 ---
 

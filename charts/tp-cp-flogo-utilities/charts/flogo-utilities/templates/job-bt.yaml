@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -27,6 +27,7 @@ spec:
       labels:
         {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
         egress.networking.platform.tibco.com/internet-web: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
     spec:
       nodeSelector:
         kubernetes.io/os: linux
@@ -100,6 +101,18 @@ spec:
           value: debug
         - name: CLEAN_UP_TARGET_DIRS
           value: "true"
+        {{- if (include "flogo-utilities.cp-no-proxy" $dot ) }}
+        - name: NO_PROXY
+          value: "{{ include "flogo-utilities.cp-no-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "flogo-utilities.cp-http-proxy" $dot ) }}
+        - name: HTTP_PROXY
+          value: "{{ include "flogo-utilities.cp-http-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "flogo-utilities.cp-https-proxy" $dot ) }}
+        - name: HTTPS_PROXY
+          value: "{{ include "flogo-utilities.cp-https-proxy" $dot }}"
+        {{- end }}
         volumeMounts:
         - name: store-vol
           mountPath: {{ $.Values.volumes.plugins.mountPath }}

@@ -50,6 +50,8 @@ spec:
                 fmt: "%s-rds-instance"
         - fromFieldPath: "spec.parameters.auroraClusterReference"
           toFieldPath: "spec.forProvider.dbClusterIdentifierSelector.matchLabels.aurora-cluster-reference"
+        - fromFieldPath: "spec.parameters.autoMinorVersionUpgrade"
+          toFieldPath: "spec.forProvider.autoMinorVersionUpgrade"
         - fromFieldPath: "spec.parameters.dbInstanceClass"
           toFieldPath: "spec.forProvider.dbInstanceClass"
         - fromFieldPath: "spec.parameters.dbSubnetGroupReference"

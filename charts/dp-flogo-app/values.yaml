@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -17,8 +17,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.25.2-b162"
-  flogoBaseImageTag: "2.25.2-b162"
+  flogoBuildTypeTag: "2.25.3-b190"
+  flogoBaseImageTag: "2.25.3-b190"
   tags: ""
   connectors: ""
   lastUpdated: ""
@@ -46,7 +46,7 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-flogo-app-init"
-  appInitImageTag: "35"
+  appInitImageTag: "41"
   fluentBitImageName: "common-fluentbit"
   fluentBitImageTag: "3.2.2"
   flogoBaseImageName: "tp-flogo-app-base"
@@ -87,11 +87,11 @@ flogoapp:
       - CAP_NET_RAW
   resources: {}
   #  limits:
-  #    cpu: "1"
-  #    memory: 2Gi
+  #    cpu: 500m
+  #    memory: 1Gi
   #  requests:
   #    cpu: 250m
-  #    memory: 1Gi
+  #    memory: 512Mi
   # Additional volumeMounts on the output Deployment definition.
   volumeMounts: []
   # - name: foo
@@ -175,11 +175,11 @@ appInit:
       - CAP_NET_RAW
   resources: {}
   #  limits:
+  #    cpu: 200m
+  #    memory: 200Mi
+  #  requests:
   #    cpu: 100m
   #    memory: 100Mi
-  #  requests:
-  #    cpu: 10m
-  #    memory: 10Mi
 
 service:
   serviceDiscoverable: true

@@ -1,9 +1,9 @@
-# Setting Up a Single-Cluster Kubernetes Cluster on MicroK8s
+# Setting up a Control Tower Data Plane with a Single-Cluster Kubernetes Cluster on MicroK8s
 
-This workshop will guide you through setting up a single-cluster Kubernetes cluster on MicroK8s in preparation for provisioning a Bare Metal Data Plane on TIBCO Platform. We will create a single MicroK8s cluster on your machine with host storage for persistence and provision Observability backend servers for collecting OpenTelemetry data including Prometheus and ElasticSearch if not already available or configured. It also provisions a Nginx ingress controller in preparation for receiving incoming requests from non-Kubernetes workloads such as metrics and traces from BusinessWorks User Apps running outside the Kubernetes cluster.
+This workshop guides you through setting up a single-cluster Kubernetes cluster on MicroK8s in preparation for provisioning a Control Tower Data Plane on TIBCO Platform. We will create a single MicroK8s cluster on your machine with host storage for persistence and provision Observability backend servers for collecting OpenTelemetry data including Prometheus and ElasticSearch if not already available or configured. It provisions a Nginx ingress controller in preparation for receiving incoming requests from non-Kubernetes workloads such as metrics and traces from BusinessWorks User Apps running outside the Kubernetes cluster. It also also allows you to monitor and manage EMS servers running outside the Kuberbetes cluster.
 
 ---
-## Prerequisites for a Bare Metal Data Plane on TIBCO Platform
+## Prerequisites for a Control Tower Data Plane on TIBCO Platform
 - Host operating system
    - Linux
 - Minimum hardware requirements 
@@ -15,13 +15,13 @@ This workshop will guide you through setting up a single-cluster Kubernetes clus
    - Inbound OpenTelemetry data and TEA agent leader election
 - Host Storage Class
    - Persistence for HawkConsole
-- Observability backend resources for collecting OpenTelemetry data
+- Observability backend resources for collecting OpenTelemetry data for BusinessWorks applications
    - Metrics collection
       - Prometheus
    - Traces collection
       - ElasticSearch
 
-This **`readme`** covers the prerequisites to get you started with a single-cluster Kubernetes cluster on MicroK8s. Follow each step carefully to ensure a smooth setup process before provisioning a Bare Metal Data Plane on TIBCO Platform.
+This **`readme`** covers the prerequisites to get you started with a single-cluster Kubernetes cluster on MicroK8s. Follow each step carefully to ensure a smooth setup process before provisioning a Control Tower Data Plane on TIBCO Platform.
 
 ---
 
@@ -40,6 +40,10 @@ This **`readme`** covers the prerequisites to get you started with a single-clus
 > [!NOTE]
 >
 > If your Linux distribution does not have snapd installed, refer to the [Snapd documentation](https://snapcraft.io/docs/installing-snapd?_gl=1*5lusz1*_gcl_au*ODQ2OTcyMzUuMTcxNTIwNDM0Mg..*_ga*MTI2MDc5Mzg0OC4xNzE1MjAzNDg3*_ga_5LTL1CNEJM*MTcyMDQ2OTg0OS4xMS4xLjE3MjA0Njk4NjYuNDMuMC4w) for more information to install first.
+
+> [!NOTE]
+>
+> If you had selected the _Basic setup of the Control Tower Data Plane_, you can download the generated installation script `dpinstall.sh` with options to install and uninstall MicroK8s on your system. You can skip this section and move on to the section [Install Prometheus for Metrics](#install-prometheus-for-metrics).
 
 1. **Download and install MicroK8s**
 
@@ -89,7 +93,11 @@ This **`readme`** covers the prerequisites to get you started with a single-clus
 
 ## Setting Up Storage Class
 
-In preparation for the Bare Metal Data Plane on TIBCO Platform, it is required to create a storage class for persistence. For MicroK8s, you can enable the hostpath storage addon for persistence on the your host system.
+In preparation for the Control Tower Data Plane on TIBCO Platform, it is required to create a storage class for persistence. For MicroK8s, you can enable the hostpath storage addon for persistence on the your host system.
+
+> [!NOTE]
+>
+> If you had selected the _Basic setup of the Control Tower Data Plane_, you can download the generated installation script `dpinstall.sh` to install MicroK8s on your system that also set up the _Storage Class_ automatically. You can skip this section and move on to the section [Install Prometheus for Metrics](#install-prometheus-for-metrics)
 
 1. Enable the MicroK8s storage addon:
    ```bash
@@ -106,7 +114,7 @@ In preparation for the Bare Metal Data Plane on TIBCO Platform, it is required t
 
 > [!NOTE]
 >
-> Please note down the name of the storage class name **`microk8s-hostpath`** (example above), you will need this during the provisioning wizard of the Bare Metal Data Plane on TIBCO Platform.
+> Please note down the name of the storage class name **`microk8s-hostpath`** (example above), you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform.
 
 ### Alternate storage class
 The default storage class uses storage on the host storage system but there are alternative types that can be used as well.
@@ -116,13 +124,18 @@ For example, you can setup to use NFS for persistence volumes on MicroK8s, refer
 
 ## Install Nginx Ingress Controller
 
-The Bare Metal Data Plane on TIBCO Platform requires an Ingress Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
+The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
 
 The incoming requests include:
 - OpenTelemtry data like traces and metrics from BW5 applications
 - TEA Agent leader election notification for BW6 applications
 
-In current release, Bare Metal Data Plane supports the Nginx Ingress Controller.
+In current release, Control Tower Data Plane supports the Nginx Ingress Controller.
+
+> [!NOTE]
+>
+> - If you had selected the _Basic setup of the Control Tower Data Plane_, you can download the generated installation script `dpinstall.sh` to install MicroK8s on your system with option that also install the _Nginx Ingress Controller_ while registering the Data Plane. You can skip this section and move on to the section [Install Prometheus for Metrics](#install-prometheus-for-metrics)
+> - If you choose not to install _Nginx Ingress Controller_ during the `dpinstall.sh` to register the _Control Tower Data Plane_, you must ensure that the ingress class name matches what is configured in the _Basic setup configuration_ wizard which is default as `<dpname>-nginx-ingress`.
 
 1. Add the Helm repository and update:
    
@@ -134,9 +147,10 @@ In current release, Bare Metal Data Plane supports the Nginx Ingress Controller.
 2. Install the Nginx ingress controller with a fixed class name on its own namespace:
 
    ```bash
+   DATAPLANE_NAME=<dpname>
    MACHINE_IP=<your-machine-private-ip>
    INGRESS_NS=ingress
-   INGRESS_CLASS_NAME=my-nginx-ingress
+   INGRESS_CLASS_NAME=${DATAPLANE_NAME}-nginx-ingress
    helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --set controller.ingressClassResource.name=${INGRESS_CLASS_NAME} --set "controller.service.externalIPs[0]=${MACHINE_IP}" --namespace ${INGRESS_NS} --create-namespace
    ```
 
@@ -145,23 +159,27 @@ In current release, Bare Metal Data Plane supports the Nginx Ingress Controller.
       ```
       $ kubectl get ingressclass
       NAME                CONTROLLER             PARAMETERS   AGE
-      my-nginx-ingress   k8s.io/ingress-nginx   <none>       26s
+      <dpname>-nginx-ingress   k8s.io/ingress-nginx   <none>       26s
       ```
 
 > [!NOTE]
 >
-> - Please note down the name of the Ingress Controller class name **`my-nginx-ingress`** (example above), you will need this during the provisioning wizard of the Bare Metal Data Plane on TIBCO Platform
-> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Bare Metal Data Plane on TIBCO Platform
+> - Please note down the name of the Ingress Controller class name **`<dpname>-nginx-ingress`** (example above), you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
 
 ---
 
 ## Install Prometheus for Metrics
 
-For Observability of metrics on the Bare Metal Data Plane on TIBCO Platform, it is required to have a Prometheus server configured to collect the metrics. 
+> [!NOTE]
+>
+> If the Control Tower Data Plane is used only for monitor and manage EMS servers, installing _Prometheus_ is not required. You can skip this section.
+
+For Observability of metrics on the Control Tower Data Plane on TIBCO Platform for BusinessWorks applications, it is required to have a Prometheus server configured to collect the metrics. 
 
 If you do not have an existing Prometheus server already installed in your Organization, the following steps guide you through the installation of Prometheus server inside the MicroK8s cluster. It installs Prometheus and add the following [kuberbetes otel-collector scrape configurations](./prometheus_scrape_k8s_sd_config.yaml). The Prometheus scrape configuration contains the `otel-collector` job that discovers and collects metrics from the OpenTelemetry servics of TIBCO Platform service running inside the MicroK8s cluster.
 
-Alternatively, you can also install Prometheus on another machine that allows you to scrape metrics from multiple Bare Metal Data Planes with a [static otel-collector scrape configuration](./prometheus_scrape_static_config.yaml). Follow the steps hightlighted below.
+Alternatively, you can also install Prometheus on another machine that allows you to scrape metrics from multiple Control Tower Data Planes with a [static otel-collector scrape configuration](./prometheus_scrape_static_config.yaml). Follow the steps hightlighted below.
 
 1. Add the Helm repository and update:
 
@@ -172,7 +190,7 @@ Alternatively, you can also install Prometheus on another machine that allows yo
 
 2. Install Prometheus using Helm:
 
-   #### To install Prometheus **`inside`** the Bare Metal Data Plane cluster
+   #### To install Prometheus **`inside`** the Control Tower Data Plane cluster
    
    - Use the [prometheus_scrape_k8s_sd_config.yaml](prometheus_scrape_k8s_sd_config.yaml) scrape configuration to collect the exported metrics from inside the cluster
 
@@ -199,7 +217,7 @@ Alternatively, you can also install Prometheus on another machine that allows yo
          {"version":"2.52.0","revision":"879d80922a227c37df502e7315fad8ceb10a986d","branch":"HEAD","buildUser":"root@1b4f4c206e41","buildDate":"20240508-21:56:43","goVersion":"go1.22.3"}
          ```
 
-   #### To install Prometheus **`outside`** the Bare Metal Data Plane on another cluster
+   #### To install Prometheus **`outside`** the Control Tower Data Plane on another cluster
 
    - Use the [prometheus_scrape_static_config.yaml](./prometheus_scrape_static_config.yaml) scrape configuration to collect exported metrics from each cluster
 
@@ -210,9 +228,9 @@ Alternatively, you can also install Prometheus on another machine that allows yo
       helm upgrade --install prometheus prometheus-community/prometheus --set server.retention=${RETENTION_POLICY} --namespace ${PROM_NS} --create-namespace -f ${SCRAPE_CONFIG_FILE}
       ```
 
-   - [Install Nginx Ingress Controller](#install-nginx-ingress-controller) for exposing metrics query service of target Bare Metal Data Plane
+   - [Install Nginx Ingress Controller](#install-nginx-ingress-controller) for exposing metrics query service of target Control Tower Data Plane
       - Apply ingress [prometheus_ingress.yaml](./prometheus_ingress.yaml) to ensure the `ingressClassName`, `namespace` and `host` are set proper accordingly
-         - The ingress for Prometheus allows allows other Bare Metal Data Planes running outside the cluster to query
+         - The ingress for Prometheus allows allows other Control Tower Data Planes running outside the cluster to query
 
          ```bash
          PROM_INGRESS_FILE=prometheus_ingress.yaml
@@ -244,19 +262,23 @@ Alternatively, you can also install Prometheus on another machine that allows yo
 
 > [!NOTE]
 >
-> You can [install another MicroK8s](#installation-of-microk8s) cluster on a delegated machine separately to host both the Prometheus and ElasticSearch servers for collectiing Observability data. Following the same `helm` install step for Prometheus so multiple Bare Metal Data Planes can use the same Observability backend servers as Global Observability resource in TIBCO Platform
+> You can [install another MicroK8s](#installation-of-microk8s) cluster on a delegated machine separately to host both the Prometheus and ElasticSearch servers for collectiing Observability data. Following the same `helm` install step for Prometheus so multiple Control Tower Data Planes can use the same Observability backend servers as Global Observability resource in TIBCO Platform
 
 > [!IMPORTANT]
 >
 >  - You need to substitute the `%%data_plane_id%%` and `%%host_name_fqdn%%` in [prometheus_scrape_static_config.yaml](./prometheus_scrape_static_config.yaml)
 >  - Multiple scrape job targets `otel-metrics_%%dataplane_id%%` can be combined in the same static config yaml file
->  - To reload the static scrape config with new Bare Metal Data Plane targets, rerun the `helm upgrade --install` command for Prometheus
+>  - To reload the static scrape config with new Control Tower Data Plane targets, rerun the `helm upgrade --install` command for Prometheus
 >     - This will not disrupt the existing metrics data in persistence
 ---
 
 ## Install ElasticSearch for Traces
 
-For Observability of traces on the Bare Metal Data Plane on TIBCO Platform, it is required to have a ElasticSearch server configured to collect the traces. 
+> [!NOTE]
+>
+> If the Control Tower Data Plane is used only for monitor and manage EMS servers, installing _ElasticSearch for Traces_ is not required. You can skip this section.
+
+For Observability of traces on the Control Tower Data Plane on TIBCO Platform, it is required to have a ElasticSearch server configured to collect the traces. 
 
 If you do not have an existing ElasticSearch server server already installed in your Organization, the following steps guide you through the installation of ElastServer server inside the MicroK8s cluster.
 
@@ -279,7 +301,7 @@ If you do not have an existing ElasticSearch server server already installed in 
       ```
 
    - Apply ingress [elastic_ingress.yaml](./elasticsearch_ingress.yaml) to ensure the `ingressClassName`, `namespace` and `host` are set proper accordingly
-      - The ingress for ElasticSearch allows allows other Bare Metal Data Planes running outside the cluster to query
+      - The ingress for ElasticSearch allows allows other Control Tower Data Planes running outside the cluster to query
 
       ```bash
       ES_INGRESS_FILE=elasticsearch_ingress.yaml
@@ -323,7 +345,7 @@ If you do not have an existing ElasticSearch server server already installed in 
 > [!NOTE]
 >
 > #### For ElasticSearch running inside the cluster
-> - Note down the URL **`https://elastic-system.elastic.svc:9200`** when you configure the traces server of Observability resource in TIBCO Platform
+> - Note down the URL **`https://elasticsearch-master.elastic.svc:9200`** when you configure the traces server of Observability resource in TIBCO Platform
 >
 > #### For ElasticSearch running outside the cluster
 >   - Note down the URL **`https://<your_machine_host>/o11y/traces-server`** when you configure the traces server of Observability resource in TIBCO Platform
@@ -336,19 +358,24 @@ If you do not have an existing ElasticSearch server server already installed in 
 
 > [!NOTE]
 >
-> - You can [install another MicroK8s](#installation-of-microk8s) cluster on a delegated machine separately to host both the Prometheus and ElasticSearch servers for collectiing Observability data. Following the same `helm` install step for ElasticSearch so multiple Bare Metal Data Planes can use the same Observability backend servers as Global Observability resource in TIBCO Platform
+> - You can [install another MicroK8s](#installation-of-microk8s) cluster on a delegated machine separately to host both the Prometheus and ElasticSearch servers for collectiing Observability data. Following the same `helm` install step for ElasticSearch so multiple Control Tower Data Planes can use the same Observability backend servers as Global Observability resource in TIBCO Platform
 > - Note down the URL `http://<machine-host_name>/o11y/traces-server` when you configure the traces server of Observability resource in TIBCO Platform
 
 ---
 
 ## Create ElasticSearch Index Template for Traces
+
+> [!NOTE]
+>
+> If the Control Tower Data Plane is used only for monitor and manage EMS servers, _ElastiSearch Index Template for Traces_ is not required. You can skip this section.
+
 The following files are required to set up the ElasticSearch index before collecting OpenTelemetry OTLP traces
 
    * [Trace Service index template for Jaeger](./jaeger_service_index_template.json): `jaeger_service_index_template.json`
    * [Trace Span index template for Jaeger ](./jaeger_span_index_template.json): `jaeger_span_index_template.json`
    * [Trace Index Lifecycle Policy](./jaeger_index_policy.json): `jaeger_index_policy.json`
    * [Trace Service rollover index](./jaeger_service_rollover_index.json) `jaeger_service_rollover_index.json`
-   * [Trace Span rollover index](./jaeger_service_rollover_index.json) `jaeger_service_rollover_index.json`
+   * [Trace Span rollover index](./jaeger_span_rollover_index.json) `jaeger_span_rollover_index.json`
 
 > [!NOTE]
 >

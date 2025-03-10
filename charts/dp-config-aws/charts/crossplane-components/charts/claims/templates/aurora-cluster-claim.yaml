@@ -139,6 +139,7 @@ spec:
     auroraClusterReference: {{ $root.Values.commonResourcePrefix }}-aurora-cluster
     dbSubnetGroupReference: {{ $root.Values.commonResourcePrefix }}-db-subnet-group
     {{- with $root.Values.auroraCluster.mandatoryConfigurationParameters }}
+    autoMinorVersionUpgrade: {{ .autoMinorVersionUpgrade }}
     dbInstanceClass: {{ .dbInstanceClass }}
     engine: {{ .engine }}
     publiclyAccessible: {{ .publiclyAccessible }}

@@ -28,7 +28,7 @@ This document provides a step-by-step guide to installing and configuring vClust
 
 ---
 ## What is vCluster?
-vCluster is a virtual cluster that runs on top of an existing Kubernetes cluster. It provides a separate control plane for each virtual cluster, allowing multiple teams or users to have their own Kubernetes environment without the need to manage and maintain a separate physical cluster. Please refer to the [vCluster documentation](https://www.vcluster.com/docs/v0.19/what-are-virtual-clusters) for more information.
+vCluster is a virtual cluster that runs on top of an existing Kubernetes cluster. It provides a separate control plane for each virtual cluster, allowing multiple teams or users to have their own Kubernetes environment without the need to manage and maintain a separate physical cluster. Please refer to the [vCluster documentation](https://www.vcluster.com/docs/vcluster/introduction/what-are-virtual-clusters) for more information.
 
 > [!NOTE]
 > For installing vCluster, the vCluster chart or cli will create clusterRole and clusterRole binding based on the resources to be synced between the host cluster and virtual cluster. Please refer [vCluster github chart values](https://github.com/loft-sh/vcluster/blob/main/chart/templates/clusterrole.yaml)
@@ -42,11 +42,11 @@ Before starting the workshop, make sure you have the following prerequisites:
 - Required third-party tools installed (e.g. external-dns, ingress-controller, aws-lb-controller, elastic-search, EFS SC, postgres RDS, Prometheus) in the host K8s cluster
 - `kubectl` installed and configured to connect to your Kubernetes cluster
 - Helm v3.10.0+ is required
-- vCluster CLI installed (GA version 0.19.5 )
-  - Refer to this [installation guide](https://www.vcluster.com/docs/v0.19/getting-started/setup#install-the-vcluster-cli) for installation of vCluster CLI.
+- vCluster CLI installed (GA version v0.22 )
+  - Refer to this [installation guide](https://www.vcluster.com/docs/vcluster#deploy-vcluster) for installation of vCluster CLI.
 
 > [!NOTE]
-> This workshop is certified and tested with vcluster version 0.19, ensuring compatibility and accuracy of the instructions and commands provided.
+> This workshop is certified and tested with vcluster version v0.22, ensuring compatibility and accuracy of the instructions and commands provided.
 
 ---
 ## Steps to install CP in vCluster
@@ -77,14 +77,14 @@ To begin, create a namespace in the host cluster that will host the vCluster ins
 kubectl create namespace ${TP_CP_VCLUSTER_NAMESPACE}
 ```
 
-For creation of the CP vCluster we are going to use cutomised values *(cp-cluster.yaml)* as we need to enable extra syncers for our use-case. Please have a look at the [vCluster helm chart value](https://github.com/loft-sh/vcluster/blob/v0.19/charts/eks/values.yaml) for detailed information.
+For creation of the CP vCluster we are going to use cutomised values *(cp-cluster.yaml)* as we need to enable extra syncers for our use-case. Please have a look at the [vCluster helm chart value](https://github.com/loft-sh/vcluster/blob/v0.22/chart/values.yaml) for detailed information.
 ```
 helm upgrade --install ${TP_CP_VCLUSTER_NAME} vcluster \
     --values cp-cluster.yaml \
     --repo https://charts.loft.sh \
     --namespace ${TP_CP_VCLUSTER_NAMESPACE} \
     --repository-config='' \
-    --version v0.19.7
+    --version v0.22.4
 ```
 
 ### Verify if the CP vCluster is running
@@ -208,14 +208,14 @@ To begin, create a namespace in the host cluster that will host the vCluster ins
 kubectl create namespace ${TP_DP_VCLUSTER_NAMESPACE}
 ```
 
-For creation of the DP vCluster we are going to use cutomised values *(dp-cluster.yaml)* as we need to enable extra syncers for our use-case. Please have a look at the [vCluster helm chart value](https://github.com/loft-sh/vcluster/blob/v0.19/charts/eks/values.yaml) for detailed information.
+For creation of the DP vCluster we are going to use cutomised values *(dp-cluster.yaml)* as we need to enable extra syncers for our use-case. Please have a look at the [vCluster helm chart value](https://github.com/loft-sh/vcluster/blob/v0.22/chart/values.yaml) for detailed information.
 ```
 helm upgrade --install ${TP_DP_VCLUSTER_NAME} vcluster \
     --values dp-cluster.yaml \
     --repo https://charts.loft.sh \
     --namespace ${TP_DP_VCLUSTER_NAMESPACE} \
     --repository-config='' \
-    --version v0.19.7
+    --version v0.22.4
 ```
 
 ### Verify if the DP vCluster is running

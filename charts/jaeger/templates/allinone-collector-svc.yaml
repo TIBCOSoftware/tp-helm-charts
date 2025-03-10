@@ -4,20 +4,18 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if .Values.allInOne.enabled }}
+{{ $useBadger := include "useBadger" .}}
+{{ if eq $useBadger "true" }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ template "jaeger.collector.name" . }}
   labels:
-    {{- include "jaeger.labels" . | nindent 4 }}
-    app.kubernetes.io/component: service-collector
+    {{- include "jaeger.allinone.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
 spec:
-  clusterIP: {{ .Values.allInOne.service.headless | ternary "None" "null" }}
+  type: ClusterIP
   ports:
-    - name: http-zipkin
-      port: 9411
-      targetPort: 0
     - name: grpc-http
       port: 14250
       targetPort: 0
@@ -34,6 +32,6 @@ spec:
       port: 4318
       targetPort: 0
   selector:
-    {{- include "jaeger.selectorLabels" . | nindent 4 }}
+    {{- include "jaeger.allinone.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: all-in-one
 {{- end -}}

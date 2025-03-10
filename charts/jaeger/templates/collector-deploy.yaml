@@ -3,7 +3,8 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-{{ if or ( and (.Values.global.cp.resources.resourcemapping.O11Y) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") ( .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled ) (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch" )) (and (eq .Values.global.cp.resources.o11y.tracesServer.kind "jaeger") (.Values.global.cp.resources.o11y.tracesServer.enabled))}}
+{{ $st := include "collector.storage.type" .}}
+{{ if or (and (include "isO11yv3" .) ( .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled ) (eq $st "elasticsearch" )) (and (eq .Values.global.cp.resources.o11y.tracesServer.kind "jaeger") (.Values.global.cp.resources.o11y.tracesServer.enabled))}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -105,8 +106,8 @@ spec:
             value: {{ .Values.storage.kafka.authentication }}
           {{ else }}
           - name: SPAN_STORAGE_TYPE
-            value: {{ .Values.storage.type }}
-          {{- include "storage.env" . | nindent 10 }}
+            value: {{ include "collector.storage.type" . }}
+          {{- include "collector.storage.env" . | nindent 10 }}
           {{- end }}
           {{- if .Values.collector.samplingConfig}}
           - name: SAMPLING_STRATEGIES_FILE

@@ -1,2 +1,2 @@
-{{- define "tp-dp-monitor-agent.generated.buildNumber" }}157-1.4.0{{end -}}
-{{- define "tp-dp-monitor-agent.generated.buildTimestamp" }}01-17-25_04.51.31_AM{{end -}}
+{{- define "tp-dp-monitor-agent.generated.buildNumber" }}168{{end -}}
+{{- define "tp-dp-monitor-agent.generated.buildTimestamp" }}02-14-25_05.14.59_AM{{end -}}

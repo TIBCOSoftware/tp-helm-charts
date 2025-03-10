@@ -5,7 +5,7 @@ $ helm install dp-oauth2proxy-recipes tibco-platform/dp-oauth2proxy-recipes --ve
 ```
 
 ## Capabilities
-If below values are set then it will will override default values for capabilities.
+If below values are set then it will override default values for capabilities.
 
 ```yaml
 capabilities:
@@ -18,7 +18,7 @@ capabilities:
     version: ""
     tag: "107"
     # Timestamp of capability release
-    releaseDate: "2025/01/15"
+    releaseDate: "2025/02/26"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "Enhancements, Bug fixes, etc."
 ```

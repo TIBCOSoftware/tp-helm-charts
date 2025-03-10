@@ -191,6 +191,8 @@ spec:
           value: {{ include "tp-cp-admin-webserver.consts.web.server.log.enabled" . | quote }}
         - name: REDIRECTION_TIME
           value: {{ include "tp-cp-admin-webserver.consts.redirection.time" . | quote }}
+        - name: DOC_BASE_URL
+          value: https://docs.tibco.com/go/platform-cp/1.5.0/doc/html
         - name: REGION
           valueFrom:
             configMapKeyRef:
@@ -480,7 +482,7 @@ spec:
         SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
       enableRedirects: true
       allowClientCache: true
-      allowXFrameOptions: false
+      allowXFrameOptions: true
   - path: /admin/v1
     internalPath: /admin/v1
     port: 3000

@@ -1,4 +1,4 @@
-# TIBCO(r) Messaging Quasar - Powered by Apache Pulsar(tm)  - Provisioning Helm Chart
+# TIBCO® Messaging Quasar - Powered by Apache Pulsar™ - Provisioning Helm Chart
 [msg-pulsar-tp](../../charts/msg-pulsar-tp) is used to -
 * Provision Pulsar capability on a Data Plane.
 ## How to use

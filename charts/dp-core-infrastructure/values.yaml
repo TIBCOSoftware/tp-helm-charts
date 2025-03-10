@@ -18,9 +18,6 @@ global:
     containerRegistry:
       url: "reldocker.tibco.com"
       repository: "tibco-platform-docker-prod"
-      # username: "test" # [optional] Create a imagePullSecret named <dpId> for private container registry.
-      # password: "test"
-      # email: "tibco-plt@cloud.com"
 
     enableResourceConstraints: true
     cpCertificateSecret: ""
@@ -38,11 +35,11 @@ global:
 tp-tibtunnel:
   enabled: true
   connect:
-    debug: true  # Enable debug logging
+    debug: false  # Enable debug logging
     payload: false  # Display payload data in the debug logs. Requires flag 'debug'. WARNING: Payload might contain sensitive data!
     dataChunkSize: ""  # Set the max size(in KB) of data for a single read/write operation, default is 32
     dataAckMode: false  # Enable/disable data ack
-    remoteDebug: true  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
+    remoteDebug: false  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
     logFile: ""  # Full path to the output log file. If not specified, the logs will be printed on stdout
     configDir: ""  # Full path to the directory where to store the configuration file(s) (default "~/.tibtunnel")
     networkCheckUrl: "https://www.google.com"  # Url to check for network connectivity
@@ -55,33 +52,4 @@ tp-tibtunnel:
     accessKey: "abc"  # Specify the TIBCO AccessKey secret to be used for authentication
 
 tp-provisioner-agent:
-  enabled: true
-
-haproxy:
-  nameOverride: haproxy
-  fullnameOverride: cpdpproxy
-  enabled: true
-  rbac:
-    create: false
-  serviceAccount:
-    create: false
-    name: "{{ .Values.global.tibco.serviceAccount }}"
-  controller:
-    ingressClassResource:
-      name: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
-    ingressClass: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
-    extraArgs:
-    - --namespace-whitelist={{ .Release.Namespace }}
-    service:
-      type: ClusterIP
-      enabled: true
-    existingImagePullSecret: "{{ .Values.global.tibco.dataPlaneId }}"
-    extraLabels:
-      platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
-      platform.tibco.com/workload-type: "infra"
-    podLabels:
-      networking.platform.tibco.com/kubernetes-api: enable
-      platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
-      platform.tibco.com/workload-type: "infra"
-config:
   enabled: true

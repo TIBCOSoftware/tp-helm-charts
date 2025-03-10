@@ -63,6 +63,10 @@ spec:
               readOnly: true
               subPath: hawk/discovery
             - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
+              mountPath: /etc/prometheus/o11y
+              readOnly: true
+              subPath: o11y/discovery
+            - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
               mountPath: /prometheus/
               subPath: hawk/prometheus
         - name: prom-discoveryservice
@@ -86,6 +90,14 @@ spec:
               value: "9000"
             - name: target_output_file
               value: /etc/prometheus-discovery/metrictargets.json
+            - name: be_target_output_file
+              value: /etc/prometheus-discovery/be_metrictargets.json
+            - name: bw5_target_output_file
+              value: /etc/prometheus-discovery/bw5_metrictargets.json
+            - name: sys_target_output_file
+              value: /etc/prometheus-discovery/sys_metrictargets.json
+            - name: ems_target_output_file
+              value: /etc/prometheus-discovery/ems_metrictargets.json
             - name: log_level
               value: DEBUG
             - name: metric_auth_token

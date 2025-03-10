@@ -14,6 +14,16 @@ global:
     # enableClusterScopedPerm flag creates ClusterRole and ClusterRole binding in the primary namespace, disabling this will create only role and rolebinding
     enableClusterScopedPerm: true
 
+    containerRegistry:
+      url: "reldocker.tibco.com"
+      repository: "tibco-platform-docker-prod"
+      # [optional] Create a imagePullSecret named <dpId> for private container registry.
+      username: "test"
+      password: "test"
+      # email: "tibco-plt@cloud.com"
+
+    enableResourceConstraints: true
+
 rbac:
   # Use an already existing service account present in the primary namespace
   # Default value is true. Possible values are true, false
@@ -26,6 +36,10 @@ rbac:
   serviceMesh: true
   pulsar: true
   devHub: true
+  # Conditional RBACS for ingress controller
+  ingressController:
+    kong: true
+    traefik: true
 
 networkPolicy:
   # Flag to enable or disable creating default network policies for a namespace
@@ -38,3 +52,32 @@ networkPolicy:
   podCidrIpBlock: ""
   # service CIDR IP block
   serviceCidrIpBlock: "172.20.0.0/16"
+
+haproxy:
+  nameOverride: haproxy
+  fullnameOverride: cpdpproxy
+  enabled: true
+  rbac:
+    create: false
+  serviceAccount:
+    create: false
+    name: "{{ .Values.global.tibco.serviceAccount }}"
+  controller:
+    ingressClassResource:
+      name: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
+    ingressClass: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
+    extraArgs:
+    - --namespace-whitelist={{ .Release.Namespace }}
+    service:
+      type: ClusterIP
+      enabled: true
+    existingImagePullSecret: "{{ .Values.global.tibco.dataPlaneId }}"
+    extraLabels:
+      platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
+      platform.tibco.com/workload-type: "infra"
+    podLabels:
+      networking.platform.tibco.com/kubernetes-api: enable
+      platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
+      platform.tibco.com/workload-type: "infra"
+config:
+  enabled: true

@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -91,10 +91,8 @@ spec:
         volumeMounts:
         - name: artifacts-share
           mountPath: /app/artifacts
-        {{- if .Values.fluentBit.enabled }}
         - name: logs-share
           mountPath: /app/logs
-        {{- end }}
         {{- if .Values.enableTmpVolume }}
         - name: tmp
           mountPath: /tmp
@@ -215,9 +213,9 @@ spec:
       - name: tmp
         emptyDir: {}
       {{- end }}
-      {{- if .Values.fluentBit.enabled }}
       - name: logs-share
         emptyDir: {}
+      {{- if .Values.fluentBit.enabled }}
       - name: fluentbit-config
         configMap:
           name: {{ .Values.fluentBit.configMapName }}

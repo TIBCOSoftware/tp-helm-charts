@@ -10,7 +10,7 @@ MSG DP Common Helpers
 */}}
 
 {{- define "msgdp.ghcrImageRepo" -}}"tibco/msg-platform-cicd"{{ end }}
-{{- define "msgdp.jfrogImageRepo" -}}"tibco-platform-local-docker/msg"{{ end }}
+{{- define "msgdp.jfrogImageRepo" -}}"tibco-platform-docker-dev"{{ end }}
 {{- define "msgdp.ecrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.acrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.reldockerImageRepo" -}}"messaging"{{ end }}
@@ -183,7 +183,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.4.0.20"
+tib-dp-msgbuild: "1.5.0.30"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"

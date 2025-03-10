@@ -148,6 +148,15 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{ $isCPCustomerEnv }}
 {{- end }}
 
+{{/* PVC configured for control plane. Fail if the pvc not exist */}}
+{{- define "o11y-service.pvc-name" }}
+{{- if .Values.pvcName }}
+  {{- .Values.pvcName }}
+{{- else }}
+{{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "false"  "Release" .Release )}}
+{{- end }}
+{{- end }}
+
 {{/* Control plane enable or disable resource constraints */}}
 {{- define "o11y-service.enableResourceConstraints" -}}
 {{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "true" "required" "false"  "Release" .Release )}}

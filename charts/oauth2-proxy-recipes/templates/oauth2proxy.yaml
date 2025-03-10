@@ -12,15 +12,35 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.4.0",
+      "capabilityVersion": "1.5.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.oauth2proxy.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.oauth2proxy.releaseNotes | quote }},
-      "minVersionRequiredForUpgrade": "1.1.1"        
+      "minVersionRequiredForUpgrade": "1.1.1",
+      "minDPVersion": {
+        "dp-core-infrastructure": "1.4.0",
+        "dp-configure-namespace": "1.4.0"
+      }
     }
   package.json: |
-    {}
+    {
+      "package": {
+        "services": [
+          {
+            "name": "oauth2-proxy",
+            "description": "OAuth2 Proxy",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": true,
+        "capabilityResourceDependencies": []
+      }
+    }
   recipe.yaml: |
     recipe:
       helmCharts:
@@ -104,7 +124,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra_sidecar"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.4.0"
+          value: "1.5.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

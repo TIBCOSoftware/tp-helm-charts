@@ -30,7 +30,7 @@ metadata:
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 300
+    ttlSecondsAfterFinished: 14400
     template:
         metadata:
             name: "{{ $jobname }}"
@@ -55,6 +55,9 @@ spec:
             terminationGracePeriodSeconds: 10
             containers:
             -   name: "main"
+                # FIXME: for cross BMDP server sharing, use fixed EMS_ADMIN_PASSWORD!
+                {{ $dpAdminUser := printf "gems-%s" $emsParams.dp.name }}
+                # kubectl create secret generic $secretName -n {{ .Release.Namespace }} --from-literal=EMS_ADMIN_USER=tibadmin --from-literal=EMS_ADMIN_PASSWORD=tibco123  ; 
                 command: ['/compliance/check_eua', 'bash', '-c' ]
                 args:
                 - >
@@ -66,7 +69,7 @@ spec:
                   else
                     echo "Secret $secretName does not exist" ;
                     echo "Creating secret $secretName" ;
-                    kubectl create secret generic $secretName -n {{ .Release.Namespace }} --from-literal=EMS_ADMIN_USER=tibadmin --from-literal=EMS_ADMIN_PASSWORD={{ randAlphaNum 32 }} ; 
+                    kubectl create secret generic $secretName -n {{ .Release.Namespace }} --from-literal=EMS_ADMIN_USER={{ $dpAdminUser }} --from-literal=EMS_ADMIN_PASSWORD={{ randAlphaNum 32 }} ; 
                     kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE ; 
                   fi ;
                 image: "{{ $emsParams.ems.image }}"

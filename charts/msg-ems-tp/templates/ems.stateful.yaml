@@ -219,6 +219,9 @@ spec:
                     name: "{{ $emsParams.ems.name }}-tibadmin"
               env:
               {{ include "msg.dp.stdenv" $emsParams | indent  14 }}
+              - name: TIBEMS_LICENSE
+                #TIBEMS_LICENSE=https://msgblade07.na.tibco.com:7070
+                value: "{{ $emsParams.ems.activationUrl }}"
               - name: ACCEPT_EUA
                 value: "y"
               - name: GOTRACEBACK
@@ -243,6 +246,12 @@ spec:
                 value: "{{ $emsParams.ems.ports.httpPort }}"
               - name: EMS_SERVICE
                 value: "{{ $emsParams.ems.stsname }}"
+              - name: MY_GROUPNAME
+                value: "{{ $emsParams.ems.name }}"
+              - name: MY_INSTANCE_ID
+                value: "{{ $emsParams.dp.instanceId }}"
+              - name: DATAPLANE_ID
+                value: "{{ $emsParams.dp.name }}"
               - name: MY_SVC_NAME
                 value: "{{ $svcname }}"
               - name: MY_STS_NAME

@@ -18,6 +18,7 @@ data:
 
     scrape_configs:
       - job_name: 'redtailmetrics'
+        scrape_timeout: 30s
         scheme: http
         basic_auth:
           username: mtuser
@@ -28,3 +29,64 @@ data:
         file_sd_configs:
           - files:
             - /etc/prometheus/discovery/metrictargets.json
+      - job_name: 'o11ymetrics'
+        scrape_timeout: 30s
+        scheme: http
+        honor_labels: true
+        tls_config:
+          insecure_skip_verify: true
+        file_sd_configs:
+          - files:
+            - /etc/prometheus/o11y/o11ytargets.json
+      - job_name: bw5_metrics
+        scrape_interval: 35s
+        scrape_timeout: 30s
+        scheme: http
+        basic_auth:
+          username: mtuser
+          password: QPuf6#2$A
+        honor_labels: true
+        tls_config:
+          insecure_skip_verify: true
+        file_sd_configs:
+          - files:
+              - /etc/prometheus/discovery/bw5_metrictargets.json
+      - job_name: be_metrics
+        scrape_interval: 35s
+        scrape_timeout: 30s
+        scheme: http
+        basic_auth:
+          username: mtuser
+          password: QPuf6#2$A
+        honor_labels: true
+        tls_config:
+          insecure_skip_verify: true
+        file_sd_configs:
+          - files:
+              - /etc/prometheus/discovery/be_metrictargets.json
+      - job_name: sys_metrics
+        scrape_interval: 35s
+        scrape_timeout: 30s
+        scheme: http
+        basic_auth:
+          username: mtuser
+          password: QPuf6#2$A
+        honor_labels: true
+        tls_config:
+          insecure_skip_verify: true
+        file_sd_configs:
+          - files:
+              - /etc/prometheus/discovery/sys_metrictargets.json
+      - job_name: ems_metrics
+        scrape_interval: 60s
+        scrape_timeout: 30s
+        scheme: http
+        basic_auth:
+          username: mtuser
+          password: QPuf6#2$A
+        honor_labels: true
+        tls_config:
+          insecure_skip_verify: true
+        file_sd_configs:
+          - files:
+              - /etc/prometheus/discovery/ems_metrictargets.json

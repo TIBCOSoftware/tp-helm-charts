@@ -452,6 +452,19 @@ grpcPlugin related environment variables
 {{- end }}
 {{- end -}}
 
+{{- define "badger.env" -}}
+- name: BADGER_SPAN_STORE_TTL
+  value: 24h
+- name: QUERY_BASE_PATH
+  value: /o11y/v1/traceproxy/{{ .Values.global.cp.dataplaneId }}
+- name: QUERY_UI_CONFIG
+  value: /jaeger/config/jaeger-ui-config.json
+- name: BADGER_DIRECTORY_VALUE
+  value: /mnt/data/badger/data
+- name: BADGER_DIRECTORY_KEY
+  value: /mnt/data/badger/key
+{{- end -}}
+
 {{/*
 Cassandra, Elasticsearch, or grpc-plugin related environment variables depending on which is used
 */}}
@@ -461,6 +474,46 @@ Cassandra, Elasticsearch, or grpc-plugin related environment variables depending
 {{- else if eq .Values.storage.type "elasticsearch" -}}
 {{ include "elasticsearch.env" . }}
 {{- else if eq .Values.storage.type "grpc-plugin" -}}
+{{ include "grpcPlugin.env" . }}
+{{- end -}}
+{{- end -}}
+
+
+{{- define "allinone.storage.env" -}}
+{{- $st := include "allinone.storage.type" . -}}
+{{- if eq $st "cassandra" -}}
+{{ include "cassandra.env" . }}
+{{- else if eq $st "elasticsearch" -}}
+{{ include "elasticsearch.env" . }}
+{{- else if eq $st "badger" -}}
+{{ include "badger.env" . }}
+{{- else if eq $st "grpc-plugin" -}}
+{{ include "grpcPlugin.env" . }}
+{{- end -}}
+{{- end -}}
+
+{{- define "collector.storage.env" -}}
+{{- $st := include "collector.storage.type" . -}}
+{{- if eq $st "cassandra" -}}
+{{ include "cassandra.env" . }}
+{{- else if eq $st "elasticsearch" -}}
+{{ include "elasticsearch.env" . }}
+{{- else if eq $st "badger" -}}
+{{ include "badger.env" . }}
+{{- else if eq $st "grpc-plugin" -}}
+{{ include "grpcPlugin.env" . }}
+{{- end -}}
+{{- end -}}
+
+{{- define "query.storage.env" -}}
+{{- $st := include "query.storage.type" . -}}
+{{- if eq $st "cassandra" -}}
+{{ include "cassandra.env" . }}
+{{- else if eq $st "elasticsearch" -}}
+{{ include "elasticsearch.env" . }}
+{{- else if eq $st "badger" -}}
+{{ include "badger.env" . }}
+{{- else if eq $st "grpc-plugin" -}}
 {{ include "grpcPlugin.env" . }}
 {{- end -}}
 {{- end -}}
@@ -585,17 +638,19 @@ Cassandra or Elasticsearch related command line options depending on which is us
 {{- end -}}
 
 {{- define "storage.query.cmdArgs" -}}
-{{- if eq .Values.storage.type "cassandra" -}}
+{{- $st := include "query.storage.type" . }}
+{{- if eq $st "cassandra" -}}
 {{- include "cassandra.cmdArgs" . -}}
-{{- else if eq .Values.storage.type "elasticsearch" -}}
+{{- else if eq $st "elasticsearch" -}}
 {{- include "elasticsearch.query.cmdArgs" . -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "storage.collector.cmdArgs" -}}
-{{- if eq .Values.storage.type "cassandra" -}}
+{{- $st := include "collector.storage.type" . }}
+{{- if eq $st "cassandra" -}}
 {{- include "cassandra.cmdArgs" . -}}
-{{- else if eq .Values.storage.type "elasticsearch" -}}
+{{- else if eq $st "elasticsearch" -}}
 {{- include "elasticsearch.collector.cmdArgs" . -}}
 {{- end -}}
 {{- end -}}
@@ -684,4 +739,61 @@ spec:
   {{- if .ComponentValues.networkPolicy.egressRules.customRules }}
   {{- include "common.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.egressRules.customRules "context" $) | nindent 2 }}
   {{- end }}
+{{- end -}}
+
+{{- define "collector.storage.type" -}}
+  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) -}}
+    {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind | lower -}}
+    {{- if eq $st "localstore" -}}
+      {{- $st = "badger" -}}
+    {{- else if eq $st "opensearch" -}}
+      {{- $st = "elasticsearch" -}}
+    {{- end -}}
+    {{- $st -}}
+  {{- end -}}
+{{- end -}}
+
+
+{{- define "query.storage.type" -}}
+  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) -}}
+  {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind | lower -}}
+    {{- if eq $st "localstore" -}}
+      {{- $st = "badger" -}}
+    {{- else if eq $st "opensearch" -}}
+      {{- $st = "elasticsearch" -}}
+    {{- end -}}
+    {{- $st -}}
+  {{- end -}}
+{{- end -}}
+
+{{- define "allinone.storage.type" -}}
+  badger
+{{- end -}}
+
+{{- define "useBadger" -}}
+{{- $badgerProxy := and (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) (eq .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind "localStore") -}}
+{{- $badgerExporter := and (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "localStore") -}}
+{{- and (include "isO11yv3" .) $badgerProxy $badgerExporter -}}
+{{- end -}}
+
+{{/*
+Common labels for allinone
+*/}}
+{{- define "jaeger.allinone.labels" -}}
+helm.sh/chart: {{ include "jaeger.chart" . }}
+{{ include "jaeger.allinone.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/*
+Selector labels for Collector
+*/}}
+{{- define "jaeger.allinone.selectorLabels" -}}
+app.kubernetes.io/part-of: "o11y"
+platform.tibco.com/workload-type: "infra"
+platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
+platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
 {{- end -}}

@@ -9,10 +9,11 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for hawk-console, default is latest
-    version: "1.4.0"
-    tag: "30"
+    version: "1.5.30"
+    # tag: "32"
+    tag: "1.5.0.30"
     # Timestamp of capability release
-    releaseDate: "2024/02/22"
+    releaseDate: "2025/02/26"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "Enhancements, Bug fixes, etc."
 
@@ -44,4 +45,5 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
+      - CAP_NET_RAW
       - ALL

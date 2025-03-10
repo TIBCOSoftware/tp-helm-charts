@@ -3,8 +3,8 @@
 # to enable the chart
 enabled: true
 
-# to enable or disable webhooks (by default enabled)
-enableWebHooks: true
+# to enable or disable webhooks (by default disabled)
+enableWebHooks: false
 
 settingsConfigmap:
   - key: "LOG_LEVEL"
@@ -40,7 +40,7 @@ hpa:
 
 image:
   name: infra-hybrid-proxy
-  tag: 50-distroless
+  tag: 53-distroless
   pullPolicy: IfNotPresent
 
 ports:

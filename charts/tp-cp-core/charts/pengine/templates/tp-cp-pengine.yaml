@@ -146,7 +146,9 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           successThreshold: 1
-          failureThreshold: 1
+          # be little generous and wait till we see two failures
+          # time of restarting pod, and new pod being available is greater than waiting until we see second failure
+          failureThreshold: 2
         env:
         - name: PERMISSIONS_ENGINE_HTTP_PORT
           value: "7892"
@@ -332,7 +334,8 @@ spec:
     kind: Deployment
     name: {{ include "tp-cp-pengine.consts.appName" . }}
   minReplicas: {{ .Values.replicaCount }}
-  maxReplicas: {{ add 2 .Values.replicaCount }}
+  # set max-replicas to 6, as these new replica pods will auto-scale up and down as needed when there is more load/traffic
+  maxReplicas: {{ add 5 .Values.replicaCount }}
   metrics:
   - type: Resource
     resource:

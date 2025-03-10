@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -100,7 +100,7 @@ flogoVSCodeExtensionExtract: true
 flogoVSCodeExtensionImages:
   - image: tp-flogo-vscode-extension
     path: /opt/downloads/
-    tag: 1.1.1-b751-vscode-1.1.1
+    tag: 1.2.0-b836-vscode-1.2.0
     target_location: flogo-vscode-extension
 flogoVSCodeDelete: false
 flogoVSCodeDeleteVersions: ""
@@ -152,12 +152,12 @@ flogopluginsB:
     default: 1.0.0-b13
   tp-flogo-connector-gcps:
     tags:
-      - 1.0.1-b01
-    default: 1.0.1-b01
+      - 1.0.1-hf1-b01
+    default: 1.0.1-hf1-b01
   tp-flogo-connector-general:
     tags:
-      - 1.6.3-b01
-    default: 1.6.3-b01
+      - 1.6.4-b02
+    default: 1.6.4-b02
   tp-flogo-connector-http:
     tags:
       - 1.1.1-b03
@@ -240,13 +240,25 @@ flogopluginsE:
     tags:
       - 1.0.1-b03-flogo-2.25.0
     default: 1.0.1-b03-flogo-2.25.0
+  tp-flogo-connector-sftp:
+    tags:
+      - 1.0.0-b07
+    default: 1.0.0-b07
+  tp-flogo-connector-files:
+    tags:
+      - 1.0.0-b14
+    default: 1.0.0-b14
+  tp-flogo-connector-ibmmq:
+    tags:
+      - 2.2.0-b11
+    default: 2.2.0-b11
 
 buildtypesExtract: true
 images:
   tp-flogo-buildtype:
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.25.2-b162
+    tag: 2.25.3-b190
     target_location: flogo/buildtypes
 
 probes:

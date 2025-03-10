@@ -17,13 +17,16 @@ $cmd -- Start the tibemsrestd REST ADMIN API server
 fmtTime="--rfc-3339=ns"
 podBase="${HOSTNAME%-*}"
 export STS_NAME="${STS_NAME:-$podBase}"
-namespace=$MY_NAMESPACE
+namespace=${MY_NAMESPACE:-NS-$RANDOM}
 headlessSvc="${MY_HEADLESS:-$STS_NAME}"
 export MY_POD_DOMAIN="${MY_POD_DOMAIN:-$headlessSvc.$namespace.svc}"
 realmPort="${FTL_REALM_PORT-9013}"
 emsTcpPort="${EMS_TCP_PORT:-9011}"
 emsSslPort="${EMS_SSL_PORT:-9012}"
 emsAdminPort="${EMS_ADMIN_PORT:-9014}"
+dataplaneID="${DATAPLANE_ID:-$namespace}"
+instanceID="${MY_INSTANCE_ID:-id-$RANDOM}"
+groupName="${MY_GROUPNAME:-group-$RANDOM}"
 export insideSvcHostPort="${STS_NAME}.${namespace}.svc:${emsTcpPort}"
 export insideActiveHostPort="${STS_NAME}active.${namespace}.svc:${emsTcpPort}"
 
@@ -49,6 +52,7 @@ trap do_sighup SIGHUP
 # .. open a TLS listen for msg-gems and future apps
 
 cat - <<! > ./emsrest.config.yaml
+# UPDATE 1.4.0 Proxy (10.4 pre-release hotfix version)
 loglevel: info
 proxy:
   name: "$STS_NAME-rest"
@@ -58,21 +62,44 @@ proxy:
   session_inactivity_timeout: 3600
   page_limit: 0
   disable_tls: true
-  certificate: /opt/tibco/ems/current-version/samples/certs/server.cert.pem
-  private_key: /opt/tibco/ems/current-version/samples/certs/server.key.p8
+  certificate: /data/certs/server.cert.pem
+  private_key: /data/certs/server.key.p8
   private_key_password: password
   require_client_certificate: false
+  default_cache_timeout: 5
+  minimum_cache_timeout: 0
+  server_check_interval: 5
 ems:
-  servers:
-    - tcp://$insideActiveHostPort,tcp://$insideSvcHostPort
-  client_id: "emsrest"
-  certificate: /opt/tibco/ems/current-version/samples/certs/server_root.cert.pem
-  verify_hostname: false
-  client_certificate: /opt/tibco/ems/current-version/samples/certs/client.cert.pem
-  client_private_key: /opt/tibco/ems/current-version/samples/certs/client.key.p8
-  client_private_key_password: password
+  default_server_group: "$STS_NAME"
+  server_groups:
+    - name: "$STS_NAME"
+      # Alternate $ENV: EMSRESTD_EMS_SERVER_GROUPS_{GROUP NAME}_TAGS='red,blue'
+      tags:
+        - $dataplaneID
+        - $groupName
+        - $instanceID
+        - $namespace
+      servers:
+        - role: "primary"
+          tags:
+            - $groupName
+          url: tcp://$STS_NAME-0.$MY_POD_DOMAIN:9011
+          monitor_url: http://$STS_NAME-0.$MY_POD_DOMAIN:9010
+          client_id: "$POD_NAME"
+        - role: "standby"
+          tags:
+            - $groupName
+          url: tcp://$STS_NAME-1.$MY_POD_DOMAIN:9011
+          monitor_url: http://$STS_NAME-1.$MY_POD_DOMAIN:9010
+          client_id: "$POD_NAME"
+        - role: "standby-only"
+          tags:
+            - $groupName
+          url: tcp://$STS_NAME-2.$MY_POD_DOMAIN:9011
+          monitor_url: http://$STS_NAME-2.$MY_POD_DOMAIN:9010
 
 !
 
+export NO_COLOR=1
 export LD_LIBRARY_PATH="/opt/tibco/ems/current-version/lib:$LD_LIBRARY_PATH"
 tibemsrestd --config ./emsrest.config.yaml

@@ -13,7 +13,7 @@ resources:
     memory: 256Mi
   limits:
     cpu: 1000m
-    memory: 1024Mi
+    memory: 1000Mi
 
 # no of replicas
 replicaCount: "1"
@@ -29,7 +29,7 @@ cacheCleanupInterval: "8h"
 
 image:
   name: infra-provisioner-agent
-  tag: 414
+  tag: 441
   pullPolicy: Always
 
 nodeSelector:
@@ -75,10 +75,10 @@ fluentbit:
   resources:
     requests:
       cpu: 10m
-      memory: 15Mi
+      memory: 20Mi
     limits:
       cpu: 50m
-      memory: 30Mi
+      memory: 50Mi
 hpa:
   minReplicas: 1
   maxReplicas: 3

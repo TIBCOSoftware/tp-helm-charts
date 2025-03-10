@@ -139,6 +139,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_ORCH_HOST
+        - name: TP_CP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_VERSION
         - name: TP_CP_APP_VERSION
           valueFrom:
             configMapKeyRef:
@@ -219,7 +224,7 @@ spec:
         - name: FINOPS
           value: {{ .Values.global.tibco.finops }}
         - name: DOC_BASE_URL
-          value: https://docs.tibco.com/go/platform-cp/1.4.0/doc/html
+          value: https://docs.tibco.com/go/platform-cp/1.5.0/doc/html
         - name: ADMIN_DOMAIN
           value: https://$(TSC_ADMIN_DNS_DOMAIN)
         - name: REGION
@@ -231,6 +236,8 @@ spec:
           value: {{ include "tp-cp-web-server.consts.disable.configuration.refresh" . | quote }}
         - name: TSC_CONFIG_LOCATION
           value: /private/tsc
+        - name: MSG_DP_CONFIG_ENABLED
+          value: {{ .Values.global.tibco.msg_dp_config_enabled | quote }}
         - name: CP_HELM_REPO
           value: {{ .Values.global.external.helmRepo }}
         - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
@@ -453,6 +460,24 @@ spec:
       enableRedirects: true
       allowClientCache: true
       allowXFrameOptions: false
+  - path: /cp/web-ui-content/ct/dpinstall.sh
+    internalPath: /web-ui-content/ct/dpinstall.sh
+    port: 3000
+    protocol: http
+    proxies:
+    - allowClientCache: false
+      allowXFrameOptions: false
+      config: secure
+      enableRedirects: false
+      fqdn: ${TSC_DNS_DOMAIN}
+      listener: virtual
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
   - path: /cp/consent
     internalPath: /cp/consent
     port: 3000
@@ -574,7 +599,7 @@ spec:
         SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
       enableRedirects: true
       allowClientCache: true
-      allowXFrameOptions: false
+      allowXFrameOptions: true
   - path: /cp/sm-ui-content
     internalPath: /sm-ui-content
     port: 3000

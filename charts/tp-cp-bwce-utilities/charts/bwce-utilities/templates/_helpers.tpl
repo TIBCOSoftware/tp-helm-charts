@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2024. Cloud Software Group, Inc.
+Copyright © 2025. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -104,4 +104,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/* Control plane enable or disable resource constraints */}}
 {{- define "bwce-utilities.enableResourceConstraints" -}}
 {{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{- define "bwce-utilities.cp-http-proxy" }}
+  {{- include "cp-env.get" (dict "key" "CP_HTTP_PROXY" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{- define "bwce-utilities.cp-https-proxy" }}
+  {{- include "cp-env.get" (dict "key" "CP_HTTPS_PROXY" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{- define "bwce-utilities.cp-no-proxy" }}
+  {{- include "cp-env.get" (dict "key" "CP_NO_PROXY" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}

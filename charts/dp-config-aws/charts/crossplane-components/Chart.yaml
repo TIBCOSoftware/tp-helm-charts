@@ -4,8 +4,8 @@
 
 apiVersion: v2
 name: crossplane-components
-version: "1.4.1"
-appVersion: "1.4.0"
+version: "1.5.0"
+appVersion: "1.5.0"
 description: crossplane-charts are used to install crossplane, providers, provider-configs, compositions and claims
 type: application
 dependencies:
@@ -19,11 +19,11 @@ dependencies:
     repository: file://charts/configs
     condition: configs.enabled
   - name: compositions
-    version: 1.3.2
+    version: 1.5.0
     repository: file://charts/compositions
     condition: compositions.enabled
   - name: claims
-    version: 1.3.4
+    version: 1.5.0
     repository: file://charts/claims
     condition: claims.enabled
 annotations:

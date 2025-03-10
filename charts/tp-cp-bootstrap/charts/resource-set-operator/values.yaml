@@ -18,7 +18,7 @@ resources:
     cpu: 500m
     memory: 1024Mi
 
-enableWebHooks: true
+enableWebHooks: false
 
 settingsConfigmap:
   - key: "LOG_LEVEL"
@@ -26,7 +26,7 @@ settingsConfigmap:
 
 image:
   name: infra-resource-set-operator
-  tag: 261-distroless
+  tag: 267-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas

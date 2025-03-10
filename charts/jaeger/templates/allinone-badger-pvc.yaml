@@ -1,0 +1,21 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ $useBadger := "false" }}
+{{ if eq $useBadger "true" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jaeger-badger
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.localStore.storageClassName}}
+  volumeMode: Filesystem
+  {{ end }}

@@ -112,7 +112,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/* Platform labels to be added in all the resources created by this chart.*/}}
 {{- define "dp-configure-namespace.platformLabels" -}}
-platform.tibco.com/dataPlane-id: {{ .Values.global.tibco.dataPlaneId }}
+platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
 {{- end -}}
 
 {{/*
