@@ -893,6 +893,26 @@ entries:
     version: 1.0.17
   dp-configure-namespace:
   - apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-20T09:46:26.852833742Z"
+    dependencies:
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.0.*
+    - condition: haproxy.enabled
+      name: haproxy
+      repository: ""
+      version: 1.44.2
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
+    digest: 0a09bbec1b326aa187201c706e6741070a9633dd07aad288e56d34874224be93
+    name: dp-configure-namespace
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.5.1001/dp-configure-namespace-1.5.1001.tgz
+    version: 1.5.1001
+  - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:04:35.735505092Z"
     dependencies:
@@ -979,6 +999,25 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.0.15/dp-configure-namespace-1.0.15.tgz
     version: 1.0.15
   dp-core-infrastructure:
+  - apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-20T09:46:27.109975118Z"
+    dependencies:
+    - condition: tibtunnel.enabled
+      name: tp-tibtunnel
+      repository: ""
+      version: 1.5.*
+    - condition: tp-provisioner-agent.enabled
+      name: tp-provisioner-agent
+      repository: ""
+      version: 1.5.*
+    description: A Helm chart for Data Plane Infrastructure
+    digest: ea0b63a3ab2402c5c0587a956db2002f2969a14445244842ef6434d26d90980d
+    name: dp-core-infrastructure
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-core-infrastructure-1.5.1001/dp-core-infrastructure-1.5.1001.tgz
+    version: 1.5.1001
   - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:04:35.927099996Z"
@@ -1618,6 +1657,42 @@ entries:
     version: 1.0.17
   jaeger:
   - apiVersion: v2
+    appVersion: 1.66.0
+    created: "2025-03-20T09:46:27.32306733Z"
+    dependencies:
+    - condition: provisionDataStore.cassandra
+      name: cassandra
+      repository: https://charts.helm.sh/incubator
+      version: 0.15.3
+    - condition: provisionDataStore.elasticsearch
+      name: elasticsearch
+      repository: https://helm.elastic.co
+      version: ^7.11.1
+    - condition: provisionDataStore.kafka
+      name: kafka
+      repository: https://charts.bitnami.com/bitnami
+      version: ^19.1.5
+    - name: common
+      repository: https://charts.bitnami.com/bitnami
+      version: 1.16.0
+    description: A Jaeger Helm chart for Kubernetes
+    digest: 2900689d4810e92ccf986c591b2ca2cd6f6a6e2e67951c6ebcae41e3f9a9d58e
+    home: https://jaegertracing.io
+    icon: https://camo.githubusercontent.com/afa87494e0753b4b1f5719a2f35aa5263859dffb/687474703a2f2f6a61656765722e72656164746865646f63732e696f2f656e2f6c61746573742f696d616765732f6a61656765722d766563746f722e737667
+    keywords:
+    - jaeger
+    - opentracing
+    - tracing
+    - instrumentation
+    kubeVersion: '>= 1.21-0'
+    name: jaeger
+    sources:
+    - https://hub.docker.com/u/jaegertracing/
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/jaeger-0.72.33/jaeger-0.72.33.tgz
+    version: 0.72.33
+  - apiVersion: v2
     appVersion: 1.55.0
     created: "2025-02-21T13:04:36.135403915Z"
     dependencies:
@@ -2195,6 +2270,15 @@ entries:
     version: 1.2.24
   o11yservice:
   - apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-20T09:46:27.523823089Z"
+    description: A helm chart for o11y service
+    digest: 1ee884c833ce56faea04bed249f801d70a64c5c17474b997b8b1956337b8b4a9
+    name: o11yservice
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.5.1000/o11yservice-1.5.1000.tgz
+    version: 1.5.1000
+  - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:04:36.352669349Z"
     description: A helm chart for o11y service
@@ -2678,6 +2762,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/oauth2-proxy-6.17.0-tibx-18/oauth2-proxy-6.17.0-tibx-18.tgz
     version: 6.17.0-tibx-18
   opentelemetry-collector:
+  - apiVersion: v2
+    appVersion: 0.119.0
+    created: "2025-03-20T09:46:27.704824532Z"
+    description: OpenTelemetry Collector Helm chart for Kubernetes
+    digest: 3a8c227e850f032ff278e1aba70b29e94931334b5dee5328c678126ff83b171c
+    name: opentelemetry-collector
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/opentelemetry-collector-0.116.1/opentelemetry-collector-0.116.1.tgz
+    version: 0.116.1
   - apiVersion: v2
     appVersion: 0.115.1
     created: "2025-01-24T06:17:37.008578875Z"
@@ -3952,6 +4045,45 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.0.26/tibco-developer-hub-1.0.26.tgz
     version: 1.0.26
   tp-cp-bootstrap:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-bootstrap
+    apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-20T09:46:27.939269605Z"
+    dependencies:
+    - condition: hybrid-proxy.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.5.*
+    - condition: resource-set-operator.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.5.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.5.*
+    - condition: compute-services.enabled
+      name: compute-services
+      repository: ""
+      version: 1.5.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.116.*
+    description: TIBCO Platform Control Plane bootstrap chart
+    digest: 9b21d656d2b92756aa373e7022b3c0314ce6a2c6dcc36f8f346e793140cd4ce3
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - bootstrap
+    name: tp-cp-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-bootstrap-1.5.1005/tp-cp-bootstrap-1.5.1005.tgz
+    version: 1.5.1005
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-bootstrap
@@ -5957,6 +6089,24 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-infra-recipes
     apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-20T09:46:28.112387519Z"
+    description: TIBCO Platform Infrastructure Data Plane recipes
+    digest: c2ddc9e46b8bcb59e0f78b9f03a7cfa413f894291f29016c3cddc70a5059e839
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - recipes
+    name: tp-cp-infra-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-infra-recipes-1.5.1005/tp-cp-infra-recipes-1.5.1005.tgz
+    version: 1.5.1005
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-infra-recipes
+    apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:04:36.929966507Z"
     description: TIBCO Platform Infrastructure Data Plane recipes
@@ -6825,6 +6975,22 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-msg-recipes-1.4.20/tp-cp-msg-recipes-1.4.20.tgz
     version: 1.4.20
   tp-cp-o11y:
+  - apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-20T09:46:28.335888882Z"
+    dependencies:
+    - condition: o11y-service.enabled
+      name: o11y-service
+      repository: ""
+      version: 1.5.*
+    description: TIBCO Platform Control Plane -- O11Y Infra
+    digest: 6be8469baa809f944c3adff9afeff2298b36fdc1f85aee33db200c9155e6b1fb
+    keywords:
+    - o11y
+    name: tp-cp-o11y
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-o11y-1.5.1000/tp-cp-o11y-1.5.1000.tgz
+    version: 1.5.1000
   - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:04:37.10536098Z"
@@ -8140,4 +8306,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-02-25T13:07:09.452226342Z"
+generated: "2025-03-20T09:46:28.336637199Z"
