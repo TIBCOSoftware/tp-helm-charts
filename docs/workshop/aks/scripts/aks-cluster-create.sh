@@ -12,6 +12,7 @@ export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export TP_CLUSTER_NAME=${TP_CLUSTER_NAME:-"dp-aks-cluster"}
 export TP_RESOURCE_GROUP=${TP_RESOURCE_GROUP:-"dp-resource-group"}
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity"
+export TP_NETWORK_PLUGIN=${TP_NETWORK_PLUGIN:-"azure"}
 export TP_NETWORK_POLICY=${TP_NETWORK_POLICY:-"azure"}
 export TP_NODE_VM_SIZE=${TP_NODE_VM_SIZE:-"Standard_D4s_v3"}
 export TP_NODE_VM_SIZE_PARAMETER=${TP_NODE_VM_SIZE_PARAMETER:-"Standard_D4s_v3"}
@@ -22,7 +23,8 @@ export TP_APPLICATION_GW_SUBNET_NAME=${TP_APPLICATION_GW_SUBNET_NAME:-"${TP_CLUS
 export TP_PUBLIC_IP_NAME=${TP_PUBLIC_IP_NAME:-"${TP_CLUSTER_NAME}-public-ip"}
 export TP_AKS_SUBNET_NAME=${TP_AKS_SUBNET_NAME:-"${TP_CLUSTER_NAME}-aks-subnet"}
 export TP_APISERVER_SUBNET_NAME=${TP_APISERVER_SUBNET_NAME:-"${TP_CLUSTER_NAME}-api-server-subnet"}
-export TP_KUBERNETES_VERSION=${TP_KUBERNETES_VERSION:-"1.29.4"}
+export TP_KUBERNETES_VERSION=${TP_KUBERNETES_VERSION:-"1.31.5"}
+
 
 # add your public ip
 TP_MY_PUBLIC_IP=$(curl https://ipinfo.io/ip)
@@ -30,11 +32,6 @@ if [ -n "${TP_AUTHORIZED_IP}" ]; then
   export TP_AUTHORIZED_IP="${TP_AUTHORIZED_IP},${TP_MY_PUBLIC_IP}"
 else
   export TP_AUTHORIZED_IP="${TP_MY_PUBLIC_IP}"
-fi
-
-# network policy
-if [ -n "${TP_NETWORK_POLICY}" ]; then
-  export TP_NETWORK_POLICY_PARAMETER=" --network-policy ${TP_NETWORK_POLICY}"
 fi
 
 # node vm size
@@ -68,7 +65,8 @@ az aks create -g "${TP_RESOURCE_GROUP}" -n "${TP_CLUSTER_NAME}" \
   --api-server-authorized-ip-ranges "${TP_AUTHORIZED_IP}" \
   --enable-oidc-issuer \
   --enable-workload-identity \
-  --network-plugin azure${TP_NETWORK_POLICY_PARAMETER} \
+  --network-plugin ${TP_NETWORK_PLUGIN} \
+  --network-policy ${TP_NETWORK_POLICY} \
   --kubernetes-version "${TP_KUBERNETES_VERSION}" \
   --outbound-type userAssignedNATGateway \
   --appgw-name gateway \

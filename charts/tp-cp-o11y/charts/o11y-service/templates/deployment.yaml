@@ -60,6 +60,8 @@ spec:
               value: "{{ include "o11y-service.CPCustomerEnv" . }}"
             - name: CP_DP_URL
               value: {{ include "o11y-service.cp-dp-url" . }}
+            - name: CP_O11Y_DPCACHE_ENABLED
+              value: "true"
             - name: NAMESPACE
               valueFrom:
                 fieldRef:

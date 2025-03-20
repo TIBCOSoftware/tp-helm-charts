@@ -4,7 +4,7 @@ set +x
 echo "Export Global variables"
 export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export TP_TENANT_ID=$(az account show --query tenantId -o tsv)
-export TP_AZURE_REGION=${TP_AZURE_REGION:-"westus2"}
+export TP_AZURE_REGION=${TP_AZURE_REGION:-"eastus"}
 export TP_RESOURCE_GROUP=${TP_RESOURCE_GROUP:-"dp-resource-group"}
 export TP_CLUSTER_NAME=${TP_CLUSTER_NAME:-"dp-aks-cluster"}
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity"

@@ -59,7 +59,7 @@ presets:
     enabled: false
   # Configures the Kubernetes Processor to add Kubernetes metadata.
   # Adds the k8sattributes processor to all the pipelines
-  # and adds the necessary rules to ClusteRole.
+  # and adds a preset of minimum required RBAC rules to ClusterRole.
   # Best used with mode = daemonset.
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-attributes-processor for details on the receiver.
   kubernetesAttributes:
@@ -72,7 +72,7 @@ presets:
     extractAllPodAnnotations: false
   # Configures the collector to collect node, pod, and container metrics from the API server on a kubelet..
   # Adds the kubeletstats receiver to the metrics pipeline
-  # and adds the necessary rules to ClusteRole.
+  # and adds the necessary rules to ClusterRole.
   # Best used with mode = daemonset.
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubeletstats-receiver for details on the receiver.
   kubeletMetrics:
@@ -86,7 +86,7 @@ presets:
     enabled: false
   # Configures the Kubernetes Cluster Receiver to collect cluster-level metrics.
   # Adds the k8s_cluster receiver to the metrics pipeline
-  # and adds the necessary rules to ClusteRole.
+  # and adds the necessary rules to ClusterRole.
   # Best used with mode = deployment or statefulset.
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-cluster-receiver for details on the receiver.
   clusterMetrics:
@@ -227,6 +227,23 @@ config:
 #          - jaeger
 #          - zipkin
 
+# Helm currently has an issue (https://github.com/helm/helm/pull/12879) when using null to remove
+# default configuration from a subchart. The result is that you cannot remove default configuration
+# from `config`, such as a specific recevier or a specific pipeline, when the chart is used as a
+# subchart.
+#
+# Until the helm bug is fixed, this field is provided as an alternative when using this chart as a subchart.
+# It is not recommended to use this field when installing the chart directly.
+#
+# When not empty, `alternateConfig` will be used to set the collector's configuration. It has NO default
+# values and IS NOT MERGED with config. Any configuration provided via `config` will be ignored when
+# `alternateConfig` is set. You MUST provide your own collector configuration.
+#
+# Reminder that the healthcheck extension (or something else that provides the same functionality) is required.
+#
+# Components configured by presets will be injected in the same way they are for `config`.
+alternateConfig: {}
+
 image:
   # If you want to use the core image `otel/opentelemetry-collector`, you also need to change `command.name` value to `otelcol`.
   repository: otel/opentelemetry-collector-contrib
@@ -327,6 +344,9 @@ extraVolumes: []
 # This also supports template content, which will eventually be converted to yaml.
 extraVolumeMounts: []
 
+# This also supports template content, which will eventually be converted to yaml.
+extraManifests: []
+
 # Configuration for ports
 # nodePort is also allowed
 ports:
@@ -376,7 +396,13 @@ ports:
     servicePort: 8888
     protocol: TCP
 
-# Resource limits & requests. Update according to your own use case as these values might be too low for a typical deployment.
+# When enabled, the chart will set the GOMEMLIMIT env var to 80% of the configured resources.limits.memory.
+# If no resources.limits.memory are defined then enabling does nothing.
+# It is HIGHLY recommend to enable this setting and set a value for resources.limits.memory.
+useGOMEMLIMIT: true
+
+# Resource limits & requests.
+# It is HIGHLY recommended to set resource limits.
 resources:
   requests:
     cpu: 200m
@@ -617,14 +643,6 @@ autoscaling:
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
-
-#autoscaling:
-#  enabled: false
-#  minReplicas: 1
-#  maxReplicas: 10
-#  behavior: {}
-#  targetCPUUtilizationPercentage: 80
-#  # targetMemoryUtilizationPercentage: 80
 
 rollout:
   rollingUpdate: {}

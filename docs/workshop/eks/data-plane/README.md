@@ -85,7 +85,7 @@ Before creating ingress on this EKS cluster, we need to install [external-dns](h
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.13.0" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
 serviceAccount:
   create: false
   name: external-dns 
@@ -287,6 +287,7 @@ traefik:
   enabled: true
   additionalArguments:
     - '--entryPoints.web.forwardedHeaders.insecure' #You can also use trustedIPs instead of insecure to trust the forwarded headers https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
+    - '--serversTransport.insecureSkipVerify=true' #Please refer https://doc.traefik.io/traefik/routing/overview/#transport-configuration 
 ## following section is required to send traces using traefik
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 #  tracing:
@@ -548,6 +549,10 @@ export TP_DELETE_CLUSTER=false # default value is "true"
 > so that common resources are not deleted. (e.g. storage class, EFS, EKS Cluster, crossplane role, etc.)
 
 For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](../scripts/clean-up-data-plane.sh).
+
+> [!IMPORTANT]
+> Please make sure the resources to be deleted are in started/scaled-up state (e.g. RDS DB cluster/instance, EKS cluster nodegroups)
+
 ```bash
 ./clean-up-data-plane.sh
 ```
