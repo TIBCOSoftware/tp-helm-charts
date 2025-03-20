@@ -11,8 +11,11 @@ Table of Contents
   * [Create Amazon Elastic Kubernetes Service (EKS) cluster](#create-amazon-elastic-kubernetes-service-eks-cluster)
   * [Generate kubeconfig to connect to EKS cluster](#generate-kubeconfig-to-connect-to-eks-cluster)
 * [Install Third Party Tools](#install-third-party-tools)
-  * [Install Cert Manager, Load-Balancer Controller, Metrics Server](#install-cert-manager-load-balancer-controller-metrics-server)
+  * [Install Cert Manager](#install-cert-manager)
+  * [Install AWS Load Balancer Controller](#install-aws-load-balancer-controller)
+  * [Install Metrics Server](#install-metrics-server)
   * [Install Crossplane [OPTIONAL]](#install-crossplane-optional)
+* [Next Steps](#next-steps)
 <!-- TOC -->
 
 # Amazon EKS Cluster Creation
@@ -29,29 +32,25 @@ In order to deploy TIBCO® Control Plane and/or Data Plane, you need to have a K
 ## Command Line Tools required
 
 The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The following tools are installed using [brew](https://brew.sh/):
-* envsubst (part of homebrew gettext)
-* jq (1.7)
-* yq (v4.35.2)
-* bash (5.2.15)
-* aws (aws-cli/2.15.32)
-* eksctl (0.181.0)
-* kubectl (v1.30.2)
-* helm (v3.14.2)
+* envsubst (0.22.5, part of homebrew gettext)
+* jq (1.7.1)
+* yq (v4.44.1)
+* bash (5.2.26)
+* aws (aws-cli/2.24.21)
+* eksctl (0.201.0)
+* kubectl (v1.31.5)
+* helm (v3.14.3)
 
-For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../../Dockerfile) with [apline 3.20](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
 > Please use --platform while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
-> This can be different based on your machine OS and hardware architecture.
+> This can be different based on your [machine OS and hardware architecture](https://docs.docker.com/build/building/multi-platform/)
 
 A sample command on Linux AMD64 is
 ```bash
-docker buildx build --platform=${platform} --progress=plain \
-  --build-arg AWS_CLI_VERSION=${AWS_CLI_VERSION} \
-  --build-arg EKSCTL_VERSION=${EKSCTL_VERSION} \
-  --build-arg KUBECTL_VERSION=${KUBECTL_VERSION} \
-  -t workshop-cli-tools:latest --load .
+docker buildx build --platform="linux/amd64" --progress=plain -t workshop-cli-tools:latest --load .
 ```
 
 ## Recommended IAM Policies
@@ -78,8 +77,8 @@ export TP_CLUSTER_REGION="${AWS_REGION}"
 export TP_VPC_CIDR="10.180.0.0/16" # vpc cidr for the cluster
 export TP_SERVICE_CIDR="172.20.0.0/16" # service IPv4 cidr for the cluster
 export TP_CLUSTER_NAME="eks-cluster-${TP_CLUSTER_REGION}" # name of the cluster to be prvisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.30" # please refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html; use 1.29 or above
-export TP_NODEGROUP_INSTANCE_TYPE="r5ad.xlarge" # Instance type for the EC2 Machines, please refer https://aws.amazon.com/ec2/instance-types/ 
+export TP_KUBERNETES_VERSION="1.31" # please refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html; use 1.30 or above
+export TP_NODEGROUP_INSTANCE_TYPE="m5a.xlarge" # Instance type for the EC2 Machines, please refer https://aws.amazon.com/ec2/instance-types/ 
 export TP_NODEGROUP_INITIAL_COUNT=3 # Number of desired nodes for the EKS cluster
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
@@ -136,36 +135,34 @@ kubectl get nodes
 
 # Install Third Party Tools
 
-## Install Cert Manager, Load-Balancer Controller, Metrics Server
-
 Before we deploy ingress or observability tools on an empty EKS cluster; we need to install some basic tools. 
-* [cert-manager](https://cert-manager.io/docs/installation/helm/)
-* [aws-load-balancer-controller](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller)
-* [metrics-server](https://github.com/kubernetes-sigs/metrics-server/tree/master/charts/metrics-server)
-
 > [!NOTE]
 > In the chart installation commands starting in this section & continued in next sections, you will see labels added
 > in the helm upgrade command i.e. --labels layer=number. Adding labels is supported in helm version v3.13 and above. Label
 > numbers are added to identify the dependency of chart installations, so that uninstallation can be done in reverse
 > sequence (starting with charts not labelled first).
 
-<details>
+## Install Cert Manager
 
-<summary>We can use the following commands to install these tools</summary>
+Please use the following commands to install [cert-manager](https://cert-manager.io/docs/installation/helm/)
 
 ```bash
-# install cert-manager
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n cert-manager cert-manager cert-manager \
   --labels layer=0 \
-  --repo "https://charts.jetstack.io" --version "v1.12.3" -f - <<EOF
+  --repo "https://charts.jetstack.io" --version "v1.17.1" -f - <<EOF
 installCRDs: true
 serviceAccount:
   create: false
   name: cert-manager
 EOF
+```
 
-# install aws-load-balancer-controller
+## Install AWS Load Balancer Controller
+
+Please use the following commands to install [aws-load-balancer-controller](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller)
+
+```bash
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n kube-system aws-load-balancer-controller aws-load-balancer-controller \
   --labels layer=0 \
@@ -175,8 +172,13 @@ serviceAccount:
   create: false
   name: aws-load-balancer-controller
 EOF
+```
 
-# install metrics-server
+## Install Metrics Server
+
+Please use the following commands to install [metrics-server](https://github.com/kubernetes-sigs/metrics-server/tree/master/charts/metrics-server)
+
+```bash
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n kube-system metrics-server metrics-server \
   --labels layer=0 \
@@ -187,20 +189,6 @@ serviceAccount:
   name: metrics-server
 EOF
 ```
-</details>
-
-<details>
-
-<summary>Sample output of third party helm charts that we have installed in the EKS cluster</summary>
-
-```bash
-$ helm ls -A -a
-NAME                        	NAMESPACE          	REVISION	UPDATED                             	STATUS  	CHART                             	APP VERSION
-aws-load-balancer-controller	kube-system        	1       	2023-10-23 12:17:13.149673 -0500 CDT	deployed	aws-load-balancer-controller-1.6.0	v2.6.0
-cert-manager                	cert-manager       	2       	2023-10-23 12:10:33.504296 -0500 CDT	deployed	cert-manager-v1.12.3              	v1.12.3
-metrics-server              	kube-system        	1       	2023-10-23 12:19:14.648056 -0500 CDT	deployed	metrics-server-3.11.0             	0.6.4
-```
-</details>
 
 ## Install Crossplane [OPTIONAL]
 
@@ -340,3 +328,7 @@ crossplane-components:
     enabled: true
 EOF
 ```
+
+# Next Steps
+For Control Plane, follow the steps from [Control Plane README](../control-plane/README.md)
+For Data Plane, follow the steps from [Data Plane README](../data-plane/README.md)

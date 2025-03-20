@@ -28,7 +28,7 @@ connect:
   remoteDebug: false  # Enable debug logging of this tunnel connection inside application (running in TIBCO Cloud)
   logFile: ""  # Full path to the output log file. If not specified, the logs will be printed on stdout
 
-  networkCheckUrl: "https://www.google.com"  # Url to check for network connectivity
+  networkCheckUrl: ""  # Url to check for network connectivity
   infiniteRetries: false  # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
   url: ""  # Connect Url generated from TIBCO Cloud Control plane
   onPremHost: "cp-proxy"  # service name of on prem host
@@ -54,7 +54,7 @@ replicaCount: "1"
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 184
+  tag: 187
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -71,11 +71,11 @@ fluentbit:
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
-      cpu: 30m
-      memory: 20Mi
+      cpu: 10m
+      memory: 15Mi
     limits:
-      cpu: 100m
-      memory: 50Mi
+      cpu: 50m
+      memory: 30Mi
 
 # probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
 provisionerAgentProbe:

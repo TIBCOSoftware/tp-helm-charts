@@ -13,7 +13,7 @@ resources:
     memory: 256Mi
   limits:
     cpu: 1000m
-    memory: 1000Mi
+    memory: 1024Mi
 
 # no of replicas
 replicaCount: "1"
@@ -75,10 +75,10 @@ fluentbit:
   resources:
     requests:
       cpu: 10m
-      memory: 20Mi
+      memory: 15Mi
     limits:
       cpu: 50m
-      memory: 50Mi
+      memory: 30Mi
 hpa:
   minReplicas: 1
   maxReplicas: 3

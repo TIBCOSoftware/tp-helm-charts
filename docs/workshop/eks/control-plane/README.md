@@ -2,7 +2,7 @@ Table of Contents
 =================
 <!-- TOC -->
 * [Table of Contents](#table-of-contents)
-* [Control Plane EKS Workshop](#tibco-control-plane-eks-workshop)
+* [TIBCO® Control Plane EKS Workshop](#tibco-control-plane-eks-workshop)
   * [Export required variables](#export-required-variables)
   * [Install External DNS](#install-external-dns)
   * [Create-Configure AWS Resources](#create-configure-aws-resources)
@@ -14,13 +14,14 @@ Table of Contents
       * [Install Crossplane claims](#install-crossplane-claims)
     * [Verifying AWS Resources creation](#verifying-aws-resources-creation)
     * [Create Storage Class](#create-storage-class)
-  * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
-* [Control Plane Deployment](#control-plane-deployment)
+* [TIBCO® Control Plane Deployment](#tibco-control-plane-deployment)
   * [Configure Route53 records, Certificates](#configure-route53-records-certificates)
-  * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
   * [Install Additional Ingress Controller [OPTIONAL]](#install-additional-ingress-controller-optional)
     * [Nginx Ingress Controller](#install-nginx-ingress-controller)
+  * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
+  * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
   * [Bootstrap Chart values](#bootstrap-chart-values)
+  * [Next Steps](#Next-steps)
 * [Clean-up](#clean-up)
 <!-- TOC -->
 
@@ -101,7 +102,7 @@ Before creating ingress on this EKS cluster, we need to install [external-dns](h
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.14.4" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
 serviceAccount:
   create: false
   name: external-dns 
@@ -143,6 +144,10 @@ export ${TP_WAIT_FOR_RESOURCE_AVAILABLE}="false" # set to true to wait for resou
 ./create-rds.sh
 ```
 
+> [!IMPORTANT]
+> Please note that the RDS db instance created above does not enforce SSL, by default. It has to be manually configured.
+> To enforce SSL while to connecting to the instance, please follow the steps mentioned under [Requiring an SSL connection to a PostgreSQL DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html#PostgreSQL.Concepts.General.SSL.Requiring)
+
 ### Using Crossplane claims
 
 To use crossplane to create AWS resources, please make sure you have installed crossplane following [the steps under Install Crossplane in cluster-setup document](../cluster-setup/README.md#install-crossplane-optional)
@@ -183,7 +188,7 @@ kubectl create serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns
 As part of claims, we will create following resources:
   1. Amazon Elastic File System (EFS)
   2. Kubernete storage class using EFS ID created in (1)
-  3. Amazon Relational Database Service (RDS) DB instance of PostgreSQL
+  3. Amazon Relational Database Service (RDS) DB cluster of Aurora Postgres
   4. IAM Role and Policy Attachment
   5. Kubernetes service account and annotate it with IAM Role ARN from (4)
 
@@ -192,8 +197,7 @@ As part of claims, we will create following resources:
 > TIBCO Control Plane services can access these resources using the secrets.
 
 > [!IMPORTANT]
-> Please note that the RDS DB instance of PostgreSQL created using below crossplane claims does not enforce SSL, by default.
-> To enforce SSL while to connecting to the instance, please follow the steps mentioned under [Requiring an SSL connection to a PostgreSQL DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html#PostgreSQL.Concepts.General.SSL.Requiring)
+> Please note that the RDS DB cluster of Aurora Postgres created using below crossplane claims enforces SSL.
 
 
 ```bash
@@ -278,20 +282,20 @@ EOF
 ```
 
 ### Verifying AWS Resources creation
-After following the steps to create the AWS resources above, you should see the EFS, IAM Role and RDS DB instance of PostgreSQL in the AWS console.
+After following the steps to create the AWS resources above, you should see the EFS, IAM Role and RDS DB cluster/instance of Aurora Postgres/PostgreSQL in the AWS console.
 
 If you have used crossplane, you can additionally verify the claims and status with below `kubectl` commands
 ```bash
 kubectl get -n ${CP_INSTANCE_ID}-ns TibcoEFSSC 
 kubectl get -n ${CP_INSTANCE_ID}-ns TibcoRoleSA
-kubectl get -n ${CP_INSTANCE_ID}-ns TibcoPostgreSQLInstance
+kubectl get -n ${CP_INSTANCE_ID}-ns TibcoAuroraCluster
 
 # If storage class and service account are created using crossplane
 kubectl get storageclass
 kubectl get serviceaccount -n ${CP_INSTANCE_ID}-ns
 
 # Details for postgreSQL instance connection
-kubectl get secret -n ${CP_INSTANCE_ID}-ns ${CP_INSTANCE_ID}-rds-details -o yaml
+kubectl get secret -n ${CP_INSTANCE_ID}-ns ${CP_INSTANCE_ID}-aurora-details -o yaml
 ```
 
 ### Create Storage Class
@@ -324,6 +328,33 @@ EOF
 )
 ```
 
+# TIBCO® Control Plane Deployment
+
+## Configure Route53 records, Certificates
+We recommend that you use different Route53 records and certificates for `my` (control plane application) and `tunnel` (hybrid connectivity) domains. You can use wildcard domain names for these control plane application and hybrid connecivity domains.
+
+We recommend that you use different `CP_INSTANCE_ID` to distinguish multiple control plane installations within a cluster.
+
+Please export below variables and values related to domains:
+```bash
+## Domains
+export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
+export TP_MY_DOMAIN=${CP_INSTANCE_ID}-my.${TP_HOSTED_ZONE_DOMAIN} # domain to be used
+export TP_TUNNEL_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_HOSTED_ZONE_DOMAIN} # domain to be used
+```
+`TP_HOSTED_ZONE_DOMAIN` is exported as part of [Export required variables](#export-required-variables)
+
+You can use the following services to register domain and manage certificates.
+* [Amazon Route 53](https://aws.amazon.com/route53/): to manage DNS. You can register your Control Plane domain in Route 53. And, give permission to external-dns to add new record.
+* [AWS Certificate Manager (ACM)](https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html): to manage SSL certificate. You can create wildcard certificates for `*.<TP_MY_DOMAIN>` and `*.<TP_TUNNEL_DOMAIN>` in ACM.
+* aws-load-balancer-controller: to create AWS ALB. It will automatically create AWS ALB and add SSL certificate to ALB.
+* network-load-balancer service: to create AWS NLB. It will automatically create AWS NLB and add the SSL certificate provided in values.
+* external-dns: to create DNS record in Route 53. It will automatically create DNS record for ingress objects and load balancer service..
+
+For this workshop, you will need to
+* register a domain name in Route 53. You can follow this [link](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html) to register a domain name in Route 53.
+* create a wildcard certificate in ACM. You can follow this [link](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) to create a wildcard certificate in ACM.
+
 ## Install Additional Ingress Controller [OPTIONAL]
 
 You can additionally install another ingress controller. We have provided the helm chart called `dp-config-aws` that encapsulates the installation of ingress controller. 
@@ -340,17 +371,17 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   --labels layer=1 \
   --version "^1.0.0" -f - <<EOF
 dns:
-  domain: "${TP_DOMAIN}"
+  domain: "${TP_MY_DOMAIN}"
 httpIngress:
   enabled: true
   name: nginx
   backend:
     serviceName: dp-config-aws-nginx-ingress-nginx-controller
   annotations:
-    alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
+    alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
     # this is to support 1.3 TLS for ALB, Please refer AWS doc: https://aws.amazon.com/about-aws/whats-new/2023/03/application-load-balancer-tls-1-3/
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+    external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
 ingress-nginx:
@@ -384,7 +415,7 @@ httpIngress:
     serviceName: dp-config-aws-tunnel-ingress-nginx-controller
   annotations:
     # keeping the same group.name ensures only one ALB is created
-    alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
+    alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
     # this is to support 1.3 TLS for ALB, Please refer AWS doc: https://aws.amazon.com/about-aws/whats-new/2023/03/application-load-balancer-tls-1-3/
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
     external-dns.alpha.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
@@ -420,33 +451,6 @@ nginx   k8s.io/ingress-nginx   <none>       7h11m
 | RDS DB details (if created using crossplane) | Secret `${CP_INSTANCE_ID}-rds-details` in `${CP_INSTANCE_ID}-ns` namespace Refer [Install claims](#install-claims) section  | used for TIBCO Control Plane |
 | Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/control-plane-network-policies.htm) |
 
-# Control Plane Deployment
-
-## Configure Route53 records, Certificates
-We recommend that you use different Route53 records and certificates for `my` (control plane application) and `tunnel` (hybrid connectivity) domains. You can use wildcard domain names for these control plane application and hybrid connecivity domains.
-
-We recommend that you use different `CP_INSTANCE_ID` to distinguish multiple control plane installations within a cluster.
-
-Please export below variables and values related to domains:
-```bash
-## Domains
-export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
-export TP_DOMAIN=${CP_INSTANCE_ID}-my.${TP_HOSTED_ZONE_DOMAIN} # domain to be used
-export TP_TUNNEL_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_HOSTED_ZONE_DOMAIN} # domain to be used
-```
-`TP_HOSTED_ZONE_DOMAIN` is exported as part of [Export required variables](#export-required-variables)
-
-You can use the following services to register domain and manage certificates.
-* [Amazon Route 53](https://aws.amazon.com/route53/): to manage DNS. You can register your Control Plane domain in Route 53. And, give permission to external-dns to add new record.
-* [AWS Certificate Manager (ACM)](https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html): to manage SSL certificate. You can create wildcard certificates for `*.<TP_DOMAIN>` and `*.<TP_TUNNEL_DOMAIN>` in ACM.
-* aws-load-balancer-controller: to create AWS ALB. It will automatically create AWS ALB and add SSL certificate to ALB.
-* network-load-balancer service: to create AWS NLB. It will automatically create AWS NLB and add the SSL certificate provided in values.
-* external-dns: to create DNS record in Route 53. It will automatically create DNS record for ingress objects and load balancer service..
-
-For this workshop, you will need to
-* register a domain name in Route 53. You can follow this [link](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html) to register a domain name in Route 53.
-* create a wildcard certificate in ACM. You can follow this [link](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) to create a wildcard certificate in ACM.
-
 ## Export additional variables required for chart values
 ```bash
 ## Bootstrap and Configuration charts specific details
@@ -454,7 +458,7 @@ export TP_MAIN_INGRESS_CONTROLLER=alb
 export TP_CONTAINER_REGISTRY_URL="csgprduswrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
 export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
 export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
-export TP_DOMAIN_CERT_ARN="" # replace with your TP_DOMAIN certificate arn
+export TP_MY_DOMAIN_CERT_ARN="" # replace with your TP_MY_DOMAIN certificate arn
 export TP_TUNNEL_DOMAIN_CERT_ARN="" # replace with your TP_TUNNEL DOMAIN certificate arn
 ```
 
@@ -466,7 +470,7 @@ Following values can be stored in a file and passed to the platform-boostrap cha
 > These values are for example only.
 
 ```bash
-cat > aws-bootstrap-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_TUNNEL_DOMAIN}, ${TP_DOMAIN}, ${TP_VPC_CIDR}, ${TP_SERVICE_CIDR}, ${TP_STORAGE_CLASS_EFS}, ${TP_INGRESS_CONTROLLER}, ${TP_DOMAIN_CERT_ARN}, ${TP_TUNNEL_DOMAIN_CERT_ARN}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
+cat > aws-bootstrap-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_TUNNEL_DOMAIN}, ${TP_MY_DOMAIN}, ${TP_VPC_CIDR}, ${TP_SERVICE_CIDR}, ${TP_STORAGE_CLASS_EFS}, ${TP_INGRESS_CONTROLLER}, ${TP_MY_DOMAIN_CERT_ARN}, ${TP_TUNNEL_DOMAIN_CERT_ARN}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
 tp-cp-bootstrap:
   hybrid-proxy:
     # uncomment the following section (ports and service values), if you want to use a load balancer service for hybrid-proxy
@@ -536,8 +540,8 @@ tp-cp-bootstrap:
       #    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
       #    nginx.ingress.kubernetes.io/proxy-body-size: "150m"
       #   # annotation for `alb` ingress class
-      #   external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
-      #   alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
+      #   external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
+      #   alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
       #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
       #   alb.ingress.kubernetes.io/backend-protocol: HTTP
       #   alb.ingress.kubernetes.io/scheme: internet-facing
@@ -545,17 +549,17 @@ tp-cp-bootstrap:
       #   alb.ingress.kubernetes.io/target-type: ip
       #   alb.ingress.kubernetes.io/healthcheck-port: '88'
       #   alb.ingress.kubernetes.io/healthcheck-path: "/health"
-      #   alb.ingress.kubernetes.io/certificate-arn: "${TP_DOMAIN_CERT_ARN}"
+      #   alb.ingress.kubernetes.io/certificate-arn: "${TP_MY_DOMAIN_CERT_ARN}"
       #   # optional policy to use TLS 1.3, for `alb` ingress class
       #   alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
       hosts:
       #   # uncomment following tls section to secure your ingress resource
       #   tls:
       #     - hosts:
-      #         - '*.${TP_DOMAIN}'
+      #         - '*.${TP_MY_DOMAIN}'
       #      # create a secret containing a TLS private key and certificate, and replace the value for secretName below
       #      secretName: router-tls
-        - host: '*.${TP_DOMAIN}'
+        - host: '*.${TP_MY_DOMAIN}'
           paths:
             - path: /
               pathType: Prefix
@@ -570,6 +574,7 @@ global:
       url: "${TP_CONTAINER_REGISTRY_URL}"
       username: "${TP_CONTAINER_REGISTRY_USER}"
       password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+      repository: "tibco-platform-docker-prod"
     controlPlaneInstanceId: "${CP_INSTANCE_ID}"
     serviceAccount: "${CP_INSTANCE_ID}-sa"
     # uncomment to enable logging
@@ -582,10 +587,9 @@ global:
       podCIDR: "${TP_VPC_CIDR}"
       serviceCIDR: "${TP_SERVICE_CIDR}"
     dnsTunnelDomain: "${TP_TUNNEL_DOMAIN}"
-    dnsDomain: "${TP_DOMAIN}"
+    dnsDomain: "${TP_MY_DOMAIN}"
     storage:
       storageClassName: "${TP_STORAGE_CLASS_EFS}"
-        # uncomment following section if logging is enabled
     # uncomment following section if logging is enabled
     # logserver:
     #   endpoint: ${TP_LOGSERVER_ENDPOINT}
@@ -596,7 +600,9 @@ EOF
 )
 ```
 
-Please proceed with deployment of TIBCO Control Plane on your EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/emp/platform-cp/1.2.0/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
+## Next Steps
+
+Please proceed with deployment of TIBCO Control Plane on your EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/emp/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
 
 # Clean-up
 
@@ -610,6 +616,7 @@ cd ../scripts/
 Set the following variable with value false, if you want to keep the cluster and delete only the helm charts and AWS resources
 ```bash
 export TP_DELETE_CLUSTER=false # default value is "true"
+export CP_RESOURCE_PREFIX=platform # required, if you are using crossplane to create AWS resources
 ```
 
 > [!IMPORTANT]
@@ -617,6 +624,10 @@ export TP_DELETE_CLUSTER=false # default value is "true"
 > so that common resources are not deleted. (e.g. storage class, EFS, EKS Cluster, crossplane role, etc.)
 
 For the tools charts uninstallation, EFS mount and security groups deletion and cluster deletion, we have provided a helper [clean-up](../scripts/clean-up-control-plane.sh).
+
+> [!IMPORTANT]
+> Please make sure the resources to be deleted are in started/scaled-up state (e.g. RDS DB cluster/instance, EKS cluster nodegroups)
+
 ```bash
 ./clean-up-control-plane.sh
 ```

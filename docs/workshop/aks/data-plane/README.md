@@ -3,15 +3,8 @@ Table of Contents
 <!-- TOC -->
 * [Table of Contents](#table-of-contents)
 * [Data Plane Cluster Workshop](#data-plane-cluster-workshop)
-  * [Introduction](#introduction)
-  * [Command Line Tools required](#command-line-tools-required)
-  * [Recommended Roles and Permissions](#recommended-roles-and-permissions)
   * [Export required variables](#export-required-variables)
-  * [Pre cluster creation scripts](#pre-cluster-creation-scripts)
-  * [Create Azure Kubernetes Service (AKS) cluster](#create-azure-kubernetes-service-aks-cluster)
-  * [Post cluster create scripts](#post-cluster-creation-scripts)
-  * [Generate kubeconfig to connect to AKS cluster](#generate-kubeconfig-to-connect-to-aks-cluster)
-  * [Install common third party tools](#install-common-third-party-tools)
+  * [Install External DNS](#install-external-dns)
   * [Install Ingress Controller, Storage class](#install-ingress-controller-storage-class)
     * [Setup DNS](#setup-dns)
     * [Nginx Ingress Controller](#install-nginx-ingress-controller)
@@ -32,48 +25,11 @@ The goal of this workshop is to provide a hands-on experience to deploy a Data P
 > [!Note]
 > This workshop is NOT meant for production deployment.
 
-## Introduction
-
-In order to deploy Data Plane, you need to have a Kubernetes cluster and install the necessary tools. This workshop will guide you to create a Kubernetes cluster in Azure and install the necessary tools.
-
-## Command Line Tools required
-
-The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The following tools are installed using [brew](https://brew.sh/):
-* envsubst (part of homebrew gettext)
-* yq (v4.35.2)
-* jq (1.7)
-* bash (5.2.15)
-* az (az-cli/2.53.1)
-* kubectl (v1.30.2)
-* helm (v3.14.2)
-
-For reference, [Dockerfile](../../Dockerfile) with [apline 3.19](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
-The subsequent steps can be followed from within the container.
+To perform the steps mentioned in this workshop document, it is assumed you already have an AKS cluster created and can connect to it.
 
 > [!IMPORTANT]
-> Please use --platform while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
-> This can be different based on your machine OS and hardware architecture.
+> To create AKS cluster and connect to it using kubeconfig, please refer [steps for AKS cluster creation](../cluster-setup/README.md#azure-kubernetes-service-cluster-creation)
 
-A sample command on Linux AMD64 is
-```bash
-docker buildx build --platform=${platform} --progress=plain \
-  --build-arg AZURE_CLI_VERSION=${AZURE_CLI_VERSION} \
-  --build-arg KUBECTL_VERSION=${KUBECTL_VERSION} \
-  -t workshop-cli-tools:latest --load .
-```
-## Recommended Roles and Permissions
-The steps are run with a Service Principal sign in.
-The Service Principal has:
-* Contributor role assigned over the scope of subscription used for the workshop
-* User Access Administrator role assigned over the scope of subscription used for the workshop
-* Microsoft Graph API permission for Directory.Read.All of type Application for the AAD role to propagate
-
-You will need to [create a service principal with these role assignments](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?tabs=bash) with the above roles and permissions.
-
-You can optionally choose run the steps as a Azure Subscription user with above permissions.
-
-> [!NOTE]
-> Please use this user with recommended roles and permissions, to create and access AKS cluster
 
 ## Export required variables
 
@@ -91,32 +47,17 @@ export TP_TENANT_ID=$(az account show --query tenantId -o tsv) # tenant id
 export TP_AZURE_REGION="eastus" # region of resource group
 
 ## Cluster configuration specific variables
-export TP_RESOURCE_GROUP="dp-resource-group" # resource group name
-export TP_CLUSTER_NAME="dp-cluster" # name of the cluster to be prvisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.29.4" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli; use 1.29 or above
-export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity" # user assigned identity to be associated with cluster
+export TP_RESOURCE_GROUP="" # resource group name
+export TP_CLUSTER_NAME="" # name of the cluster prvisioned, used for chart deployment
+export TP_KUBERNETES_VERSION="1.31.5" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli; use 1.29 or above
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
 ## Network specific variables
 export TP_VNET_NAME="${TP_CLUSTER_NAME}-vnet" # name of VNet resource
 export TP_VNET_CIDR="10.4.0.0/16" # CIDR of the VNet
 export TP_SERVICE_CIDR="10.0.0.0/16" # CIDR for service cluster IPs
-export TP_SERVICE_DNS_IP="10.0.0.10" # IP address assigned to the Kubernetes DNS service
-export TP_AKS_SUBNET_NAME="aks-subnet" # name of AKS subnet resource
 export TP_AKS_SUBNET_CIDR="10.4.0.0/20" # CIDR of the AKS subnet address space
-export TP_APPLICATION_GW_SUBNET_NAME="appgw-subnet" # name of application gateway subnet
-export TP_APPLICATION_GW_SUBNET_CIDR="10.4.17.0/24" # CIDR of the application gateway subnet address space
-export TP_PUBLIC_IP_NAME="public-ip" # name of public ip resource
-export TP_NAT_GW_NAME="nat-gateway" # name of NAT gateway resource
-export TP_NAT_GW_SUBNET_NAME="natgw-subnet" # name of NAT gateway subnet
-export TP_NAT_GW_SUBNET_CIDR="10.4.18.0/27" # CIDR of the NAT gateway subnet address space
-export TP_APISERVER_SUBNET_NAME="apiserver-subnet" # name of api server subnet resource
 export TP_APISERVER_SUBNET_CIDR="10.4.19.0/28" # CIDR of the kubernetes api server subnet address space
-export TP_NODE_VM_COUNT="3" # Number of VM nodes in the Azure AKS cluster
-export TP_NODE_VM_SIZE="Standard_D4s_v3" # VM Size of nodes
-
-## By default, only your public IP will be added to allow access to public cluster
-export TP_AUTHORIZED_IP=""  # declare additional IPs to be whitelisted for accessing cluster
 
 ## Tooling specific variables
 export TP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
@@ -125,7 +66,7 @@ export TP_DOMAIN="dp1.azure.example.com" # domain to be used
 ## If you want to use different domain for services and user apps [OPTIONAL]
 export TP_DOMAIN="services.dp1.azure.example.com" # domain to be used for services and capabilities
 export TP_APPS_DOMAIN="apps.dp1.azure.example.com" # optional - apps dns domain if you want to use different IC for services and apps
-export TP_SANDBOX_SUBDOMAIN="dp1" # hostname of TP_DOMAIN
+export TP_SANDBOX="dp1" # hostname of TP_DOMAIN
 export TP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of TP_DOMAIN
 export TP_MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
 export TP_DISK_ENABLED="true" # to enable azure disk storage class
@@ -145,78 +86,9 @@ Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the n
 cd scripts/aks
 ```
 
-## Pre cluster creation scripts
-Execute the script to create following Azure resources
-* Resource group
-* User assigned identity
-* Role assignment for the user assigned identity
-  * as contributor over the scope of subscription
-  * as dns zone contributor over the scope of DNS resource group
-  * as network contributor over the scope of data plane resource group
-* NAT gateway
-* Virtual network
-* Subnet for
-  * AKS cluster
-  * Application gateway
-  * NAT gateway
+## Install External DNS
 
-```bash
-./pre-aks-cluster-script.sh
-```
-It will take approximately 5 minutes to complete the configuration.
-
-## Create Azure Kubernetes Service (AKS) cluster
-> [!IMPORTNANT]
-> Please note, we are using the flag --enable-workload-identity in create cluster command.
-> This works, if the preview feature EnableWorkloadIdentityPreview is registered for the subscription.
-> You might get a prompt to allow to register the feature as part of script execution, if it is not registered already.
-> This is one time step and you can also enable explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/cli/azure/feature?view=azure-cli-latest#az-feature-register)
-> e.g. az feature register --namespace Microsoft.ContainerService --name EnableWorkloadIdentityPreview
-
-> [!IMPORTNANT]
-> Please note, we are using the flag --enable-apiserver-vnet-integration in create cluster command.
-> This is to esnure that the cluster API server endpoint is available publicly and can be accessed over VNet by nodes.
-> This works, if the preview feature EnableAPIServerVnetIntegrationPreview is registered for the subscription.
-> You might get a prompt to allow to register the feature as part of script execution, if it is not registered already.
-> This is one time step and you can also enable explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/azure/aks/api-server-vnet-integration)
-> e.g. az feature register --namespace "Microsoft.ContainerService" --name "EnableAPIServerVnetIntegrationPreview"
-> You will also need to [add the aks-preview extension for API Server VNet integration using cli command](https://learn.microsoft.com/en-us/azure/aks/api-server-vnet-integration)
-> e.g. az extension add --name aks-preview
-
-Execute the script
-```bash
-./aks-cluster-create.sh
-```
-
-It will take approximately 15 minutes to create an AKS cluster.
-
-## Post cluster creation scripts
-Execute the script to
-1. create federated workload identity federation
-2. create namespace and secret for external dns
-
-```bash
-./post-aks-cluster-script.sh
-```
-
-It will take approximately 5 minutes to complete the configuration.
-
-## Generate kubeconfig to connect to AKS cluster
-We can use the following command to generate kubeconfig file.
-```bash
-az aks get-credentials --resource-group ${TP_RESOURCE_GROUP} --name ${TP_CLUSTER_NAME} --file "${KUBECONFIG}" --overwrite-existing
-```
-
-And check the connection to AKS cluster.
-```bash
-kubectl get nodes
-```
-
-## Install common third party tools
-
-Before we deploy ingress or observability tools on an empty AKS cluster; we need to install some basic tools.
-* [cert-manager](https://cert-manager.io/docs/installation/helm/)
-* [external-dns](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns)
+Before creating ingress on this AKS cluster, we need to install [external-dns](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns)
 
 > [!NOTE]
 > In the chart installation commands starting in this section & continued in next sections, you will see labels added
@@ -224,29 +96,12 @@ Before we deploy ingress or observability tools on an empty AKS cluster; we need
 > numbers are added to identify the dependency of chart installations, so that uninstallation can be done in reverse
 > sequence (starting with charts not labelled first).
 
-<details>
-
-<summary>We can use the following commands to install these tools</summary>
-
 ```bash
-# install cert-manager
-helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
-  -n cert-manager cert-manager cert-manager \
-  --labels layer=0 \
-  --repo "https://charts.jetstack.io" --version "v1.12.3" -f - <<EOF
-installCRDs: true
-podLabels:
-  azure.workload.identity/use: "true"
-serviceAccount:
-  labels:
-    azure.workload.identity/use: "true"
-EOF
-
 # install external-dns
 helm upgrade --install --wait --timeout 1h --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.13.0" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
 provider: azure
 sources:
   - service
@@ -270,7 +125,7 @@ EOF
 helm upgrade --install --wait --timeout 1h --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "^1.0.0" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
 provider: azure
 sources:
   - service
@@ -290,20 +145,6 @@ extraArgs:
 - --ingress-class=${TP_MAIN_INGRESS_CLASS_NAME}
 EOF
 ```
-</details>
-
-<details>
-
-<summary>Sample output of third party helm charts that we have installed in the AKS cluster</summary>
-
-```bash
-$ helm ls -A -a
-NAME                         	NAMESPACE          	REVISION	UPDATED                                	STATUS  	CHART                                                                APP VERSION
-aks-managed-workload-identity	kube-system        	956     	2023-11-03 11:51:09.441169483 +0000 UTC	deployed	workload-identity-addon-0.1.0-575c84365b912ce669b63fe9cb46727096e72c3           
-cert-manager                 	cert-manager       	1       	2023-11-03 17:11:50.00057 +0530 IST    	deployed	cert-manager-v1.12.3                                                 v1.12.3    
-external-dns                 	external-dns-system	1       	2023-11-03 17:17:00.469065 +0530 IST   	deployed	external-dns-1.13.0                                                  0.13.5        
-```
-</details>
 
 ## Install Ingress Controller, Storage class
 
@@ -353,7 +194,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   --labels layer=1 \
   --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 global:
-  dnsSandboxSubdomain: "${TP_SANDBOX_SUBDOMAIN}"
+  dnsSandboxSubdomain: "${TP_SANDBOX}"
   dnsGlobalTopDomain: "${TP_TOP_LEVEL_DOMAIN}"
   azureSubscriptionDnsResourceGroup: "${TP_DNS_RESOURCE_GROUP}"
   azureSubscriptionId: "${TP_SUBSCRIPTION_ID}"
@@ -429,7 +270,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   --labels layer=1 \
   --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 global:
-  dnsSandboxSubdomain: "${TP_SANDBOX_SUBDOMAIN}"
+  dnsSandboxSubdomain: "${TP_SANDBOX}"
   dnsGlobalTopDomain: "${TP_TOP_LEVEL_DOMAIN}"
   azureSubscriptionDnsResourceGroup: "${TP_DNS_RESOURCE_GROUP}"
   azureSubscriptionId: "${TP_SUBSCRIPTION_ID}"
@@ -449,6 +290,7 @@ traefik:
   enabled: true
   additionalArguments:
     - '--entryPoints.web.forwardedHeaders.insecure' #You can also use trustedIPs instead of insecure to trust the forwarded headers https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
+    - '--serversTransport.insecureSkipVerify=true' #Please refer https://doc.traefik.io/traefik/routing/overview/#transport-configuration
 ## following section is required to send traces using traefik
 ## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
 #  tracing:
@@ -482,7 +324,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   --labels layer=1 \
   --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 global:
-  dnsSandboxSubdomain: "${TP_SANDBOX_SUBDOMAIN}"
+  dnsSandboxSubdomain: "${TP_SANDBOX}"
   dnsGlobalTopDomain: "${TP_TOP_LEVEL_DOMAIN}"
   azureSubscriptionDnsResourceGroup: "${TP_DNS_RESOURCE_GROUP}"
   azureSubscriptionId: "${TP_SUBSCRIPTION_ID}"
@@ -775,7 +617,11 @@ Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the n
 cd scripts/aks
 ```
 
-For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](../../scripts/aks/clean-up-data-plane.sh).
+For the tools charts uninstallation, Azure file shares deletion and cluster deletion, we have provided a helper [clean-up](../scripts/clean-up.sh).
+
+> [!IMPORTANT]
+> Please make sure the resources to be deleted are in started/scaled-up state (e.g. AKS cluster)
+
 ```bash
-./clean-up-data-plane.sh
+./clean-up.sh
 ```
