@@ -834,15 +834,6 @@ spec:
       config: acscallback
       fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
       enableRedirects: true
-  - path: /idm/authorize
-    internalPath: /v1/authorize
-    port: 7831
-    protocol: http
-    proxies:
-    - listener: virtual
-      config: empty
-      fqdn: ${TSC_DNS_DOMAIN}
-      enableRedirects: true
   - path: /idm/v1/version
     internalPath: /v1/version
     port: 7831
