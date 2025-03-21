@@ -46,6 +46,10 @@ containers:
         valueFrom:
           fieldRef:
             fieldPath: spec.nodeName
+      - name: K8S_NODE_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP
       {{- end }}
       {{- if and (.Values.useGOMEMLIMIT) ((((.Values.resources).limits).memory))  }}
       - name: GOMEMLIMIT
