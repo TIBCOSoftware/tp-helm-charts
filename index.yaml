@@ -3843,6 +3843,26 @@ entries:
     version: 1.0.1
   tibco-developer-hub:
   - apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-21T06:59:31.569373151Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: a4dec1e9d331cfdab665984d3b3d9a189b701393c3f19c877c899fa1dfc83246
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.5.1003/tibco-developer-hub-1.5.1003.tgz
+    version: 1.5.1003
+  - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:16:16.522338831Z"
     dependencies:
@@ -7934,6 +7954,26 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-tibcohub-recipes
     apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-21T06:59:31.681701098Z"
+    description: TIBCO Developer Hub Data Plane Recipes
+    digest: 7cad1d12d85349014256e2f812366992757a16ac601c1dda8949179f5a047a99
+    home: https://github.com/tibco/tp-dev-hub.git
+    keywords:
+    - tibco-platform
+    - control-plane
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO CIC Compute Dev Team
+    name: tp-cp-tibcohub-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-tibcohub-recipes-1.5.1003/tp-cp-tibcohub-recipes-1.5.1003.tgz
+    version: 1.5.1003
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-tibcohub-recipes
+    apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-21T13:16:16.745868409Z"
     description: TIBCO Developer Hub Data Plane Recipes
@@ -8384,4 +8424,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-03-21T06:49:30.655611761Z"
+generated: "2025-03-21T06:59:31.682219407Z"
