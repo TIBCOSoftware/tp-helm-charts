@@ -106,7 +106,7 @@ Build config file for deployment OpenTelemetry Collector
 {{- end }}
 
 {{- define "finops-otel-collector.applyHostMetricsConfig" -}}
-{{- $config := mustMergeOverwrite (include "finops-otel-collector.hostMetricsConfig" .Values | fromYaml) .config }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "receivers" list)))) (include "finops-otel-collector.hostMetricsConfig" .Values | fromYaml) .config }}
 {{- $_ := set $config.service.pipelines.metrics "receivers" (append $config.service.pipelines.metrics.receivers "hostmetrics" | uniq)  }}
 {{- $config | toYaml }}
 {{- end }}
@@ -162,7 +162,7 @@ receivers:
 {{- end }}
 
 {{- define "finops-otel-collector.applyClusterMetricsConfig" -}}
-{{- $config := mustMergeOverwrite (include "finops-otel-collector.clusterMetricsConfig" .Values | fromYaml) .config }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "receivers" list)))) (include "finops-otel-collector.clusterMetricsConfig" .Values | fromYaml) .config }}
 {{- $_ := set $config.service.pipelines.metrics "receivers" (append $config.service.pipelines.metrics.receivers "k8s_cluster" | uniq)  }}
 {{- $config | toYaml }}
 {{- end }}
@@ -174,7 +174,7 @@ receivers:
 {{- end }}
 
 {{- define "finops-otel-collector.applyKubeletMetricsConfig" -}}
-{{- $config := mustMergeOverwrite (include "finops-otel-collector.kubeletMetricsConfig" .Values | fromYaml) .config }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "receivers" list)))) (include "finops-otel-collector.kubeletMetricsConfig" .Values | fromYaml) .config }}
 {{- $_ := set $config.service.pipelines.metrics "receivers" (append $config.service.pipelines.metrics.receivers "kubeletstats" | uniq)  }}
 {{- $config | toYaml }}
 {{- end }}
@@ -188,10 +188,11 @@ receivers:
 {{- end }}
 
 {{- define "finops-otel-collector.applyLogsCollectionConfig" -}}
-{{- $config := mustMergeOverwrite (include "finops-otel-collector.logsCollectionConfig" .Values | fromYaml) .config }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "logs" (dict "receivers" list)))) (include "finops-otel-collector.logsCollectionConfig" .Values | fromYaml) .config }}
 {{- $_ := set $config.service.pipelines.logs "receivers" (append $config.service.pipelines.logs.receivers "filelog" | uniq)  }}
 {{- if .Values.Values.presets.logsCollection.storeCheckpoints}}
-{{- $_ := set $config.service "extensions" (append $config.service.extensions "file_storage" | uniq)  }}
+{{- $configExtensions := mustMergeOverwrite (dict "service" (dict "extensions" list)) $config }}
+{{- $_ := set $config.service "extensions" (append $configExtensions.service.extensions "file_storage" | uniq)  }}
 {{- end }}
 {{- $config | toYaml }}
 {{- end }}
@@ -298,14 +299,23 @@ receivers:
 
 {{- define "finops-otel-collector.applyKubernetesAttributesConfig" -}}
 {{- $config := mustMergeOverwrite (include "finops-otel-collector.kubernetesAttributesConfig" .Values | fromYaml) .config }}
-{{- if and ($config.service.pipelines.logs) (not (has "k8sattributes" $config.service.pipelines.logs.processors)) }}
-{{- $_ := set $config.service.pipelines.logs "processors" (prepend $config.service.pipelines.logs.processors "k8sattributes" | uniq)  }}
+{{- if $config.service.pipelines.logs }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "logs" (dict "processors" list)))) $config }}
+  {{- if not (has "k8sattributes" $config.service.pipelines.logs.processors) }}
+    {{- $_ := set $config.service.pipelines.logs "processors" (prepend $config.service.pipelines.logs.processors "k8sattributes" | uniq)  }}
+  {{- end }}
 {{- end }}
-{{- if and ($config.service.pipelines.metrics) (not (has "k8sattributes" $config.service.pipelines.metrics.processors)) }}
-{{- $_ := set $config.service.pipelines.metrics "processors" (prepend $config.service.pipelines.metrics.processors "k8sattributes" | uniq)  }}
+{{- if $config.service.pipelines.metrics }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "processors" list)))) $config }}
+  {{- if not (has "k8sattributes" $config.service.pipelines.metrics.processors) }}
+    {{- $_ := set $config.service.pipelines.metrics "processors" (prepend $config.service.pipelines.metrics.processors "k8sattributes" | uniq)  }}
+  {{- end }}
 {{- end }}
-{{- if and ($config.service.pipelines.traces) (not (has "k8sattributes" $config.service.pipelines.traces.processors)) }}
-{{- $_ := set $config.service.pipelines.traces "processors" (prepend $config.service.pipelines.traces.processors "k8sattributes" | uniq)  }}
+{{- if $config.service.pipelines.traces }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "traces" (dict "processors" list)))) $config }}
+  {{- if not (has "k8sattributes" $config.service.pipelines.traces.processors) }}
+    {{- $_ := set $config.service.pipelines.traces "processors" (prepend $config.service.pipelines.traces.processors "k8sattributes" | uniq)  }}
+  {{- end }}
 {{- end }}
 {{- $config | toYaml }}
 {{- end }}
@@ -388,7 +398,7 @@ processors:
 {{- end }}
 
 {{- define "finops-otel-collector.applyKubernetesEventsConfig" -}}
-{{- $config := mustMergeOverwrite (include "finops-otel-collector.kubernetesEventsConfig" .Values | fromYaml) .config }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "logs" (dict "receivers" list)))) (include "finops-otel-collector.kubernetesEventsConfig" .Values | fromYaml) .config }}
 {{- $_ := set $config.service.pipelines.logs "receivers" (append $config.service.pipelines.logs.receivers "k8sobjects" | uniq)  }}
 {{- $config | toYaml }}
 {{- end }}
