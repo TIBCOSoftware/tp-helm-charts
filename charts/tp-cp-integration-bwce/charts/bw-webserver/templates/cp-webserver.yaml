@@ -119,6 +119,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_ORCH_HOST
+        - name: TP_CP_WEB_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_WEB_SERVER_HOST
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
           valueFrom:
             configMapKeyRef:

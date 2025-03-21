@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.5.0",
-      "minCPVersion": "1.5.0",
+      "capabilityVersion": "1.5.1",
+      "minCPVersion": "1.5.1",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
@@ -52,7 +52,7 @@ data:
             "version": [
               1,
               5,
-              0
+              1
             ],
             "capabilityId": "OAUTH2PROXY",
             "capabilityType": "INFRA_SIDECAR"
@@ -159,7 +159,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.5.0"
+          value: "1.5.1"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
