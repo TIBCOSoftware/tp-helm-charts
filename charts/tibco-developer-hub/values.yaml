@@ -141,7 +141,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "748"
+    tag: "797"
 
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
@@ -342,7 +342,7 @@ postgresql:
   enabled: false
   image:
     name: dx-postgresql
-    tag: 14.15.0-debian-12-r6
+    tag: 14.16.0-debian-12-r4
   commonLabels: '{{- include "tibcohub.platform.commonLabels" . -}}'
 
   # -- The authentication details of the Postgres database
@@ -513,7 +513,7 @@ autoscaling:
 initContainer:
   image:
     name: dx-postgresql
-    tag: 14.15.0-debian-12-r6
+    tag: 14.16.0-debian-12-r4
     digest: ""
 
 publicApi:
