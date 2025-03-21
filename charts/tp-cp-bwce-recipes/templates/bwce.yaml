@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.5.0",
-      "minCPVersion": "1.5.0",
+      "capabilityVersion": "1.5.1",
+      "minCPVersion": "1.5.1",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
@@ -57,7 +57,7 @@ data:
             "version": [
               1,
               5,
-              0
+              1
             ],
             "capabilityId": "OAUTH2PROXY",
             "capabilityType": "INFRA_SIDECAR"
@@ -88,7 +88,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.5.4"
+          version: "1.5.5"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -102,7 +102,7 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 645
+                      tag: 676
                 config:
                   APP_INIT_IMAGE_TAG: "44"
                   BWCE_APP_HELMCHART_VERSION: "1.5.2"
@@ -119,7 +119,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.5.1"
+          version: "1.5.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -129,7 +129,7 @@ data:
                 global:
                   bwcemon:
                     image:
-                      tag: 2.10.0-HF1
+                      tag: 2.10.0-HF2
           flags:
             install: true
             createNamespace: false
@@ -182,7 +182,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.5.0"
+          value: "1.5.1"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

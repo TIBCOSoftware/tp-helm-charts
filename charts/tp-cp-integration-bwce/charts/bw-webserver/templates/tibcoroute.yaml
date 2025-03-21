@@ -66,3 +66,18 @@ spec:
           allowClientCache: false
           allowXFrameOptions: false
           enableRedirects: false
+    - internalPath: /cp/bwce-api/v1
+      path: /cp/bwce-api/v1
+      port: 3000
+      protocol: http
+      proxies:
+        - allowClientCache: true
+          allowXFrameOptions: false
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          enableRedirects: true
+          fqdn: ${TSC_DNS_DOMAIN}
+          listener: virtual
