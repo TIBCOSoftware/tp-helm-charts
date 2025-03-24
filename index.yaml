@@ -3032,6 +3032,64 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: platform-base
     apiVersion: v2
+    appVersion: 1.5.1
+    created: "2025-03-24T04:33:40.095132976Z"
+    dependencies:
+    - name: tp-cp-configuration
+      repository: alias:tibco-platform
+      version: 1.5.0
+    - name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.5.1018
+    - name: tp-cp-o11y
+      repository: alias:tibco-platform
+      version: 1.5.1000
+    - name: tp-cp-core
+      repository: alias:tibco-platform
+      version: 1.5.10017
+    - name: tp-cp-core-ops
+      repository: alias:tibco-platform
+      version: 1.5.10017
+    - name: tp-cp-core-finops
+      repository: alias:tibco-platform
+      version: 1.5.549
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.5.39
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.5.3
+    - condition: tp-cp-msg-contrib.enabled
+      name: tp-cp-msg-contrib
+      repository: alias:tibco-platform
+      version: 1.5.30
+    - condition: tp-cp-msg-recipes.enabled
+      name: tp-cp-msg-recipes
+      repository: alias:tibco-platform
+      version: 1.5.30
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.5.30
+    description: TIBCO Platform base chart
+    digest: 912e9c5796fc797954b920c8e91fbba67cde501e35f9ba70d02814ff9f17c9f2
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.5.1048/platform-base-1.5.1048.tgz
+    version: 1.5.1048
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-24T18:26:47.856031564Z"
     dependencies:
@@ -8708,4 +8766,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-03-21T21:35:25.546313319Z"
+generated: "2025-03-24T04:33:40.572092417Z"
