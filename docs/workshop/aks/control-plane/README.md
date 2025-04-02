@@ -15,6 +15,7 @@ Table of Contents
     * [Install Storage Classes](#install-storage-classes)
   * [Install Postgres](#install-postgres)
 * [TIBCO® Control Plane Deployment](#tibco-control-plane-deployment)
+  * [Pre-requisites to create namespace and service account](#pre-requisites-to-create-namespace-and-service-account)
   * [Configure DNS records, Certificates](#configure-dns-records-certificates)
   * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
   * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
@@ -169,11 +170,12 @@ EOF
 You can choose to install Nginx or Traefik as the ingress controller for routing traffic to Control Plane services using Azure load balancer.
 
 #### Pre-requisites
-In order to make sure that the network traffic is allowed from the ingress-system namespace to the Control Plane namespace pods,
-we need to label this namespace.
+In order to make sure that the network traffic is allowed from the ingress-system namespace to the Control Plane namespace pods, we need to label this namespace.
+
 ```bash
 kubectl label namespace ingress-system networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
 ```
+
 Create a certificate for the ingress controller using the issuer created above
 ```bash
 kubectl apply -f - << EOF
@@ -191,6 +193,13 @@ spec:
     - '*.${TP_DOMAIN}'
 EOF
 ```
+
+> [!IMPORTANT]
+> If you know the DNS domains for Control Plane in advance, rather than creating certificates for the domain 
+> *.${TP_DOMAIN}, you can choose to create the certificates for Control Plane `my` and `tunnel` domains.
+> You can use the same certificate for ingress controller as default certificate.
+> Follow the steps [Pre-requisites to create namespace and service account](#pre-requisites-to-create-namespace-and-service-account) and then [Configure DNS records, Certificates](#configure-dns-records-certificates).
+> Once the certificates are created, please follow with the steps to [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
 
 #### Install Nginx Ingress Controller
 
@@ -223,6 +232,7 @@ ingress-nginx:
       # to set the size of the buffer used for reading the first part of the response received
       proxy-buffer-size: 16k
     extraArgs:
+      # set the certificate you have created in ingress-system or Control Plane namespace
       default-ssl-certificate: ingress-system/tp-certificate-main-ingress
 EOF
 ```
@@ -265,6 +275,7 @@ traefik:
   tlsStore:
     default:
       defaultCertificate:
+        # set the certificate you have created in ingress-system or Control Plane namespace
         secretName: tp-certificate-main-ingress
 EOF
 ```
@@ -371,21 +382,7 @@ kubectl label namespace tibco-ext networking.platform.tibco.com/non-cp-ns=enable
 
 # TIBCO® Control Plane Deployment
 
-## Configure DNS records, Certificates
-We recommend that you use different DNS records and certificates for `my` (control plane application) and `tunnel` (hybrid connectivity) domains. You can use wildcard domain names for these control plane application and hybrid connecivity domains.
-
-We recommend that you use different `CP_INSTANCE_ID` to distinguish multiple control plane installations within a cluster.
-
-Please export below variables and values related to domains:
-```bash
-## Domains
-export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
-export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used
-export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used
-```
-`TP_DOMAIN` is exported as part of [Export required variables](#export-required-variables)
-
-#### Pre-requisites to create namespace and service account
+## Pre-requisites to create namespace and service account
 
 We will be creating a namespace the TIBCO Control Plane charts are to be deployed.
 
@@ -408,6 +405,45 @@ Create a service account in the namespace. This service account is used for TIBC
 
 ```bash
 kubectl create serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns
+```
+
+## Configure DNS records, Certificates
+
+We recommend that you use different DNS records and certificates for `my` (control plane application) and `tunnel` (hybrid connectivity) domains. You can use wildcard domain names for these control plane application and hybrid connecivity domains.
+
+We recommend that you use different `CP_INSTANCE_ID` to distinguish multiple control plane installations within a cluster.
+
+Please export below variables and values related to domains:
+```bash
+## Domains
+export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
+export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used
+export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used
+```
+`TP_DOMAIN` is exported as part of [Export required variables](#export-required-variables)
+
+In order to make sure that the network traffic is allowed from the ingress-system namespace to the Control Plane namespace pods, we need to label this namespace.
+```bash
+kubectl label namespace ingress-system networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
+```
+
+Create a certificate for the ingress controller using the issuer created earlier in the step [Install Cluster Issuer](#install-cluster-issuer)
+
+```bash
+kubectl apply -f - << EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tp-certificate-${CP_INSTANCE_ID}
+  namespace: ${CP_INSTANCE_ID}-ns
+spec:
+  dnsNames:
+  - '*.${CP_MY_DNS_DOMAIN}'
+  - '*.${CP_TUNNEL_DNS_DOMAIN}'
+  issuerRef:
+    kind: ClusterIssuer
+    name: cic-cert-subscription-scope-production-main
+  secretName: tp-certificate-${CP_INSTANCE_ID}
 ```
 
 ## Information needed to be set on TIBCO® Control Plane
@@ -446,6 +482,10 @@ tp-cp-bootstrap:
     ingress:
       enabled: true
       ingressClassName: ${TP_INGRESS_CLASS}
+      tls:
+        - secretName: tp-certificate-${CP_INSTANCE_ID}
+          hosts:
+            - '*.${CP_TUNNEL_DNS_DOMAIN}'
       ## uncomment annotations from following section, as per your requirements
       # annotations:
         ## annotations for `nginx` ingress class
@@ -464,6 +504,10 @@ tp-cp-bootstrap:
     ingress:
       enabled: true
       ingressClassName: "${TP_INGRESS_CLASS}"
+      tls:
+        - secretName: tp-certificate-${CP_INSTANCE_ID}
+          hosts:
+            - '*.${CP_MY_DNS_DOMAIN}'
       ## uncomment annotations from following section, as per your requirements
       # annotations:
         ## annotations for `nginx` ingress class
@@ -514,7 +558,7 @@ EOF
 
 ## Next Steps
 
-Please proceed with deployment of TIBCO Control Plane on your AKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/emp/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
+Please proceed with deployment of TIBCO Control Plane on your AKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
 
 # Clean-up
 
