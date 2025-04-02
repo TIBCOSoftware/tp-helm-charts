@@ -178,6 +178,7 @@ Please register the following preview features for the subscription:
 <br>
 To ensure that the cluster API server endpoint is available publicly and can be accessed over VNet by node, supports flag --enable-apiserver-vnet-integration
 </br>
+
 ```bash
 az feature register --namespace "Microsoft.ContainerService" --name "EnableAPIServerVnetIntegrationPreview"
 ```
@@ -265,6 +266,7 @@ EOF
 
 # Next Steps
 For Control Plane, follow the steps from [Control Plane README](../control-plane/README.md)
+
 For Data Plane, follow the steps from [Data Plane README](../data-plane/README.md)
 
 
