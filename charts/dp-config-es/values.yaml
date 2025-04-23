@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -27,11 +27,13 @@ storage:
 domain: ""
 
 es:
-  version: "8.9.0"
+  enabled: true
+  version: "8.17.3"
   count: 1
   storage:
     name: gp3enc
   ingress:
+    enabled: true
     ingressClassName: dp-config-aws-traefik
     host: elastic
     service: dp-config-es-es-http
@@ -42,9 +44,11 @@ es:
       konghq.com/https-redirect-status-code: "302"
 
 kibana:
-  version: "8.9.0"
+  enabled: true
+  version: "8.17.3"
   count: 1
   ingress:
+    enabled: true
     ingressClassName: dp-config-aws-traefik
     host: kibana
     service: dp-config-es-kb-http
@@ -56,9 +60,10 @@ kibana:
 
 apm:
   enabled: true
-  version: "8.9.0"
+  version: "8.17.3"
   count: 1
   ingress:
+    enabled: true
     ingressClassName: dp-config-aws-traefik
     host: apm
     service: dp-config-es-apm-http

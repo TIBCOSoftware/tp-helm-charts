@@ -123,15 +123,8 @@ export TP_AUTHORIZED_IP=""  # declare additional IPs to be whitelisted for acces
 ## Helm chart repo
 export TP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
 
-## Domain specific 
-export TP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of TP_DOMAIN
-export TP_SANDBOX="dp1" # hostname of TP_DOMAIN
-export TP_DOMAIN="${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}" # domain to be used
-## If you want to use different domain for services and user apps [OPTIONAL]
-export TP_DOMAIN="services.dp1.azure.example.com" # domain to be used for services and capabilities
-export TP_APPS_DOMAIN="apps.dp1.azure.example.com" # optional - apps dns domain if you want to use different IC for services and apps
-export TP_MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
-export TP_DNS_RESOURCE_GROUP="" # resource group to be used for record-sets 
+## Domain specific
+export TP_DNS_RESOURCE_GROUP="" # resource group used for record-sets
 ```
 
 > [!IMPORTANT]

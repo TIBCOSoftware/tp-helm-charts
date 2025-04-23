@@ -63,9 +63,9 @@ export TP_APISERVER_SUBNET_CIDR="10.4.19.0/28" # CIDR of the kubernetes api serv
 export TP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
 ## If you want to use same domain for services and user apps
 export TP_DOMAIN="dp1.azure.example.com" # domain to be used
-## If you want to use different domain for services and user apps [OPTIONAL]
-export TP_DOMAIN="services.dp1.azure.example.com" # domain to be used for services and capabilities
-export TP_APPS_DOMAIN="apps.dp1.azure.example.com" # optional - apps dns domain if you want to use different IC for services and apps
+## If you want to use different domain for services and user apps, please use a pattern as below [OPTIONAL]
+# export TP_DOMAIN="services.dp1.azure.example.com" # domain to be used for services and capabilities
+# export TP_APPS_DOMAIN="apps.dp1.azure.example.com" # optional - apps dns domain if you want to use different IC for services and apps
 export TP_SANDBOX="dp1" # hostname of TP_DOMAIN
 export TP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of TP_DOMAIN
 export TP_MAIN_INGRESS_CLASS_NAME="azure-application-gateway" # name of azure application gateway ingress controller
@@ -75,7 +75,7 @@ export TP_FILE_ENABLED="true" # to enable azure files storage class
 export TP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage class
 export TP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities, use 'traefik' for traefik ingress controller
 export TP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
-export TP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record sets
+export TP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record-sets
 export TP_NETWORK_POLICY="" # possible values "" (to disable network policy), "calico"
 export TP_STORAGE_ACCOUNT_NAME="" # replace with name of existing storage account to be used for azure file shares
 export TP_STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
@@ -478,23 +478,23 @@ helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${TP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "1.2.1" -f - <<EOF
+  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 domain: ${TP_DOMAIN}
 es:
-  version: "8.17.0"
+  version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-es-http
   storage:
     name: ${TP_DISK_STORAGE_CLASS}
 kibana:
-  version: "8.17.0"
+  version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-kb-http
 apm:
   enabled: true
-  version: "8.17.0"
+  version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-apm-http

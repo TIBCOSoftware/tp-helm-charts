@@ -1,22 +1,22 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 apiVersion: v2
 name: dp-config-aks
-version: "1.4.0"
-appVersion: "1.4.0"
+version: "1.6.0"
+appVersion: "1.6.0"
 description: A Helm chart to configure TIBCO Dataplane on AZURE
 type: application
 dependencies:
   - name: traefik
-    version: 30.1.0
+    version: 34.4.1
     repository: https://traefik.github.io/charts
     condition: traefik.enabled
   - name: ingress-nginx
-    version: 4.11.3
+    version: 4.11.5
     repository: https://kubernetes.github.io/ingress-nginx
     condition: ingress-nginx.enabled
   - name: kong

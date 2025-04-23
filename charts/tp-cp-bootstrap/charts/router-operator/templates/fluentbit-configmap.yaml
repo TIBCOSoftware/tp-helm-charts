@@ -44,6 +44,11 @@ data:
     [FILTER]
       Name              record_modifier
       Match             cp.*
+      Record            pod.namespace ${POD_NAMESPACE}
+      Record            pod.name ${POD_NAME}
+      Record            pod.id ${POD_ID}
+      Record            container.name ${CONTAINER_NAME}
+      Record            host.ip ${HOST_IP}
       Remove_key        stream
       Remove_key        _p
 
@@ -58,7 +63,7 @@ data:
       Name lua
       Match cp.*
       Script update_record.lua
-      Call update_record
+      Call update_record_v2
 
   output.conf: |
     [OUTPUT]
@@ -103,5 +108,18 @@ data:
         record["log"] = newLog
       end
       return 2, timestamp, record
+    end
+    function update_record_v2(tag, timestamp, record)
+      local newLog = record["log"]
+      if newLog ~= nil then
+        newLog["pod.namespace"]  = record["pod.namespace"]
+        newLog["pod.name"] = record["pod.name"]
+        newLog["pod.id"] = record["pod.id"]
+        newLog["container.name"] = record["container.name"]
+        newLog["host.ip"] = record["host.ip"]
+        record["log"] = newLog
+        return 2, timestamp, record
+      end
+      return 1, timestamp, record
     end
 {{- end -}}

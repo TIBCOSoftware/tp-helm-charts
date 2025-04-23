@@ -33,17 +33,6 @@ spec:
         matchLabels:
           networking.platform.tibco.com/non-cp-ns: enable
       podSelector: {}
-  {{- /* Enable egress to kube-dns on all pods in release namespace on ports 53 with TCP and UDP */}}
-  - to:
-    - namespaceSelector: {}
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
   ingress:
   {{- /* Enable ingress from all the pods within all namespaces of same control plane instance id on all ports */}}
   {{- /* Enable ingress from all the pods in the current namespace to allow pod-to-pod communication on all ports */}}
@@ -58,6 +47,24 @@ spec:
         matchLabels:
           networking.platform.tibco.com/non-cp-ns: enable
       podSelector: {}
+
+---
+
+{{/* Egress policy to access kube-dns on all pods in release namespace */}}
+{{- if .Values.global.tibco.networkPolicy.kubeDns }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: kube-dns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  {{- toYaml .Values.global.tibco.networkPolicy.kubeDns | nindent 2 }}
+{{- end }}
 
 ---
 
