@@ -1,11 +1,12 @@
 #
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 #
+{{ if .Values.es.enabled -}}
 apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
 metadata:
@@ -35,3 +36,4 @@ spec:
           konghq.com/protocol: https
       spec:
         type: ClusterIP
+{{- end -}}

@@ -1,11 +1,12 @@
 #
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 #
+{{ if .Values.kibana.ingress.enabled -}}
 kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
@@ -28,3 +29,4 @@ spec:
                 name: {{ .Values.kibana.ingress.service }}
                 port:
                   name: https
+{{- end -}}

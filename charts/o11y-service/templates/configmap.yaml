@@ -380,6 +380,7 @@ data:
   jaeger-ui-config.json: '{"monitor":{"menuEnabled":false},"dependencies":{"menuEnabled":false},"menu":[{"label":"
     Control Panel","items":[{"label":"Home","url":"../../../../cp"},{"label":"Data
     Planes","url":"../../../../cp/app/subscription"},{"label":"Observability","url":"../../../../cp/metrics"}]}],"linkPatterns":[{"type":"tags","key":"app_id","url":"../../../../cp/#{app_type}/appdetails/processes?dp_id=#{dataplane_id}&capability_instance_id=#{capability_instance_id}&app_id=#{app_id}","text":"Open app details #{app_name}"}]}'
-  #app namespace
+  #keep this app_namespace for logs and traces
   app_namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+  #app namespaces
   app_namespaces: '[{{ .Values.global.cp.resources.serviceaccount.namespace }}]'

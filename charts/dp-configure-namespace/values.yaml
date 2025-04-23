@@ -52,6 +52,19 @@ networkPolicy:
   podCidrIpBlock: ""
   # service CIDR IP block
   serviceCidrIpBlock: "172.20.0.0/16"
+  # Network policies for access kube-dns, if no values are provided, the kube-dns policy will be created for a vanilla k8s cluster
+  kubeDns:
+    egress:
+    - to:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
 
 haproxy:
   nameOverride: haproxy

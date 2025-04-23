@@ -10,10 +10,10 @@
 compute-services:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.5.1001"
-    dpCoreInfrastructureAppVersion: "1.5.1"
-    dpConfigureNamespaceChartVersion: "1.5.1001"
-    dpConfigureNamespaceAppVersion: "1.5.1"
+    dpCoreInfrastructureChartVersion: "1.6.2"
+    dpCoreInfrastructureAppVersion: "1.6.0"
+    dpConfigureNamespaceChartVersion: "1.6.1"
+    dpConfigureNamespaceAppVersion: "1.6.0"
 
 hybrid-proxy:
   # switch to false to disable tp-hybrid-proxy
@@ -52,7 +52,20 @@ global:
     # Flag to enable or disable creating default network policies for a namespace
     # Default value is false. Possible values are true, false
     createNetworkPolicy: false
-
+    networkPolicy:
+      # Network policies for access kube-dns, if no values are provided, the kube-dns policy will be created for a vanilla k8s cluster
+      kubeDns:
+        egress:
+        - to:
+          - namespaceSelector: {}
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+          ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""

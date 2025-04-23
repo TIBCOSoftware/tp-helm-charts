@@ -1,17 +1,17 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 apiVersion: v2
 name: dp-config-es
-version: "1.2.1"
-appVersion: "1.2.0"
+version: "1.6.1"
+appVersion: "1.6.0"
 description: Helm chart to configure elastic search
 type: application
 dependencies:
   - name: eck-custom-resources-operator
-    version: 0.5.6
+    version: 0.7.0
     repository: https://xco-sk.github.io/eck-custom-resources/
     condition: eck-custom-resources-operator.enabled

@@ -206,7 +206,7 @@ controller:
   ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#tls
   ## ref: https://kubernetes.io/docs/concepts/configuration/secret/
   defaultTLSSecret:
-    enabled: true
+    enabled: false
     secretNamespace: '{{ include "kubernetes-ingress.namespace" . }}'
     secret: null
 
