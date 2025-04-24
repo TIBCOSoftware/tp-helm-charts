@@ -107,7 +107,11 @@ spec:
         - secretRef:
             name: {{ $val }}
         {{- end }}
+        {{- if .Values.appConfig.customBaseImagePath }}
+        image: {{ .Values.appConfig.customBaseImagePath }}:{{ .Values.appConfig.bwceBaseImageTag }}
+        {{- else }}
         image: {{ .Values.image.repository }}{{ .Values.image.bwceBaseImageName }}:{{ .Values.appConfig.bwceBaseImageTag }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         startupProbe:
           {{- toYaml .Values.bwapp.startupProbe | nindent 10 }}
