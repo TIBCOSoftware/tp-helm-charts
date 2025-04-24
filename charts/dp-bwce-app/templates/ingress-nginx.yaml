@@ -12,7 +12,11 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    {{- if eq $path.path "/" }}
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    {{- else }}
     nginx.ingress.kubernetes.io/rewrite-target: /$2
+    {{- end }}
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ $path.path | quote }}
     {{- if $path.serviceDiscoverable }}
@@ -46,7 +50,11 @@ spec:
             name: {{ include "dp-bwce-app.fullname" $dot }}
             port:
               number: {{ $path.port }}
+        {{- if eq $path.path "/" }}
+        path: {{ $path.path }}(.*)
+        {{- else }}
         path: {{ $path.path }}(/|$)(.*)
+        {{- end }}
         pathType: {{ $path.pathType }}
         
 {{- end }}

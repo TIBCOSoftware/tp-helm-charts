@@ -12,15 +12,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.5.1",
-      "minCPVersion": "1.5.1",
+      "capabilityVersion": "1.6.0",
+      "minCPVersion": "1.6.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.4.0",
-        "dp-configure-namespace": "1.4.0"
+        "dp-core-infrastructure": "1.6.0",
+        "dp-configure-namespace": "1.5.0"
       }
     }
   package.json: |
@@ -47,7 +47,7 @@ data:
           {
             "version": [
               1,
-              5,
+              6,
               0
             ],
             "capabilityId": "INTEGRATIONCORE",
@@ -56,8 +56,8 @@ data:
           {
             "version": [
               1,
-              5,
-              1
+              6,
+              0
             ],
             "capabilityId": "OAUTH2PROXY",
             "capabilityType": "INFRA_SIDECAR"
@@ -88,7 +88,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.5.5"
+          version: "1.6.4"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -102,10 +102,10 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 676
+                      tag: 706
                 config:
                   APP_INIT_IMAGE_TAG: "44"
-                  BWCE_APP_HELMCHART_VERSION: "1.5.2"
+                  BWCE_APP_HELMCHART_VERSION: "1.6.5"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
@@ -119,7 +119,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.5.2"
+          version: "1.6.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -182,7 +182,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.5.1"
+          value: "1.6.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

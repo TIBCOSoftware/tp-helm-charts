@@ -67,10 +67,6 @@ Flogo app deployment labels
 {{- define "dp-flogo-app.flogoapp.deployment.labels" -}}
 platform.tibco.com/app-name: {{ include "dp-flogo-app.fullname" . }}
 platform.tibco.com/app-version: {{ .Values.appConfig.appVersion | quote }}
-platform.tibco.com/app.resources.limits.cpu: {{ (.Values.flogoapp.resources.limits).cpu | default "" | quote }}
-platform.tibco.com/app.resources.limits.memory: {{ (.Values.flogoapp.resources.limits).memory | default "" | quote }}
-platform.tibco.com/app.resources.requests.cpu: {{ (.Values.flogoapp.resources.requests).cpu | default "" | quote }}
-platform.tibco.com/app.resources.requests.memory: {{ (.Values.flogoapp.resources.requests).memory | default "" | quote }}
 platform.tibco.com/build-id: {{ .Values.appConfig.buildId | quote }}
 platform.tibco.com/buildtype-base-image: {{ .Values.appConfig.flogoBaseImageTag | quote }}
 platform.tibco.com/buildtype-version: {{ .Values.appConfig.flogoBuildTypeTag | quote }}
@@ -100,6 +96,10 @@ platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanc
 platform.tibco.com/name: {{ include "dp-flogo-app.fullname" . }}
 platform.tibco.com/original-app-name: {{ .Values.appConfig.originalAppName | quote }}
 platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
+platform.tibco.com/app.resources.limits.cpu: {{ (.Values.flogoapp.resources.limits).cpu | default "" | quote }}
+platform.tibco.com/app.resources.limits.memory: {{ (.Values.flogoapp.resources.limits).memory | default "" | quote }}
+platform.tibco.com/app.resources.requests.cpu: {{ (.Values.flogoapp.resources.requests).cpu | default "" | quote }}
+platform.tibco.com/app.resources.requests.memory: {{ (.Values.flogoapp.resources.requests).memory | default "" | quote }}
 {{- end }}
 
 {{/*

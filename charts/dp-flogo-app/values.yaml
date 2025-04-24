@@ -48,7 +48,7 @@ image:
   appInitImageName: "tp-flogo-app-init"
   appInitImageTag: "41"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "3.2.2"
+  fluentBitImageTag: "4.0.0"
   flogoBaseImageName: "tp-flogo-app-base"
 
 imagePullSecrets: []
@@ -216,6 +216,8 @@ autoscaling:
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
+  behavior: {}
+  customMetrics: []
 
 # Enable or disable tmp volume mounts. This is required for readOnlyRootFilesystem security context, default is true
 enableTmpVolume: true

@@ -143,11 +143,6 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_USER_SUB_HOST
-        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
-              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS

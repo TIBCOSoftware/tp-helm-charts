@@ -134,6 +134,12 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+        - name: DOC_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: DOC_BASE_URL
+              optional: true
         - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
           valueFrom:
             configMapKeyRef:
