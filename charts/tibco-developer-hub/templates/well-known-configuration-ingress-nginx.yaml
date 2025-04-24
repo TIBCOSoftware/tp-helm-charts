@@ -1,7 +1,7 @@
 # Copyright © 2023. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-{{ if eq .Values.publicApi.ingress.controllerName "nginx" -}}
+{{ if eq .Values.global.cp.resources.ingress.ingressController "nginx" -}}
 {{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -16,13 +16,15 @@ metadata:
     {{- end }}
   annotations:
     nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    nginx.ingress.kubernetes.io/rewrite-target: /.well-known/openid-configuration
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.ingress.pathPrefix }}
     {{- with .Values.global.cp.resources.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
   rules:
-    - host: {{ .Values.publicApi.ingress.config.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn }}
       http:
         paths:
           - backend:
@@ -30,6 +32,6 @@ spec:
                 name: {{ include "common.names.fullname" . }}
                 port:
                   number: {{ .Values.service.ports.backend }}
-            path: /tibco/hub/.well-known/openid-configuration/
+            path: {{.Values.ingress.pathPrefix }}/.well-known/openid-configuration/
             pathType: ImplementationSpecific
 {{- end }}

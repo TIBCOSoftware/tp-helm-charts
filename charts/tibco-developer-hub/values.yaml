@@ -16,10 +16,10 @@ global:
   imageRegistry: ""
   # Following parameters which are used in our chart, are passed during provisioning from control plane
   cp:
+    capability:
+      pathPrefix: "/tibco/hub"
     cpCertificateSecret: ""
-    # insecureSkipVerify is true by default because we are calling own services. To be more generally addressed in upcoming release.
-    authInsecureIngressController: true
-    dataplaneId: "abcd"
+    dataplaneId: defaultinstid
     instanceId: ""
     cpHostname: "acme.local.my.cic2.pro"
     enableResourceConstraints: true
@@ -31,6 +31,16 @@ global:
         ingressClassName: nginx
         ingressController: nginx
         annotations: {}
+      storage:
+        storageClassName: ""
+      dbconfig:
+        dbHost: ""
+        dbName: ""
+        dbPort: ""
+        dbUser: ""
+        dbms: rdbms
+        persistenceType: postgres
+        secretDbPassword: ""
     containerRegistry:
       secret: "abcd"
       repository: "tibco-platform-docker-prod"
@@ -39,7 +49,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 3.2.2
+          tag: 4.0.0
         enabled: true
         resources:
           requests:
@@ -108,7 +118,7 @@ diagnosticMode:
 ingress:
 
   # -- Enable the creation of the ingress resource
-  enabled: false
+  enabled: true
 
   # -- Name of the IngressClass cluster resource which defines which controller will implement the resource (e.g nginx)
   className: ""
@@ -141,7 +151,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "797"
+    tag: "827"
 
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'

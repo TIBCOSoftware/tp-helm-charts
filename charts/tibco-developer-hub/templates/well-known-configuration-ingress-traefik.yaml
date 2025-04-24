@@ -2,7 +2,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if eq .Values.publicApi.ingress.controllerName "traefik" -}}
+{{ if eq .Values.global.cp.resources.ingress.ingressController "traefik" -}}
 {{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -21,9 +21,9 @@ metadata:
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
   rules:
-    - host: {{ .Values.publicApi.ingress.config.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn }}
       http:
         paths:
           - backend:
@@ -31,7 +31,7 @@ spec:
                 name: {{ include "common.names.fullname" . }}-wkc
                 port:
                   number: 443
-            path: /tibco/hub/.well-known/openid-configuration/
+            path: {{ .Values.ingress.pathPrefix }}/.well-known/openid-configuration/
             pathType: Exact
 
 ---
