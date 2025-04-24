@@ -3707,6 +3707,27 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: platform-bootstrap
     apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-24T11:03:20.265249458Z"
+    dependencies:
+    - name: tp-cp-bootstrap
+      repository: alias:tibco-platform
+      version: 1.6.3
+    description: TIBCO Platform bootstrap chart
+    digest: 2ee1ae27800e15f51d15b11477cd46f8405327179b66dec1ce99fa3c4906d5f4
+    keywords:
+    - tibco-platform
+    - platform
+    - bootstrap
+    name: platform-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-bootstrap-1.6.0-alpha.7/platform-bootstrap-1.6.0-alpha.7.tgz
+    version: 1.6.0-alpha.7
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-bootstrap
+    apiVersion: v2
     appVersion: 1.5.1
     created: "2025-03-20T10:06:20.888334221Z"
     dependencies:
@@ -4924,6 +4945,44 @@ entries:
     version: 1.2.15
   tp-cp-core:
   - apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-24T11:03:20.507157709Z"
+    dependencies:
+    - condition: web-server.enabled
+      name: web-server
+      repository: ""
+      version: 1.6.19
+    - condition: orchestrator.enabled
+      name: orchestrator
+      repository: ""
+      version: 1.6.10
+    - condition: user-subscriptions.enabled
+      name: user-subscriptions
+      repository: ""
+      version: 1.6.6
+    - condition: cronjobs.enabled
+      name: cronjobs
+      repository: ""
+      version: 1.6.1
+    - condition: identity-management.enabled
+      name: identity-management
+      repository: ""
+      version: 1.6.6
+    - condition: identity-provider.enabled
+      name: identity-provider
+      repository: ""
+      version: 1.6.2
+    - condition: pengine.enabled
+      name: pengine
+      repository: ""
+      version: 1.6.5
+    description: A Helm chart for -- tp-cp-core
+    digest: 40cf9834b387cd82e7f480993df269693d7f90cc26101ae8518e133729c98ec6
+    name: tp-cp-core
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-1.6.36/tp-cp-core-1.6.36.tgz
+    version: 1.6.36
+  - apiVersion: v2
     appVersion: 1.5.1
     created: "2025-03-21T07:12:58.00967657Z"
     dependencies:
@@ -5790,6 +5849,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-finops-1.2.372/tp-cp-core-finops-1.2.372.tgz
     version: 1.2.372
   tp-cp-core-ops:
+  - apiVersion: v1
+    appVersion: 1.6.0
+    created: "2025-04-24T11:03:20.656344531Z"
+    description: TIBCO Platform Control Plane -- Bundle
+    digest: ab058ae8b7000b83e7d8a7af0a5272b51e292fdd00c046b1bf34395b361297f7
+    name: tp-cp-core-ops
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-ops-1.6.36/tp-cp-core-ops-1.6.36.tgz
+    version: 1.6.36
   - apiVersion: v1
     appVersion: 1.5.1
     created: "2025-03-21T07:12:58.140524939Z"
@@ -8799,4 +8867,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-04-23T05:43:33.775468602Z"
+generated: "2025-04-24T11:03:20.877579717Z"
