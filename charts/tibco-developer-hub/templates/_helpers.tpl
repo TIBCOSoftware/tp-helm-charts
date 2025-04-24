@@ -8,6 +8,25 @@ in the license file that is distributed with this file.
 Return the proper image name
 */}}
 
+{{- define "common.storage.class" -}}
+
+{{- $storageClass := "" -}}
+{{- if .global.cp.resources.storage -}}
+    {{- if .global.cp.resources.storage.storageClassName -}}
+        {{- $storageClass = .global.cp.resources.storage.storageClassName -}}
+    {{- end -}}
+{{- end -}}
+
+{{- if $storageClass -}}
+  {{- if (eq "-" $storageClass) -}}
+      {{- printf "storageClassName: \"\"" -}}
+  {{- else }}
+      {{- printf "storageClassName: %s" $storageClass -}}
+  {{- end -}}
+{{- end -}}
+
+{{- end -}}
+
 {{- define "backstage.image.registry" }}
   {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
@@ -133,8 +152,8 @@ Form a URL using TIBCO HUB hostname
 */}}
 {{- define "tibcohub.host.url" -}}
 {{- $ctx := .context | default . -}}
-{{- if ($ctx.Values.ingress).host }}
-{{- $url := $ctx.Values.ingress.host | trimSuffix "/" -}}
+{{- if ($ctx.Values.global.cp.resources.ingress).fqdn }}
+{{- $url := $ctx.Values.global.cp.resources.ingress.fqdn | trimSuffix "/" -}}
 {{- if not (regexMatch "^http[s]://" $url) -}}
     {{- $url = print "https://" $url -}}
 {{- end -}}
@@ -159,3 +178,7 @@ imagePullSecrets:
   - name: {{ .Values.global.cp.containerRegistry.secret }}
 {{- end -}}
 {{- end -}}
+
+{{- define "postgresql.dbResourceSecret" -}}
+DB_PWD: {{ .Values.global.cp.resources.dbconfig.secretDbPassword | quote }}
+{{- end }}

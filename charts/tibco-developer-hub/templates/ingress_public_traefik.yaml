@@ -2,21 +2,21 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if eq .Values.publicApi.ingress.controllerName "traefik" -}}
+{{ if eq .Values.global.cp.resources.ingress.ingressController "traefik" -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-oauth-errors@kubernetescrd,{{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-forward-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-oauth-errors@kubernetescrd,{{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-forward-auth@kubernetescrd,{{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-strip-prefix@kubernetescrd
     {{- with .Values.global.cp.resources.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   name: {{ include "common.names.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
   rules:
-    - host: {{ .Values.publicApi.ingress.config.fqdn }}
+    - host: {{ .Values.global.cp.resources.ingress.fqdn }}
       http:
         paths:
           - backend:
@@ -24,8 +24,17 @@ spec:
                 name: {{ include "common.names.fullname" . }}
                 port:
                   number: {{ .Values.service.ports.backend }}
-            path: {{ .Values.publicApi.ingress.config.pathPrefix }}
+            path: {{ .Values.ingress.pathPrefix }}
             pathType: Prefix
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "common.names.fullname" . }}-strip-prefix
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.ingress.pathPrefix }}
 
 ---
 apiVersion: traefik.io/v1alpha1
@@ -35,7 +44,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
 spec:
   forwardAuth:
-    address: https://{{ .Values.publicApi.ingress.config.fqdn }}{{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/auth
+    address: http://oauth2-proxy-{{ .Values.global.cp.instanceId }}.{{ .Release.Namespace }}.svc.cluster.local/auth
     authResponseHeaders:
       - X-Auth-Request-User
       - X-Auth-Request-Email
@@ -43,10 +52,6 @@ spec:
       - X-Auth-Request-Access-Token
       - X-Atmosphere-Token
     trustForwardHeader: true
-    {{ if .Values.global.cp.authInsecureIngressController -}}
-    tls:
-      insecureSkipVerify: true
-    {{- end }}
 
 ---
 apiVersion: traefik.io/v1alpha1
@@ -56,7 +61,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
 spec:
   errors:
-    query: {{ .Values.publicApi.ingress.config.pathPrefix }}/oauth2/sign_in?rd={url}
+    query: {{ .Values.ingress.pathPrefix }}/oauth2/sign_in?rd={url}
     service:
       name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
       port: 80
