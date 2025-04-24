@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.5.1",
-      "minCPVersion": "1.4.0",
+      "capabilityVersion": "1.6.0",
+      "minCPVersion": "1.6.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
@@ -30,7 +30,7 @@ data:
           {
             "name": "postgresql",
             "description": "Postgres Database",
-            "monitoringPriority": "essential"
+            "monitoringPriority": "optional"
           },
           {
             "name": "tibco-developer-hub",
@@ -47,8 +47,8 @@ data:
           {
             "version": [
               1,
-              5,
-              1
+              6,
+              0
             ],
             "capabilityId": "OAUTH2PROXY",
             "capabilityType": "INFRA_SIDECAR"
@@ -69,7 +69,15 @@ data:
             "type": "Storage Class",
             "required": true,
             "resourceId": "STORAGE",
-            "resourceType": "PLATFORM"
+            "resourceType": "PLATFORM",
+            "otherResourceIds": [ "DBCONFIG" ]
+          },
+          {
+            "type": "Database Resource",
+            "required": true,
+            "resourceId": "DBCONFIG",
+            "resourceType": "PLATFORM",
+            "otherResourceIds": [ "STORAGE" ]
           }
         ]
       }
@@ -79,7 +87,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: 1.5.1003
+        version: "1.6.10"
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -162,7 +170,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.5.1"
+          value: "1.6.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
