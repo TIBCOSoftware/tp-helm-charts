@@ -14,7 +14,7 @@ export STAGING_PATH="${STAGING_PATH:-/data}"
 export tmproot="$STAGING_PATH/tmp.$RANDOM"
 export tmppkg="$tmproot/msgpkg"
 export JOB_WAIT_TARGET_PATH="${JOB_WAIT_TARGET_PATH:-"300"}"
-export JOB_POST_SLEEP="${JOB_POST_SLEEP:-"180"}"
+export JOB_POST_SLEEP="${JOB_POST_SLEEP:-"60"}"
 
 whoami
 id

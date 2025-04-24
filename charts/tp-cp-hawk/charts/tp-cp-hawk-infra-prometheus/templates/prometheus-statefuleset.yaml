@@ -43,7 +43,7 @@ spec:
             - '--storage.tsdb.path=/prometheus/'
             - '--log.level=debug'
           {{- if .Values.global.cp.enableResourceConstraints }}
-          {{- with .Values.resources }}
+          {{- with .Values.resources.prometheus }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -76,6 +76,12 @@ spec:
           {{- end }}
           image: {{ include "tp-hawk-infra-prometheus.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-prometheusds.image.repository" . }}{{"/"}}{{ .Values.images.prometheusds.image.name }}:{{ .Values.images.prometheusds.image.tag }}
           imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.resources.prometheusds }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
           livenessProbe:
             {{- toYaml .Values.promDSLivenessProbe | nindent 12 }}
           readinessProbe:

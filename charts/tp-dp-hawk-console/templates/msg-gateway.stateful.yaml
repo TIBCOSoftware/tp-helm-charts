@@ -142,6 +142,9 @@ spec:
                 value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}"
               - name: ACCEPT_EUA
                 value: "y"
+              - name: EMS_REG_DEBUG
+                # value: "y"
+                value: 
               - name: GOTRACEBACK
                 value: "crash"
               - name: TCM_WATCHDOG_LOG_FILE

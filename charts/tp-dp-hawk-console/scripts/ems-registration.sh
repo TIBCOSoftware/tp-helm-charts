@@ -12,11 +12,11 @@ usage="$cmd <function> [args] -- Run a CT EMS utility function
 .. NOTE: this is a work in progress, TLS and FTL options are not supported yet
     -r=reg-spec:  registration json blob for an EMS group
 === Functions
-  mainLauncher:  Generate a groupName directory with files required to remotely start EMS group
+  mainRegisterEms :  Generate a groupName directory with files required to remotely start EMS group
   mainEmsdInit:  Generate an emsd.init.json file for a given EMS registration spec
   mainRestdEmsConfig: Generate tibemsrestd server group config yaml
 === Example -- starting EMS FT-pair group named ems-ft
-  ./$cmd mainLauncher -r=ems-ft.registration.json
+  ./$cmd mainRegisterEms -r=ems-ft.registration.json
   ./ems-ft/ssh-start.sh
 "
 # export NFS_TOP="${NFS_TOP:-/rv/msg_share0/msgdp-1.4.0}"
@@ -122,15 +122,18 @@ function parseServerUrls {
   scheme="$(echo "$PrimaryUrl" | cut -d: -f1)"
   port="$(echo "$PrimaryUrl" | cut -d: -f3)"
   export PrimaryHost="$(echo "$PrimaryUrl" | cut -d: -f2 | cut -c3- )"
+  export PrimaryRole="$( echo "$PrimaryHost:$port" | tr '.' ',')"  # Hostname for healthcheck
   export PrimaryListen="${scheme}://0.0.0.0:${port}"
   scheme="$(echo "$SecondaryUrl" | cut -d: -f1)"
   port="$(echo "$SecondaryUrl" | cut -d: -f3)"
   export SecondaryHost="$(echo "$SecondaryUrl" | cut -d: -f2 | cut -c3- )"
+  export SecondaryRole="$( echo "$SecondaryHost:$port" | tr '.' ',')"  # Hostname for healthcheck
   export SecondaryListen="${scheme}://0.0.0.0:${port}"
   scheme="$(echo "$StandbyOnlyUrl" | cut -d: -f1)"
   port="$(echo "$StandbyOnlyUrl" | cut -d: -f3)"
   export StandbyOnlyListen="${scheme}://0.0.0.0:${port}"
   export StandbyOnlyHost="$(echo "$StandbyOnlyUrl" | cut -d: -f2 | cut -c3- )"
+  export StandbyOnlyRole="$( echo "$StandbyOnlyHost:$port" | tr '.' ',')"  # Hostname for healthcheck
 
   # Process monitorUrl list
   export firstMon="$(echo "$monitorUrl" | cut -s -d, -f1)"
@@ -228,7 +231,7 @@ function mtlsConfig {
 
 function primaryConfig {
   echo "
-        - role: "primary"
+        - role: "$PrimaryRole"
           tags:
             - $groupName
           url: $PrimaryUrl
@@ -241,7 +244,7 @@ function primaryConfig {
 function secondaryConfig {
   [ -z "$SecondaryUrl" ] && return
   echo "
-        - role: "secondary"
+        - role: "$SecondaryRole"
           tags:
             - $groupName
           url: $SecondaryUrl
@@ -254,7 +257,7 @@ function secondaryConfig {
 function standbyConfig {
   [ -z "$StandbyOnlyUrl" ] && return
   echo "
-        - role: "standby"
+        - role: "$StandbyOnlyRole"
           tags:
             - $groupName
           url: $StandbyOnlyUrl
@@ -294,7 +297,7 @@ function checkConnect {
   echo >&2 "#+: Check $host:$port -- ($rtc) $res"
 }
 function checkIsLive {
-  url=${1:?"checkConnect requires a URL"}
+  url=${1:?"checkIsLive requires a URL"}
   curlOpts="-k -s -o /dev/null"
   curlTimeout="--max-time 5 --connect-timeout 3"
   liveCode=$( curl $curlOpts $curlTimeout -w '%{http_code}' "$url/isLive" )
@@ -302,6 +305,26 @@ function checkIsLive {
   [ $liveCode -eq 000 ] && liveCode=406
   [ "$liveCode" -ne 200 ] && checkingErrors+=("($liveCode) $url/isLive")
   echo >&2 "($liveCode) $url/isLive"
+}
+function checkMetrics {
+  url=${1:?"checkMetrics requires a URL"}
+  # set -x
+  export certDir="/data/hawk/emscerts"
+  curlOpts="-k -s -o /dev/null"
+  curlTimeout="--max-time 5 --connect-timeout 3"
+  if [ -n "$monitorMtls" ] ; then
+    certOpts="--cert $certDir/$monitorCert:$monitorPass"
+    certOpts="$certOpts --key $certDir/$monitorKey"
+  fi
+  # echo >&2 "#+:  curl $curlOpts $curlTimeout -w '%{http_code}' "$url/metrics" $certOpts"
+  liveCode=$( curl $curlOpts $curlTimeout -w '%{http_code}' "$url/metrics" $certOpts )
+  liveCode=${liveCode:-405}
+  [ $liveCode -eq 000 ] && liveCode=406
+  if [ "$liveCode" -ne 200 ] ; then 
+    echo >&2 "#+: $(curl 2>&1  -sS -k $curlTimeout  --get "$url/metrics" $certOpts)"
+    checkingErrors+=("($liveCode) $url/metrics")
+  fi
+  echo >&2 "($liveCode) $url/metrics"
 }
 function checkHasDPAdmin {
   myJWT=${MSG_ADMIN_BEARER:?"No JWT token found.  Use MSG_ADMIN_BEARER=token"}
@@ -376,6 +399,7 @@ function checkShowState {
   serverState="$(echo "$res" | grep -i " State:" | cut -d: -f2 | tr -d ' ' )"
   echo >&2 "#+: ShowState $url -- ($rtc) $serverState"
   echo "$serverState"
+  return $rtc
 }
 
 function setupTibemsAdmin {
@@ -496,11 +520,17 @@ function checkRestdJson {
     checkIsLive "$url"
   done
   echo >&2 "#+:DEBUG: checkingErr=${#checkingErrors[@]} "
+  echo >&2 "#+: "Check /metrics endpoints
+  for url in $(echo "$monitorUrl" | tr ',' ' ' ) ; do
+    checkMetrics "$url"
+  done
+  echo >&2 "#+:DEBUG: checkingErr=${#checkingErrors[@]} "
   echo >&2 "#+: Check admin 'show state' access"
   activeUrl=
   for url in $(echo "$clientUrl" | tr ',' ' ' ) ; do
     resp=$(checkShowState "$url" )
     [ "$resp" == "active" ] && activeUrl="$url"
+    [ -z "$resp" ] && checkingErrors+=("$url: Valid server state not found.")
   done
   if [ "$monCount" -ne "$clientCount" ] ; then
     msg="Error: Client and Monitor URLs must have same number of hostports."
@@ -561,7 +591,7 @@ ems:
 function mainCheckRestdConfig {
   parseCmdOptions "$@"
   parseServerSpec
-  # parseServerUrls
+  parseServerUrls
   checkRestdJson
   if [ ${#checkingErrors[@]} -ne 0 ] ; then
     log "ERROR:  Errors found in configuration"
@@ -582,6 +612,7 @@ function restdSendCmd {
   apiPath="${1:?"API path required."}"
   action="${2:-GET}"
   data="${3}"
+  [[ "$apiPath" =~ ^/proxy/ ]] && restdCurlOpts+=("-Ss")
   if [ -n "$data" ] ; then
     [ -n "$EMS_REG_DEBUG" ] && echo >&2 "#+: " curl "[options...]" -X "$action" "${restdUrl}${apiPath}" -d "..data.."
     # echo >&2 "#+:data:$data:"
@@ -764,8 +795,14 @@ function hawkServer {
   scheme="$(echo "$monUrl" | cut -d: -f1)"
   host="$(echo "$monUrl" | cut -d: -f2 | tr -d '/' )"
   port="$(echo "$monUrl" | cut -d: -f3)"
-  useMtls=false
-  [ -n "$monitorCert" ] && useMtls=true
+  useMtls=false certVerif=false trusted=""
+  # [ -n "$monitorCert" ] && useMtls=true
+  if [ -n "$monitorCert" ] ; then
+    useMtls=true
+    # FIXME: client-verify-server should not be required.
+    certVerif=true
+    [ -z "$monitorTrusted" ] && monitorTrusted="$clientTrusted"
+  fi
   cat - <<EOF
     {
       "host": "$host",
@@ -780,8 +817,9 @@ function hawkServer {
         "dataplane_id": "$dataplaneId",
         "role": "$role"
       },
-      "certVerificationEnabled": false,
-      "cacert": "$monitorCert",
+      "certVerificationEnabled": $certVerif,
+      "trustedCert": "$monitorTrusted",
+      "clientCert": "$monitorCert",
       "privateKey": "$monitorKey",
       "privateKeyPassword": "$monitorPass"
     }
@@ -827,9 +865,10 @@ function enableHawkScraping {
   # POST https://<hawkconsole-host>:<hawkconsole-port>/hawkconsole/base/exporter/ems/register
   log "    :$groupName: Enable hawk scraping"
   echo >&2 "#+: enableHawkScraping"
-  hawkPayload="$(genHawkPayload)"
-  hawkHost="${HAWK_HOST:-localhost}"
-  hawkPort="${HAWK_PORT:-8080}"
+  hawkPayload="$1"
+  [ -z "$hawkPayload" ] && hawkPayload="$(genHawkPayload)"
+  # DEBUG: echo "$hawkPayload" > tmp.hawk.json
+  [ -n "$EMS_REG_DEBUG" ] && echo >&2 "#+: " curl -X POST -d "$hawkPayload" "https://$hawkHost:$hawkPort/$apiRegister"
   hawkHost="${HAWK_HOST:-"tp-dp-hawk-console-connect"}"
   hawkPort="${HAWK_PORT:-9687}"
   apiRegister="hawkconsole/base/exporter/ems/register"
@@ -854,6 +893,40 @@ function enableHawkScraping {
   [ $rtc -ne 0 ] && echo >&2 "ERROR:  Hawk Register error." && echo >&2 "$resp" && echo >&2 ""
   [ -n "$EMS_REG_DEBUG" ] && echo "$resp" | tail -1 | jq '.'  >&2 
   return 0
+}
+
+function genMsgScrapePayload {
+    usage="genMsgScrapePayload -- Generate Hawk scrape for tp-msg-gateway"
+    monUrl=${1:-"http://tp-msg-gateway:8376"}
+    groupName="tp-msg-gateway"
+    dataplaneId="${myDataplane:-$MY_DATAPLANE}"
+    [ -z "$dataplaneId" ]  && echo >&2 "\$myDataplane required." && return 1
+    scheme="$(echo "$monUrl" | cut -d: -f1)"
+    host="$(echo "$monUrl" | cut -d: -f2 | tr -d '/' )"
+    port="$(echo "$monUrl" | cut -d: -f3 )"
+    cat - <<EOF
+        {
+          "serverGroup": "$groupName",
+          "serverDetails": [
+            {
+              "host": "$host",
+              "port": $port,
+              "endPoint": "/dp/metric/health",
+              "httpScheme": "$scheme",
+              "scrapingInterval": 60,
+              "labels": {
+                "group": "$groupName",
+                "dataplane_id": "$dataplaneId"
+              }
+            }
+          ]
+        }
+EOF
+}
+
+function hawkMsgHealthEndpoint {
+  payload="$(genMsgScrapePayload)"
+  enableHawkScraping "$payload"
 }
 
 function hawkUnregister {
@@ -908,6 +981,7 @@ function mainRegisterEms {
   [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
   enableGemsAdmin
   [ $? -ne 0 ] && echo >&2 "ERROR:  Error during EMS Gems configuration" && return 1
+  hawkMsgHealthEndpoint
   enableHawkScraping
   [ $? -ne 0 ] && echo >&2 "ERROR:  Hawk config failed." && return 1
   log "    :$groupName: Registration complete"

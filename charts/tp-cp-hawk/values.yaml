@@ -87,7 +87,7 @@ images:
       name: hawk-scripts
       pullPolicy: IfNotPresent
       # tag: 185
-      tag: "1.5.0.30"
+      tag: "1.6.0.12"
 
 hawk:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
@@ -100,4 +100,5 @@ tp-cp-hawk-infra-querynode:
 
 # Default values for tp-cp-hawk-infra-prometheus.
 tp-cp-hawk-infra-prometheus:
+  # PENDING-SinglePrometheis-Feature: enabled: false
   enabled: true

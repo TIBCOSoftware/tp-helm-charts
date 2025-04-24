@@ -22,7 +22,7 @@
 {{/* Namespace we're going into. */}}
 {{- define "tp-hawk-infra-prometheus.consts.namespace" }}{{ .Release.Namespace }}{{ end -}}
 
-{{- define "tp-hawk-infra-prometheus.consts.buildNumber" }}v2.53.3{{ end -}}
+{{- define "tp-hawk-infra-prometheus.consts.buildNumber" }}v2.53.4{{ end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra-prometheus.image.repository" -}}

@@ -3,21 +3,14 @@
         "allowMultipleInstances": true,
         "capabilityResourceDependencies": [
             {
-                "description": "Select a resource for the storage-class of Pulsar message storage",
                 "required": true,
+                "description": "Select a resource for the storage-class of EMS message data",
                 "resourceId": "STORAGE",
                 "resourceType": "PLATFORM",
                 "type": "Message Storage"
             },
             {
-                "description": "Select a resource for the storage-class of Pulsar journal storage",
-                "required": false,
-                "resourceId": "STORAGE",
-                "resourceType": "PLATFORM",
-                "type": "Journal Storage"
-            },
-            {
-                "description": "Select a resource for the storage-class of Pulsar log storage",
+                "description": "Select a resource for the storage-class of EMS logs store",
                 "required": false,
                 "resourceId": "STORAGE",
                 "resourceType": "PLATFORM",
@@ -25,10 +18,14 @@
             }
         ],
         "dependsOn": [],
-        "eula": true,
         "provisioningRoles": [
             "DEV_OPS"
         ],
-        "services": []
+        "services": [
+            {
+                "description": "EMS Service",
+                "name": "ems"
+            }
+        ]
     }
 }

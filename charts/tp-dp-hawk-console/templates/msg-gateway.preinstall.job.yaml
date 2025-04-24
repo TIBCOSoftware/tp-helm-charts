@@ -19,6 +19,7 @@ metadata:
   labels:
     {{- include "msg-gateway.std.labels" $params | nindent 4 }}
     app.kubernetes.io/component: msg-gateway-preinstall
+    app.kubernetes.io/name: "{{ $params.msggw.basename }}-preinstall"
   namespace: "{{ .Release.Namespace }}"
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
@@ -34,6 +35,7 @@ spec:
       labels:
         {{- include "msg-gateway.std.labels" $params | nindent 8 }}
         app.kubernetes.io/component: msg-gateway-preinstall
+        app.kubernetes.io/name: "{{ $params.msggw.basename }}-preinstall"
     spec:
       enableServiceLinks: false
       nodeSelector:
