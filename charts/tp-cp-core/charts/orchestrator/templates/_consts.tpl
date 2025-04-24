@@ -97,3 +97,32 @@
 {{- define "cp-core-configuration.cp-container-registry-password" }}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_PASSWORD" "default" "" "required" "false"  "Release" .Release ) -}}
 {{- end }}
+
+{{/* A fixed short name for the application. Can be different than the chart name */}}
+{{- define "tp-cp-email-service.consts.appName" }}tp-cp-email-service{{ end -}}
+{{/* Namespace we're going into. */}}
+{{- define "tp-cp-email-service.consts.namespace" }}{{ .Release.Namespace }}{{ end -}}
+
+{{/* Component we're a part of. */}}
+{{- define "tp-cp-email-service.consts.component" }}cp{{ end -}}
+{{/* Team we're a part of. */}}
+{{- define "tp-cp-email-service.consts.team" }}tp-cp{{ end -}}
+
+{{- define "tp-cp-email-service.consts.emailServerConfig" -}}
+  {{- $emailServerConfig := "" }}
+  {{- $emailServerType := .Values.global.external.emailServerType -}}
+  {{- if $emailServerType }}
+    {{- $emailServerConfig = get .Values.global.external.emailServer $emailServerType | toJson }}
+  {{- else }}
+    {{- $emailServerConfig = get .Values.global.external.emailServer "smtp" | toJson }}
+  {{- end }}
+  {{ $emailServerConfig }}
+{{- end -}}
+
+{{- define "cp-core-configuration.service-account-name" }}
+{{- if .Values.serviceAccount }}
+  {{- .Values.serviceAccount }}
+{{- else }}
+  {{- include "cp-env.get" (dict "key" "CP_SERVICE_ACCOUNT_NAME" "default" "control-plane-sa" "required" "false"  "Release" .Release )}}
+{{- end }}
+{{- end }}

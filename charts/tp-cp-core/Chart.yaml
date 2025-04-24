@@ -1,33 +1,27 @@
 apiVersion: v2
-appVersion: 1.5.1
+appVersion: 1.6.0
 dependencies:
-- condition: admin-webserver.enabled
-  name: admin-webserver
-  version: 1.5.*
 - condition: web-server.enabled
   name: web-server
-  version: 1.5.*
+  version: 1.6.19
 - condition: orchestrator.enabled
   name: orchestrator
-  version: 1.5.*
+  version: 1.6.10
 - condition: user-subscriptions.enabled
   name: user-subscriptions
-  version: 1.5.*
-- condition: email-service.enabled
-  name: email-service
-  version: 1.5.*
+  version: 1.6.6
 - condition: cronjobs.enabled
   name: cronjobs
-  version: 1.5.*
+  version: 1.6.1
 - condition: identity-management.enabled
   name: identity-management
-  version: 1.5.*
+  version: 1.6.6
 - condition: identity-provider.enabled
   name: identity-provider
-  version: 1.5.*
+  version: 1.6.2
 - condition: pengine.enabled
   name: pengine
-  version: 1.5.*
+  version: 1.6.5
 description: A Helm chart for -- tp-cp-core
 name: tp-cp-core
-version: 1.5.10017
+version: 1.6.36
