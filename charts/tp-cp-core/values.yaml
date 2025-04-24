@@ -19,11 +19,9 @@ global:
       disableIdmCleanUpJob: "false"
       disableIdmNotifyCertificatesExpiryJob: "true"
     image_name:
-      adminWebserver: "core-admin-webserver"
       webserver: "core-web-server"
       orchestrator: "core-orchestrator"
       userSubscriptions: "core-user-subscriptions"
-      emailService: "core-email-service"
       cronjobs: "core-cronjobs"
       identityManagement: "core-identity-management"
       identityProvider: "core-identity-provider"
@@ -38,7 +36,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 3.2.2
+          tag: 4.0.0
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"

@@ -19,6 +19,14 @@ spec:
     port: 3000
     protocol: TCP
     targetPort: 3000
+  - name: admin-server
+    port: 3001
+    protocol: TCP
+    targetPort: 3001
+  - name: health-port
+    port: 4000
+    protocol: TCP
+    targetPort: 4000
   selector:
     {{- include "tp-cp-web-server.shared.labels.selector" . | nindent 4 }}
 
@@ -108,11 +116,15 @@ spec:
         ports:
         - containerPort: 3000
           name: server
+        - containerPort: 3001
+          name: admin-server
+        - containerPort: 4000
+          name: health-port
         readinessProbe:
           httpGet:
             scheme: HTTP
-            path: "/api/v1/version"
-            port: 3000
+            path: "/ready"
+            port: health-port
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -121,8 +133,8 @@ spec:
         livenessProbe:
           httpGet:
             scheme: HTTP
-            path: "/api/v1/version"
-            port: 3000
+            path: "/healthz"
+            port: health-port
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -154,6 +166,16 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_USER_SUB_HOST
+        - name: TP_CP_EMAIL_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMAIL_SERVICE_HOST
+        - name: TP_CP_CRON_JOB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_CRON_JOB_HOST
         - name: TP_CP_IDM_HOST
           valueFrom:
             configMapKeyRef:
@@ -174,6 +196,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_QUERYNODE_HOST
+        - name: TP_CP_BW_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW_HOST
         - name: TP_CP_BW5_HOST
           valueFrom:
             configMapKeyRef:
@@ -184,6 +211,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_BW6_HOST
+        - name: TP_CP_FLOGO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_FLOGO_HOST
         - name: TP_CP_BE_HOST
           valueFrom:
             configMapKeyRef:
@@ -211,6 +243,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_ADMIN_DNS_DOMAIN
+        - name: TP_CP_WILDCARD_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_WILDCARD_DNS_DOMAIN
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ include "tp-cp-web-server.consts.http.request.timeout" . | quote }}
         - name: IDLE_TIME_SECONDS
@@ -219,12 +256,17 @@ spec:
           value: {{ include "tp-cp-web-server.consts.custom.scheme.urls" . }}
         - name: WEB_SERVER_LOG_ENABLED
           value: {{ include "tp-cp-web-server.consts.web.server.log.enabled" . | quote }}
+        - name: REDIRECTION_TIME
+          value: {{ include "tp-cp-web-server.consts.redirection.time" . | quote }}
         - name: TSC_DOMAIN
           value: https://$(TSC_DNS_DOMAIN)
         - name: FINOPS
           value: {{ .Values.global.tibco.finops }}
         - name: DOC_BASE_URL
-          value: https://docs.tibco.com/go/platform-cp/1.5.1/doc/html
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: DOC_BASE_URL
         - name: ADMIN_DOMAIN
           value: https://$(TSC_ADMIN_DNS_DOMAIN)
         - name: REGION
@@ -234,6 +276,12 @@ spec:
               key: REGION
         - name: DISABLE_CONFIGURATION_REFRESH
           value: {{ include "tp-cp-web-server.consts.disable.configuration.refresh" . | quote }}
+        - name: CLOUDOPS_PORT
+          value: {{ include "tp-cp-web-server.consts.cloudops.port" . | quote }}
+        - name: ADMIN_UI_LOGS_SERVICES
+          value: {{ include "tp-cp-web-server.consts.admin.ui.logs.services" . }}
+        - name: CONFIG_FILES_TO_NOTIFY_IDM_ON_UPLOAD
+          value: {{ include "tp-cp-web-server.consts.config.files.to.notify.idm.on.upload" . }}
         - name: TSC_CONFIG_LOCATION
           value: /private/tsc
         - name: MSG_DP_CONFIG_ENABLED
@@ -264,6 +312,9 @@ spec:
           - name: store-vol
             mountPath: /downloads/tools
             subPath: tsc/tools
+          - name: store-vol
+            mountPath: /private/tsc/config
+            subPath: tsc/config
           - name: logs
             mountPath: /tmp/logs
           - name: file-watcher
@@ -751,4 +802,162 @@ spec:
       allowClientCache: true
       allowXFrameOptions: false
       enableRedirects: false
-
+  - path: /$
+    internalPath: /
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure_login
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        configVariables:
+          LOGIN_PATH: /admin/login
+          TENANT_ID: ADMIN
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin
+    internalPath: /
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure_login
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        configVariables:
+          LOGIN_PATH: /admin/login
+          TENANT_ID: ADMIN
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/login
+    internalPath: /admin/login
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/reset-password
+    internalPath: /admin/reset-password
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/forgot-password
+    internalPath: /admin/forgot-password
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/web-ui-content
+    internalPath: /web-ui-content
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/navigation-tabs
+    internalPath: /navigation-tabs
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/web-ui-content/assets/img/email
+    internalPath: /admin/web-ui-content/assets/img/email
+    port: 3001
+    protocol: http
+    proxies:
+      - config: empty
+        enableRedirects: true
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        listener: virtual
+        methods:
+          - GET
+  - path: /admin/root-config-content
+    internalPath: /root-config-content
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: "${TSC_ADMIN_DNS_DOMAIN}"
+        methods:
+          - GET
+        configVariables:
+          TENANT_ID: "TSC"
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        enableRedirects: true
+        allowClientCache: true
+        allowXFrameOptions: true
+  - path: /admin/v1
+    internalPath: /admin/v1
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /admin/public/v1
+    internalPath: /admin/public/v1
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /admin/v1/whoami
+    internalPath: /admin/v1/whoami
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        configVariables:
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /api/v1/paid-subscriptions
+    internalPath: /api/v1/paid-subscriptions
+    protocol: http
+    port: 3001
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        methods:
+          - POST

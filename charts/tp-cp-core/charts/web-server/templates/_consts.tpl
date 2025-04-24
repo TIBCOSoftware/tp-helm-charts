@@ -76,6 +76,10 @@
 {{- define "tp-cp-web-server.consts.web.server.log.enabled" }}true{{ end -}}
 {{- define "tp-cp-web-server.consts.external.idp.ui" }}enable{{ end -}}
 {{- define "tp-cp-web-server.consts.disable.configuration.refresh" }}false{{ end -}}
+{{- define "tp-cp-web-server.consts.cloudops.port" }}98{{ end -}}
+{{- define "tp-cp-web-server.consts.redirection.time" }}5{{ end -}}
+{{- define "tp-cp-web-server.consts.config.files.to.notify.idm.on.upload" }}'["idm/reloadable.conf"]'{{ end -}}
+{{- define "tp-cp-web-server.consts.admin.ui.logs.services" }}'[{"serviceType":"bwprovisioner","serviceContainer":"bwprovisioner"},{"serviceType":"flogoprovisioner","serviceContainer":"flogoprovisioner"},{"serviceType":"o11y-service","serviceContainer":"tp-o11y-service"},{"serviceType":"tp-tibtunnel","serviceContainer":"tibtunnel"},{"serviceType":"oauth2-proxy","serviceContainer":"oauth2-proxy"},{"serviceType":"dp-secret-controller","serviceContainer":"controller"},{"serviceType":"provisioner-agent","serviceContainer":"provisioner-agent"},{"serviceType":"artifactmanager","serviceContainer":"artifactmanager"}]'{{ end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "cp-core-configuration.image-repository" -}}

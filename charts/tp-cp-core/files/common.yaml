@@ -8,7 +8,8 @@ global:
   psqlMaxOpenConnections: "100"
   INTERNAL_NGINXAGENT_ELB_DNS: "10.245.1.2"
   psqlMaxIdleConnections: "100"
-
+  mandatoryInfraCapabilityLists: "{'k8s':['MONITORINGAGENT', 'CPPROXY', 'O11Y'],'control-tower':['MONITORINGAGENT', 'CPPROXY', 'O11Y', 'HAWKCONSOLE', 'BWADAPTER']}"
+  
 ########################################  IDM common vars  #############################################
 identity-management:
   cookieName: "tsc"
@@ -25,9 +26,6 @@ orchestrator:
   psqlConnectionMaxLifeTime: "3600"
   psqlMaxOpenConnections: "100"
   psqlMaxIdleConnections: "100"
-
-####################################      CP-Email service env variables     #################################################
-email-service:
   enableArn: "true"
 
 ####################################     CP WEB server env variables      ##############################################

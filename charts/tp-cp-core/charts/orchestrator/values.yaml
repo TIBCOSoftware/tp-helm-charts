@@ -11,6 +11,16 @@ global:
     cronJobReportsEmailAlias: ""
     platformEmailNotificationCcAddresses: ""
     environment: ""
+    emailServer:
+      ses:
+        arn: ""
+      smtp:
+        server: ""
+        port: "25"
+        username: ""
+        password: ""
+      sendgrid:
+        apiKey: ""
   tibco:
     image_name:
       orchestrator: ""
@@ -27,7 +37,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 3.2.2
+          tag: 4.0.0
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"

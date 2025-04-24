@@ -34,6 +34,28 @@ spec:
     {{- include "tp-cp-orchestrator.shared.labels.selector" . | nindent 4 }}
 
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-email-service.consts.appName" . }}
+  namespace: {{ include "tp-cp-email-service.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-email-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: email-server
+      port: 7879
+      protocol: TCP
+      targetPort: 7879
+    - name: email-monitor-server
+      port: 9879
+      protocol: TCP
+      targetPort: 9879
+  selector:
+    {{- include "tp-cp-orchestrator.shared.labels.selector" . | nindent 4 }}
+
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -65,7 +87,11 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
     {{- end }}
+      {{- if eq .Values.global.external.emailServerType "ses" }}
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      {{- else }}
       automountServiceAccountToken: false
+      {{- end }}
       nodeSelector:
         kubernetes.io/os: linux
       topologySpreadConstraints:
@@ -92,9 +118,7 @@ spec:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         command: ['sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for user-subscription to be running;
-         sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_USER_SUB_HOST:9832/v1/monitor/ping" 2>&1 | grep "HTTP/"); done; unset wget_result;
-         until [[ "$wget_result" == *"200"* ]]; do echo waiting for email-service to be running;
-          sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_EMAIL_SERVICE_HOST:9879/v1/monitor/ping" 2>&1 | grep "HTTP/"); done']
+         sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_USER_SUB_HOST:9832/v1/monitor/ping" 2>&1 | grep "HTTP/"); done']
         env:
           - name: TP_CP_USER_SUB_HOST
             valueFrom:
@@ -134,6 +158,10 @@ spec:
           name: monitor-server
         - containerPort: 10833
           name: pub-api-server
+        - containerPort: 7879
+          name: mail-server
+        - containerPort: 9879
+          name: mail-mon-server
         readinessProbe:
           httpGet:
             scheme: HTTP
@@ -218,6 +246,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_IDM_HOST
+        - name: TP_CP_O11Y_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_O11Y_HOST
         - name: TP_CP_PENGINE_HOST
           valueFrom:
             configMapKeyRef:
@@ -387,6 +420,54 @@ spec:
           value: {{ .Values.global.external.helmRepo }}
         - name: DP_DEFAULT_HELM_REPO
           value: {{ .Values.global.tibco.helm | toJson | quote }}
+        - name: EMAIL_SERVICE_SERVICE_HTTP_PORT
+          value: "7879"
+        - name: EMAIL_SERVICE_SERVICE_MONITOR_HTTP_PORT
+          value: "9879"
+        - name: EMAIL_SERVICE_TROPOSPHERE_LOG_LEVEL
+          value: debug
+        - name: EMAIL_SERVICE_SERVICE_TEMPLATE_FOLDER
+          value: /usr/tcc/cp-email-service/templates/
+        - name: EMAIL_SERVICE_REPLYTO_ADDRESS
+          value: {{ .Values.global.external.fromAndReplyToEmailAddress | quote }}
+        - name: EMAIL_SERVICE_CC_ADDRESS
+          value: ""
+        - name: TASKRUNNER_TIME_INTERVAL_FOR_EMAIL_SERVICE
+          value: "200"
+        - name: TASKRUNNER_TIME_INTERVAL_FOR_AWS_SESEMAIL
+          value: "200"
+        - name: TASKRUNNER_CONCURRENCY_FOR_EMAIL_SERVICE
+          value: "2"
+        - name: TASKRUNNER_CONCURRENCY_FOR_AWS_SESEMAIL
+          value: "2"
+        - name: EMAIL_SERVICE_FROM_ADDRESS
+          value: {{ .Values.global.external.fromAndReplyToEmailAddress | quote }}
+        - name: EMAIL_SERVER_TYPE
+          value: {{ .Values.global.external.emailServerType | quote }}
+        - name: EMAIL_SERVER_CONFIGURATION
+          value: {{ include "tp-cp-email-service.consts.emailServerConfig" . | quote }}
+        - name: EMAIL_SERVICE_ENABLE_ARN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.enableArn
+        - name: EMAIL_TEMPLATES_S3_LOCATION
+          value: file:///private/tsc/config/emails-templates
+        - name: CONFIGURATION_REFRESH_INTERVAL_IN_SECONDS
+          value: "3000"
+        {{- if eq  .Values.global.external.emailServerType "sendgrid" }}
+        - name: SENDGRID_SERVICE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sendgrid-service-api-key
+              key: SENDGRID_SERVICE_API_KEY
+        {{- end }}
+        - name: DISABLE_CONFIGURATION_REFRESH
+          value: "false"
+        - name: TSC_CONFIG_LOCATION
+          value: /private/tsc
+        - name: TSC_CONFIGURATION_LOCATION_EMAIL_SERVICE
+          value: file:///private/tsc/config/emailservice/emailservice.json
         volumeMounts:
         - name: store-vol
           mountPath: /private/tsc/config
