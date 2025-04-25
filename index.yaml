@@ -3253,6 +3253,31 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: platform-addon-eventprocessing
     apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-25T05:01:24.72530714Z"
+    dependencies:
+    - condition: tp-cp-eventprocessing-be.enabled
+      name: tp-cp-eventprocessing-be
+      repository: alias:tibco-platform
+      tags:
+      - be
+      version: 1.6.1
+    description: TIBCO Platform chart for BE addon
+    digest: cce7e3dfc15bae842a7f970a0250e8615cadb730cb4dcb6dc2d0d38e9d8e12b1
+    keywords:
+    - tibco-platform
+    - platform
+    - eventprocessing
+    - addon
+    name: platform-addon-eventprocessing
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-addon-eventprocessing-1.6.0-alpha.1/platform-addon-eventprocessing-1.6.0-alpha.1.tgz
+    version: 1.6.0-alpha.1
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-addon-eventprocessing
+    apiVersion: v2
     appVersion: 1.4.0
     created: "2025-01-24T06:05:51.671401076Z"
     dependencies:
@@ -9345,4 +9370,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-04-25T00:35:04.052314438Z"
+generated: "2025-04-25T05:01:24.726013454Z"
