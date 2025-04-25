@@ -30,8 +30,7 @@ metadata:
       name: "{{ $stsname }}"
       # app.kubernetes.io/name must match CAP-DB services list for health monitoring
       # currently this is a fixed list per capability template, not instance customizable
-      app.kubernetes.io/name: "ems-toolset"
-      app: msg-ems-ftl
+      app.kubernetes.io/name: "{{ $stsname }}"
       tib-msg-stsname: "{{ $stsname }}"
     annotations:
       {{ include "msg.dp.mon.annotations" . | indent 6 }}
@@ -54,12 +53,10 @@ spec:
                 {{ include "ems.std.labels" $emsParams | indent 16 }}
                 tib-msg-stsname: "{{ $stsname }}"
                 tib-msg-stsrole: "standby"
-                name: ems
-                app: msg-ems-ftl
+                name: "{{ $stsname }}"
+                app.kubernetes.io/name: "{{ $stsname }}"
                 "sidecar.istio.io/inject": "{{ $emsParams.ems.istioEnable }}"
-            name: ems
-            annotations:
-              cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+            name: ems-toolset
         spec:
             {{- if ne "none" $emsParams.dp.pullSecret }}
             imagePullSecrets:

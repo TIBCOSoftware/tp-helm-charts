@@ -82,7 +82,7 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-66" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-68" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -123,7 +123,7 @@ job:
       memory: "1Gi"
       cpu: "1"
     {{ end }}
-securityProfile: "pss-restrictive"
+securityProfile: {{ .Values.securityProfile | default "pss-restrictive" }}
 {{ end }}
 
 {{/*
@@ -155,10 +155,11 @@ ems.std.labels prints the standard EMS group Helm labels.
 note: expects a $emsParams as its argument
 */}}
 {{- define "msg-gateway.std.labels" }}
-# labels intentially omited for 1.5 monitoring
-# platform.tibco.com/capability-instance-id: "{{ .dp.cpInstanceId }}"
-# platform.tibco.com/workload-type: infra
-# platform.tibco.com/dataplane-id: "{{ .dp.name }}"
+
+platform.tibco.com/capability-instance-id: "{{ .dp.cpInstanceId }}"
+platform.tibco.com/workload-type: infra
+platform.tibco.com/dataplane-id: "{{ .dp.name }}"
+
 app.cloud.tibco.com/created-by: tp-msg
 app.cloud.tibco.com/tenant-name: messaging
 release: "{{ .dp.release }}"
@@ -167,6 +168,7 @@ tib-dp-app: msg-gateway
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: tp-hawk-console
+platform.tibco.com/workload-type: "infra"
 {{- end }}
 
 {{/*

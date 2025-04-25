@@ -71,7 +71,7 @@ need.msg.cp.params
   {{- $registry := "csgprdusw2reposaas.jfrog.io" -}}
   {{- $repo := include "msgdp.defaultImageRepo" . -}}
   {{- $imageName := "msg-cp-ui-contrib" -}}
-  {{- $imageTag := "1.5.0-32" -}}
+  {{- $imageTag := "1.6.0-34" -}}
   {{- $pullSecret := "cic2-tcm-ghcr-secret" -}}
   {{- $pullPolicy := "Always" -}}
   {{- $enableSecurityContext := "true" -}}

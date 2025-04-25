@@ -63,6 +63,14 @@ spec:
             value: /redtail/hawkconsolenode/data
           - name: EMS_CERTS_PATH
             value: /redtail/hawkconsolenode/emscerts
+          - name : SUB_INTERVAL_BE
+            value: {{ .Values.hawkconsole.subscription.interval.be | quote }}
+          - name: SUB_INTERVAL_BW5
+            value: {{ .Values.hawkconsole.subscription.interval.bw5 | quote }}
+          - name: SUB_INTERVAL_SYS
+            value: {{ .Values.hawkconsole.subscription.interval.sys | quote }}
+          - name: SUB_INTERVAL_O11Y
+            value: {{ .Values.hawkconsole.subscription.interval.o11y | quote}}            
           - name: SUBSCRIPTION_ID
             value: {{ .Values.global.cp.subscriptionId }}
           - name: DATAPLANE_ID
@@ -164,13 +172,13 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: podlogs
-          hostPath:
-            path: /var/log/pods
-            type: Directory
+          emptyDir: {}
         - name: config-volume
           configMap:
             name: {{ include "tp-dp-hawk-console.consts.appName" . }}-fluentbit-config
+{{- end }}
         - name: hawkcerts
           secret:
             secretName: {{ include "tp-dp-hawk-console.consts.appName" . }}-certs
