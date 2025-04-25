@@ -24,6 +24,7 @@ appConfig:
   connectors: ""
   bwProfile: "default.substvar"
   lastUpdated: ""
+  customBaseImagePath: ""
 
 otel:
   enabled: true
@@ -46,9 +47,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-bwce-app-init"
-  appInitImageTag: "41"
+  appInitImageTag: "44"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "3.2.2"
+  fluentBitImageTag: "4.0.0"
   bwceBaseImageName: "tp-bwce-base"
 
 imagePullSecrets: []
@@ -215,6 +216,8 @@ autoscaling:
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
+  behavior: {}
+  customMetrics: []
 
 # enable or disable the resources volume mounts. these are required for readOnlyRootFilesystem security context, default is true
 enableResourcesVolumes: true

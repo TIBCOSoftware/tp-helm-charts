@@ -38,9 +38,9 @@ spec:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       {{- end }}
       containers:
-      {{- range $name, $image := .Values.images }}
+      {{- range $index, $image := .Values.buildtypeImages }}
       {{- if $image.delete_image  }}
-      - name: {{ $name }}-{{ $image.tag | replace "." "-" | lower }}-delete
+      - name: {{ $image.name }}-{{ $image.tag | replace "." "-" | lower }}-delete
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
         {{- with $.Values.probes.startupProbe }}
@@ -70,7 +70,7 @@ spec:
             mountPath: /tmp
       {{- end }}
       {{- if $image.extract_image  }}
-      - name: {{ $name }}-{{ randAlphaNum 5 | lower }}
+      - name: {{ $image.name }}-{{ randAlphaNum 5 | lower }}
         image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: Always
         {{- with $.Values.probes.startupProbe }}
@@ -87,9 +87,9 @@ spec:
         {{- end }}
         env:
         - name: SOURCE_DOCKER_IMAGE
-          value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $image.tag }}"
+          value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.bwce.image.repository" $dot }}{{"/"}}{{ $image.name }}:{{ $image.tag }}"
         - name: IMAGE_TEMP_DIR
-          value: "/tmp/{{ $name }}/"
+          value: "/tmp/{{ $image.name }}/"
         - name: SOURCE_DIRS
           value: "{{ $image.path }}"
         - name: TARGET_DIRS

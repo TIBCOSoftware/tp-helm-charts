@@ -26,7 +26,7 @@ spec:
       {{- end }}
       labels:
         {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
+        egress.networking.platform.tibco.com/internet-all: enable
         egress.networking.platform.tibco.com/cluster-all: enable
     spec:
       nodeSelector:
@@ -41,9 +41,9 @@ spec:
         - name: {{ include "flogo-utilities.container-registry.secret" $dot }}
       {{- end }}
       containers:
-      {{- range $name, $image := .Values.images }}
+      {{- range $index, $image := .Values.flogoBuildtypeImages }}
       {{- if $image.delete_image  }}
-      - name: {{ $name }}-{{ $image.tag | replace "." "-" | lower }}-delete
+      - name: {{ $image.name }}-{{ $image.tag | replace "." "-" | lower }}-delete
         image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
         {{- with $.Values.probes.startupProbe }}
@@ -56,7 +56,7 @@ spec:
         {{- end }}
         {{- if eq (include "flogo-utilities.enableResourceConstraints" $dot ) "true" }}
         resources:
-        {{- toYaml $.Values.buildtype.resources | nindent 10 }}
+        {{- toYaml $.Values.scripts.resources | nindent 10 }}
         {{- end }}
         command:
           - "sh"
@@ -73,8 +73,8 @@ spec:
             mountPath: /tmp
       {{- end }}
       {{- if $image.extract_image  }}
-      - name: {{ $name }}-{{ randAlphaNum 5 | lower }}
-        image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag}}
+      - name: {{ $image.name }}-{{ randAlphaNum 5 | lower }}
+        image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
         imagePullPolicy: Always
         {{- with $.Values.probes.startupProbe }}
         startupProbe:
@@ -90,13 +90,13 @@ spec:
         {{- end }}
         env:
         - name: SOURCE_DOCKER_IMAGE
-          value: "{{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.flogo.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $image.tag }}"
+          value: "{{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.flogo.image.repository" $dot }}{{"/"}}{{ $image.name }}:{{ $image.tag }}"
         - name: IMAGE_TEMP_DIR
-          value: "/tmp/{{ $name }}/"
+          value: "/tmp/{{ $image.name }}/"
         - name: SOURCE_DIRS
           value: "{{ $image.path }}"
         - name: TARGET_DIRS
-          value: "/usr/share/nginx/html/{{ $image.target_location }}/{{$image.tag}}"
+          value: "/usr/share/nginx/html/{{ $image.target_location }}/{{ $image.tag }}"
         - name: LOG_LEVEL
           value: debug
         - name: CLEAN_UP_TARGET_DIRS

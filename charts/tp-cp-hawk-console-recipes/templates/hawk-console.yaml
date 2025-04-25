@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.5.0",
+      "capabilityVersion": "1.6.0",
       "minCPVersion": "1.5.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.hawkConsole.releaseDate | quote }},
@@ -34,6 +34,11 @@ data:
             "name": "tp-dp-hawk-console",
             "description": "Hawk Console Service",
             "monitoringPriority": "essential"
+          },
+          {
+            "name": "tp-msg-gateway",
+            "description": "Messaging CT Gateway Services",
+            "monitoringPriority": "essential"
           }
         ],
         "dependsOn": [],
@@ -50,7 +55,7 @@ data:
         - name: tp-dp-hawk-console
           namespace: ${NAMESPACE}
           # FIXME: ??use: .Values.capabilities.hawkConsole.version ??
-          version: "1.5.30"
+          version: "1.6.12"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -118,7 +123,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.5.0"
+          value: "1.6.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

@@ -45,12 +45,20 @@ global:
 
 # Resource values for production like setup
 resources:
-  requests:
-    cpu: 200m
-    memory: 1024Mi
-  limits:
-    cpu: 500m
-    memory: 2048Mi
+  prometheus:
+    requests:
+      cpu: 200m
+      memory: 1024Mi
+    limits:
+      cpu: 500m
+      memory: 2048Mi
+  prometheusds:
+    requests:
+      cpu: 20m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi
 
 ## Images
 ##
@@ -67,7 +75,7 @@ images:
       name: hawk-prometheus-discoveryservice
       pullPolicy: IfNotPresent
       # tag: 120
-      tag: "1.5.0.30"
+      tag: "1.6.0.12"
 
 # Liveness and Readiness probe setting for Prometheus container
 promLivenessProbe:

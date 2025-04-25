@@ -8,25 +8,25 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "flogo-utilities.fullname" $dot }}-vscode-extension-extract-{{ randAlphaNum 4 | lower }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $.Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": before-hook-creation
   labels:
-    {{- include "flogo-utilities.labels" . | nindent 4 }}
+    {{- include "flogo-utilities.labels" $dot | nindent 4 }}
 spec:
   backoffLimit: 2
   ttlSecondsAfterFinished: 3600
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- with $.Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
+        {{- include "flogo-utilities.selectorLabels" $dot | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
         egress.networking.platform.tibco.com/cluster-all: enable
     spec:
       nodeSelector:
