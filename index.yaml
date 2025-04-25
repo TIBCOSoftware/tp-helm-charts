@@ -2217,6 +2217,23 @@ entries:
     version: 1.1.14
   msg-ems-tp:
   - apiVersion: v2
+    appVersion: 10.4.0-68
+    created: "2025-04-25T00:35:02.987282067Z"
+    description: Data-plane provisioning chart for EMS server group
+    digest: 6dbfe04a209aba4296ca2023d06e638a8396477bbcfe03b3f998c300a5121f82
+    keywords:
+    - tibco-platform
+    - data-plane
+    - messaging
+    - EMS
+    maintainers:
+    - email: tcm@tibco.com
+      name: TIBCO Cloud Messaging Team
+    name: msg-ems-tp
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-ems-tp-1.6.12/msg-ems-tp-1.6.12.tgz
+    version: 1.6.12
+  - apiVersion: v2
     appVersion: 10.4.0-66
     created: "2025-02-22T01:53:37.340327877Z"
     description: Data-plane provisioning chart for EMS server group
@@ -2395,6 +2412,24 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-ems-tp-1.0.22/msg-ems-tp-1.0.22.tgz
     version: 1.0.22
   msg-pulsar-tp:
+  - apiVersion: v2
+    appVersion: 3.0.2-39
+    created: "2025-04-25T00:35:03.150881938Z"
+    description: Data-plane provisioning chart for Pulsar server group
+    digest: 4d36d5839b27400fe43ce53e6670c09873acf3b92a08a54b400d97ac6ec99b84
+    keywords:
+    - tibco-platform
+    - data-plane
+    - messaging
+    - Quasar
+    - Pulsar
+    maintainers:
+    - email: tcm@tibco.com
+      name: TIBCO Cloud Messaging Team
+    name: msg-pulsar-tp
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-pulsar-tp-1.6.12/msg-pulsar-tp-1.6.12.tgz
+    version: 1.6.12
   - apiVersion: v2
     appVersion: 3.0.2-38
     created: "2025-02-22T01:53:37.520613982Z"
@@ -6460,6 +6495,31 @@ entries:
     version: 1.2.20
   tp-cp-hawk:
   - apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-25T00:35:03.323585708Z"
+    dependencies:
+    - condition: tp-cp-hawk-infra-querynode.enabled
+      name: tp-cp-hawk-infra-querynode
+      repository: ""
+      version: 1.6.*
+    - condition: tp-cp-hawk-infra-prometheus.enabled
+      name: tp-cp-hawk-infra-prometheus
+      repository: ""
+      version: 1.6.*
+    description: TIBCO Platform Control Plane - Hawk Infra Bundle
+    digest: 27272226496f7cc204874a1d9931cecbcb869ddab4c2e70380b74ba6bebcec86
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    keywords:
+    - tibco-platform
+    - control-plane
+    - hawk
+    maintainers:
+    - name: TIBCO Cloud Hawk Team
+    name: tp-cp-hawk
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-1.6.12/tp-cp-hawk-1.6.12.tgz
+    version: 1.6.12
+  - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-22T01:53:37.728792842Z"
     dependencies:
@@ -6610,6 +6670,23 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-1.2.13/tp-cp-hawk-1.2.13.tgz
     version: 1.2.13
   tp-cp-hawk-console-recipes:
+  - annotations:
+      app.helm.sh/component: tibco-platform-data-plane
+      app.helm.sh/name: tp-cp-hawk-console-recipes
+    apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-25T00:35:03.468560536Z"
+    description: TIBCO Platform Hawk Data Plane recipes
+    digest: 41f204ee91038a5629e623d09adac21fcc877a6f20e5da6c7c4345ff75336c0c
+    keywords:
+    - tibco-platform
+    - infra
+    - recipes
+    name: tp-cp-hawk-console-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-hawk-console-recipes-1.6.12/tp-cp-hawk-console-recipes-1.6.12.tgz
+    version: 1.6.12
   - annotations:
       app.helm.sh/component: tibco-platform-data-plane
       app.helm.sh/name: tp-cp-hawk-console-recipes
@@ -7612,6 +7689,24 @@ entries:
     version: 1.2.13
   tp-cp-msg-contrib:
   - apiVersion: v2
+    appVersion: 1.6.0-34
+    created: "2025-04-25T00:35:03.620102009Z"
+    description: TIBCO Platform Control Plane -- Messaging
+    digest: 1b8bc0cc4e216fab659994938f6ef18d7974e66332a8e44113834ae308e6a38e
+    keywords:
+    - tibco-platform
+    - control-plane
+    - messaging
+    - EMS
+    - Pulsar
+    maintainers:
+    - email: tcm@tibco.com
+      name: TIBCO Cloud Messaging Team
+    name: tp-cp-msg-contrib
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-msg-contrib-1.6.12/tp-cp-msg-contrib-1.6.12.tgz
+    version: 1.6.12
+  - apiVersion: v2
     appVersion: 1.5.0-32
     created: "2025-02-22T01:53:38.101428234Z"
     description: TIBCO Platform Control Plane -- Messaging
@@ -7738,6 +7833,24 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-msg-contrib-1.2.24/tp-cp-msg-contrib-1.2.24.tgz
     version: 1.2.24
   tp-cp-msg-recipes:
+  - apiVersion: v2
+    appVersion: 1.6.0-34
+    created: "2025-04-25T00:35:03.80409088Z"
+    description: TIBCO Platform Control Plane -- Messaging
+    digest: d9e771630d7e449a40d41bf7883f4b8dd48e2c2a078483407c68453f986dcb1c
+    keywords:
+    - tibco-platform
+    - control-plane
+    - messaging
+    - EMS
+    - Pulsar
+    maintainers:
+    - email: tcm@tibco.com
+      name: TIBCO Cloud Messaging Team
+    name: tp-cp-msg-recipes
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-msg-recipes-1.6.12/tp-cp-msg-recipes-1.6.12.tgz
+    version: 1.6.12
   - apiVersion: v2
     appVersion: 1.5.0-32
     created: "2025-02-22T01:53:38.271397788Z"
@@ -8959,6 +9072,18 @@ entries:
     version: 1.2.13
   tp-dp-hawk-console:
   - apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-25T00:35:04.051700758Z"
+    description: A Helm chart for deploying the tp-dp-hawk-console service
+    digest: ce2511bb410be1e8af5fde4d019990abab625bb7c89f5d2cb9b5d75a7222603a
+    keywords:
+    - hawk-console
+    - tp-msg-gateway
+    name: tp-dp-hawk-console
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-hawk-console-1.6.12/tp-dp-hawk-console-1.6.12.tgz
+    version: 1.6.12
+  - apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-22T01:53:38.4579113Z"
     description: A Helm chart for deploying the tp-dp-hawk-console service
@@ -9220,4 +9345,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-04-25T00:19:17.175311739Z"
+generated: "2025-04-25T00:35:04.052314438Z"
