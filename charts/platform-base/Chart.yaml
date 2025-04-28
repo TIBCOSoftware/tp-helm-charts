@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-base
 description: TIBCO Platform base chart
 type: application
-version: 1.5.1048
-appVersion: "1.5.1"
+version: 1.6.0-alpha.92
+appVersion: "1.6.0"
 keywords:
   - tibco-platform
   - platform
@@ -19,42 +19,45 @@ annotations:
   app.helm.sh/name: platform-base
 dependencies:
   - name: tp-cp-configuration
-    version: "1.5.0"
+    version: "1.6.0"
     repository: alias:tibco-platform
   - name: tp-cp-recipes
-    version: "1.5.1018"
+    version: "1.6.31"
     repository: alias:tibco-platform
   - name: tp-cp-o11y
-    version: "1.5.1000"
+    version: "1.6.3"
     repository: alias:tibco-platform
   - name: tp-cp-core
-    version: "1.5.10017"
+    version: "1.6.38"
     repository: alias:tibco-platform
   - name: tp-cp-core-ops
-    version: "1.5.10017"
+    version: "1.6.38"
     repository: alias:tibco-platform
   - name: tp-cp-core-finops
-    version: "1.5.549"
+    version: "1.6.555"
     repository: alias:tibco-platform
   - name: tp-cp-integration
-    version: "1.5.39"
+    version: "1.6.24"
     repository: alias:tibco-platform
     condition: tp-cp-integration.enabled
     tags:
       - integration
   - name: tp-cp-tibcohub-contrib
-    version: "1.5.3"
+    version: "1.6.6"
     repository: alias:tibco-platform
     condition: tp-cp-tibcohub-contrib.enabled
   - name: tp-cp-msg-contrib
-    version: "1.5.30"
+    version: "1.6.12"
     repository: alias:tibco-platform
     condition: tp-cp-msg-contrib.enabled
   - name: tp-cp-msg-recipes
-    version: "1.5.30"
+    version: "1.6.12"
     repository: alias:tibco-platform
     condition: tp-cp-msg-recipes.enabled
   - name: tp-cp-hawk
-    version: "1.5.30"
+    version: "1.6.12"
     repository: alias:tibco-platform
     condition: tp-cp-hawk.enabled
+  - name: tp-cp-cli
+    version: "0.9.23"
+    repository: alias:tibco-platform
