@@ -283,6 +283,8 @@ spec:
           value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
           value: {{ .Values.global.tibco.region }}
+        - name: IDENTITY_MANAGEMENT_HOST_PREFIXES_TO_PASS_AUTHN_CTX
+          value: {{ .Values.global.tibco.idm_host_prefixes_to_pass_authn_ctx | quote }}
         - name: IDENTITY_MANAGEMENT_REGION_TO_PREFIX
           value: {{ .Values.global.tibco.region_to_prefix | quote }}
         - name: IDENTITY_MANAGEMENT_CLIENT_ID_SECRET_KEY
