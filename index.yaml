@@ -3355,7 +3355,7 @@ entries:
       app.helm.sh/name: platform-base
     apiVersion: v2
     appVersion: 1.6.0
-    created: "2025-04-28T05:19:34.90048302Z"
+    created: "2025-05-05T08:07:35.203083551Z"
     dependencies:
     - name: tp-cp-configuration
       repository: alias:tibco-platform
@@ -3401,7 +3401,7 @@ entries:
       repository: alias:tibco-platform
       version: 0.9.23
     description: TIBCO Platform base chart
-    digest: 10560b41f143cc8dece812112fb2524acd7c788c6e50c33511ec6c137188275f
+    digest: a5b0a8a19c29e8a424ed5f0c82dad6480bff36535e6f8aca74f99645878f62f2
     keywords:
     - tibco-platform
     - platform
@@ -3409,8 +3409,8 @@ entries:
     name: platform-base
     type: application
     urls:
-    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.6.0-alpha.92/platform-base-1.6.0-alpha.92.tgz
-    version: 1.6.0-alpha.92
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.6.0/platform-base-1.6.0.tgz
+    version: 1.6.0
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: platform-base
@@ -3524,6 +3524,67 @@ entries:
       version: 0.9.23
     description: TIBCO Platform base chart
     digest: 270d2cf4aa0002233a226a945c1fd8a5814e3dd003c5b7802417a15d1b1c9a70
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.6.0-alpha.92/platform-base-1.6.0-alpha.92.tgz
+    version: 1.6.0-alpha.92
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-04-28T05:19:34.90048302Z"
+    dependencies:
+    - name: tp-cp-configuration
+      repository: alias:tibco-platform
+      version: 1.6.0
+    - name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.6.31
+    - name: tp-cp-o11y
+      repository: alias:tibco-platform
+      version: 1.6.3
+    - name: tp-cp-core
+      repository: alias:tibco-platform
+      version: 1.6.38
+    - name: tp-cp-core-ops
+      repository: alias:tibco-platform
+      version: 1.6.38
+    - name: tp-cp-core-finops
+      repository: alias:tibco-platform
+      version: 1.6.555
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.6.24
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.6.6
+    - condition: tp-cp-msg-contrib.enabled
+      name: tp-cp-msg-contrib
+      repository: alias:tibco-platform
+      version: 1.6.12
+    - condition: tp-cp-msg-recipes.enabled
+      name: tp-cp-msg-recipes
+      repository: alias:tibco-platform
+      version: 1.6.12
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.6.12
+    - name: tp-cp-cli
+      repository: alias:tibco-platform
+      version: 0.9.23
+    description: TIBCO Platform base chart
+    digest: 10560b41f143cc8dece812112fb2524acd7c788c6e50c33511ec6c137188275f
     keywords:
     - tibco-platform
     - platform
@@ -4032,6 +4093,27 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.2.138/platform-base-1.2.138.tgz
     version: 1.2.138
   platform-bootstrap:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-bootstrap
+    apiVersion: v2
+    appVersion: 1.6.0
+    created: "2025-05-05T08:07:35.358542491Z"
+    dependencies:
+    - name: tp-cp-bootstrap
+      repository: alias:tibco-platform
+      version: 1.6.3
+    description: TIBCO Platform bootstrap chart
+    digest: 57fd857fc446bc9702b489ccf9f14e24ef6dfce9938f95b6a86126ff4dbbeba9
+    keywords:
+    - tibco-platform
+    - platform
+    - bootstrap
+    name: platform-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-bootstrap-1.6.0/platform-bootstrap-1.6.0.tgz
+    version: 1.6.0
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: platform-bootstrap
@@ -9714,4 +9796,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-04-29T05:20:00.163145495Z"
+generated: "2025-05-05T08:07:35.359205629Z"
