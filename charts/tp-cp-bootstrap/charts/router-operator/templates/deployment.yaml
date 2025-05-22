@@ -26,7 +26,6 @@ spec:
       labels:
         {{- include "router-operator.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        ingress.networking.platform.tibco.com/internet-access: enable
       annotations:
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

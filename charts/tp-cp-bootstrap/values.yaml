@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -10,10 +10,10 @@
 compute-services:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.6.2"
-    dpCoreInfrastructureAppVersion: "1.6.0"
-    dpConfigureNamespaceChartVersion: "1.6.1"
-    dpConfigureNamespaceAppVersion: "1.6.0"
+    dpCoreInfrastructureChartVersion: "1.7.2"
+    dpCoreInfrastructureAppVersion: "1.7.0"
+    dpConfigureNamespaceChartVersion: "1.7.5"
+    dpConfigureNamespaceAppVersion: "1.7.0"
 
 hybrid-proxy:
   # switch to false to disable tp-hybrid-proxy
@@ -53,6 +53,44 @@ global:
     # Default value is false. Possible values are true, false
     createNetworkPolicy: false
     networkPolicy:
+      # Create deprecated network policies
+      createDeprecatedPolicies: true
+      # Enable or disable the creation of cluster-wide network policies
+      createClusterScopePolicies: true
+      # Enable or disable the creation of internet-facing network policies
+      createInternetScopePolicies: true
+      # Network policies for access to the database, if no values are provided, the database policy will not be created
+      database:
+        CIDR: ""
+        port: ""
+      # Network policies for access to the log server, if no values are provided, the log server policy will not be created
+      logServer:
+        CIDR: ""
+        port: ""
+      # Network policies for access to the container registry, if no values are provided, the container registry policy will not be created
+      containerRegistry:
+        CIDR: ""
+        port: ""
+      # Network policies for access to the email server, if no values are provided, the email server policy will not be created
+      emailServer:
+        CIDR: ""
+        port: ""
+      # Network policies for access to the NLB, if no values are provided, the hybrid connectivity policy will not be created
+      hybridConnectivity:
+      # - ports:
+      #   - port: 443
+      #     protocol: TCP
+      #   from:
+      #     - ipBlock:
+      #         cidr: 0.0.0.0/0
+      # Network policies for access to the proxy, if no values are provided, the proxy policy will not be created
+      proxy:
+        CIDR: ""
+        port: ""
+      # Network policies for access to the Kubernetes API server, if no values are provided, the Kubernetes API server policy will not be created
+      kubeApiServer:
+        CIDR: ""
+        port: ""
       # Network policies for access kube-dns, if no values are provided, the kube-dns policy will be created for a vanilla k8s cluster
       kubeDns:
         egress:

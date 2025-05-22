@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.6.0",
+      "capabilityVersion": "1.7.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -134,7 +134,8 @@ data:
                 fullnameOverride: otel-userapp
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
-                  egress.networking.platform.tibco.com/internet-all: enable
+                  networking.platform.tibco.com/logServer-egress: enable
+                  networking.platform.tibco.com/internet-egress: enable
                 resources:
                   requests:
                     cpu: 100m
@@ -410,7 +411,8 @@ data:
                 fullnameOverride: otel-userapp-metrics
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
-                  egress.networking.platform.tibco.com/internet-all: enable
+                  networking.platform.tibco.com/prometheus: enable
+                  networking.platform.tibco.com/internet-egress: enable
                   prometheus.io/scrape: "true"
                   prometheus.io/path: "metrics"
                   prometheus.io/port: "4319"
@@ -963,7 +965,8 @@ data:
                 fullnameOverride: otel-finops
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
-                  egress.networking.platform.tibco.com/internet-all: enable
+                  networking.platform.tibco.com/prometheus: enable
+                  networking.platform.tibco.com/internet-egress: enable
                 serviceAccount:
                   create: false
                   name: ${SERVICE-ACCOUNT}
@@ -1094,7 +1097,8 @@ data:
                 fullnameOverride: otel-services
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
-                  egress.networking.platform.tibco.com/internet-all: enable
+                  networking.platform.tibco.com/logServer-egress: enable
+                  networking.platform.tibco.com/internet-egress: enable
                 serviceAccount:
                   create: false
                   name: ${SERVICE-ACCOUNT}
@@ -1272,7 +1276,8 @@ data:
                   basePath: /o11y/v1/traceproxy/${DATAPLANE-ID}
                   podLabels:
                     networking.platform.tibco.com/kubernetes-api: enable
-                    egress.networking.platform.tibco.com/internet-all: enable
+                    networking.platform.tibco.com/logServer-egress: enable
+                    networking.platform.tibco.com/internet-egress: enable
                   resources:
                     requests:
                       cpu: 200m
@@ -1303,7 +1308,8 @@ data:
                   fullnameOverride: jaeger-collector
                   podLabels:
                     networking.platform.tibco.com/kubernetes-api: enable
-                    egress.networking.platform.tibco.com/internet-all: enable
+                    networking.platform.tibco.com/logServer-egress: enable
+                    networking.platform.tibco.com/internet-egress: enable
                   resources:
                     requests:
                       cpu: 200m
@@ -1344,7 +1350,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y-exporter
+  name: {{ include "tp-cp-infra-recipes.appName" . }}-o11y-exporter-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "tp-cp-infra-recipes.labels" . | nindent 4 }}
@@ -1384,7 +1390,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.6.0"
+          value: "1.7.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

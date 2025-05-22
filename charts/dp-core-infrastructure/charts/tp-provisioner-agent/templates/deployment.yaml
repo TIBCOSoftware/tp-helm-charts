@@ -22,7 +22,8 @@ spec:
       labels:
         {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/internet-web-egress: enable
+        networking.platform.tibco.com/helmRegistry-egress: enable
     spec:
       {{ if .Values.podSecurityContext }}
       securityContext:

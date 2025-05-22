@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2024. Cloud Software Group, Inc.
+Copyright © 2025. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -97,7 +97,10 @@ spec:
     {{- range $key, $value := .Values.auroraCluster.resourceTags }}
       - key: {{ $key }}
         value: {{ $value }}
-    {{- end }}
+    {{- end -}}
+    {{/* Following tag is added to make the cluster reconcile on the change in performance insights settings */}}
+      - key: {{ "performance-insights-enabled" }}
+        value: {{ .Values.auroraCluster.mandatoryConfigurationParameters.enablePerformanceInsights | quote }}
     {{- end }}
     {{- if .Values.auroraCluster.globalDatabase }}
     {{- if .Values.auroraCluster.globalDatabase.secondaryCluster }}
@@ -143,6 +146,14 @@ spec:
     dbInstanceClass: {{ .dbInstanceClass }}
     engine: {{ .engine }}
     publiclyAccessible: {{ .publiclyAccessible }}
+    enablePerformanceInsights: {{ .enablePerformanceInsights }}
+    {{- end }}
+    {{- if $root.Values.auroraCluster.additionalConfigurationParameters }}
+    {{- with $root.Values.auroraCluster.additionalConfigurationParameters }}
+    {{- if .performanceInsightsKmsKeyId }}
+    performanceInsightsKmsKeyId: {{ .performanceInsightsKmsKeyId }}
+    {{- end }}
+    {{- end }}
     {{- end }}
     {{- if or $root.Values.commonTags $root.Values.auroraCluster.resourceTags }}
     tags:

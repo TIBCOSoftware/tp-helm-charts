@@ -20,7 +20,7 @@ Table of Contents
 
 # Data Plane Cluster Workshop
 
-The goal of this workshop is to provide a hands-on experience to deploy a Data Plane cluster in Azure. This is the prerequisite for the Data Plane.
+The goal of this workshop is to provide hands-on experience to prepare Azure Kubernetes cluster to be used as a Data Plane. In order to deploy Data Plane, you need to have some necessary tools installed. This workshop will guide you to install/use the necessary tools.
 
 > [!Note]
 > This workshop is NOT meant for production deployment.
@@ -81,9 +81,9 @@ export TP_STORAGE_ACCOUNT_NAME="" # replace with name of existing storage accoun
 export TP_STORAGE_ACCOUNT_RESOURCE_GROUP="" # replace with name of storage account resource group
 ```
 
-Change the directory to [scripts/aks/](../../scripts/aks/) to proceed with the next steps.
+Change the directory to [../scripts/](../scripts/) to proceed with the next steps.
 ```bash
-cd scripts/aks
+cd ../scripts/
 ```
 
 ## Install External DNS

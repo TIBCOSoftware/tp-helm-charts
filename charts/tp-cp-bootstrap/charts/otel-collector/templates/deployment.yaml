@@ -40,7 +40,8 @@ spec:
         {{- include "otel-collector.configTemplateChecksumAnnotation" . | nindent 8 }}
         {{- include "otel-collector.podAnnotations" . | nindent 8 }}
       labels:
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/logServer-egress: enable
         {{- include "otel-collector.selectorLabels" . | nindent 8 }}
         {{- include "otel-collector.component" . | nindent 8 }}
         {{- include "otel-collector.podLabels" . | nindent 8 }}

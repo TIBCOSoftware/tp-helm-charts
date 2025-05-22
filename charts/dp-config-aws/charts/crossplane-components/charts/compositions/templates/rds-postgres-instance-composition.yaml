@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2024. Cloud Software Group, Inc.
+Copyright © 2025. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -56,7 +56,11 @@ spec:
           toFieldPath: "spec.forProvider.dbInstanceClass"
         - fromFieldPath: "spec.parameters.dbSubnetGroupReference"
           toFieldPath: "spec.forProvider.dbSubnetGroupNameSelector.matchLabels.db-subnet-group-reference"
+        - fromFieldPath: "spec.parameters.enablePerformanceInsights"
+          toFieldPath: "spec.forProvider.enablePerformanceInsights"
         - fromFieldPath: "spec.parameters.engine"
           toFieldPath: "spec.forProvider.engine"
+        - fromFieldPath: "spec.parameters.performanceInsightsKmsKeyId"
+          toFieldPath: "spec.forProvider.performanceInsightsKMSKeyID"
         - fromFieldPath: "spec.parameters.publiclyAccessible"
           toFieldPath: "spec.forProvider.publiclyAccessible"

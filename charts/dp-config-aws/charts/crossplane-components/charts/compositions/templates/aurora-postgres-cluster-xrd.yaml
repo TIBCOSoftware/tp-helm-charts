@@ -1,7 +1,12 @@
 {{/*
-Copyright © 2024. Cloud Software Group, Inc.
+Copyright © 2025. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
+*/}}
+
+{{/*
+Please look at the following schema for more information:
+https://doc.crds.dev/github.com/crossplane/provider-aws/rds.aws.crossplane.io/DBCluster/v1alpha1@v0.43.1
 */}}
 
 apiVersion: apiextensions.crossplane.io/v1
@@ -77,6 +82,8 @@ spec:
                     default: false
                   enableGlobalWriteForwarding:
                     type: boolean
+                  enablePerformanceInsights:
+                    type: boolean
                   engine:
                     type: string
                   engineVersion:
@@ -127,6 +134,8 @@ spec:
                         type: string
                       namespace:
                         type: string
+                  performanceInsightsKmsKeyId:
+                    type: string
                   port:
                     type: integer
                   prefix:

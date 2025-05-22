@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -12,14 +12,14 @@ global:
     data:
       SYSTEM_WHERE: "local"
       SYSTEM_WHO: "local"
-      SYSTEM_DOCKER_REGISTRY: "reldocker.tibco.com"
+      SYSTEM_DOCKER_REGISTRY: ""
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
     namespace: tp-dp-dp1
     containerRegistry:
       secret: ""
-      url: reldocker.tibco.com
+      url: ""
       repository: "tibco-platform-docker-prod"
     environmentType: "vagrant"
     enableResourceConstraints: true
@@ -56,7 +56,7 @@ global:
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       name: infra-artifactmanager
-      tag: 90
+      tag: 107
 
 replicaCount: 1
 

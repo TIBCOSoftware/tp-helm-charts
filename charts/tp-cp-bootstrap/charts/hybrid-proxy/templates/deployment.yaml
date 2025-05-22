@@ -26,7 +26,10 @@ spec:
       labels:
         {{- include "hybrid-proxy.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        ingress.networking.platform.tibco.com/internet-access: enable
+        networking.platform.tibco.com/internet-ingress: enable
+        networking.platform.tibco.com/hybrid-connectivity-ingress: enable
+        # This label is used by the network policy to allow incoming traffic from NLB inside the VPC, when createInternetScopePolicy is disabled
+        networking.platform.tibco.com/cluster-ingress: enable
       annotations:
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

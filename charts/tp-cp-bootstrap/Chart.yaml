@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -8,8 +8,8 @@ apiVersion: v2
 name: tp-cp-bootstrap
 description: TIBCO Platform Control Plane bootstrap chart
 type: application
-version: 1.6.3
-appVersion: "1.6.0"
+version: 1.7.18
+appVersion: "1.7.0"
 keywords:
   - tibco-platform
   - control-plane
@@ -20,16 +20,16 @@ annotations:
   app.helm.sh/name: tp-cp-bootstrap
 dependencies:
   - name: hybrid-proxy
-    version: "1.6.*"
+    version: "1.7.*"
     condition: hybrid-proxy.enabled
   - name: resource-set-operator
-    version: "1.6.*"
+    version: "1.7.*"
     condition: resource-set-operator.enabled
   - name: router-operator
-    version: "1.6.*"
+    version: "1.7.*"
     condition: router-operator.enabled
   - name: compute-services
-    version: "1.6.*"
+    version: "1.7.*"
     condition: compute-services.enabled
   - name: otel-collector
     version: "0.116.*"
