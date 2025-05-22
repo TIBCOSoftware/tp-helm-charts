@@ -1,0 +1,55 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.publicApi.ingress.controllerName "openshiftRouter" -}}
+{{- $fullName := include "bwprovisioner.fullname" . -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $fullName }}-public-openshift
+spec:
+  host: {{ .Values.publicApi.ingress.config.fqdn }}
+  httpHeaders:
+    actions:
+      request:
+      - action:
+          set:
+            value: {{ .Values.publicApi.ingress.config.pathPrefix }}
+          type: Set
+        name: X-Forwarded-Prefix
+      response:
+      - action:
+          type: Delete
+        name: x-auth-request-user
+      - action:
+          type: Delete
+        name: x-auth-request-email
+      - action:
+          type: Delete
+        name: x-auth-request-access-token
+      - action:
+          type: Delete
+        name: X-Forwarded-Access-Token
+      - action:
+          type: Delete
+        name: X-Atmosphere-Token
+      - action:
+          type: Delete
+        name: gap-auth
+  path: {{ .Values.publicApi.ingress.config.pathPrefix }}
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
+    weight: 100
+  wildcardPolicy: None
+{{- end }}

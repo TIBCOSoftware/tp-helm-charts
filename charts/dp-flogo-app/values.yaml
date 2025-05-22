@@ -17,8 +17,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.25.3-b190"
-  flogoBaseImageTag: "2.25.3-b190"
+  flogoBuildTypeTag: "2.25.4-b222"
+  flogoBaseImageTag: "2.25.4-b222"
   tags: ""
   connectors: ""
   lastUpdated: ""
@@ -39,6 +39,10 @@ serviceMesh:
 networkPolicy:
   internetAll: enable
   internetWeb: enable
+  msgInfra: enable
+  databaseEgress: enable
+  proxyEgress: enable
+  userApps: enable
 
 replicaCount: 1
 
@@ -186,6 +190,7 @@ service:
   serviceDescription: ""
   type: ClusterIP
   ports: []
+  # ports:
   #  - port: 9999
   #    targetPort: 9999
 

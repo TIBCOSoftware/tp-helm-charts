@@ -40,6 +40,10 @@ executionHistory:
 networkPolicy:
   internetAll: enable
   internetWeb: enable
+  msgInfra: enable
+  databaseEgress: enable
+  proxyEgress: enable
+  userApps: enable
 
 replicaCount: 1
 
@@ -187,8 +191,26 @@ service:
   serviceDescription: ""
   type: ClusterIP
   ports: []
+  # ports:
   #  - port: 8081
   #    targetPort: 8081
+  annotations: {}
+  labels: {}
+  allocateLoadBalancerNodePorts: false
+
+  # Example config for making TCP endpoint public over AWS NLB
+  # type: LoadBalancer
+  # allocateLoadBalancerNodePorts: false
+  # ports:
+  # - port: 8085
+  #   targetPort: 8085
+  # annotations:
+  #   kubernetes.io/ingress.class: alb
+  #   service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=false
+  #   service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+  #   service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+  #   service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+  #   service.beta.kubernetes.io/aws-load-balancer-type: external
 
 ingress:
   enabled: false

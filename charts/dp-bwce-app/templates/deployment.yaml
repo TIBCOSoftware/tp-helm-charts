@@ -37,8 +37,12 @@ spec:
       labels:
         {{- include "dp-bwce-app.labels" . | nindent 8 }}
         {{- include "dp-bwce-app.bwapp.pod.labels" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: {{ .Values.networkPolicy.internetAll | quote }}
-        egress.networking.platform.tibco.com/internet-web: {{ .Values.networkPolicy.internetWeb | quote }}
+        networking.platform.tibco.com/internet-egress: {{ .Values.networkPolicy.internetAll | quote }}
+        networking.platform.tibco.com/internet-web-egress: {{ .Values.networkPolicy.internetWeb | quote }}
+        networking.platform.tibco.com/msgInfra: {{ .Values.networkPolicy.msgInfra | quote }}
+        networking.platform.tibco.com/database-egress: {{ .Values.networkPolicy.databaseEgress | quote }}
+        networking.platform.tibco.com/proxy-egress: {{ .Values.networkPolicy.proxyEgress | quote }}
+        networking.platform.tibco.com/userApps: {{ .Values.networkPolicy.userApps | quote }}
         {{- if .Values.serviceMesh.enabled }}
         sidecar.istio.io/inject: {{ .Values.serviceMesh.enabled | quote }}
         {{- end }}

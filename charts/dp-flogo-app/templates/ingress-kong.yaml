@@ -17,7 +17,11 @@ metadata:
     platform.tibco.com/service-discoverable: {{ $path.serviceDiscoverable | quote }}
   annotations:
     konghq.com/plugins: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+    {{- if eq $path.path "/" }}
+    konghq.com/rewrite: /$1
+    {{- else }}
     konghq.com/rewrite: /$2
+    {{- end }}
     {{- if $path.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
     {{- end }}
@@ -45,7 +49,11 @@ spec:
             name: {{ include "dp-flogo-app.fullname" $dot }}
             port:
               number: {{ $path.port }}
+        {{- if eq $path.path "/" }}
+        path: {{ $path.path }}(.*)
+        {{- else }}
         path: {{ $path.path }}(/|$)(.*)
+        {{- end }}
         pathType: {{ $path.pathType }}
 
 --- 

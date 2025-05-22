@@ -26,8 +26,7 @@ spec:
       {{- end }}
       labels:
         {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
+        {{- include "flogo-utilities.networkPolicyLabels" . | nindent 8 }}
     spec:
       restartPolicy: Never
       {{- with $.Values.podSecurityContext }}

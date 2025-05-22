@@ -22,8 +22,8 @@ spec:
     metadata:
       labels:
         {{- include "flogo-webserver.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/cluster-egress: enable
       {{- if eq (include "flogo-webserver.cp-logging-fluentbit-enabled" .) "true" }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

@@ -26,8 +26,7 @@ spec:
       {{- end }}
       labels:
         {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
+        {{- include "bwce-utilities.networkPolicyLabels" . | nindent 8 }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux
