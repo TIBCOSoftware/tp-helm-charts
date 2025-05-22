@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.6.0",
+      "capabilityVersion": "1.7.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.cpproxy.releaseDate | quote }},
@@ -23,7 +23,7 @@ data:
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
          "dp-core-infrastructure": "1.4.0",
-         "dp-configure-namespace": "1.4.0"
+         "dp-configure-namespace": "1.7.0"
       }
     }
   package.json: |
@@ -66,7 +66,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-cp-infra-recipes.appName" . }}-cp-proxy
+  name: {{ include "tp-cp-infra-recipes.appName" . }}-cp-proxy-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "tp-cp-infra-recipes.labels" . | nindent 4 }}
@@ -106,7 +106,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.6.0"
+          value: "1.7.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

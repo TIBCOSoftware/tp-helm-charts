@@ -459,6 +459,8 @@ grpcPlugin related environment variables
   value: /o11y/v1/traceproxy/{{ .Values.global.cp.dataplaneId }}
 - name: QUERY_UI_CONFIG
   value: /jaeger/config/jaeger-ui-config.json
+- name: BADGER_EPHEMERAL
+  value: "false"
 - name: BADGER_DIRECTORY_VALUE
   value: /mnt/data/badger/data
 - name: BADGER_DIRECTORY_KEY

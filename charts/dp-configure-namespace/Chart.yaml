@@ -1,12 +1,12 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 apiVersion: v2
 name: dp-configure-namespace
 description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
 type: application
-version: 1.6.1
-appVersion: "1.6.0"
+version: 1.7.5
+appVersion: "1.7.0"
 dependencies:
 - condition: config.enabled
   name: config
@@ -15,4 +15,4 @@ dependencies:
 - condition: haproxy.enabled
   name: haproxy
   repository: ""
-  version: 1.44.2
+  version: 1.44.3

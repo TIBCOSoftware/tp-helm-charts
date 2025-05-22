@@ -131,6 +131,13 @@ config:
       check_interval: 5s
       limit_percentage: 80
       spike_limit_percentage: 25
+    transform/logs:     
+      log_statements:
+      - context: log
+        conditions:
+        - IsString(body)
+        statements:
+        - 'set(body, {"message": body})'
   receivers:
     otlp:
       protocols:
@@ -146,6 +153,7 @@ config:
         exporters:
           - elasticsearch/log
         processors:
+          - transform/logs
           - memory_limiter
           - batch
         receivers:
@@ -320,6 +328,7 @@ securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
@@ -413,7 +422,8 @@ resources:
 
 podAnnotations: {}
 
-podLabels: {}
+podLabels:
+  networking.platform.tibco.com/logServer-egress: enable
 
 # Common labels to add to all otel-collector resources. Evaluated as a template.
 additionalLabels: {}

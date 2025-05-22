@@ -20,7 +20,8 @@ spec:
     metadata:
       labels:
         {{- include "tp-tibtunnel.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/internet-web-egress: enable
+        networking.platform.tibco.com/cp-egress: enable
     spec:
       {{- if .Values.podSecurityContext }}
       securityContext:

@@ -97,6 +97,9 @@ spec:
             - mountPath: /usr/tp/discovery
               name: o11y-efs-vol
               subPath: o11y/discovery
+            - mountPath: /usr/tp/dashboard
+              name: o11y-efs-vol
+              subPath: o11y/dashboard
             - name: logs
               mountPath: /tmp/logs
   {{- if eq (include "o11y-service.cp-logging-fluentbit-enabled" .) "true" }}

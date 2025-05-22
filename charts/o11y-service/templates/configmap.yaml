@@ -149,8 +149,8 @@ data:
     {{- $appMetricsExp = "'[prometheus/ext]'" -}}
     {{- $promMetricsExp = "'[prometheus/ext]'" -}}
     {{- else }}
-    {{- $appMetricsExp = "'[prometheus/user]'" -}}
-    {{- $promMetricsExp = "'[prometheus/user]'" -}}
+    {{- $appMetricsExp = "'[prometheus/user, prometheus/ext]'" -}}
+    {{- $promMetricsExp = "'[prometheus/user, prometheus/ext]'" -}}
     {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "kafka" }}

@@ -22,8 +22,10 @@ spec:
       name: client-credential-creation
       labels:
         {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/internet-web-egress: enable
         networking.platform.tibco.com/kubernetes-api: enable
+        # This label is used by the network policy to allow traffic to access control Plane, when createInternetScopePolicy is disabled
+        networking.platform.tibco.com/cp-egress: enable
     spec:
       {{ if .Values.podSecurityContext }}
       securityContext:
@@ -110,8 +112,10 @@ spec:
       name: client-credential-secret-deletion
       labels:
         {{- include "tp-cp-proxy.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/internet-web-egress: enable
         networking.platform.tibco.com/kubernetes-api: enable
+        # This label is used by the network policy to allow traffic to access control Plane, when createInternetScopePolicy is disabled
+        networking.platform.tibco.com/cp-egress: enable
     spec:
       {{ if .Values.podSecurityContext }}
       securityContext:

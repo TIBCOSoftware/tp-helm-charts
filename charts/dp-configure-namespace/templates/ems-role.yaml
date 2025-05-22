@@ -1,5 +1,5 @@
 {{/*
-    Copyright © 2024. Cloud Software Group, Inc.
+    Copyright © 2025. Cloud Software Group, Inc.
     This file is subject to the license terms contained
     in the license file that is distributed with this file.
 */}}
@@ -51,6 +51,21 @@ rules:
 - apiGroups: ["policy"]
   resources: ["poddisruptionbudgets"]
   verbs: ["list", "watch", "create", "get", "update", "delete", "patch"]
+{{- if .Values.rbac.ingressController.kong }}
+- apiGroups: ["configuration.konghq.com"]
+  resources: ["kongplugins"]
+  verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
+{{- if .Values.rbac.ingressController.traefik }}
+- apiGroups: ["traefik.io"]
+  resources: ["middlewares"]
+  verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
+{{- if .Values.rbac.ingressController.openshiftRouter }}
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes", "routes/custom-host"]
+  verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
 
 ---
 

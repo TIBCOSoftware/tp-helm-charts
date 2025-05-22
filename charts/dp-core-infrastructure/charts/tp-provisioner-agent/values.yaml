@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -29,7 +29,7 @@ cacheCleanupInterval: "8h"
 
 image:
   name: infra-provisioner-agent
-  tag: 455
+  tag: 459
   pullPolicy: Always
 
 nodeSelector:
@@ -54,7 +54,7 @@ global:
     controlPlaneUrl: "https://account.local.cic2.pro"
     serviceAccount: ""  # user provided service account.
     containerRegistry:
-      url: reldocker.tibco.com
+      url: ""
       repository: tibco-platform-docker-prod
 
   logging:

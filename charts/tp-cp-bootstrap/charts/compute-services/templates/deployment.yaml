@@ -22,7 +22,7 @@ spec:
       labels:
         {{- include "compute-services.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/internet-web: enable
+        networking.platform.tibco.com/internet-web-egress: enable
       annotations:
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

@@ -1,13 +1,16 @@
 {{/*
-    Copyright © 2024. Cloud Software Group, Inc.
+    Copyright © 2025. Cloud Software Group, Inc.
     This file is subject to the license terms contained
     in the license file that is distributed with this file.
 */}}
 {{ include "dp-configure-namespace.validate-namespace" . }}
 {{- if .Values.networkPolicy.create -}}
-Node CIDR: {{ include "dp-configure-namespace.nodeCidr" . }}
+{{"\n"}}Node CIDR: {{ include "dp-configure-namespace.nodeCidr" . }}
 Service CIDR: {{ include "dp-configure-namespace.serviceCidr" . }}
 Pod CIDR: {{ include "dp-configure-namespace.podCidr" . }}
+{{- if and (not .Values.networkPolicy.createClusterScopePolicies) (not .Values.networkPolicy.createInternetScopePolicies) }}
+Since createClusterScopePolicies and/or createInternetScopePolicies are disabled, ensure the required values (e.g., database, container registry, log server, etc.) are set for the necessary network policies to be created.
+{{- end }}
 {{- if eq (include "dp-configure-namespace.nodeCidr" . ) (include "dp-configure-namespace.podCidr" . ) }}
 To use a different Pod CIDR, please use --set networkPolicy.podCidrIpBlock=<PodIpCidr>
 PodIpCidr=<IP range of Pod IP CIDR (CIDR notation)> e.g. 192.168.0.0/16

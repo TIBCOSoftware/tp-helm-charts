@@ -1,7 +1,12 @@
 {{/*
-Copyright © 2024. Cloud Software Group, Inc.
+Copyright © 2025. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
+*/}}
+
+{{/*
+Please look at the following schema for more information:
+https://doc.crds.dev/github.com/crossplane/provider-aws/database.aws.crossplane.io/RDSInstance/v1beta1@v0.43.1
 */}}
 
 apiVersion: apiextensions.crossplane.io/v1
@@ -45,10 +50,14 @@ spec:
                     type: string
                   dbSubnetGroupReference:
                     type: string
+                  enablePerformanceInsights:
+                    type: boolean
                   engine:
                     type: string
                   publiclyAccessible: 
                     type: boolean
+                  performanceInsightsKmsKeyId:
+                    type: string
                   tags:
                     type: array
                     items:
