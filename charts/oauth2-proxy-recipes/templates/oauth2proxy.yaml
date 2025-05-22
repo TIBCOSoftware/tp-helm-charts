@@ -12,7 +12,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.6.0",
+      "capabilityVersion": "1.7.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.oauth2proxy.releaseDate | quote }},
@@ -78,8 +78,10 @@ data:
               oidc-issuer-url: https://${CP_HOST_NAME}
               cookie-path: ${CAPABILITY_PATH_PREFIX} 						      ### ${global.cp.capability.pathPrefix}
               proxy-prefix: ${CAPABILITY_PATH_PREFIX}/oauth2 		      ### ${global.cp.capability.pathPrefix}/oauth2
-              whitelist-domain: ${CP_HOST_NAME},${INGRESS_FQDN}			### used for signout redirect, DP ingress hostname needed to be whitelisted for traefik
+              whitelist-domain: ${CP_HOST_NAME},${INGRESS_FQDN}			  ### used for signout redirect, DP ingress hostname needed to be whitelisted for traefik
+              upstream: "static://202"                                ### PCP-11648: upstream need to be updated with http://<backend_service_name>/port in Openshift, for other ingress it is same static://202 for all capabilities
             ingress:
+              controllerName: ${INGRESS_CONTROLLER_NAME} 						  ### PCP-11790, set ingress controller name
               className: ${INGRESS_CLASSNAME} 									      ### ${global.cp.resources.ingress.ingressClassName}
               hosts: 
                 - ${INGRESS_FQDN} 															      ### ${global.cp.resources.ingress.fqdn}
@@ -91,7 +93,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy
+  name: {{ include "dp-oauth2proxy-recipes.appName" . }}-oauth2proxy-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "dp-oauth2proxy-recipes.labels" . | nindent 4 }}
@@ -124,7 +126,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra_sidecar"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.6.0"
+          value: "1.7.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
