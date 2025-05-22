@@ -5027,6 +5027,30 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-alertmanager-1.7.0/tp-cp-alertmanager-1.7.0.tgz
     version: 1.7.0
+  tp-cp-alerts:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-alerts
+    apiVersion: v2
+    appVersion: 1.7.0
+    created: "2025-05-22T08:34:06.451067428Z"
+    dependencies:
+    - name: tp-cp-alertmanager
+      repository: alias:tibco-platform
+      version: 1.7.0
+    - name: tp-cp-alerts-service
+      repository: alias:tibco-platform
+      version: 1.7.3
+    description: TIBCO Platform chart for alerts services
+    digest: eec12bcd0cefdd541a6d2171038f7463ab710371937be13fa72e60b8c1edc375
+    keywords:
+    - tibco-platform
+    - platform
+    name: tp-cp-alerts
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-alerts-1.7.4/tp-cp-alerts-1.7.4.tgz
+    version: 1.7.4
   tp-cp-alerts-service:
   - apiVersion: v2
     appVersion: 1.7.0
@@ -10581,4 +10605,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-05-22T08:26:03.59521749Z"
+generated: "2025-05-22T08:34:06.451815404Z"
