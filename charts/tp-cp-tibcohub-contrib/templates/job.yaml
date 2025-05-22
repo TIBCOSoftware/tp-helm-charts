@@ -3,7 +3,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: capability-contribution-{{ .Values.capability.name }}
+  name: capability-contribution-{{ .Values.capability.name }}-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   labels:
     app.cloud.tibco.com/created-by: {{ .Values.capability.name }}
@@ -17,9 +17,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: capability-contribution-{{ .Values.capability.name }}
-        egress.networking.cloud.tibco.com/internet-web: enable
-        egress.networking.cloud.tibco.com/cloud-web: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        {{- include "tp-cp-tibcohub-contrib.networkPolicyLabels" . | nindent 8 }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux

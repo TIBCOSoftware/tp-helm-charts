@@ -28,7 +28,7 @@ spec:
         paths:
           - backend:
               service:
-                name: {{ include "common.names.fullname" . }}-wkc
+                name: {{ include "tibcohub.fullname" . }}-wkc
                 port:
                   number: 443
             path: {{ .Values.ingress.pathPrefix }}/.well-known/openid-configuration/

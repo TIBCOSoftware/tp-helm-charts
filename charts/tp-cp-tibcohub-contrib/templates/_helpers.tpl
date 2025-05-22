@@ -72,7 +72,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- if .Values.image.registry }} 
     {{- .Values.image.registry }}
   {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
+    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprduswrepoedge.jfrog.io" "required" "false" "Release" .Release )}}
   {{- end }}
 {{- end }}
 
@@ -113,4 +113,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/* Control plane enable or disable resource constraints */}}
 {{- define "tp-cp-tibcohub-contrib.enableResourceConstraints" -}}
 {{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
+{{- end }}
+
+{{/*
+Network Policy labels
+*/}}
+{{- define "tp-cp-tibcohub-contrib.networkPolicyLabels" -}}
+networking.platform.tibco.com/internet-egress: enable
+networking.platform.tibco.com/cluster-egress: enable
+networking.platform.tibco.com/containerRegistry-egress: enable
+networking.platform.tibco.com/proxy-egress: enable
 {{- end }}
