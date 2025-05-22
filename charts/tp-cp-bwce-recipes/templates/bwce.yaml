@@ -12,15 +12,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.6.0",
-      "minCPVersion": "1.6.0",
+      "capabilityVersion": "1.7.0",
+      "minCPVersion": "1.7.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.6.0",
-        "dp-configure-namespace": "1.5.0"
+        "dp-core-infrastructure": "1.7.0",
+        "dp-configure-namespace": "1.7.0"
       }
     }
   package.json: |
@@ -47,7 +47,7 @@ data:
           {
             "version": [
               1,
-              6,
+              7,
               0
             ],
             "capabilityId": "INTEGRATIONCORE",
@@ -56,7 +56,7 @@ data:
           {
             "version": [
               1,
-              6,
+              7,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -66,6 +66,7 @@ data:
         "provisioningRoles": [
           "DEV_OPS"
         ],
+        "serviceUrl": "http://bwprovisioner:7816",
         "allowMultipleInstances": false,
         "capabilityResourceDependencies": [
           {
@@ -88,7 +89,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.6.4"
+          version: "1.7.5"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -102,10 +103,10 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 706
+                      tag: 733
                 config:
                   APP_INIT_IMAGE_TAG: "44"
-                  BWCE_APP_HELMCHART_VERSION: "1.6.5"
+                  BWCE_APP_HELMCHART_VERSION: "1.7.7"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
@@ -119,7 +120,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.6.2"
+          version: "1.7.4"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -129,7 +130,7 @@ data:
                 global:
                   bwcemon:
                     image:
-                      tag: 2.10.0-HF2
+                      tag: 2.10.0-HF3
           flags:
             install: true
             createNamespace: false
@@ -182,7 +183,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.6.0"
+          value: "1.7.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

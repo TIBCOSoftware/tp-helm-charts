@@ -1,4 +1,5 @@
 {{- if .Values.ingress.enabled -}}
+{{- if or (eq .Values.ingress.controllerName "nginx") (eq .Values.ingress.controllerName "traefik") -}}
 {{- $serviceName := include "oauth2-proxy.fullname" . -}}
 {{- $servicePort := .Values.service.portNumber -}}
 {{- $ingressPath := .Values.ingress.path -}}
@@ -44,4 +45,5 @@ spec:
   tls:
 {{ tpl (toYaml .Values.ingress.tls) $ | indent 4 }}
   {{- end -}}
+{{- end -}}
 {{- end -}}

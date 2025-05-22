@@ -10,9 +10,15 @@ metadata:
     {{- if .Values.service.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ .Values.service.serviceDescription | squote }}
     {{- end }}
+    {{- with .Values.service.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "dp-bwce-app.labels" . | nindent 4 }}
     platform.tibco.com/service-discoverable: {{ .Values.service.serviceDiscoverable | quote }}
+    {{- with .Values.service.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
   name: {{ include "dp-bwce-app.fullname" . }}
 spec:
   ports:
@@ -25,4 +31,7 @@ spec:
   selector:
     {{- include "dp-bwce-app.selectorLabels" . | nindent 4 }}
   type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
 {{- end }}
