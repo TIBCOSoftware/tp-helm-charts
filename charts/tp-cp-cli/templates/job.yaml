@@ -30,7 +30,6 @@ spec:
       {{- end }}
       labels:
         {{- include "tpcli-utilities.selectorLabels" $dot | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
     spec:
       nodeSelector:
         kubernetes.io/os: linux
