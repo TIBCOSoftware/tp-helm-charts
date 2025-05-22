@@ -1624,6 +1624,23 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: dp-oauth2proxy-recipes
     apiVersion: v2
+    appVersion: 1.7.0
+    created: "2025-05-22T08:26:01.923936379Z"
+    description: TIBCO Platform OAuth2 Proxy Data Plane recipes
+    digest: 2cbe9328f54e317d2e7e11ba9b464cb62a66cea1ae75f4b93cca58b951080711
+    keywords:
+    - tibco-platform
+    - control-plane
+    - recipes
+    name: dp-oauth2proxy-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-oauth2proxy-recipes-1.7.6/dp-oauth2proxy-recipes-1.7.6.tgz
+    version: 1.7.6
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: dp-oauth2proxy-recipes
+    apiVersion: v2
     appVersion: 1.6.0
     created: "2025-04-24T11:06:24.375039769Z"
     description: TIBCO Platform OAuth2 Proxy Data Plane recipes
@@ -2857,6 +2874,46 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.0.48/o11yservice-1.0.48.tgz
     version: 1.0.48
   oauth2-proxy:
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: securityContext and timeout of the initContainer wait-for-redis configurable via values.
+          links:
+            - name: Github PR
+              url: https://github.com/oauth2-proxy/manifests/pull/159
+    apiVersion: v2
+    appVersion: 1.7.0
+    created: "2025-05-22T08:26:02.370757412Z"
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
+    digest: 6af62e36a74f8c803c6abbe8d47092baa67ed65fc67f37be72f103a1629324f5
+    home: https://oauth2-proxy.github.io/oauth2-proxy/
+    keywords:
+    - kubernetes
+    - oauth
+    - oauth2
+    - authentication
+    - google
+    - github
+    - redis
+    kubeVersion: '>=1.9.0-0'
+    maintainers:
+    - email: cedric@desaintmartin.fr
+      name: desaintmartin
+    - name: tlawrie
+    - email: nicholas.meves@gmail.com
+      name: NickMeves
+    - email: joel.speed@hotmail.co.uk
+      name: JoelSpeed
+    - email: pierluigi.lenoci@gmail.com
+      name: pierluigilenoci
+    name: oauth2-proxy
+    sources:
+    - https://github.com/oauth2-proxy/oauth2-proxy
+    - https://github.com/oauth2-proxy/manifests
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/oauth2-proxy-10.2.12/oauth2-proxy-10.2.12.tgz
+    version: 10.2.12
   - annotations:
       artifacthub.io/changes: |
         - kind: added
@@ -4955,6 +5012,30 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.0.26/tibco-developer-hub-1.0.26.tgz
     version: 1.0.26
+  tp-cp-alertmanager:
+  - apiVersion: v2
+    appVersion: 1.7.0
+    created: "2025-05-22T08:26:02.730443302Z"
+    description: The Alertmanager handles alerts sent by client applications such
+      as the Prometheus server.
+    digest: 5760efbfcdf5d12736b8535e0564b3ac59112a962bd283e4b56116ecbabe5c2d
+    keywords:
+    - monitoring
+    kubeVersion: '>=1.19.0-0'
+    name: tp-cp-alertmanager
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-alertmanager-1.7.0/tp-cp-alertmanager-1.7.0.tgz
+    version: 1.7.0
+  tp-cp-alerts-service:
+  - apiVersion: v2
+    appVersion: 1.7.0
+    created: "2025-05-22T08:26:02.827690988Z"
+    digest: 33ff3eff648cac6b035026d429e47e609c0e8cd7717e7647e150c437f6d72d02
+    name: tp-cp-alerts-service
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-alerts-service-1.7.3/tp-cp-alerts-service-1.7.3.tgz
+    version: 1.7.3
   tp-cp-bootstrap:
   - annotations:
       app.helm.sh/component: control-plane
@@ -7863,6 +7944,51 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-integration
     apiVersion: v2
+    appVersion: 1.7.0
+    created: "2025-05-22T08:26:03.34012006Z"
+    dependencies:
+    - name: tp-cp-integration-common
+      repository: alias:tibco-platform
+      version: 1.7.1
+    - condition: tp-cp-integration-bwce.enabled
+      name: tp-cp-integration-bwce
+      repository: alias:tibco-platform
+      version: 1.7.10
+    - condition: tp-cp-integration-flogo.enabled
+      name: tp-cp-integration-flogo
+      repository: alias:tibco-platform
+      version: 1.7.5
+    - condition: tp-cp-integration-bw5.enabled
+      name: tp-cp-integration-bw5
+      repository: alias:tibco-platform
+      version: 1.7.3
+    - condition: tp-cp-integration-bw6.enabled
+      name: tp-cp-integration-bw6
+      repository: alias:tibco-platform
+      version: 1.7.4
+    - condition: tp-cp-bwce-utilities.enabled
+      name: tp-cp-bwce-utilities
+      repository: alias:tibco-platform
+      version: 1.7.6
+    - condition: tp-cp-flogo-utilities.enabled
+      name: tp-cp-flogo-utilities
+      repository: alias:tibco-platform
+      version: 1.7.9
+    description: TIBCO Platform Integration chart
+    digest: 8c2dade6c4d22538820212a4816f827df3a8a6ae4462c6fb1380c4ee21722641
+    keywords:
+    - tibco-platform
+    - platform
+    - integration
+    name: tp-cp-integration
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-1.7.20/tp-cp-integration-1.7.20.tgz
+    version: 1.7.20
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-integration
+    apiVersion: v2
     appVersion: 1.6.0
     created: "2025-04-24T12:47:23.922551242Z"
     dependencies:
@@ -10455,4 +10581,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-05-22T07:11:05.132198996Z"
+generated: "2025-05-22T08:26:03.59521749Z"
