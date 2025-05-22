@@ -1,0 +1,27 @@
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+kind: TibcoRoute
+apiVersion: cloud.tibco.com/v1
+metadata:
+  name: {{ include "tp-cp-alertmanager.consts.appName" . }}-console
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ include "alertmanager.fullname" . }}
+  serviceNamespace: {{ .Release.Namespace }}
+  env:
+  - name: CP_DNS_DOMAIN
+    value: admin.{{ include "tp-alertmanager.dns-domain" . }}
+  endpoints:
+  - path: /admin/alertmanager-console
+    protocol: http
+    port: 9093
+    internalPath: /
+    proxies:
+    - listener: virtual
+      config: secure
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: true
+      fqdn: ${CP_DNS_DOMAIN}
