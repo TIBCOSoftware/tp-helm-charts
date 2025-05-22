@@ -8,8 +8,12 @@ in the license file that is distributed with this file.
 Return the proper image name
 */}}
 
-{{- define "common.storage.class" -}}
+{{/*
+Create a default fully qualified app name.
+*/}}
+{{- define "tibcohub.fullname" }}tibco-developer-hub{{ end -}}
 
+{{- define "common.storage.class" -}}
 {{- $storageClass := "" -}}
 {{- if .global.cp.resources.storage -}}
     {{- if .global.cp.resources.storage.storageClassName -}}

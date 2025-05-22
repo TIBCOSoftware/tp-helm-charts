@@ -17,7 +17,6 @@ metadata:
     {{- if .Values.commonLabels }}
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
     {{- end }}
-    egress.networking.platform.tibco.com/internet-all: enable
   annotations:
     {{- if .Values.commonAnnotations }}
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
@@ -31,7 +30,10 @@ spec:
     metadata:
       labels: {{- include "common.labels.standard" . | nindent 8 }}
         app.kubernetes.io/component: backstage
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/proxy-egress: enable
         {{- include "tibcohub.platform.commonLabels" . | nindent 8 }}
       annotations:
         checksum/app-config: {{ include "common.tplvalues.render" ( dict "value" .Values.backstage.appConfig "context" $) | sha256sum }}
@@ -189,6 +191,8 @@ spec:
           env:
             - name: APP_CONFIG_backend_listen_port
               value: {{ .Values.backstage.containerPorts.backend | quote }}
+            - name: DOC_URL
+              value: "https://docs.tibco.com/go/platform-cp/{{ .Chart.AppVersion }}/doc/html#cshid=developer_hub_overview"
             - name: CP_URL
               value: {{ $cpHostname }}
             {{- if .Values.global.cp.cpCertificateSecret }}

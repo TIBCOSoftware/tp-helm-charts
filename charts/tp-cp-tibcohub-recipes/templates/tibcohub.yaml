@@ -12,15 +12,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.6.0",
-      "minCPVersion": "1.6.0",
+      "capabilityVersion": "1.7.0",
+      "minCPVersion": "1.7.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.4.0",
-        "dp-configure-namespace": "1.4.0"
+        "dp-core-infrastructure": "1.7.0",
+        "dp-configure-namespace": "1.7.0"
       }
     }
   package.json: |
@@ -47,7 +47,7 @@ data:
           {
             "version": [
               1,
-              6,
+              7,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -57,6 +57,7 @@ data:
         "provisioningRoles": [
           "DEV_OPS"
         ],
+        "serviceUrl": "http://tibco-developer-hub:7007",
         "allowMultipleInstances": false,
         "capabilityResourceDependencies": [
           {
@@ -87,7 +88,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: "1.6.10"
+        version: "1.7.15"
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -131,7 +132,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub
+  name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-tibcohub-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "tp-cp-tibcohub-recipes.labels" . | nindent 4 }}
@@ -170,7 +171,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.6.0"
+          value: "1.7.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
