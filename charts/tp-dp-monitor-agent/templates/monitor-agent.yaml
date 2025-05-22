@@ -87,6 +87,7 @@ spec:
     metadata:
       labels:
         networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/proxy-egress: enable
         {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 8 }}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
       annotations:

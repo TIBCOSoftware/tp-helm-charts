@@ -47,8 +47,9 @@ spec:
     metadata:
       labels:
         {{- include "monitoring-service.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
