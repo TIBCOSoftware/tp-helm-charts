@@ -1,2 +1,2 @@
-{{- define "identity-management.generated.buildNumber" }}2178{{end -}}
-{{- define "identity-management.generated.buildTimestamp" }}04-24-25_11.01.00_PM{{end -}}
+{{- define "identity-management.generated.buildNumber" }}2195{{end -}}
+{{- define "identity-management.generated.buildTimestamp" }}05-08-25_2.00.00_PM{{end -}}

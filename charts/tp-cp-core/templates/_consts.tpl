@@ -22,6 +22,7 @@
 {{- define "tpcontrol-plane.consts.tpIdpJobServiceName" }}tp-cp-identity-provider.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpPermissionEngineServiceName" }}tp-cp-pengine.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.cpMonitoringServiceName" }}tp-cp-monitoring-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpAlertServiceName" }}alerts-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpO11yServiceName" }}o11y-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.provisionerAgentURLFramework" -}}
     {{- if (include "cp-core-configuration.isSingleNamespace" .) }}

@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-setup
+  name: {{ include "tp-control-plane.consts.appName" . }}-setup-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "10"
@@ -18,8 +18,9 @@ spec:
       labels:
         {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-ingress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
     spec:
       {{- if .Values.global.podSecurityContext }}
       securityContext:
@@ -133,7 +134,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-upgrade
+  name: {{ include "tp-control-plane.consts.appName" . }}-upgrade-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "10"
@@ -149,8 +150,9 @@ spec:
       labels:
         {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-ingress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
     spec:
       {{- if .Values.global.podSecurityContext }}
       securityContext:
@@ -266,7 +268,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": post-delete
     "helm.sh/hook-weight": "10"
@@ -282,8 +284,9 @@ spec:
       labels:
         {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-ingress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
     spec:
       {{- if .Values.global.podSecurityContext }}
       securityContext:
@@ -373,7 +376,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-rollback
+  name: {{ include "tp-control-plane.consts.appName" . }}-rollback-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": pre-rollback
     "helm.sh/hook-weight": "10"
@@ -389,8 +392,9 @@ spec:
       labels:
         {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-ingress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
     spec:
       {{- if .Values.global.podSecurityContext }}
       securityContext:
@@ -478,7 +482,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-security-certs
+  name: {{ include "tp-control-plane.consts.appName" . }}-security-certs-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": pre-install, pre-upgrade
     "helm.sh/hook-weight": "20"
@@ -548,7 +552,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-self-signed-cert
+  name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-self-signed-cert-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": post-delete
     "helm.sh/hook-weight": "15" # weight 15 will ensure that this job will be run after the chart clean-up job has completed
@@ -618,7 +622,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-mount
+  name: {{ include "tp-control-plane.consts.appName" . }}-mount-{{ randAlphaNum 4 | lower }}
   annotations:
     "helm.sh/hook": pre-install, pre-upgrade
     "helm.sh/hook-weight": "10"

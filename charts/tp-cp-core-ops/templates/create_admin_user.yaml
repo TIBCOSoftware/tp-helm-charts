@@ -7,9 +7,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane-ops.consts.appName" . }}-create-admin-user
+  name: {{ include "tp-control-plane-ops.consts.appName" . }}-create-admin-user-{{ randAlphaNum 4 | lower }}
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install, post-upgrade
     "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": before-hook-creation
   namespace: {{ include "tp-control-plane-ops.consts.namespace" . }}

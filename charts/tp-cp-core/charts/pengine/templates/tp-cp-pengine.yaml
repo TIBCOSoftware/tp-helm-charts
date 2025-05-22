@@ -59,8 +59,9 @@ spec:
       labels:
         {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -166,6 +167,10 @@ spec:
           value: "10000"
         - name: ENABLE_PERMISSION_ENFORCER_CACHE
           value: "true"
+        - name: CACHE_METRICS_ROLLING_WINDOW_DURATION_IN_SECONDS
+          value: "1800"
+        - name: METRICS_SAMPLING_DURATION_IN_SECONDS
+          value: "2"
         - name: TP_CP_PERMISSIONS_ENGINE_CORS_ALLOW_HEADERS
           value: "Content-Type, X-Atmosphere-For-User"
         - name: PGHOST
@@ -370,15 +375,33 @@ spec:
       configMapKeyRef:
         name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
         key: TSC_DNS_DOMAIN
+  - name: TSC_ADMIN_DNS_DOMAIN
+    valueFrom:
+      configMapKeyRef:
+        name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+        key: TSC_ADMIN_DNS_DOMAIN
   endpoints:
   - path: /pengine/v1/version$
     internalPath: /v1/version
-    port: 7833
+    port: 7892
     protocol: http
     proxies:
     - listener: virtual
       config: empty
       fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /pengine/v1/metrics$
+    internalPath: /v1/metrics
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_ADMIN_DNS_DOMAIN}
       methods:
       - GET
       allowClientCache: false
