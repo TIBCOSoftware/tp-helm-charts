@@ -8,7 +8,7 @@ global:
     namespace: ns-dummy
     containerRegistry:
       secret: ""
-      url: reldocker.tibco.com
+      url: csgprdusw2reposaas.jfrog.io
     environmentType: ""
     resources:
       serviceaccount:
@@ -318,11 +318,11 @@ useGOMEMLIMIT: true
 # It is HIGHLY recommended to set resource limits.
 resources:
   requests:
-    cpu: 200m
-    memory: 512Mi
-  limits:
-    cpu: 500m
+    cpu: 400m
     memory: 1024Mi
+  limits:
+    cpu: 1000m
+    memory: 2048Mi
 
 podAnnotations: {}
 
@@ -538,9 +538,9 @@ podDisruptionBudget:
 
 # autoscaling is used only if deployment enabled
 autoscaling:
-  enabled: true
+  enabled: false
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 1
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 70
 
