@@ -25,7 +25,6 @@ spec:
     metadata:
       labels:
         {{- include "be-webserver.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
 {{- if .Values.global.enableLogging }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
