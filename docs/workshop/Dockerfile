@@ -43,7 +43,7 @@ ARG KUBECTL_VERSION
 ARG TARGETOS TARGETARCH
 
 # base packages
-RUN apk add --no-cache --upgrade coreutils util-linux gettext bash curl wget envsubst jq openssl git python3 yq helm && rm -rf /var/cache/apk/*
+RUN apk add --no-cache --upgrade coreutils util-linux gettext bash gcompat curl wget envsubst jq openssl git python3 yq helm && rm -rf /var/cache/apk/*
 
 # COPY AWSCLI V2 to BASE_IMAGE
 COPY --from=builder-aws /opt/aws-cli/ /opt/aws-cli/
@@ -65,9 +65,20 @@ RUN { [ -n "${EKSCTL_VERSION}" ] || EKSCTL_VERSION="0.201.0"; } && \
     chmod +x /tmp/eksctl && mv /tmp/eksctl /usr/local/bin/eksctl && \
     eksctl version
 
+# OpenShift CLI
+RUN { [ -n "${OC_VERSION}" ] || OC_VERSION="4.18.13"; } && \
+    if [ "${TARGETARCH}" == "arm64" ]; then \
+        curl --silent --location "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-$(uname -s | awk '{print tolower($0)}')-${TARGETARCH}-${OC_VERSION}.tar.gz" | tar xz -C /tmp; \
+    else \
+        curl --silent --location "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-$(uname -s | awk '{print tolower($0)}')-${OC_VERSION}.tar.gz" | tar xz -C /tmp; \
+    fi && \
+    chmod +x /tmp/oc && mv -f /tmp/oc /usr/local/bin/oc && \
+    oc version --client=true
+
 # copy directories
 COPY ["eks", "/home/workshop/eks/"]
 COPY ["aks", "/home/workshop/aks/"]
+COPY ["aro (Azure Red Hat OpenShift)", "/home/workshop/aro (Azure Red Hat OpenShift)/"]
 
 WORKDIR /home/workshop
 

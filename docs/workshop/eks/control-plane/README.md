@@ -183,6 +183,18 @@ Create a service account in the namespace. This service account is used for TIBC
 kubectl create serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns
 ```
 
+If you are going to use Amazon Simple Email Service (SES) as an email server for TIBCO Control Plane, you need to make
+sure that the service account, you created, can assume an AWS Identity and Access Management (IAM) role with necessary actions to send emails. This is managed by [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+
+To use this feature, you need to annotate the service account with the Amazon Resource Name (ARN) of the IAM role that you want the service account to assume.
+
+Following is sample command:
+
+```bash
+kubectl annotate serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns eks.amazonaws.com/role-arn=<IAM_ROLE_ARN>
+```
+Replace the <IAM_ROLE_ARN> with the ARN of the IAM Role.
+
 #### Install Crossplane claims
 
 As part of claims, we will create following resources:
@@ -190,7 +202,7 @@ As part of claims, we will create following resources:
   2. Kubernete storage class using EFS ID created in (1)
   3. Amazon Relational Database Service (RDS) DB cluster of Aurora Postgres
   4. IAM Role and Policy Attachment
-  5. Kubernetes service account and annotate it with IAM Role ARN from (4)
+  5. Kubernetes service account and annotate it with IAM Role ARN from (4) to enable sending emails (using pre-existing identity)
 
 > [!NOTE]
 > This also creates the secrets in the namespace where the chart will be deployed.
@@ -602,7 +614,7 @@ EOF
 
 ## Next Steps
 
-Please proceed with deployment of TIBCO Control Plane on your EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/emp/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
+Please proceed with deployment of TIBCO Control Plane on your EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
 
 # Clean-up
 

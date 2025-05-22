@@ -180,7 +180,7 @@ EOF
 )
 ```
 
-Please proceed with deployment of TIBCO Control Plane on your virtual K8s EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/emp/platform-cp/1.2.0/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
+Please proceed with deployment of TIBCO Control Plane on your virtual K8s EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/pub/platform-cp/1.2.0/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
 
 ---
 ## Steps to install DP in vCluster

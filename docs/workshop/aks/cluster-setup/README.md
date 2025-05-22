@@ -152,7 +152,7 @@ Change the directory to [aks/scripts/](../../aks/scripts/) to proceed with the n
 cd aks/scripts
 ```
 
-> [!IMPORTNANT]
+> [!IMPORTANT]
 > Please make sure that you [export the required vriables](#export-required-variables) before executing the script. 
 
 ```bash
@@ -189,7 +189,7 @@ Change the directory to [aks/scripts/](../../aks/scripts/) to proceed with the n
 cd aks/scripts
 ```
 
-> [!IMPORTNANT]
+> [!IMPORTANT]
 > Please make sure that you [export the required vriables](#export-required-variables) before executing the script 
 
 Execute the script
@@ -209,7 +209,7 @@ Change the directory to [aks/scripts/](../../aks/scripts/) to proceed with the n
 cd aks/scripts
 ```
 
-> [!IMPORTNANT]
+> [!IMPORTANT]
 > Please make sure that you [export the required vriables](#export-required-variables) before executing the script 
 
 ```bash
