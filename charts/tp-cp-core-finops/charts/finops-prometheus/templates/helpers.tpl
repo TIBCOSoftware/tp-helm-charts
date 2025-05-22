@@ -6,7 +6,7 @@
 
 {{/* Container registry for control plane. default value empty */}}
 {{- define "finops-prometheus.image.registry" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false"  "Release" .Release )}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprdusw2reposaas.jfrog.io" "required" "false"  "Release" .Release )}}
 {{- end }}
 
 {{/* secret for control plane. default value empty */}}
