@@ -59,7 +59,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 */}}
 
 {{- define "flogo-webserver.image.registry" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "" "required" "false" "Release" .Release )}}
 {{- end }}
 
 

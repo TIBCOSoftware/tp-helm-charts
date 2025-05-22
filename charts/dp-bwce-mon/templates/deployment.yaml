@@ -30,8 +30,10 @@ spec:
         {{- end }}
       labels:
         {{- include "dp-bwce-mon.selectorLabels" . | nindent 8 }}
-        networking.platform.tibco.com/kubernetes-api: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/proxy-egress: enable
+        networking.platform.tibco.com/userApps: enable
     spec:
       imagePullSecrets:
       - name: {{ .Values.global.cp.containerRegistry.secret }}

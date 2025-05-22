@@ -1,0 +1,51 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.ingress.enabled -}}
+{{- if eq .Values.ingress.controllerName "openshiftRouter" -}}
+{{- $dot := . }}
+{{- range $rule := .Values.ingress.rules -}}
+{{- range $path := $rule.paths }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- if $path.serviceDiscoverable }}
+    platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
+    {{- end }}
+    {{- with $.Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
+    platform.tibco.com/service-discoverable: {{ $path.serviceDiscoverable | quote }}
+  name: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+spec:
+  host: {{ $rule.host | quote }}
+  httpHeaders:
+    actions:
+      request:
+      - action:
+          set:
+            value: {{ $path.path }}
+          type: Set
+        name: X-Forwarded-Prefix
+      response: null
+  path: {{ $path.path }}
+  port:
+    targetPort: port-{{ $path.port }}
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: {{ include "dp-flogo-app.fullname" $dot }}
+    weight: 100
+  wildcardPolicy: None
+        
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

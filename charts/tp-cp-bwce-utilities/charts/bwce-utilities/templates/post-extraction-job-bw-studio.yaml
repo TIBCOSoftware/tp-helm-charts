@@ -86,6 +86,8 @@ spec:
                     installer=$(find "$bwceversion""$platform"  -name '*.zip')
                     installer=$basePath$installer
                     arch=${platform#*-}
+                    plt=${platform%%-*}
+                    if [ "$plt" == "mac" ] ; then arch="X64"; fi
                     arch=$(echo $arch | tr 'a-z' 'A-Z')
                     platformStr=$platformStr"     {\"Platform\": \"${platform%%-*}\",\"Architecture\": \"${arch}\",\"DownloadFolder\": \"${installer}\" },"
                   done
