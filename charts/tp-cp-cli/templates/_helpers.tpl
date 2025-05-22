@@ -36,6 +36,9 @@ Selector labels
 {{- define "tpcli-utilities.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "tpcli-utilities.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+networking.platform.tibco.com/internet-egress: enable
+networking.platform.tibco.com/cluster-egress: enable
+networking.platform.tibco.com/containerRegistry-egress: enable
 {{- end }}
 
 {{/*
@@ -57,7 +60,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{- define "tpcli-utilities.image.registry" }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
+    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprduswrepoedge.jfrog.io" "required" "false" "Release" .Release )}}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
@@ -80,6 +83,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if .Values.pvcName }}
   {{- .Values.pvcName }}
 {{- else }}
-{{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "true"  "Release" .Release )}}
+{{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "false"  "Release" .Release )}}
 {{- end }}
 {{- end }}
