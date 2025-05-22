@@ -46,8 +46,9 @@ spec:
     metadata:
       labels:
         {{- include "tp-identity-management.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -283,8 +284,6 @@ spec:
           value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
           value: {{ .Values.global.tibco.region }}
-        - name: IDENTITY_MANAGEMENT_HOST_PREFIXES_TO_PASS_AUTHN_CTX
-          value: {{ .Values.global.tibco.idm_host_prefixes_to_pass_authn_ctx | quote }}
         - name: IDENTITY_MANAGEMENT_REGION_TO_PREFIX
           value: {{ .Values.global.tibco.region_to_prefix | quote }}
         - name: IDENTITY_MANAGEMENT_CLIENT_ID_SECRET_KEY

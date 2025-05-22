@@ -76,8 +76,10 @@ spec:
     metadata:
       labels:
         {{- include "tp-cp-orchestrator.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/cluster-all: enable
-        egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/emailServer-egress: enable
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -182,6 +184,13 @@ spec:
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 1
+        {{- if eq  .Values.global.external.emailServerType "graph" }}
+        envFrom:
+        - prefix: GRAPH_
+          secretRef:
+            name: {{ .Values.global.external.emailServer.graph.clientDetailsSecretName }}
+            optional: true
+        {{- end }}
         env:
         - name: IS_CIC2_ENV
           value: "true"
@@ -256,6 +265,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: TP_CP_ALERT_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ALERT_SERVICE_HOST
         - name: TP_CP_EMAIL_SERVICE_HOST
           valueFrom:
             configMapKeyRef:
@@ -444,8 +458,13 @@ spec:
           value: {{ .Values.global.external.fromAndReplyToEmailAddress | quote }}
         - name: EMAIL_SERVER_TYPE
           value: {{ .Values.global.external.emailServerType | quote }}
+        {{- if eq  .Values.global.external.emailServerType "graph" }}
+        - name: SKIP_SENT_FOLDER
+          value: {{ .Values.global.external.emailServer.graph.skipSentFolder | quote }}
+        {{- else }}
         - name: EMAIL_SERVER_CONFIGURATION
           value: {{ include "tp-cp-email-service.consts.emailServerConfig" . | quote }}
+        {{- end }}
         - name: EMAIL_SERVICE_ENABLE_ARN
           valueFrom:
             configMapKeyRef:

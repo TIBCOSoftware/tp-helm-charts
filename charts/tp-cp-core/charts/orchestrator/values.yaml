@@ -21,6 +21,12 @@ global:
         password: ""
       sendgrid:
         apiKey: ""
+      graph:
+        # Secret should contain all configuration details as either key-value pairs or as a single key containing configuration as a JSON map.
+        # Expected keys: tenant_id, client_id, client_secret (alternative to private_key), private_key (alternative to client_secret), x509_cert (required if private_key provided).
+        clientDetailsSecretName: "client-details-secret"
+        # skipSentFolder: set to true, t, or 1 for even non-sensitive emails to skip the Sent folder.
+        skipSentFolder: "false"
   tibco:
     image_name:
       orchestrator: ""
