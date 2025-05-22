@@ -15,7 +15,7 @@ need.msg.ems.params
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
 # FIXME: MSGDP-636: PIN until EMS K8s provisioning supports an activationUrl
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-68" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-73" $dpParams.dp.registry $dpParams.dp.repo -}}
 #{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-56" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}

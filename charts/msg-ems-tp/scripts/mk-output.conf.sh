@@ -6,8 +6,17 @@
 #
 
 outfile=${1:-output.conf}
+
+cat - <<EOF > $outfile
+[OUTPUT]
+    Name stdout
+    Match dp.routable*
+    format json_lines
+EOF
+
+# Append opentelemetry output if Fluent Bit is enabled
 if [ "$DP_LOGGING_FLUENTBIT_ENABLED" = "true" ] ; then
-    cat - <<EOF > $outfile
+    cat - <<EOF >> $outfile
 [OUTPUT]
     Name                 opentelemetry
     Match                dp.routable*
@@ -17,11 +26,5 @@ if [ "$DP_LOGGING_FLUENTBIT_ENABLED" = "true" ] ; then
     Log_response_payload True
     Tls                  Off
     Tls.verify           Off
-EOF
-else
-cat - <<EOF > $outfile
-[OUTPUT]
-    Name stdout
-    Match dp.routable*
 EOF
 fi

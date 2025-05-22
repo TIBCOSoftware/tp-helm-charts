@@ -21,6 +21,8 @@ spec:
         {{- include "tp-hawk-infra-prometheus.shared.labels.standard" . | nindent 8 }}
         egress.networking.platform.tibco.com/internet-all: enable
         egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/cluster-ingress: enable
     spec:
       {{- if .Values.global.podSecurityContext }}
       securityContext:
@@ -42,6 +44,7 @@ spec:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus/'
             - '--log.level=debug'
+            - '--web.enable-lifecycle'
           {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.resources.prometheus }}
           resources:
@@ -69,6 +72,9 @@ spec:
             - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
               mountPath: /prometheus/
               subPath: hawk/prometheus
+            - name: {{ include "tp-hawk-infra-prometheus.consts.appName" . }}-server-ds-vol
+              mountPath: /prometheus/rules
+              subPath: alerts/prometheus/rules
         - name: prom-discoveryservice
           {{- if .Values.global.containerSecurityContext.prometheusds }}
           securityContext:

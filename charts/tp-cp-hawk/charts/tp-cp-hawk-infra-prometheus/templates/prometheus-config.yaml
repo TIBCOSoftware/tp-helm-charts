@@ -14,7 +14,15 @@ data:
   prometheus.yml: |-
     global:
       scrape_interval: 35s
-      evaluation_interval: 15s
+      evaluation_interval: 35s
+    # Alertmanager configuration
+    alerting:
+      alertmanagers:
+        - static_configs:
+          - targets:
+            - platform-base-tp-cp-alertmanager.{{ .Release.Namespace }}.svc.cluster.local:9093
+    rule_files:
+      - /prometheus/rules/*.yml
 
     scrape_configs:
       - job_name: 'redtailmetrics'

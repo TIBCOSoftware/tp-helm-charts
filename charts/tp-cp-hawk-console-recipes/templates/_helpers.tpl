@@ -123,3 +123,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "tp-cp-hawk-console-recipes.cp-provider" -}}
 {{- include "cp-env.get" (dict "key" "CP_PROVIDER" "default" "aws" "required" "false"  "Release" .Release )}}
 {{- end }}
+
+{{/* Shared chart resource suffix */}}
+{{- define "tp-cp-hawk-console-recipes.resourceSuffix" }}
+{{- if not .Values.resourceSuffix }}
+  {{- $_ := set .Values "resourceSuffix" (randAlphaNum 4 | lower) }}
+{{- end }}
+{{- .Values.resourceSuffix }}
+{{- end }}
