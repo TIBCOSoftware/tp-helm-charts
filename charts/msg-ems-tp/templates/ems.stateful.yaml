@@ -27,7 +27,7 @@ metadata:
     name: "{{ $stsname }}"
     namespace: "{{ $emsParams.ems.namespace }}"
     labels:
-      {{ include "msg.dp.labels" . | indent 6 }}
+      {{ include "msg.dpparams.labels" $emsParams | indent 6 }}
       {{ include "ems.std.labels" $emsParams | indent 6 }}
       name: "{{ $stsname }}"
       # app.kubernetes.io/name must match CAP-DB services list for health monitoring

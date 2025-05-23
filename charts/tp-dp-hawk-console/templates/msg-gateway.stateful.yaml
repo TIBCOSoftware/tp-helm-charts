@@ -35,6 +35,8 @@ spec:
         metadata:
             labels:
               {{ include "msg-gateway.std.labels" $params | nindent 14 }}
+              {{ include "msg.dp.net.egress" . | indent 14 }}
+              networking.platform.tibco.com/kubernetes-api: enable
               app.kubernetes.io/component: msg-gateway
               tib-msg-stsname: "{{ $stsname }}"
             name: {{ $stsname }}

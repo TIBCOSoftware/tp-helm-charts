@@ -13,7 +13,6 @@ MSG DP Common Helpers
 {{- define "msgdp.jfrogImageRepo" -}}"tibco-platform-docker-dev"{{ end }}
 {{- define "msgdp.ecrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.acrImageRepo" -}}"msg-platform-cicd"{{ end }}
-{{- define "msgdp.reldockerImageRepo" -}}"messaging"{{ end }}
 {{- define "msgdp.defaultImageRepo" -}}"messaging"{{ end }}
 
 {{/*
@@ -61,8 +60,6 @@ need.msg.dp.params
             {{- $repo = include "msgdp.ecrImageRepo" . -}}
           {{- else if contains "azurecr.io" $registry -}}
             {{- $repo = include "msgdp.acrImageRepo" . -}}
-          {{- else if contains "reldocker.tibco.com" $registry -}}
-            {{- $repo = include "msgdp.reldockerImageRepo" . -}}
           {{- else -}}
             {{- $repo = include "msgdp.defaultImageRepo" . -}}
           {{- end -}}
@@ -183,7 +180,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.6.0.12"
+tib-dp-msgbuild: "1.7.0.19"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
@@ -207,6 +204,9 @@ msg.dp.net.fullCluster
 Labels to allow pods full K8s + cluster CIDR (ingress/LBs) access
 */}}
 {{- define "msg.dp.net.fullCluster" }}
+networking.platform.tibco.com/msgInfra: enable
+networking.platform.tibco.com/cluster-ingress: enable
+networking.platform.tibco.com/cluster-egress: enable
 ingress.networking.platform.tibco.com/cluster-access: enable
 {{- end }}
 
@@ -215,6 +215,8 @@ msg.dp.net.external
 Labels to allow pods external N-S access
 */}}
 {{- define "msg.dp.net.external" }}
+networking.platform.tibco.com/internet-ingress: enable
+networking.platform.tibco.com/internet-egress: enable
 egress.networking.platform.tibco.com/internet-all: enable
 ingress.networking.platform.tibco.com/internet-access: enable
 {{- end }}

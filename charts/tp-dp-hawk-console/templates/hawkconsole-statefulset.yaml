@@ -23,6 +23,10 @@ spec:
         {{- include "tp-dp-hawk-console.shared.labels.standard" . | nindent 8 }}
         egress.networking.platform.tibco.com/internet-web: enable
         networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-ingress: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/hawkInfra: enable
     spec:
       {{ if .Values.podSecurityContext }}
       securityContext:

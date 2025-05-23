@@ -18,7 +18,6 @@ MSGDP Control Tower Gateway Helpers
 {{- define "msgdp.jfrogImageRepo" -}}"tibco-platform-docker-dev"{{ end }}
 {{- define "msgdp.ecrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.acrImageRepo" -}}"msg-platform-cicd"{{ end }}
-{{- define "msgdp.reldockerImageRepo" -}}"messaging"{{ end }}
 {{- define "msgdp.defaultImageRepo" -}}"messaging"{{ end }}
 
 {{ define "msg.dp.repository" }}
@@ -33,8 +32,6 @@ MSGDP Control Tower Gateway Helpers
             {{- $repository = include "msgdp.ecrImageRepo" . -}}
           {{- else if contains "azurecr.io" $registry -}}
             {{- $repository = include "msgdp.acrImageRepo" . -}}
-          {{- else if contains "reldocker.tibco.com" $registry -}}
-            {{- $repository = include "msgdp.reldockerImageRepo" . -}}
           {{- else -}}
             {{- $repository = include "msgdp.defaultImageRepo" . -}}
           {{- end -}}
@@ -82,7 +79,7 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-68" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-73" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -170,6 +167,56 @@ app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: tp-hawk-console
 platform.tibco.com/workload-type: "infra"
 {{- end }}
+
+{{/*
+msg.dp.net.kubectl
+Labels to allow pods kubeapi access
+*/}}
+{{- define "msg.dp.net.kubectl" }}
+networking.platform.tibco.com/kubernetes-api: enable
+{{- end }}
+
+{{/*
+msg.dp.net.egress
+Labels to allow pods full outbound K8s + cluster CIDR access
+*/}}
+{{- define "msg.dp.net.egress" }}
+networking.platform.tibco.com/msgInfra: enable
+networking.platform.tibco.com/cluster-egress: enable
+networking.platform.tibco.com/internet-egress: enable
+{{- end }}
+{{/*
+msg.dp.net.fullCluster
+Labels to allow pods full K8s + cluster CIDR (ingress/LBs) access
+*/}}
+{{- define "msg.dp.net.fullCluster" }}
+networking.platform.tibco.com/msgInfra: enable
+networking.platform.tibco.com/cluster-ingress: enable
+networking.platform.tibco.com/cluster-egress: enable
+ingress.networking.platform.tibco.com/cluster-access: enable
+{{- end }}
+
+{{/*
+msg.dp.net.external
+Labels to allow pods external N-S access
+*/}}
+{{- define "msg.dp.net.external" }}
+networking.platform.tibco.com/internet-ingress: enable
+networking.platform.tibco.com/internet-egress: enable
+egress.networking.platform.tibco.com/internet-all: enable
+ingress.networking.platform.tibco.com/internet-access: enable
+{{- end }}
+
+{{/*
+msg.dp.net.all
+Labels to allow pods kube+cluster+external
+*/}}
+{{- define "msg.dp.net.all" }}
+{{ include "msg.dp.net.kubectl" . }}
+{{ include "msg.dp.net.fullCluster" . }}
+{{ include "msg.dp.net.external" . }}
+{{- end }}
+
 
 {{/*
 msg.pv.vol.mount - Generate a volumeMount from a standard volSpec structure

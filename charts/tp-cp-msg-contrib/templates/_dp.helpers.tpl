@@ -13,7 +13,6 @@ MSG DP Common Helpers
 {{- define "msgdp.jfrogImageRepo" -}}"tibco-platform-docker-dev"{{ end }}
 {{- define "msgdp.ecrImageRepo" -}}"msg-platform-cicd"{{ end }}
 {{- define "msgdp.acrImageRepo" -}}"msg-platform-cicd"{{ end }}
-{{- define "msgdp.reldockerImageRepo" -}}"messaging"{{ end }}
 {{- define "msgdp.defaultImageRepo" -}}"messaging"{{ end }}
 
 {{/*
@@ -60,8 +59,6 @@ need.msg.dp.params
             {{- $repo = include "msgdp.ecrImageRepo" . -}}
           {{- else if contains "azurecr.io" $registry -}}
             {{- $repo = include "msgdp.acrImageRepo" . -}}
-          {{- else if contains "reldocker.tibco.com" $registry -}}
-            {{- $repo = include "msgdp.reldockerImageRepo" . -}}
           {{- else -}}
             {{- $repo = include "msgdp.defaultImageRepo" . -}}
           {{- end -}}
@@ -178,7 +175,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.6.0.12"
+tib-dp-msgbuild: "1.7.0.19"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"

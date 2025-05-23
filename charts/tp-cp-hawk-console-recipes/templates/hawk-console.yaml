@@ -8,14 +8,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console
+  name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console-{{ include "tp-cp-hawk-console-recipes.resourceSuffix" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "tp-cp-hawk-console-recipes.labels" . | nindent 4 }}
 data:
   version.json: |
     {
-      "capabilityVersion": "1.6.0",
+      "capabilityVersion": "1.7.0",
       "minCPVersion": "1.5.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.hawkConsole.releaseDate | quote }},
@@ -55,7 +55,7 @@ data:
         - name: tp-dp-hawk-console
           namespace: ${NAMESPACE}
           # FIXME: ??use: .Values.capabilities.hawkConsole.version ??
-          version: "1.6.12"
+          version: "1.7.19"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -89,7 +89,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console
+  name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console-{{ include "tp-cp-hawk-console-recipes.resourceSuffix" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "tp-cp-hawk-console-recipes.labels" . | nindent 4 }}
@@ -123,7 +123,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.6.0"
+          value: "1.7.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
@@ -144,10 +144,10 @@ spec:
       volumes:
         - name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console-volume
           configMap:
-            name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console
+            name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-hawk-console-{{ include "tp-cp-hawk-console-recipes.resourceSuffix" . }}
         - name: scripts-config-volume
           configMap:
-            name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-script
+            name: {{ include "tp-cp-hawk-console-recipes.appName" . }}-script-{{ include "tp-cp-hawk-console-recipes.resourceSuffix" . }}
             defaultMode: 0777
         - name: store-vol
           persistentVolumeClaim:
