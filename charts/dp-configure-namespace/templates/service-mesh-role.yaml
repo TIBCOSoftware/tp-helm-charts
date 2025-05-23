@@ -26,7 +26,7 @@ rules:
   verbs:  ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs:     ["get", "list", "watch", "create", "update", "delete"]
+  verbs:     ["get", "list", "watch", "create", "update", "delete"] 
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingressclasses", "ingresses"]
   verbs:   ["get", "list", "watch"]
@@ -54,7 +54,7 @@ rules:
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "list", "create", "update", "delete"]
-- apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io", "extensions.istio.io"]
+- apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io", "extensions.istio.io"] 
   resources: ["*"]
   verbs: ["get", "list", "watch", "delete"]
 - apiGroups: ["authentication.k8s.io"]
@@ -72,7 +72,7 @@ metadata:
   labels:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
 rules:
-- apiGroups: ["networking.istio.io"]
+- apiGroups: ["networking.istio.io"] 
   resources: ["envoyfilters"]
   verbs: ["get", "create", "delete", "patch"]
 - apiGroups: ["security.istio.io"]
