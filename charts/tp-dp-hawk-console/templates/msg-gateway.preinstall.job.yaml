@@ -34,6 +34,7 @@ spec:
       namespace: "{{ .Release.Namespace }}"
       labels:
         {{- include "msg-gateway.std.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.kubectl" . | indent 8}}
         app.kubernetes.io/component: msg-gateway-preinstall
         app.kubernetes.io/name: "{{ $params.msggw.basename }}-preinstall"
     spec:

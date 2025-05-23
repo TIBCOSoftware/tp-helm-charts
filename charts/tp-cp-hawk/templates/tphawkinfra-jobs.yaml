@@ -1,11 +1,12 @@
 # Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
+{{- $resourceSuffix := randAlphaNum 4 | lower -}}
 {{- if eq .Values.global.tibco.is_replica_region false }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-hawk-infra.consts.appName" . }}-setup
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-setup-{{ $resourceSuffix }}
   annotations:
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "10"
@@ -17,11 +18,14 @@ spec:
   backoffLimit: 0
   template:
     metadata:
-      name: {{ include "tp-hawk-infra.consts.appName" . }}-setup
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-setup-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/cluster-all: enable
         egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
@@ -120,7 +124,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade-{{ $resourceSuffix }}
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "10"
@@ -132,11 +136,14 @@ spec:
   backoffLimit: 0
   template:
     metadata:
-      name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
         egress.networking.platform.tibco.com/internet-all: enable
         egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
@@ -234,7 +241,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup-{{ $resourceSuffix }}
   annotations:
     "helm.sh/hook": post-delete
     "helm.sh/hook-weight": "10"
@@ -246,12 +253,15 @@ spec:
   backoffLimit: 0
   template:
     metadata:
-      name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/cluster-all: enable
         egress.networking.platform.tibco.com/internet-all: enable
-        networking.platform.tibco.com/kubernetes-api: enablee
+        egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
       nodeSelector:
@@ -348,7 +358,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback
+  name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback-{{ $resourceSuffix }}
   annotations:
     "helm.sh/hook": pre-rollback
     "helm.sh/hook-weight": "10"
@@ -360,11 +370,14 @@ spec:
   backoffLimit: 0
   template:
     metadata:
-      name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback
+      name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
         egress.networking.platform.tibco.com/internet-all: enable
         egress.networking.platform.tibco.com/cluster-all: enable
+        networking.platform.tibco.com/database-egress: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}

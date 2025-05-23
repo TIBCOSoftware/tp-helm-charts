@@ -47,9 +47,10 @@ spec:
     template:
         metadata:
             labels:
+                #{ include "msg.dp.net.all" . | indent 16}}
                 tib-dp-name: "{{ $emsParams.dp.name }}"
                 {{ include "msg.dp.labels" . | indent 16 }}
-                {{ include "msg.dp.net.all" . | indent 16}}
+                {{ include "msg.dp.net.kubectl" . | indent 16}}
                 {{ include "ems.std.labels" $emsParams | indent 16 }}
                 tib-msg-stsname: "{{ $stsname }}"
                 tib-msg-stsrole: "standby"

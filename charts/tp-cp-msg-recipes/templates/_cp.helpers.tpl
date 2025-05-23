@@ -11,7 +11,6 @@ MSG CP Common Helpers
 {{- define "msgdp.ghcrImageRepo" -}}"tibco/msg-platform-cicd"{{ end }}
 {{- define "msgdp.devImageRepo" -}}"tibco-platform-docker-dev"{{ end }}
 {{- define "msgdp.prodImageRepo" -}}"tibco-platform-docker-prod"{{ end }}
-{{- define "msgdp.reldockerImageRepo" -}}"tibco-platform"{{ end }}
 {{- define "msgdp.defaultImageRepo" -}}"tibco-platform-docker-prod"{{ end }}
 
 {{- define "const.nocic.dnsdomains" -}}"tp-cp-core-dnsdomains"{{ end }}
@@ -71,7 +70,7 @@ need.msg.cp.params
   {{- $registry := "csgprdusw2reposaas.jfrog.io" -}}
   {{- $repo := include "msgdp.defaultImageRepo" . -}}
   {{- $imageName := "msg-cp-ui-contrib" -}}
-  {{- $imageTag := "1.6.0-34" -}}
+  {{- $imageTag := "1.7.0-36" -}}
   {{- $pullSecret := "cic2-tcm-ghcr-secret" -}}
   {{- $pullPolicy := "Always" -}}
   {{- $enableSecurityContext := "true" -}}
@@ -137,8 +136,6 @@ need.msg.cp.params
         {{- $repo = include "msgdp.devImageRepo" . -}}
       {{- else if contains "azurecr.io" $registry -}}
         {{- $repo = include "msgdp.devImageRepo" . -}}
-      {{- else if contains "reldocker.tibco.com" $registry -}}
-        {{- $repo = include "msgdp.reldockerImageRepo" . -}}
       {{- else -}}
         {{- $repo = include "msgdp.defaultImageRepo" . -}}
       {{- end -}}

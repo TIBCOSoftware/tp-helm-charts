@@ -28,7 +28,7 @@ cat - <<EOF > $outfile
     # - trace
     #
     # By default 'info' is set, that means it includes 'error' and 'warning'.
-    Log_Level    info
+    Log_Level    warning
 
     # Parsers_File
     # ============
