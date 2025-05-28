@@ -3705,6 +3705,74 @@ entries:
       app.helm.sh/name: platform-base
     apiVersion: v2
     appVersion: 1.7.0
+    created: "2025-05-28T14:39:26.526338367Z"
+    dependencies:
+    - name: tp-cp-configuration
+      repository: alias:tibco-platform
+      version: 1.7.1
+    - name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.7.47
+    - name: tp-cp-o11y
+      repository: alias:tibco-platform
+      version: 1.7.10
+    - name: tp-cp-core
+      repository: alias:tibco-platform
+      version: 1.7.36
+    - name: tp-cp-core-ops
+      repository: alias:tibco-platform
+      version: 1.7.36
+    - name: tp-cp-core-finops
+      repository: alias:tibco-platform
+      version: 1.7.561
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.7.20
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.7.4
+    - condition: tp-cp-msg-contrib.enabled
+      name: tp-cp-msg-contrib
+      repository: alias:tibco-platform
+      version: 1.7.19
+    - condition: tp-cp-msg-recipes.enabled
+      name: tp-cp-msg-recipes
+      repository: alias:tibco-platform
+      version: 1.7.19
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.7.19
+    - condition: tp-cp-hawk-recipes.enabled
+      name: tp-cp-hawk-console-recipes
+      repository: alias:tibco-platform
+      version: 1.7.19
+    - name: tp-cp-cli
+      repository: alias:tibco-platform
+      version: 0.9.36
+    - name: tp-cp-alerts
+      repository: alias:tibco-platform
+      version: 1.7.4
+    description: TIBCO Platform base chart
+    digest: e3c9238b0d861b87dbf22d5220232f22198309fb7e5f3c476c9e65e59fc57eb1
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.7.0-alpha.114/platform-base-1.7.0-alpha.114.tgz
+    version: 1.7.0-alpha.114
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
+    appVersion: 1.7.0
     created: "2025-05-23T04:59:40.612477731Z"
     dependencies:
     - name: tp-cp-configuration
@@ -10933,4 +11001,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-05-28T14:02:45.228457749Z"
+generated: "2025-05-28T14:39:26.527490104Z"
