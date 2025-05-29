@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-base
 description: TIBCO Platform base chart
 type: application
-version: 1.6.0
-appVersion: "1.6.0"
+version: 1.7.0
+appVersion: "1.7.0"
 keywords:
   - tibco-platform
   - platform
@@ -19,45 +19,52 @@ annotations:
   app.helm.sh/name: platform-base
 dependencies:
   - name: tp-cp-configuration
-    version: "1.6.0"
+    version: "1.7.1"
     repository: alias:tibco-platform
   - name: tp-cp-recipes
-    version: "1.6.31"
+    version: "1.7.47"
     repository: alias:tibco-platform
   - name: tp-cp-o11y
-    version: "1.6.3"
+    version: "1.7.10"
     repository: alias:tibco-platform
   - name: tp-cp-core
-    version: "1.6.38"
+    version: "1.7.36"
     repository: alias:tibco-platform
   - name: tp-cp-core-ops
-    version: "1.6.38"
+    version: "1.7.36"
     repository: alias:tibco-platform
   - name: tp-cp-core-finops
-    version: "1.6.555"
+    version: "1.7.561"
     repository: alias:tibco-platform
   - name: tp-cp-integration
-    version: "1.6.24"
+    version: "1.7.20"
     repository: alias:tibco-platform
     condition: tp-cp-integration.enabled
     tags:
       - integration
   - name: tp-cp-tibcohub-contrib
-    version: "1.6.6"
+    version: "1.7.4"
     repository: alias:tibco-platform
     condition: tp-cp-tibcohub-contrib.enabled
   - name: tp-cp-msg-contrib
-    version: "1.6.12"
+    version: "1.7.19"
     repository: alias:tibco-platform
     condition: tp-cp-msg-contrib.enabled
   - name: tp-cp-msg-recipes
-    version: "1.6.12"
+    version: "1.7.19"
     repository: alias:tibco-platform
     condition: tp-cp-msg-recipes.enabled
   - name: tp-cp-hawk
-    version: "1.6.12"
+    version: "1.7.19"
     repository: alias:tibco-platform
     condition: tp-cp-hawk.enabled
+  - name: tp-cp-hawk-console-recipes
+    version: "1.7.19"
+    repository: alias:tibco-platform
+    condition: tp-cp-hawk-recipes.enabled
   - name: tp-cp-cli
-    version: "0.9.23"
+    version: "0.9.36"
+    repository: alias:tibco-platform
+  - name: tp-cp-alerts
+    version: "1.7.4"
     repository: alias:tibco-platform
