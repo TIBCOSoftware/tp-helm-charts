@@ -1,0 +1,41 @@
+{{- if .Values.ingress.enabled -}}
+{{- if eq .Values.ingress.controllerName "openshiftRouter" -}}
+{{- $serviceName := include "oauth2-proxy.fullname" . -}}
+{{- $servicePort := .Values.service.portNumber -}}
+{{- $ingressPath := .Values.ingress.path -}}
+{{- $ingressPathType := .Values.ingress.pathType -}}
+{{- $extraPaths := .Values.ingress.extraPaths -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  labels:
+    app: {{ template "oauth2-proxy.name" . }}
+    {{- include "oauth2-proxy.labels" . | indent 4 }}
+{{- if .Values.ingress.labels }}
+{{ toYaml .Values.ingress.labels | indent 4 }}
+{{- end }}
+  name: {{ template "oauth2-proxy.fullname" . }}
+  namespace: {{ template "oauth2-proxy.namespace" $ }}
+  annotations:
+  {{- with .Values.global.cp.resources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.ingress.annotations }}
+    {{ toYaml . | indent 4 }}
+  {{- end }}
+spec:
+  {{- range $host := .Values.ingress.hosts }}
+  host: {{ tpl $host $ | quote }}
+  path: {{ $ingressPath }}
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: {{ $serviceName}}
+    weight: 100
+  wildcardPolicy: None
+  {{- end -}}
+{{- end -}}
+{{- end -}}
