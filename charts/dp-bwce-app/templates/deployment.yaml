@@ -30,6 +30,8 @@ spec:
   template:
     metadata:
       annotations:
+      {{- include "dp-bwce-app.labels" . | nindent 8 }}
+      {{- include "dp-bwce-app.bwapp.pod.labels" . | nindent 8 }}
       {{- include "dp-bwce-app.bwapp.pod.annotations" . | nindent 8 }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
