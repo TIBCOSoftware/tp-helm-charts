@@ -1,4 +1,4 @@
-name: Release Charts
+name: Release Helm Charts
 
 on:
   push:
@@ -11,7 +11,9 @@ on:
 jobs:
   release:
     permissions:
-      contents: write
+      contents: write # to push chart release and create a release (helm/chart-releaser-action)
+      packages: write # needed for ghcr access
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,14 +29,21 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
-          version: '3.16.4'
+          version: '3.17.1'
 
       - name: Add dependency chart repos
         run: |      
           helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts/
 
+      - name: Build subchart dependencies
+        run: |
+          for d in $(find charts/ -type f -name 'Chart.yaml' | sed -r 's|/[^/]+$||' | sort | uniq); do
+            echo "Running 'helm dependency build' in $d"
+            helm dependency build "$d"
+          done
+
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
+        uses: helm/chart-releaser-action@v1.7.0
         with:
           skip_existing: true
           packages_with_index: false
