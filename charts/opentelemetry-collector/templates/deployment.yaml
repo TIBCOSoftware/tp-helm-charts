@@ -4,6 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
+{{ if .Values.global.cp.svcPod.enabled -}}
 {{ if eq .Values.mode "deployment" }}
 apiVersion: apps/v1
 kind: Deployment
@@ -57,4 +58,5 @@ spec:
       {{- $podData := dict "Values" $podValues "configmapSuffix" "" "isAgent" false }}
       {{- include "opentelemetry-collector.pod" ($podData | mustMergeOverwrite (deepCopy .)) | nindent 6 }}
       hostNetwork: {{ .Values.hostNetwork }}
+{{- end }}
 {{- end }}

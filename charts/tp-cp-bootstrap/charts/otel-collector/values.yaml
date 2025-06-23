@@ -125,19 +125,37 @@ config:
     # The health_check extension can be modified, but should never be removed.
     health_check:
       endpoint: ${env:MY_POD_IP}:13133
+  # processors:
+  #   batch: {}
+  #   memory_limiter:
+  #     check_interval: 5s
+  #     limit_percentage: 80
+  #     spike_limit_percentage: 25
+  #   transform/logs:     
+  #     log_statements:
+  #     - context: log
+  #       conditions:
+  #       - IsString(body)
+  #       statements:
+  #       - 'set(body, {"message": body})'
+
   processors:
     batch: {}
     memory_limiter:
       check_interval: 5s
       limit_percentage: 80
       spike_limit_percentage: 25
-    transform/logs:     
-      log_statements:
-      - context: log
-        conditions:
-        - IsString(body)
-        statements:
-        - 'set(body, {"message": body})'
+
+    k8sattributes/general:
+      auth_type: "serviceAccount"
+      passthrough: false
+      extract:
+        metadata:
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.namespace.name
+          - k8s.pod.ip
+
   receivers:
     otlp:
       protocols:
@@ -153,7 +171,7 @@ config:
         exporters:
           - elasticsearch/log
         processors:
-          - transform/logs
+          - k8sattributes/general
           - memory_limiter
           - batch
         receivers:
@@ -424,6 +442,8 @@ podAnnotations: {}
 
 podLabels:
   networking.platform.tibco.com/logServer-egress: enable
+  networking.platform.tibco.com/kubernetes-api: enable
+
 
 # Common labels to add to all otel-collector resources. Evaluated as a template.
 additionalLabels: {}

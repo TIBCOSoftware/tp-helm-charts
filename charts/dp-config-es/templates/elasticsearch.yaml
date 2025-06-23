@@ -19,6 +19,12 @@ spec:
       count: {{ .Values.es.count }}
       config:
         node.store.allow_mmap: false
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              resources:
+                {{- toYaml .Values.es.resources | nindent 16 }}
       volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
