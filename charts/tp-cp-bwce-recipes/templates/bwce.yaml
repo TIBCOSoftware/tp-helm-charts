@@ -12,15 +12,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.7.0",
-      "minCPVersion": "1.7.0",
+      "capabilityVersion": "1.8.0",
+      "minCPVersion": "1.8.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.7.0",
-        "dp-configure-namespace": "1.7.0"
+        "dp-core-infrastructure": "1.8.0",
+        "dp-configure-namespace": "1.8.0"
       }
     }
   package.json: |
@@ -47,7 +47,7 @@ data:
           {
             "version": [
               1,
-              7,
+              8,
               0
             ],
             "capabilityId": "INTEGRATIONCORE",
@@ -56,7 +56,7 @@ data:
           {
             "version": [
               1,
-              7,
+              8,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -89,7 +89,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.7.5"
+          version: "1.8.3"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -103,10 +103,15 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 733
+                      tag: 746
                 config:
-                  APP_INIT_IMAGE_TAG: "44"
-                  BWCE_APP_HELMCHART_VERSION: "1.7.7"
+                  APP_INIT_IMAGE_TAG: "47"
+                  BWCE_APP_HELMCHART_VERSION: "1.8.3"
+                autoDiscovery:
+                  enabled: ${ENABLE_APP_DISCOVERY}
+                  config:
+                    APP_DISCOVERY_LABEL_SELECTOR: ${APP_DISCOVERY_LABEL_SELECTOR}
+                    APP_DISCOVERY_ENGINE_PORT: ${APP_DISCOVERY_ENGINE_PORT}
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
@@ -120,7 +125,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.7.4"
+          version: "1.8.1"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -183,7 +188,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.7.0"
+          value: "1.8.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

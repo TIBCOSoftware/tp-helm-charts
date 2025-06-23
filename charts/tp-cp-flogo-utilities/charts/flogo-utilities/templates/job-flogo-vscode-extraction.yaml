@@ -81,6 +81,10 @@ spec:
         - name: HTTPS_PROXY
           value: "{{ include "flogo-utilities.cp-https-proxy" $dot }}"
         {{- end }}
+        {{- if (include "flogo-utilities.container-registry.custom-cert-secret" $dot) }}
+        - name: SSL_CERT_DIR
+          value: "/etc/certs/"
+        {{- end }}
         volumeMounts:
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
@@ -94,6 +98,12 @@ spec:
         - name: container-registry-secret
           mountPath: /tibco/containerregistry
         {{- end }}
+        # mount this secret only if private container registry with custom certs is configured for CP.
+        {{- if (include "flogo-utilities.container-registry.custom-cert-secret" $dot) }}
+        - mountPath: /etc/certs
+          name: container-registry-custom-cert-secret
+          readOnly: true
+        {{- end }}
       {{- end }}
       volumes:
       - name: store-vol
@@ -103,6 +113,12 @@ spec:
         name: tmp-vol
       - emptyDir: {}
         name: kaniko-vol
+      {{- if (include "flogo-utilities.container-registry.custom-cert-secret" $dot) }}
+      - name: container-registry-custom-cert-secret
+        secret:
+          defaultMode: 420 # 0644 in octal
+          secretName: {{ include "flogo-utilities.container-registry.custom-cert-secret" $dot }}
+      {{- end }}
       {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

@@ -109,6 +109,10 @@ spec:
           - name: HTTPS_PROXY
             value: "{{ include "bwce-utilities.cp-https-proxy" $dot }}"
           {{- end }}
+          {{- if (include "bwce-utilities.container-registry.custom-cert-secret" $dot) }}
+          - name: SSL_CERT_DIR
+            value: "/etc/certs/"
+          {{- end }}
           volumeMounts:
           - mountPath: {{ $.Values.volumes.plugins.mountPath }}
             name: shared-vol
@@ -121,7 +125,13 @@ spec:
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
           - mountPath: /tibco/containerregistry
             name: container-registry-secret
-{{- end }}            
+{{- end }}
+# mount this secret only if private container registry with custom certs is configured for CP.
+{{- if (include "bwce-utilities.container-registry.custom-cert-secret" $dot) }}
+          - mountPath: /etc/certs
+            name: container-registry-custom-cert-secret
+            readOnly: true
+{{- end }}
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-default
           image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           imagePullPolicy: IfNotPresent
@@ -165,6 +175,12 @@ spec:
         name: tmp-vol
       - emptyDir: {}
         name: kaniko-vol
+{{- if (include "bwce-utilities.container-registry.custom-cert-secret" $dot) }}
+      - name: container-registry-custom-cert-secret
+        secret:
+          defaultMode: 420
+          secretName: {{ include "bwce-utilities.container-registry.custom-cert-secret" $dot }}
+{{- end }}
 {{- if (include "bwce-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

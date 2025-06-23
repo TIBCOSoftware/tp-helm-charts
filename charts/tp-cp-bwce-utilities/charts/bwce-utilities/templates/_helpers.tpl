@@ -97,6 +97,11 @@ networking.platform.tibco.com/proxy-egress: enable
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
 {{- end }}
 
+{{/* Image pull custom certificate secret configured for control plane. default value empty */}}
+{{- define "bwce-utilities.container-registry.custom-cert-secret" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_CERTIFICATE_SECRET" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
 {{/* Control plane instance Id. default value local */}}
 {{- define "bwce-utilities.cp-instance-id" }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}

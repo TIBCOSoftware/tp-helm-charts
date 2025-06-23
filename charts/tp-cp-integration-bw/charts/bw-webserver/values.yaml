@@ -21,7 +21,7 @@ global:
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "4.0.0"
+      tag: "4.0.3"
     probes:
       livenessProbe:
         failureThreshold: 3
@@ -36,26 +36,31 @@ global:
     securityContext:
       runAsNonRoot: true
       runAsUser: 1000
-      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop:
           - ALL
           - CAP_NET_RAW
 
-replicaCount: 1
-
 config:
-  BW6_WEBSERVER_IMAGE_TAG: "76"
   HTTP_REQUEST_TIMEOUT: "120000"
   IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
+  BW_WEBSERVER_IMAGE_TAG: "513"
+
+replicaCount: 1
 
 hpa:
   cpu: 70
   memory: 70
   maxReplicas: 3
   minReplicas: 1  
+  
+volumes:
+  bwwebserver:
+    mountPath: /usr/share/nginx/html
+    subPath: integration
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
@@ -81,12 +86,7 @@ securityContext:
       - ALL
       - CAP_NET_RAW
 
-volumes:
-  bw6webserver:
-    mountPath: /usr/share/nginx/html
-    subPath: integration
-
-bw6webserver:
+bwwebserver:
   resources:
     requests:
       cpu: 100m

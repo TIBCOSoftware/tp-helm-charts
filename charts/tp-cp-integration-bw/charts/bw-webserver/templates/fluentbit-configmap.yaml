@@ -2,14 +2,14 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if eq (include "bw5-webserver.cp-logging-fluentbit-enabled" .) "true" -}}
+{{ if eq (include "bw-webserver.cp-logging-fluentbit-enabled" .) "true" -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "bw5-webserver.consts.appName" . }}-fluentbit-config
+  name: {{ include "bw-webserver.consts.appName" . }}-fluentbit-config
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "bw5-webserver.shared.labels.standard" . | nindent 4 }}
+    {{- include "bw-webserver.shared.labels.standard" . | nindent 4 }}
 data:
   fluent-bit.conf: |
     [SERVICE]
@@ -29,7 +29,7 @@ data:
     [INPUT]
       Name              tail
       Tag               cp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
-      Path              /var/log/pods/bw5-webserver.log
+      Path              /var/log/pods/*.log
       multiline.parser  docker, cri
       DB                /var/log/pods/flb_kube.db
       Mem_Buf_Limit     5MB
@@ -41,6 +41,7 @@ data:
       Name              record_modifier
       Match             cp.*
       Remove_key        stream
+      Remove_key        date
       Remove_key        _p
     [FILTER]
       Name              parser
@@ -52,18 +53,19 @@ data:
 
   output.conf: |
     [OUTPUT]
+      Name   stdout
+      Match  cp.*
+      Format json
+
+    [OUTPUT]
       Name                 opentelemetry
       Match                *
-      Host                 {{ include "bw5-webserver.cp-otel-services" . }}
+      Host                 {{ include "bw-webserver.cp-otel-services" . }}
       Port                 4318
       Logs_uri             /v1/logs
       Log_response_payload True
       Tls                  Off
       Tls.verify           Off
-    [OUTPUT]
-      Name              stdout
-      Match             cp.*
-      Format            json
 
   parsers.conf: |
     [PARSER]

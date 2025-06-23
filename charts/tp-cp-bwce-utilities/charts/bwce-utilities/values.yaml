@@ -11,13 +11,13 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 106-distroless
+  tag: 160-distroless
   pullPolicy: IfNotPresent
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12
+    tag: 12.11
 
 nameOverride: ""
 
@@ -175,8 +175,8 @@ bwPluginsJobB:
     default: 6.1.1.v4.1-tci-2.0
   tci-bw-plugin-ap:
     tags:
-      - 6.2.0.v10.1-tci-2.0
-    default: 6.2.0.v10.1-tci-2.0
+      - 6.2.1.v7-tci-2.0
+    default: 6.2.1.v7-tci-2.0
   tci-bw-plugin-oebs:
     tags:
       - 6.1.2.v12-tci-2.0
@@ -209,8 +209,8 @@ bwPluginsJobC:
     default: 6.1.0.v9.1-tci-2.0
   tci-bw-plugin-acs:
     tags:
-      - 6.0.0.v16-tci-2.0
-    default: 6.0.0.v16-tci-2.0
+      - 6.0.0.v21-tci-2.0
+    default: 6.0.0.v21-tci-2.0
   tci-bw-plugin-sap:
     tags:
       - 8.8.0.v25-tci-2.0
@@ -277,8 +277,8 @@ bwPluginsJobD:
 bwPluginsJobE:
   tci-bw-plugin-mi:
     tags:
-      - 6.4.0.v5.1-tci-2.0
-    default: 6.4.0.v5.1-tci-2.0
+      - 6.4.0.v4-tci-2.0
+    default: 6.4.0.v4-tci-2.0
   tci-bw-plugin-redis:
     tags:
       - 6.1.0.v6.2-tci-2.0
@@ -383,6 +383,10 @@ bwPluginsJobG:
     tags:
       - 6.5.0.v14.1-tci-2.0
     default: 6.5.0.v14.1-tci-2.0
+  tci-bw-plugin-as2:
+    tags:
+      - 6.0.0.v7.2-tci-2.0
+    default: 6.0.0.v7.2-tci-2.0
 
 volumes:
   plugins:
