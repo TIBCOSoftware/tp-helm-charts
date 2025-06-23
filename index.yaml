@@ -5095,6 +5095,26 @@ entries:
     version: 1.0.1
   tibco-developer-hub:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T12:17:52.214966728Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: 03134e2b9caea483d1d371301ab4b762f5d02dd813786c8c7ee56521b7be1502
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.8.5/tibco-developer-hub-1.8.5.tgz
+    version: 1.8.5
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T05:02:47.834759257Z"
     dependencies:
@@ -10791,6 +10811,16 @@ entries:
     version: 1.2.12
   tp-cp-tibcohub-contrib:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T12:17:52.377730487Z"
+    description: A Helm chart for TIBCO Hub CP contribution
+    digest: aaaa83cce94e0ebf5ff59a6a68a9d35bdc81e1dc97798f479672c268275f6d07
+    name: tp-cp-tibcohub-contrib
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-tibcohub-contrib-1.8.4/tp-cp-tibcohub-contrib-1.8.4.tgz
+    version: 1.8.4
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T05:02:48.059075289Z"
     description: A Helm chart for TIBCO Hub CP contribution
@@ -10861,6 +10891,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-tibcohub-contrib-1.2.9/tp-cp-tibcohub-contrib-1.2.9.tgz
     version: 1.2.9
   tp-cp-tibcohub-recipes:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-tibcohub-recipes
+    apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T12:17:52.511291137Z"
+    description: TIBCO Developer Hub Data Plane Recipes
+    digest: 00a50ae8406efe1b002430e76a343b3925c1e6969cf221d9fb3fa262f31780c3
+    home: https://github.com/tibco/tp-dev-hub.git
+    keywords:
+    - tibco-platform
+    - control-plane
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO CIC Compute Dev Team
+    name: tp-cp-tibcohub-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-tibcohub-recipes-1.8.6/tp-cp-tibcohub-recipes-1.8.6.tgz
+    version: 1.8.6
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-tibcohub-recipes
@@ -11426,4 +11476,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-06-23T11:16:43.317675624Z"
+generated: "2025-06-23T12:17:52.512170149Z"
