@@ -35,6 +35,22 @@ jobs:
         run: |      
           helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts/
 
+      - name: Add third party dependency chart repositories
+        run: |
+          for dir in $(find charts/ -type f -name 'Chart.yaml' | sed -r 's|/[^/]+$||' | sort | uniq); do
+            echo "Adding helm repositories in $dir"
+            helm dependency list "$dir" 2>/dev/null | tail -n +2 | head -n -1 | while read -r name version repo _; do
+              if [[ -z "$repo" || "$repo" == "file://"* || "$repo" == "unpacked" ]]; then
+                echo "📁 Skipping local/vendored dependency: $name (repo=$repo)"
+              elif [[ "$repo" =~ ^https?:// ]]; then
+                echo "➕ Adding remote repo: $name -> $repo"
+                helm repo add "$name" "$repo"
+              else
+                echo "⚠️ Unknown or missing repo for $name → Skipping: '$repo'"
+              fi
+            done
+          done
+
       - name: Build subchart dependencies
         run: |
           for d in $(find charts/ -type f -name 'Chart.yaml' | sed -r 's|/[^/]+$||' | sort | uniq); do
