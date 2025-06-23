@@ -46,7 +46,7 @@ Before starting the workshop, make sure you have the following prerequisites:
   - Refer to this [installation guide](https://www.vcluster.com/docs/vcluster#deploy-vcluster) for installation of vCluster CLI.
 
 > [!NOTE]
-> This workshop is certified and tested with vcluster version v0.22, ensuring compatibility and accuracy of the instructions and commands provided.
+> This workshop has been certified and validated using vcluster chart version v0.22 and hostpathmapper chart version v0.2.0, ensuring that all instructions and commands are accurate and fully compatible.
 
 ---
 ## Steps to install CP in vCluster
@@ -98,7 +98,8 @@ In addition to enable the hostPath mapping we need to install the [vcluster-host
 helm install vcluster-hostpath-mapper vcluster-hpm \
     --repo https://charts.loft.sh \
     -n ${TP_CP_VCLUSTER_NAMESPACE} \
-    --set VclusterReleaseName=${TP_CP_VCLUSTER_NAME}
+    --set VclusterReleaseName=${TP_CP_VCLUSTER_NAME} \
+    --version=0.2.0
 ``` 
 
 ### Platform Bootstrap Chart installation
@@ -229,7 +230,8 @@ In addition to enable the hostPath mapping we need to install the [vcluster-host
 helm install vcluster-hostpath-mapper vcluster-hpm \
     --repo https://charts.loft.sh \
     -n ${TP_DP_VCLUSTER_NAMESPACE} \
-    --set VclusterReleaseName=${TP_DP_VCLUSTER_NAME}
+    --set VclusterReleaseName=${TP_DP_VCLUSTER_NAME} \
+    --version=0.2.0
 ``` 
 
 ### Install Kubernetes Metrics Server chart

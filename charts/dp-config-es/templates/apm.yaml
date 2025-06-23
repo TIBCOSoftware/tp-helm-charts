@@ -28,4 +28,10 @@ spec:
           konghq.com/protocol: https
       spec:
         type: ClusterIP
+  podTemplate:
+    spec:
+      containers:
+        - name: apm-server
+          resources:
+            {{- toYaml .Values.apm.resources | nindent 12 }}
 {{- end -}}

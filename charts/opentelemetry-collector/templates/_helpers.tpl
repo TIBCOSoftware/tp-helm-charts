@@ -188,6 +188,11 @@ Allow the release namespace to be overridden
 {{- end -}}
 
 {{/*
+otel services service for services logs
+*/}}
+{{- define "opentelemetry-collector.service.name" }}otel-services{{ end -}}
+
+{{/*
   This helper converts the input value of memory to Bytes.
   Input needs to be a valid value as supported by k8s memory resource field.
  */}}

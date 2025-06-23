@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.7.0",
+      "capabilityVersion": "1.8.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
@@ -64,11 +64,6 @@ data:
             "name": "otel-finops",
             "description": "otel finops",
             "monitoringPriority": "essential"
-          },
-          {
-            "name": "otel-services",
-            "description": "otel services",
-            "monitoringPriority": "essential"
           }
         ],
         "dependsOn": [],
@@ -93,6 +88,29 @@ data:
             createNamespace: false
             dependencyUpdate: true
         - name: opentelemetry-collector
+          namespace: ${NAMESPACE} 
+          releaseName: otel-services
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  cp:
+                    svcPod:
+                      enabled: false
+                mode: "deployment"
+                fullnameOverride: otel-services
+                serviceAccount:
+                  create: false
+                  annotations: {}
+                  name: ${SERVICE-ACCOUNT}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+        - name: opentelemetry-collector
           namespace: ${NAMESPACE}
           releaseName: otel-userapp
           version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
@@ -107,6 +125,8 @@ data:
                       enabled: true
                     serviceTraces:
                       enabled: true
+                    serviceSvcLogs:
+                      enabled: true
                 mode: "deployment"
                 fullnameOverride: otel-userapp
                 podLabels:
@@ -115,6 +135,7 @@ data:
                   networking.platform.tibco.com/internet-egress: enable
                 serviceAccount:
                   create: false
+                  annotations: {}
                   name: ${SERVICE-ACCOUNT}
                 extraEnvs:
                   - name: KUBE_NODE_NAME
@@ -142,6 +163,17 @@ data:
                     servicePort: 4318
                     hostPort: 4318
                     protocol: TCP
+                  metrics:
+                    enabled: false
+                    containerPort: 8888
+                    servicePort: 8888
+                    protocol: TCP
+                  prometheus:
+                    enabled: true
+                    containerPort: 4319
+                    servicePort: 4319
+                    hostPort: 4319
+                    protocol: TCP
                 config:
                   receivers:
                     otlp:
@@ -159,6 +191,7 @@ data:
                       check_interval: 5s
                       limit_percentage: 80
                       spike_limit_percentage: 25
+                      limit_mib: 2000
                     batch: {}
                     filter/devnull-logs:
                       error_mode: ignore
@@ -274,6 +307,8 @@ data:
                   service:
                     telemetry:
                       logs: {}
+                      metrics:
+                        address: :8888
                     extensions:
                       - health_check
                     pipelines:
@@ -282,6 +317,8 @@ data:
                           - debug
                         processors:
                           - filter/devnull-logs
+                          - memory_limiter
+                          - batch
                         receivers:
                           - otlp
                       traces:
@@ -944,91 +981,6 @@ data:
             createNamespace: false
             dependencyUpdate: true
             isDevTesting: true
-        - name: opentelemetry-collector
-          namespace: ${NAMESPACE}
-          releaseName: otel-services
-          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
-          repository:
-            chartMuseum:
-              host: ${HELM_REPO}
-          values:
-            - content: |
-                mode: "deployment"
-                fullnameOverride: otel-services
-                podLabels:
-                  networking.platform.tibco.com/kubernetes-api: enable
-                  networking.platform.tibco.com/logServer-egress: enable
-                  networking.platform.tibco.com/internet-egress: enable
-                serviceAccount:
-                  create: false
-                  annotations: {}
-                  name: ${SERVICE-ACCOUNT}
-                ports:
-                  otlp:
-                    enabled: true
-                    containerPort: 4317
-                    servicePort: 4317
-                    hostPort: 4317
-                    protocol: TCP
-                    # nodePort: 30317
-                    appProtocol: grpc
-                  otlp-http:
-                    enabled: true
-                    containerPort: 4318
-                    servicePort: 4318
-                    hostPort: 4318
-                    protocol: TCP
-                  metrics:
-                    enabled: false
-                    containerPort: 8888
-                    servicePort: 8888
-                    protocol: TCP
-                  prometheus:
-                    enabled: true
-                    containerPort: 4319
-                    servicePort: 4319
-                    hostPort: 4319
-                    protocol: TCP
-                config:
-                  receivers:
-                    otlp:
-                      protocols:
-                        grpc:
-                          endpoint: 0.0.0.0:4317
-                        http:
-                          cors:
-                            allowed_origins:
-                              - http://*
-                              - https://*
-                          endpoint: 0.0.0.0:4318
-                  processors:
-                    memory_limiter:
-                      check_interval: 1s
-                      limit_mib: 2000
-                    batch: {}
-                  exporters:
-                    debug: {}
-                  service:
-                    telemetry:
-                      logs: {}
-                      metrics:
-                        address: :8888
-                    extensions:
-                      - health_check
-                    pipelines:
-                      logs:
-                        exporters:
-                          - debug
-                        processors:
-                          - memory_limiter
-                          - batch
-                        receivers:
-                          - otlp
-          flags:
-            install: true
-            createNamespace: false
-            dependencyUpdate: true
-            isDevTesting: true
         - name: jaeger
           namespace: ${NAMESPACE}
           releaseName: jaeger
@@ -1145,7 +1097,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.7.0"
+          value: "1.8.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

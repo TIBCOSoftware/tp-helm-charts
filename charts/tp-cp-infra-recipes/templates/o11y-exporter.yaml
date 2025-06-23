@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.7.0",
+      "capabilityVersion": "1.8.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -64,11 +64,6 @@ data:
             "name": "otel-finops",
             "description": "otel finops",
             "monitoringPriority": "essential"
-          },
-          {
-            "name": "otel-services",
-            "description": "otel services",
-            "monitoringPriority": "essential"
           }
         ],
         "dependsOn": [],
@@ -116,6 +111,29 @@ data:
             createNamespace: false
             dependencyUpdate: true
         - name: opentelemetry-collector
+          namespace: ${NAMESPACE} 
+          releaseName: otel-services
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  cp:
+                    svcPod:
+                      enabled: false
+                mode: "deployment"
+                fullnameOverride: otel-services
+                serviceAccount:
+                  create: false
+                  annotations: {}
+                  name: ${SERVICE-ACCOUNT}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+        - name: opentelemetry-collector
           namespace: ${NAMESPACE}
           releaseName: otel-userapp
           version: {{ .Values.capabilities.o11y.withResources.opentelemetryCollector.version | quote }}
@@ -130,6 +148,8 @@ data:
                       enabled: true
                     serviceTraces:
                       enabled: true
+                    serviceSvcLogs:
+                      enabled: true
                 mode: "deployment"
                 fullnameOverride: otel-userapp
                 podLabels:
@@ -139,7 +159,7 @@ data:
                 resources:
                   requests:
                     cpu: 100m
-                    memory: 128Mi
+                    memory: 256Mi
                   limits:
                     cpu: 1000m
                     memory: 1024Mi
@@ -183,6 +203,18 @@ data:
                     servicePort: 4318
                     hostPort: 4318
                     protocol: TCP
+                  metrics:
+                    enabled: true
+                    containerPort: 8888
+                    servicePort: 8888
+                    hostPort: 8888
+                    protocol: TCP
+                  prometheus:
+                    enabled: true
+                    containerPort: 4319
+                    servicePort: 4319
+                    hostPort: 4319
+                    protocol: TCP
                 config:
                   receivers:
                     otlp:
@@ -200,7 +232,22 @@ data:
                       check_interval: 5s
                       limit_percentage: 80
                       spike_limit_percentage: 25
+                      limit_mib: 2000
                     batch: {}
+                    filter/userapp:
+                      logs:
+                        include:
+                          match_type: strict
+                          resource_attributes:
+                          - key: workload_type
+                            value: user-app
+                    filter/svc:
+                      logs:
+                        include:
+                          match_type: regexp
+                          resource_attributes:
+                          - key: workload_type
+                            value: infra|capability-service
                     filter/devnull-logs:
                       error_mode: ignore
                       logs:
@@ -375,6 +422,39 @@ data:
                       brokers: ${env:TRACES_EXPORTER_KAFKA_BROKERS}
                       topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
                       protocol_version: ${env:TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                    elasticsearch/svclog:
+                      endpoints:
+                      - ${env:LOGS_EXPORTER_SVC_ES_ENDPOINT}
+                      logs_index: ${env:LOGS_EXPORTER_SVC_ES_INDEX_NAME}
+                      user: ${env:LOGS_EXPORTER_SVC_ES_USERNAME}
+                      password: ${env:LOGS_EXPORTER_SVC_ES_PASSWORD}
+                      retry:
+                        enabled: false
+                      tls:
+                        insecure: false
+                        insecure_skip_verify: true
+                      headers: ${env:headers_logs_expo_services}
+                    otlphttp/service-logs-export:
+                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLP_URL}
+                      tls:
+                        insecure_skip_verify: true
+                    otlp/service-logs-export:
+                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLP_URL}
+                      tls:
+                        insecure: true
+                        insecure_skip_verify: true
+                    kafka/service-logs-export-auth:
+                      brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
+                      topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
+                      protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
+                      auth:
+                        plain_text:
+                          username: ${env:LOGS_EXPORTER_SVC_KAFKA_USERNAME}
+                          password: ${env:LOGS_EXPORTER_SVC_KAFKA_PASSWORD}
+                    kafka/service-logs-export:
+                      brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
+                      topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
+                      protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
                   extensions:
                     health_check: {}
                   service:
@@ -385,10 +465,14 @@ data:
                     extensions:
                       - health_check
                     pipelines:
-                      logs:
+                      logs/app:
                         receivers: ${env:app_logs_receiver}
                         processors: ${env:app_logs_processor}
                         exporters: ${env:app_logs_exporter}
+                      logs/svc:
+                        exporters: ${env:svc_logs_exporter}
+                        processors: ${env:svc_logs_processor}
+                        receivers: ${env:svc_logs_receiver}
                       traces:
                         receivers: ${env:traces_receiver}
                         processors: ${env:traces_processor}
@@ -1084,164 +1168,6 @@ data:
             createNamespace: false
             dependencyUpdate: true
             isDevTesting: true
-        - name: opentelemetry-collector
-          namespace: ${NAMESPACE}
-          releaseName: otel-services
-          version: {{ .Values.capabilities.o11y.withResources.opentelemetryCollector.version | quote }}
-          repository:
-            chartMuseum:
-              host: ${HELM_REPO}
-          values:
-            - content: |
-                mode: "deployment"
-                fullnameOverride: otel-services
-                podLabels:
-                  networking.platform.tibco.com/kubernetes-api: enable
-                  networking.platform.tibco.com/logServer-egress: enable
-                  networking.platform.tibco.com/internet-egress: enable
-                serviceAccount:
-                  create: false
-                  name: ${SERVICE-ACCOUNT}
-                extraEnvsFrom:
-                  - secretRef:
-                      name: o11y-service
-                  - configMapRef:
-                      name: o11y-service
-                ports:
-                  otlp:
-                    enabled: true
-                    containerPort: 4317
-                    servicePort: 4317
-                    hostPort: 4317
-                    protocol: TCP
-                    # nodePort: 30317
-                    appProtocol: grpc
-                  otlp-http:
-                    enabled: true
-                    containerPort: 4318
-                    servicePort: 4318
-                    hostPort: 4318
-                    protocol: TCP
-                  metrics:
-                    enabled: true
-                    containerPort: 8888
-                    servicePort: 8888
-                    hostPort: 8888
-                    protocol: TCP
-                  prometheus:
-                    enabled: true
-                    containerPort: 4319
-                    servicePort: 4319
-                    hostPort: 4319
-                    protocol: TCP
-                config:
-                  receivers:
-                    otlp:
-                      protocols:
-                        grpc:
-                          endpoint: 0.0.0.0:4317
-                        http:
-                          cors:
-                            allowed_origins:
-                              - http://*
-                              - https://*
-                          endpoint: 0.0.0.0:4318
-                  processors:
-                    memory_limiter:
-                      check_interval: 1s
-                      limit_mib: 2000
-                    filter/devnull-logs:
-                      error_mode: ignore
-                      logs:
-                        log_record:
-                          - 'IsMatch(body, "")'
-                    k8sattributes/general:
-                      auth_type: "serviceAccount"
-                      passthrough: false
-                      extract:
-                        metadata:
-                          - k8s.pod.name
-                          - k8s.pod.uid
-                          - k8s.namespace.name
-                        labels:
-                          - tag_name: dataplane_id
-                            key: platform.tibco.com/dataplane-id
-                            from: pod
-                          - tag_name: workload_type
-                            key: platform.tibco.com/workload-type
-                            from: pod
-                    k8sattributes/general-ns:
-                      auth_type: "serviceAccount"
-                      passthrough: false
-                      filter:
-                        namespace: ${env:app_namespace}
-                      extract:
-                        metadata:
-                          - k8s.pod.name
-                          - k8s.pod.uid
-                          - k8s.namespace.name
-                        labels:
-                          - tag_name: dataplane_id
-                            key: platform.tibco.com/dataplane-id
-                            from: pod
-                          - tag_name: workload_type
-                            key: platform.tibco.com/workload-type
-                            from: pod
-                    batch: {}
-                  exporters:
-                    debug: {}
-                    elasticsearch/log:
-                      endpoints:
-                      - ${env:LOGS_EXPORTER_SVC_ES_ENDPOINT}
-                      logs_index: ${env:LOGS_EXPORTER_SVC_ES_INDEX_NAME}
-                      user: ${env:LOGS_EXPORTER_SVC_ES_USERNAME}
-                      password: ${env:LOGS_EXPORTER_SVC_ES_PASSWORD}
-                      retry:
-                        enabled: false
-                      tls:
-                        insecure: false
-                        insecure_skip_verify: true
-                      headers: ${env:headers_logs_expo_services}
-                    otlphttp/service-logs-export:
-                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLP_URL}
-                      tls:
-                        insecure_skip_verify: true
-                    otlp/service-logs-export:
-                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLP_URL}
-                      tls:
-                        insecure: true
-                        insecure_skip_verify: true
-                    kafka/service-logs-export-auth:
-                      brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
-                      topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
-                      protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
-                      auth:
-                        plain_text:
-                          username: ${env:LOGS_EXPORTER_SVC_KAFKA_USERNAME}
-                          password: ${env:LOGS_EXPORTER_SVC_KAFKA_PASSWORD}
-                    kafka/service-logs-export:
-                      brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
-                      topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
-                      protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
-                  extensions:
-                    health_check: {}
-                  service:
-                    telemetry:
-                      logs: {}
-                      metrics:
-                        address: :8888
-                    extensions:
-                      - health_check
-                    pipelines:
-                      logs:
-                        exporters: ${env:svc_logs_exporter}
-                        processors: ${env:svc_logs_processor}
-                        receivers: ${env:svc_logs_receiver}
-          flags:
-            install: true
-            createNamespace: false
-            dependencyUpdate: true
-            isDevTesting: true
         - name: jaeger
           namespace: ${NAMESPACE}
           releaseName: jaeger
@@ -1390,7 +1316,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.7.0"
+          value: "1.8.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

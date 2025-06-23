@@ -1,19 +1,32 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
-
-kind: PersistentVolumeClaim
+{{- with .Values.global.external.storage }}
+{{- if or .storageClassName .volumeName }}
 apiVersion: v1
+kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "tp-cp-bootstrap.pvc" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ if .pvcName -}}{{ .pvcName }}{{ else -}}{{ include "tp-cp-bootstrap.pvc" $ }}{{- end }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "tp-cp-bootstrap.labels" . | nindent 4 }}
+    {{- include "tp-cp-bootstrap.labels" $ | nindent 4 }}
 spec:
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
-{{- toYaml .Values.global.external.storage | nindent 2 }}
+  {{- if .resources }}
+  resources:
+    requests:
+      storage: {{ .resources.requests.storage }}
+  {{- end }}
+  {{- if .volumeName }}
+  volumeName: {{ .volumeName }}
+  {{- end }}
+  {{- if .storageClassName }}
+  storageClassName: {{ .storageClassName }}
+  {{- end }}
+{{- end }}
+{{- end }}
