@@ -105,6 +105,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 {{- end }}
 
+{{/* Image pull custom certificate secret configured for control plane. default value empty */}}
+{{- define "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_CERTIFICATE_SECRET" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
+
 {{/* Control plane instance Id. default value local */}}
 {{- define "tp-cp-tibcohub-contrib.cp-instance-id" }}
   {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
