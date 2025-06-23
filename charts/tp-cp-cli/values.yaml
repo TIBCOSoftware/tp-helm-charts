@@ -13,18 +13,18 @@ source:
 tpCLIExtract: true
 
 # Value in version will define the directory name on EFS where the tp-cli releases will be extracted
-version: 0.9.0
+version: 0.9.5
 
 # Value in buildPathVersion is same as version used in package.json of tp-cli-main
-buildPathVersion: 0.9.0
+buildPathVersion: 0.9.5
 
 # Value in BID is the build id of Team City job(Tibco Platform CLI)
-BID: 220
+BID: 245
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12
+    tag: 12.11
 
 scripts:
   resources:
@@ -48,8 +48,8 @@ tpCLIImages:
     type: windows-amd64
   - image: dx-tibco-platform-cli
     type: windows-amd86
-tpcliDelete: false
-tpcliDeleteVersions: ""
+tpcliDelete: true
+tpcliDeleteVersions: "0.9.0,1.0.46"
 
 podAnnotations: {}
 
@@ -72,7 +72,7 @@ containerImageExtractor:
     name: "infra-container-image-extractor"
     registry: ""
     repo: ""
-    tag: 106-distroless
+    tag: 160-distroless
     pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
