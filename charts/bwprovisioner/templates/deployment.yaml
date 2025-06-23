@@ -87,6 +87,8 @@ spec:
               value: "{{ .Values.service.port }}"
             - name: PUBLIC_API_SERVER_PORT
               value: "{{ .Values.publicApiService.port }}"
+            - name: BWCE_APP_DISCOVERY_ENGINE_PORT
+              value: "{{ .Values.autoDiscovery.config.APP_DISCOVERY_ENGINE_PORT }}"
             - name: CP_DOMAIN
               value: {{ include "bwprovisioner.cp.domain" . }}
             - name: CHART_VERSION

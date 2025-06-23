@@ -1,0 +1,21 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.autoDiscovery.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    use-subpath: "true"
+  labels:
+    {{- include "bwprovisioner.labels" . | nindent 4 }}
+    platform.tibco.com/app-discovery: "true"
+  name: bwce-autodiscovery
+data:
+  CAPABILITY_INSTANCE_ID: {{ .Values.global.cp.instanceId }}
+  CAPABILITY_VERSION: {{ .Chart.AppVersion }} 
+  {{- range $key, $value :=  .Values.autoDiscovery.config }}
+  {{ $key }}: {{ tpl $value $ | quote }}
+  {{- end }}
+{{- end }}

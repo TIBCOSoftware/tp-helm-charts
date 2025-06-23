@@ -6,12 +6,12 @@
 apiVersion: cloud.tibco.com/v1
 kind: TibcoRoute
 metadata:
-  name: {{ include "bw-webserver.consts.appName" . }}
+  name: tp-cp-bw5-webserver
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "bw-webserver.shared.labels.standard" . | nindent 4 }}
 spec:
-  serviceName: {{ include "bw-webserver.consts.appName" . }}
+  serviceName: tp-cp-bw5-webserver
   env:
     - name: TSC_DNS_DOMAIN
       valueFrom:
@@ -19,9 +19,9 @@ spec:
           name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
           key: TSC_DNS_DOMAIN
   endpoints:
-    - path: /cp/bwce/web-ui-content
-      internalPath: /cp/bwce/web-ui-content
-      port: 3000
+    - path: /cp/bw5/web-ui-content
+      internalPath: /
+      port: 3001
       protocol: http
       proxies:
         - listener: virtual
@@ -36,9 +36,9 @@ spec:
           enableRedirects: true
           allowClientCache: true
           allowXFrameOptions: false
-    - path: /cp/bwce/v1
-      internalPath: /tp-cp-bwce-ws/v1
-      port: 3000
+    - path: /cp/bw5/v1
+      internalPath: /tp-cp-bw5-ws/v1
+      port: 3001
       protocol: http
       proxies:
         - listener: virtual
@@ -51,33 +51,3 @@ spec:
           allowClientCache: false
           allowXFrameOptions: false
           enableRedirects: false
-    - path: /cp/v1/contributors/bwce/bwce-cp-config.json
-      internalPath: /cp/bwce/web-ui-content/bwce-cp-config.json
-      port: 3000
-      protocol: http
-      proxies:
-        - listener: virtual
-          config: secure
-          fqdn: "${TSC_DNS_DOMAIN}"
-          configVariables:
-            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
-            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
-            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
-          allowClientCache: false
-          allowXFrameOptions: false
-          enableRedirects: false
-    - internalPath: /cp/bwce-api/v1
-      path: /cp/bwce-api/v1
-      port: 3000
-      protocol: http
-      proxies:
-        - allowClientCache: true
-          allowXFrameOptions: false
-          config: secure
-          configVariables:
-            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
-            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
-            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
-          enableRedirects: true
-          fqdn: ${TSC_DNS_DOMAIN}
-          listener: virtual

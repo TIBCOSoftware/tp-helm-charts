@@ -72,7 +72,6 @@ platform.tibco.com/buildtype-base-image: {{ .Values.appConfig.flogoBaseImageTag 
 platform.tibco.com/buildtype-version: {{ .Values.appConfig.flogoBuildTypeTag | quote }}
 platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanceId | quote }}
 platform.tibco.com/capability-version: {{ .Values.dpConfig.capabilityVersion | quote }}
-platform.tibco.com/original-app-name: {{ .Values.appConfig.originalAppName | quote }}
 platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
 platform.tibco.com/helm-repo-alias: {{ .Values.dpConfig.helmRepoAlias | quote }}
 {{- end }}
@@ -82,6 +81,7 @@ Flogo app deployment annotations
 */}}
 {{- define "dp-flogo-app.flogoapp.deployment.annotations" -}}
 platform.tibco.com/connectors: {{ .Values.appConfig.connectors | quote }}
+platform.tibco.com/original-app-name: {{ .Values.appConfig.originalAppName | quote }}
 {{- end }}
 
 {{/*
@@ -94,7 +94,6 @@ platform.tibco.com/app-name: {{ include "dp-flogo-app.fullname" . }}
 platform.tibco.com/app-version: {{ .Values.appConfig.appVersion | quote }}
 platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanceId | quote }}
 platform.tibco.com/name: {{ include "dp-flogo-app.fullname" . }}
-platform.tibco.com/original-app-name: {{ .Values.appConfig.originalAppName | quote }}
 platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
 platform.tibco.com/app.resources.limits.cpu: {{ (.Values.flogoapp.resources.limits).cpu | default "" | quote }}
 platform.tibco.com/app.resources.limits.memory: {{ (.Values.flogoapp.resources.limits).memory | default "" | quote }}

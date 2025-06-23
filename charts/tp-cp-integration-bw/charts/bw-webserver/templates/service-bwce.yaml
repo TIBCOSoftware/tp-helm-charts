@@ -2,19 +2,19 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-# TP iApp bw6 WebServer Service definition; exposes the service on targetPort 3000
+# TP iApp BW WebServer Service definition; exposes the service on targetPort 3000
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "bw6-webserver.consts.appName" . }}
+  name: tp-cp-bw-webserver
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "bw6-webserver.shared.labels.standard" . | nindent 4 }}
+    {{- include "bw-webserver.shared.labels.standard" . | nindent 4 }}
 spec:
   ports:
-    - name: server
+    - name: bwce
       port: 3000
       protocol: TCP
       targetPort: 3000
   selector:
-    {{- include "bw6-webserver.shared.labels.selector" . | nindent 4 }}
+    {{- include "bw-webserver.shared.labels.selector" . | nindent 4 }}

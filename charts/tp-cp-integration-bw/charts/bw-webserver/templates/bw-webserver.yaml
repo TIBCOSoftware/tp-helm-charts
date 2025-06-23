@@ -66,7 +66,7 @@ spec:
       terminationGracePeriodSeconds: 15
       containers:
       - name: tp-iapp-bw-server
-        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}tp-bwce-webserver:{{ $.Values.config.BW_WEBSERVER_IMAGE_TAG }}
+        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}tp-bw-webserver:{{ $.Values.config.BW_WEBSERVER_IMAGE_TAG }}
         imagePullPolicy: IfNotPresent
         {{- if $.Values.securityContext }}
         securityContext:
@@ -78,7 +78,11 @@ spec:
         {{- end }}
         ports:
         - containerPort: 3000
-          name: server
+          name: bwce
+        - containerPort: 3001
+          name: bw5
+        - containerPort: 3002
+          name: bw6
         {{- with $.Values.probes.startupProbe }}
         startupProbe:
           {{- toYaml . | nindent 10 }}
@@ -99,6 +103,11 @@ spec:
               key: TP_CP_MONITORING_HOST
         - name: SYSTEM_WHO
           value: {{ include "bw-webserver.cp-instance-id" . }}
+        - name: TP_CP_QUERYNODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
         - name: TSC_DNS_DOMAIN
           valueFrom:
             configMapKeyRef:
@@ -119,6 +128,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_ORCH_HOST
+        - name: CP_INSTANCE_ID
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "bw-webserver.cp-env-configmap" . }}
+              key: CP_INSTANCE_ID
         - name: TP_CP_WEB_SERVER_HOST
           valueFrom:
             configMapKeyRef:
@@ -145,6 +159,10 @@ spec:
             configMapKeyRef:
               name: {{ include "bw-webserver.cp-env-configmap" . }}
               key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS
@@ -153,7 +171,6 @@ spec:
           value: {{ .Values.config.WEB_SERVER_LOG_ENABLED | quote }}
         - name: TSC_CONFIG_LOCATION
           value: {{ .Values.volumes.bwwebserver.mountPath }}
-        # FIXME: check what it is referring to in code
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         - name: DEPLOYMENT_REGION
