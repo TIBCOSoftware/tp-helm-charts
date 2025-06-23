@@ -1779,6 +1779,23 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: dp-oauth2proxy-recipes
     apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T16:35:12.68028719Z"
+    description: TIBCO Platform OAuth2 Proxy Data Plane recipes
+    digest: 324792019874a5a859b5dfeb7eac842eee3193556669232cd4659085bcfaf4da
+    keywords:
+    - tibco-platform
+    - control-plane
+    - recipes
+    name: dp-oauth2proxy-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-oauth2proxy-recipes-1.8.3/dp-oauth2proxy-recipes-1.8.3.tgz
+    version: 1.8.3
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: dp-oauth2proxy-recipes
+    apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T08:26:01.923936379Z"
     description: TIBCO Platform OAuth2 Proxy Data Plane recipes
@@ -3087,6 +3104,46 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.0.48/o11yservice-1.0.48.tgz
     version: 1.0.48
   oauth2-proxy:
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: securityContext and timeout of the initContainer wait-for-redis configurable via values.
+          links:
+            - name: Github PR
+              url: https://github.com/oauth2-proxy/manifests/pull/159
+    apiVersion: v2
+    appVersion: 1.8.2
+    created: "2025-06-23T16:35:12.794395628Z"
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
+    digest: 2523b81592802a4b88155d47bacab7e798d71db8957df6ec82bbcccfb1400dfe
+    home: https://oauth2-proxy.github.io/oauth2-proxy/
+    keywords:
+    - kubernetes
+    - oauth
+    - oauth2
+    - authentication
+    - google
+    - github
+    - redis
+    kubeVersion: '>=1.9.0-0'
+    maintainers:
+    - email: cedric@desaintmartin.fr
+      name: desaintmartin
+    - name: tlawrie
+    - email: nicholas.meves@gmail.com
+      name: NickMeves
+    - email: joel.speed@hotmail.co.uk
+      name: JoelSpeed
+    - email: pierluigi.lenoci@gmail.com
+      name: pierluigilenoci
+    name: oauth2-proxy
+    sources:
+    - https://github.com/oauth2-proxy/oauth2-proxy
+    - https://github.com/oauth2-proxy/manifests
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/oauth2-proxy-10.2.16/oauth2-proxy-10.2.16.tgz
+    version: 10.2.16
   - annotations:
       artifacthub.io/changes: |
         - kind: added
@@ -11683,4 +11740,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-06-23T15:58:16.321044758Z"
+generated: "2025-06-23T16:35:12.796224523Z"
