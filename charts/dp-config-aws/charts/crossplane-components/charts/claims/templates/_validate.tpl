@@ -84,13 +84,6 @@ in the license file that is distributed with this file.
 {{- if not .Values.auroraCluster.connectionDetailsSecret }}
 {{- fail (printf "crossplane-components.claims.auroraCluster.connectionDetailsSecret is required to be passed as helm values") -}}
 {{- end }}
-{{- if not .Values.auroraCluster.numberOfInstances }}
-{{- fail (printf "crossplane-components.claims.auroraCluster.numberOfInstances is required to be passed as helm values") -}}
-{{- else }}
-{{- if or (gt (.Values.auroraCluster.numberOfInstances | int) 3) (lt (.Values.auroraCluster.numberOfInstances | int) 1) }}
-{{- fail (printf "crossplane-components.claims.auroraCluster.numberOfInstances is required to be minimum 1 and maximum 3") -}}
-{{- end }}
-{{- end }}
 {{- if not .Values.auroraCluster.mandatoryConfigurationParameters }}
 {{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters are required to be passed as helm values") -}}
 {{- end }}
