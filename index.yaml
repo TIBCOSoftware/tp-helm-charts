@@ -6481,6 +6481,44 @@ entries:
     version: 1.2.15
   tp-cp-core:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T11:16:43.148818413Z"
+    dependencies:
+    - condition: web-server.enabled
+      name: web-server
+      repository: ""
+      version: 1.8.21
+    - condition: orchestrator.enabled
+      name: orchestrator
+      repository: ""
+      version: 1.8.11
+    - condition: user-subscriptions.enabled
+      name: user-subscriptions
+      repository: ""
+      version: 1.8.6
+    - condition: cronjobs.enabled
+      name: cronjobs
+      repository: ""
+      version: 1.8.2
+    - condition: identity-management.enabled
+      name: identity-management
+      repository: ""
+      version: 1.8.2
+    - condition: identity-provider.enabled
+      name: identity-provider
+      repository: ""
+      version: 1.8.2
+    - condition: pengine.enabled
+      name: pengine
+      repository: ""
+      version: 1.8.3
+    description: A Helm chart for -- tp-cp-core
+    digest: 4ea72057c6fa2bb2284dbd5261bbf3e63d49c699bbf0b41553ea868ecffc118b
+    name: tp-cp-core
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-1.8.43/tp-cp-core-1.8.43.tgz
+    version: 1.8.43
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-28T14:02:45.042546694Z"
     dependencies:
@@ -7587,6 +7625,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-finops-1.2.372/tp-cp-core-finops-1.2.372.tgz
     version: 1.2.372
   tp-cp-core-ops:
+  - apiVersion: v1
+    appVersion: 1.8.0
+    created: "2025-06-23T11:16:43.316937457Z"
+    description: TIBCO Platform Control Plane -- Bundle
+    digest: 12e36d400ff9cbd66fc085ec0862290876051af57f55a7d6d31ca8b17d376475
+    name: tp-cp-core-ops
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-core-ops-1.8.43/tp-cp-core-ops-1.8.43.tgz
+    version: 1.8.43
   - apiVersion: v1
     appVersion: 1.7.0
     created: "2025-05-28T14:02:45.22692028Z"
@@ -11379,4 +11426,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-06-23T10:55:47.665545087Z"
+generated: "2025-06-23T11:16:43.317675624Z"
