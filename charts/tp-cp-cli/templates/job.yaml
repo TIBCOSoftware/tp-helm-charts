@@ -62,6 +62,10 @@ spec:
           value: debug
         - name: CLEAN_UP_TARGET_DIRS
           value: "true"
+        {{- if (include "tpcli-utilities.container-registry.custom-cert-secret" $dot) }}
+        - name: SSL_CERT_DIR
+          value: "/etc/certs/"
+        {{- end }}
         volumeMounts:
         - mountPath: {{ $.Values.toolsMountPath }}
           name: store-vol
@@ -71,10 +75,21 @@ spec:
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
+{{- if (include "tpcli-utilities.container-registry.custom-cert-secret" $dot) }}
+        - mountPath: /etc/certs
+          name: container-registry-custom-cert-secret
+          readOnly: true
+{{- end }}
       volumes:
       - name: store-vol
         persistentVolumeClaim:
           claimName: {{ include "tpcli-utilities.pvc-name" $dot }}
+{{- if (include "tpcli-utilities.container-registry.custom-cert-secret" $dot) }}
+      - name: container-registry-custom-cert-secret
+        secret:
+          defaultMode: 420
+          secretName: {{ include "tpcli-utilities.container-registry.custom-cert-secret" $dot }}
+{{- end }}
 {{- if (include "tpcli-utilities.container-registry.secret" $dot) }}
       - name: container-registry-secret
         secret:

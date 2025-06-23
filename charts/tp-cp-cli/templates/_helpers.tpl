@@ -86,3 +86,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "false"  "Release" .Release )}}
 {{- end }}
 {{- end }}
+
+{{/* Image pull custom certificate secret configured for control plane. default value empty */}}
+{{- define "tpcli-utilities.container-registry.custom-cert-secret" }}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_CERTIFICATE_SECRET" "default" "" "required" "false"  "Release" .Release )}}
+{{- end }}
