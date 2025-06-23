@@ -7,8 +7,8 @@ name: tp-cp-integration
 description: TIBCO Platform Integration chart
 
 type: application
-version: 1.7.20
-appVersion: "1.7.0"
+version: 1.8.28
+appVersion: "1.8.0"
 keywords:
   - tibco-platform
   - platform
@@ -20,27 +20,19 @@ dependencies:
   - name: tp-cp-integration-common
     version: "1.7.1"
     repository: alias:tibco-platform
-  - name: tp-cp-integration-bwce
-    version: "1.7.10"
+  - name: tp-cp-integration-bw
+    version: "1.8.13"
     repository: alias:tibco-platform
-    condition: tp-cp-integration-bwce.enabled
+    condition: tp-cp-integration-bw.enabled
   - name: tp-cp-integration-flogo
-    version: "1.7.5"
+    version: "1.8.8"
     repository: alias:tibco-platform
     condition: tp-cp-integration-flogo.enabled
-  - name: tp-cp-integration-bw5
-    version: "1.7.3"
-    repository: alias:tibco-platform
-    condition: tp-cp-integration-bw5.enabled
-  - name: tp-cp-integration-bw6
-    version: "1.7.4"
-    repository: alias:tibco-platform
-    condition: tp-cp-integration-bw6.enabled
   - name: tp-cp-bwce-utilities
-    version: "1.7.6"
+    version: "1.8.4"
     repository: alias:tibco-platform
     condition: tp-cp-bwce-utilities.enabled
   - name: tp-cp-flogo-utilities
-    version: "1.7.9"
+    version: "1.8.8"
     repository: alias:tibco-platform
     condition: tp-cp-flogo-utilities.enabled
