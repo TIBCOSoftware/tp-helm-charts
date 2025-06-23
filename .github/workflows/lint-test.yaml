@@ -1,41 +1,10 @@
 name: Lint and Test Charts
 
-on:
-  pull_request:
-#    paths:
-#      - 'charts/**'
-  merge_group:
-    types: [checks_requested]
-
-env:
-  GH_RAW_LOCATION: raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages/
+on: pull_request
 
 jobs:
-  check-files:
-    runs-on: ubuntu-latest
-    outputs:
-      charts_changed: ${{ steps.check.outputs.charts_changed }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check if charts/ directory is modified
-        id: check
-        run: |
-          if git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '^charts/'; then
-            echo "charts_changed=true" >> $GITHUB_ENV
-            echo "charts_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "charts_changed=false" >> $GITHUB_ENV
-            echo "charts_changed=false" >> $GITHUB_OUTPUT
-          fi
-
   lint-test:
-    needs: check-files
     runs-on: ubuntu-latest
-    if: needs.check-files.outputs.charts_changed == 'true'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -49,53 +18,19 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-          check-latest: true
-
-      - name: Add dependency chart repos
-        run: |
-          helm repo add tibco-platform --username "${{ secrets.GITHUB_TOKEN }}" --password "${{ secrets.GITHUB_TOKEN }}" https://${{ env.GH_RAW_LOCATION }}
+          python-version: '3.10'
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.7.0
-
-      # get target branch name for the current pull request. we want to lint only the changed charts with target branch.
-      - name: Get target branch name
-        id: get_target_branch
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "TARGET_BRANCH=${{ github.base_ref }}" >> $GITHUB_ENV
-          else
-            echo "TARGET_BRANCH=$(echo ${{ github.ref }} | sed 's/refs\/heads\///')" >> $GITHUB_ENV
-          fi
+        uses: helm/chart-testing-action@v2.6.1
 
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
-          changed="$(ct list-changed --config .github/linters/ct.yaml --target-branch ${TARGET_BRANCH})"
-          charts=$(echo "$changed" | tr '\n' ' ' | xargs)
+          changed="$(ct list-changed --config .github/linters/ct.yaml)"
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "changed_charts=$charts" >> $GITHUB_OUTPUT
           fi
 
-      # only validate changed charts for the current PR
       - name: Run chart-testing (lint)
-        run: ct lint --config .github/linters/ct.yaml --target-branch "${TARGET_BRANCH}"
+        run: ct lint --config .github/linters/ct.yaml
 
-# will need to investigate how this works with all TIBCO charts
-#      - name: Create kind cluster
-#        uses: helm/kind-action@v1.8.0
-#        if: steps.list-changed.outputs.changed == 'true'
-#
-#      - name: Run chart-testing (install)
-#        run: ct install --config .github/linters/ct.yaml
-
-  success-status:
-    needs: check-files
-    runs-on: ubuntu-latest
-    if: needs.check-files.outputs.charts_changed == 'false'
-    steps:
-      - name: Mark Status Check as Passed
-        run: |
-          echo "No charts changes detected. Marking as passed."
