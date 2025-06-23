@@ -407,17 +407,41 @@ es:
     service: ${TP_ES_RELEASE_NAME}-es-http
   storage:
     name: ${TP_STORAGE_CLASS}
+  # following are the default requests and limits for application container, uncomment and change as required
+  # resources:
+  #   requests:
+  #     cpu: "100m"
+  #     memory: "2Gi"
+  #   limits:
+  #     cpu: "1"
+  #     memory: "2Gi"
 kibana:
   version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-kb-http
+  # following are the default requests and limits for application container, uncomment and change as required
+  # resources:
+  #   requests:
+  #     cpu: "150m"
+  #     memory: "1Gi"
+  #   limits:
+  #     cpu: "1"
+  #     memory: "2Gi"
 apm:
   enabled: true
   version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-apm-http
+  # following are the default requests and limits for application container, uncomment and change as required
+  # resources:
+  #   requests:
+  #     cpu: "50m"
+  #     memory: "128Mi"
+  #   limits:
+  #     cpu: "250m"
+  #     memory: "512Mi"
 EOF
 ```
 
