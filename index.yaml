@@ -776,6 +776,41 @@ entries:
         - kind: changed
           description: "added crossplane charts"
     apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T15:13:26.914897084Z"
+    dependencies:
+    - condition: traefik.enabled
+      name: traefik
+      repository: https://traefik.github.io/charts
+      version: 34.4.1
+    - condition: ingress-nginx.enabled
+      name: ingress-nginx
+      repository: https://kubernetes.github.io/ingress-nginx
+      version: 4.12.1
+    - condition: kong.enabled
+      name: kong
+      repository: https://charts.konghq.com
+      version: 2.33.3
+    - condition: crossplane.enabled
+      name: crossplane
+      repository: https://charts.crossplane.io/stable
+      version: v1.13.2
+    - condition: crossplane-components.enabled
+      name: crossplane-components
+      repository: file://charts/crossplane-components
+      version: 1.8.2
+    description: Helm chart to configure pre-requisites on AWS
+    digest: 5458f59bbcc8bdcf56ecee3a2ce819de0b780604bc473b9262bdec9ac154e16f
+    name: dp-config-aws
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-aws-1.8.2/dp-config-aws-1.8.2.tgz
+    version: 1.8.2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
+          description: "added crossplane charts"
+    apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:34.271385844Z"
     dependencies:
@@ -11419,4 +11454,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-06-23T10:44:55.44476229Z"
+generated: "2025-06-23T15:13:26.915508457Z"
