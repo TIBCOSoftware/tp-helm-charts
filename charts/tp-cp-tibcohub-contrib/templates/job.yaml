@@ -55,6 +55,10 @@ spec:
           value: {{ .Values.target.directory | quote }}         # directory in CP EFS  
         - name: LOG_LEVEL
           value: debug
+        {{- if (include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
+        - name: SSL_CERT_DIR
+          value: "/etc/certs/"
+        {{- end }}
         volumeMounts:
         - mountPath: /efs
           name: store-vol
@@ -68,6 +72,12 @@ spec:
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
+# mount this secret only if private container registry with custom certs is configured for CP.
+{{- if (include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
+        - mountPath: /etc/certs
+          name: container-registry-custom-cert-secret
+          readOnly: true
+{{- end }}
       volumes:
         - name: temp
           emptyDir:
@@ -77,6 +87,12 @@ spec:
             claimName: {{ include "tp-cp-tibcohub-contrib.pvc-name" . }}
         - emptyDir: {}
           name: kaniko-vol
+{{- if (include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
+        - name: container-registry-custom-cert-secret
+          secret:
+            defaultMode: 420
+            secretName: {{ include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot }}
+{{- end }}
 {{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
         - name: container-registry-secret
           secret:
