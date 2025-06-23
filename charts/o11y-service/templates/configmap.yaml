@@ -90,9 +90,9 @@ data:
   {{- end }}
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
-  {{- $appLogProc = "'[k8sattributes/general, transform/logs, memory_limiter, batch]'" -}}
+  {{- $appLogProc = "'[k8sattributes/general, filter/userapp, transform/logs, memory_limiter, batch]'" -}}
   {{- else }}
-  {{- $appLogProc = "'[k8sattributes/general-ns, transform/logs, memory_limiter, batch]'" -}}
+  {{- $appLogProc = "'[k8sattributes/general-ns, filter/userapp, transform/logs, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
 ##logsserver:userapp proxy
@@ -115,7 +115,7 @@ data:
   LOGS_EXPORTER_SVC_ES_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.endpoint }}
   LOGS_EXPORTER_SVC_ES_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.username }}
   {{- $svcLogExpESOpt = true -}}
-  {{- $svcLogExp = "'[elasticsearch/log]'" -}}
+  {{- $svcLogExp = "'[elasticsearch/svclog]'" -}}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "kafka" }}
   LOGS_EXPORTER_SVC_KAFKA_BROKERS: '{{ include "logs.exporters.services.kafka.brokers" . }}'
@@ -137,9 +137,9 @@ data:
   {{- end }}
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
-  {{- $svcLogProc = "'[k8sattributes/general, memory_limiter, batch]'" -}}
+  {{- $svcLogProc = "'[k8sattributes/general, filter/svc, memory_limiter, batch]'" -}}
   {{- else }}
-  {{- $svcLogProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
+  {{- $svcLogProc = "'[k8sattributes/general-ns, filter/svc, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
 ##metricsserver:exporter

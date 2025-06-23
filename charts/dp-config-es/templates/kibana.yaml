@@ -29,4 +29,10 @@ spec:
           konghq.com/protocol: https
       spec:
         type: ClusterIP
+  podTemplate:
+    spec:
+      containers:
+        - name: kibana
+          resources:
+            {{- toYaml .Values.kibana.resources | nindent 12 }}
 {{- end -}}

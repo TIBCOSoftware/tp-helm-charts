@@ -43,6 +43,7 @@ data:
     [FILTER]
       Name              record_modifier
       Match             cp.*
+      Record            container.name ${CONTAINER_NAME}
       Remove_key        stream
     [FILTER]
       Name              parser
@@ -92,8 +93,10 @@ data:
           end
         end
         newLog["msg"] = newMsg
+        newLog["container.name"] = record["container.name"]
         record["log"] = newLog
+        return 2, timestamp, record
       end
-      return 2, timestamp, record
+      return 1, timestamp, record
     end
 {{- end -}}

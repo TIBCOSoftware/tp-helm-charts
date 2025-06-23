@@ -4,6 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
+{{ if .Values.global.cp.svcPod.enabled -}}
 {{ if and (eq .Values.mode "deployment") (.Values.configMap.create) (not .Values.configMap.existingName) }}
 apiVersion: v1
 kind: ConfigMap
@@ -15,4 +16,5 @@ metadata:
 data:
   relay: |
     {{- include "opentelemetry-collector.deploymentConfig" . | nindent 4 -}}
+{{- end }}
 {{- end }}

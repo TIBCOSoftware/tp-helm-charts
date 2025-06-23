@@ -103,10 +103,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "otel-collector.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "otel-collector.fullname" .) .Values.serviceAccount.name }}
+{{- if .Values.global.tibco.serviceAccount }}
+{{- .Values.global.tibco.serviceAccount -}}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- "control-plane-sa" -}}
 {{- end }}
 {{- end }}
 

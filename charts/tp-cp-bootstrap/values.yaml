@@ -10,10 +10,10 @@
 compute-services:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.7.2"
-    dpCoreInfrastructureAppVersion: "1.7.0"
-    dpConfigureNamespaceChartVersion: "1.7.5"
-    dpConfigureNamespaceAppVersion: "1.7.0"
+    dpCoreInfrastructureChartVersion: "1.8.2"
+    dpCoreInfrastructureAppVersion: "1.8.0"
+    dpConfigureNamespaceChartVersion: "1.8.0"
+    dpConfigureNamespaceAppVersion: "1.8.0"
 
 hybrid-proxy:
   # switch to false to disable tp-hybrid-proxy
@@ -48,6 +48,7 @@ global:
       username: ""
       password: ""
       repository: "tibco-platform-docker-prod"  # repository
+      certificateSecret: ""  # secret name containing the custom certificates
 
     # Flag to enable or disable creating default network policies for a namespace
     # Default value is false. Possible values are true, false
@@ -137,6 +138,13 @@ global:
           storage: 2Gi
       # 1. to create/use volumeName, uncomment storageClassName and set matching value as volume
       # 2. to use default storageClass, keep storageClassName key commented
-      # 3  to use pre-configured storageClass, uncomment storageClassName and pass the value
+      # 3. to use pre-configured storageClass, uncomment storageClassName and pass the value
+      # 4. to use existing Persistent Volume Claim (PVC), uncomment pvcName and set the name of the PVC, keep volumeName & storageClassName commented
+      # 5. to create a PVC with a custom name:
+      #    - Set pvcName for a custom PVC name (optional)
+      #    - Set volumeName to use a specific pre-existing volume (optional)
+      #    - Set storageClassName to use a specific storage class (optional)
+      #    You can use any combination of these options as needed
+      # pvcName: ""
       # volumeName: ""
       # storageClassName: ""

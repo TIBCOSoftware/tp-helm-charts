@@ -104,6 +104,10 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
         volumeMounts:
+        {{- if .Values.global.tibco.helmRepo.certificateSecret }}
+        - name: cp-certs
+          mountPath: /etc/ssl/certs/
+        {{- end }}
         - name: helm-cache
           mountPath: /tmp
         - name: logs
@@ -192,6 +196,12 @@ spec:
           emptyDir: {}
         - name: logs
           emptyDir: {}
+{{- if .Values.global.tibco.helmRepo.certificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.tibco.helmRepo.certificateSecret }}       
+{{- end }}
 {{- if .Values.global.logging.fluentbit.enabled }}
         - name: db
           emptyDir: {}

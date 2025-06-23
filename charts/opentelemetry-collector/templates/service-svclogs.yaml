@@ -4,12 +4,12 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if .Values.global.cp.svcPod.enabled -}}
-{{ if or (eq (include "opentelemetry-collector.serviceEnabled" .) "true") (.Values.ingress.enabled) }}
+{{ if .Values.global.cp.serviceSvcLogs.enabled -}}
+{{- if or (eq (include "opentelemetry-collector.serviceEnabled" .) "true") (.Values.ingress.enabled) -}}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "opentelemetry-collector.fullname" . }}
+  name: {{ include "opentelemetry-collector.service.name" . }}
   namespace: {{ template "opentelemetry-collector.namespace" . }}
   labels:
     {{- include "opentelemetry-collector.labels" . | nindent 4 }}
