@@ -2,6 +2,15 @@ apiVersion: v1
 entries:
   artifactmanager:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:53.302275126Z"
+    description: A Helm chart for Artifact Manager
+    digest: 4baf48c48226d240db6eaeb2470b5991adb29f766c7872c82b74a8102bc3b92c
+    name: artifactmanager
+    urls:
+    - artifactmanager-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:34.091939845Z"
     description: A Helm chart for Artifact Manager
@@ -729,6 +738,41 @@ entries:
         - kind: changed
           description: "added crossplane charts"
     apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:53.51966565Z"
+    dependencies:
+    - condition: traefik.enabled
+      name: traefik
+      repository: https://traefik.github.io/charts
+      version: 34.4.1
+    - condition: ingress-nginx.enabled
+      name: ingress-nginx
+      repository: https://kubernetes.github.io/ingress-nginx
+      version: 4.12.1
+    - condition: kong.enabled
+      name: kong
+      repository: https://charts.konghq.com
+      version: 2.33.3
+    - condition: crossplane.enabled
+      name: crossplane
+      repository: https://charts.crossplane.io/stable
+      version: v1.13.2
+    - condition: crossplane-components.enabled
+      name: crossplane-components
+      repository: file://charts/crossplane-components
+      version: 1.8.2
+    description: Helm chart to configure pre-requisites on AWS
+    digest: 5a9cf81a98400079095228eb7b5efaefbf2b544e36b942f7952f7eb23ff4ca91
+    name: dp-config-aws
+    type: application
+    urls:
+    - dp-config-aws-1.8.2.tgz
+    version: 1.8.2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
+          description: "added crossplane charts"
+    apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:34.271385844Z"
     dependencies:
@@ -1037,6 +1081,21 @@ entries:
     version: 1.0.23
   dp-config-es:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:53.690409446Z"
+    dependencies:
+    - condition: eck-custom-resources-operator.enabled
+      name: eck-custom-resources-operator
+      repository: https://xco-sk.github.io/eck-custom-resources/
+      version: 0.7.0
+    description: Helm chart to configure elastic search
+    digest: 4bcffc5c45d07b241d9f35f7d0a8abbc0f6f1525533fdceb42d0d46f3f63d419
+    name: dp-config-es
+    type: application
+    urls:
+    - dp-config-es-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v2
     appVersion: 1.6.0
     created: "2025-04-23T05:14:26.818444054Z"
     dependencies:
@@ -1139,6 +1198,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-es-1.0.17/dp-config-es-1.0.17.tgz
     version: 1.0.17
   dp-configure-namespace:
+  - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:53.849957159Z"
+    dependencies:
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.8.*
+    - condition: haproxy.enabled
+      name: haproxy
+      repository: ""
+      version: 1.44.3
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
+    digest: 812262c9e16bcf859ac1fe3d9db82555abeab0718292262406a590e3c5baac6a
+    name: dp-configure-namespace
+    type: application
+    urls:
+    - dp-configure-namespace-1.8.0.tgz
+    version: 1.8.0
   - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-23T19:45:24.699574313Z"
@@ -1286,6 +1365,25 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.0.15/dp-configure-namespace-1.0.15.tgz
     version: 1.0.15
   dp-core-infrastructure:
+  - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:54.015857819Z"
+    dependencies:
+    - condition: tibtunnel.enabled
+      name: tp-tibtunnel
+      repository: ""
+      version: 1.8.*
+    - condition: tp-provisioner-agent.enabled
+      name: tp-provisioner-agent
+      repository: ""
+      version: 1.8.*
+    description: A Helm chart for Data Plane Infrastructure
+    digest: c7aeed95965214111cffa6118904d8d48fd2b07fe699313cfbc33c6dd14abd04
+    name: dp-core-infrastructure
+    type: application
+    urls:
+    - dp-core-infrastructure-1.8.2.tgz
+    version: 1.8.2
   - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:34.589288959Z"
@@ -2800,6 +2898,15 @@ entries:
     version: 1.2.24
   o11yservice:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:54.182939619Z"
+    description: A helm chart for o11y service
+    digest: 6fb7631c154639556e6d6e8069bfce460ccdf28a5b7e4813a7d43b045d03c939
+    name: o11yservice
+    urls:
+    - o11yservice-1.8.7.tgz
+    version: 1.8.7
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:34.890271812Z"
     description: A helm chart for o11y service
@@ -3430,6 +3537,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/oauth2-proxy-6.17.0-tibx-18/oauth2-proxy-6.17.0-tibx-18.tgz
     version: 6.17.0-tibx-18
   opentelemetry-collector:
+  - apiVersion: v2
+    appVersion: 0.119.0
+    created: "2025-06-23T10:44:54.331706924Z"
+    description: OpenTelemetry Collector Helm chart for Kubernetes
+    digest: db7bc325f7269884e15944ba65b97ef6bec5f9de1fb1b93303c2dc885780f286
+    name: opentelemetry-collector
+    urls:
+    - opentelemetry-collector-0.116.4.tgz
+    version: 0.116.4
   - apiVersion: v2
     appVersion: 0.119.0
     created: "2025-05-22T06:09:35.038153582Z"
@@ -5320,6 +5436,20 @@ entries:
     version: 1.0.26
   tp-cp-alertmanager:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:54.48555813Z"
+    description: The Alertmanager handles alerts sent by client applications such
+      as the Prometheus server.
+    digest: 54df986b0f43228d1e47e1e8f1cce50cf564cd1add08bf07aeb5d46757e034e8
+    keywords:
+    - monitoring
+    kubeVersion: '>=1.19.0-0'
+    name: tp-cp-alertmanager
+    type: application
+    urls:
+    - tp-cp-alertmanager-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T08:26:02.730443302Z"
     description: The Alertmanager handles alerts sent by client applications such
@@ -5359,6 +5489,14 @@ entries:
     version: 1.7.4
   tp-cp-alerts-service:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:54.663403118Z"
+    digest: d911527a7f0504ded491bb280c56f18004fe840f7e726c8e24675c4052cc7be3
+    name: tp-cp-alerts-service
+    urls:
+    - tp-cp-alerts-service-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T08:26:02.827690988Z"
     digest: 33ff3eff648cac6b035026d429e47e609c0e8cd7717e7647e150c437f6d72d02
@@ -5367,6 +5505,45 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-alerts-service-1.7.3/tp-cp-alerts-service-1.7.3.tgz
     version: 1.7.3
   tp-cp-bootstrap:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-bootstrap
+    apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:54.792447401Z"
+    dependencies:
+    - condition: hybrid-proxy.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.8.*
+    - condition: resource-set-operator.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.8.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.8.*
+    - condition: compute-services.enabled
+      name: compute-services
+      repository: ""
+      version: 1.8.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.116.*
+    description: TIBCO Platform Control Plane bootstrap chart
+    digest: bb20f679b66e57999e1f7aee1ef591ac1e6e8571abfe870e8a6d3c1b7430e1f5
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - bootstrap
+    name: tp-cp-bootstrap
+    type: application
+    urls:
+    - tp-cp-bootstrap-1.8.10.tgz
+    version: 1.8.10
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-bootstrap
@@ -6099,6 +6276,24 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-cli-0.9.23/tp-cp-cli-0.9.23.tgz
     version: 0.9.23
   tp-cp-configuration:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-configuration
+    apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:54.976507176Z"
+    description: TIBCO Platform Control Plane Configuration chart
+    digest: bc872a12d2235236e3b201fc5c82c0da856e0bbab5951304ecb116d6fae9b291
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - configuration
+    name: tp-cp-configuration
+    type: application
+    urls:
+    - tp-cp-configuration-1.8.2.tgz
+    version: 1.8.2
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-configuration
@@ -8189,6 +8384,24 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-infra-recipes
     apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:55.113249977Z"
+    description: TIBCO Platform Infrastructure Data Plane recipes
+    digest: 6e8d5e8546a87be8fd6c511f894e27158d5263c2186823d988c82ef56cee0a09
+    keywords:
+    - tibco-platform
+    - control-plane
+    - infra
+    - recipes
+    name: tp-cp-infra-recipes
+    type: application
+    urls:
+    - tp-cp-infra-recipes-1.8.16.tgz
+    version: 1.8.16
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-infra-recipes
+    apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:35.61904154Z"
     description: TIBCO Platform Infrastructure Data Plane recipes
@@ -9487,6 +9700,22 @@ entries:
     version: 1.4.20
   tp-cp-o11y:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:55.261833631Z"
+    dependencies:
+    - condition: o11y-service.enabled
+      name: o11y-service
+      repository: ""
+      version: 1.8.*
+    description: TIBCO Platform Control Plane -- O11Y Infra
+    digest: 35ed12cb7658b69856473fadc2802b93f12f9bdd503de78805d71b6e8340d9f3
+    keywords:
+    - o11y
+    name: tp-cp-o11y
+    urls:
+    - tp-cp-o11y-1.8.6.tgz
+    version: 1.8.6
+  - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:35.75171168Z"
     dependencies:
@@ -9631,6 +9860,18 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-o11y-1.2.11/tp-cp-o11y-1.2.11.tgz
     version: 1.2.11
   tp-cp-proxy:
+  - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T10:44:55.443366828Z"
+    description: A Helm chart for Control Plane Proxy
+    digest: d3d32112433919d91b9f424887f1d6b580abb0c583f17549e46670bc6a33ddd6
+    keywords:
+    - cp-proxy
+    - data-plane
+    name: tp-cp-proxy
+    urls:
+    - tp-cp-proxy-1.8.1.tgz
+    version: 1.8.1
   - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T06:09:35.878721766Z"
@@ -11115,4 +11356,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-06-03T06:10:50.046703675Z"
+generated: "2025-06-23T10:44:55.44476229Z"
