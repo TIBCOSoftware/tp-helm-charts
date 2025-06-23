@@ -111,14 +111,7 @@
 {{- define "tp-cp-email-service.consts.emailServerConfig" -}}
   {{- $emailServerConfig := "" }}
   {{- $emailServerType := .Values.global.external.emailServerType -}}
-  {{- if eq $emailServerType "graph" }}
-    {{- $secret := lookup "v1" "Secret" .Release.Namespace .Values.global.external.emailServer.graph.clientDetailsSecretName -}}
-    {{- if not (and $secret (hasKey $secret.data .Values.global.external.emailServer.graph.clientDetailsSecretKey)) }}
-      {{- fail (printf "Secret or key missing, required for email server 'graph' configuration: Secret Name: %s, Key: %s" .Values.global.external.emailServer.graph.clientDetailsSecretName .Values.global.external.emailServer.graph.clientDetailsSecretKey) -}}
-    {{- else }}
-      {{- printf "Secret found: Secret Name: %s, Key: %s" .Values.global.external.emailServer.graph.clientDetailsSecretName .Values.global.external.emailServer.graph.clientDetailsSecretKey -}}
-    {{- end }}
-  {{- else if $emailServerType }}
+  {{- if $emailServerType }}
     {{- $emailServerConfig = get .Values.global.external.emailServer $emailServerType | toJson }}
   {{- else }}
     {{- $emailServerConfig = get .Values.global.external.emailServer "smtp" | toJson }}

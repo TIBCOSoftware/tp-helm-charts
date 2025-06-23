@@ -44,7 +44,7 @@
 {{- define "tpcontrol-plane.consts.tpCpBW6ServiceName" }}tp-cp-bw6-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpFLOGOServiceName" }}tp-cp-flogo-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.7.0/doc/html{{ end -}}
+{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.8.0/doc/html{{ end -}}
 
 {{- define "cp-env.get" }}
 {{- $cm := ((include "cp-env" .)| fromYaml) }}
