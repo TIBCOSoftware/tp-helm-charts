@@ -1,11 +1,17 @@
 name: Release Helm Charts by PR Label
 
+# Do not change this
+concurrency: release-helm
+
 on:
   pull_request:
     types:
       - labeled
     paths:
       - 'charts/**'
+
+env:
+  GH_RAW_LOCATION: raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages/
 
 jobs:
   release:
@@ -32,20 +38,13 @@ jobs:
           version: '3.17.1'
 
       - name: Add dependency chart repos
-        run: |      
-          helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts/
-
-      - name: Build subchart dependencies
         run: |
-          for d in $(find charts/ -type f -name 'Chart.yaml' | sed -r 's|/[^/]+$||' | sort | uniq); do
-            echo "Running 'helm dependency build' in $d"
-            helm dependency build "$d"
-          done
+          helm repo add tibco-platform --username "${{ secrets.GITHUB_TOKEN }}" --password "${{ secrets.GITHUB_TOKEN }}" https://${{ env.GH_RAW_LOCATION }}
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
         with:
           skip_existing: true
-          packages_with_index: false
+          packages_with_index: true
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

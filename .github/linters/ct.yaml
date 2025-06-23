@@ -7,9 +7,10 @@ chart-repos:
   - bitnami=https://charts.bitnami.com/bitnami
   - grafana=https://grafana.github.io/helm-charts
   - prometheus-community=https://prometheus-community.github.io/helm-charts
-  - tibco-platform=https://tibcosoftware.github.io/tp-helm-charts/
 helm-extra-args: --timeout 600s
 validate-maintainers: false
-excluded-charts:
+validate-yaml: true
+exclude-deprecated: true
+excluded-charts: []
 additional-commands:
 # - helm unittest --helm3 --strict --file unittests/*.yaml --file 'unittests/**/*.yaml' {{ .Path }}
