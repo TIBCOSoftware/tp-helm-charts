@@ -8832,6 +8832,43 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-integration
     apiVersion: v2
+    appVersion: 1.8.0
+    created: "2025-06-23T13:13:40.456554298Z"
+    dependencies:
+    - name: tp-cp-integration-common
+      repository: alias:tibco-platform
+      version: 1.7.1
+    - condition: tp-cp-integration-bw.enabled
+      name: tp-cp-integration-bw
+      repository: alias:tibco-platform
+      version: 1.8.13
+    - condition: tp-cp-integration-flogo.enabled
+      name: tp-cp-integration-flogo
+      repository: alias:tibco-platform
+      version: 1.8.8
+    - condition: tp-cp-bwce-utilities.enabled
+      name: tp-cp-bwce-utilities
+      repository: alias:tibco-platform
+      version: 1.8.4
+    - condition: tp-cp-flogo-utilities.enabled
+      name: tp-cp-flogo-utilities
+      repository: alias:tibco-platform
+      version: 1.8.8
+    description: TIBCO Platform Integration chart
+    digest: b5a304a71ff291371e28216ea94d10e84da65749437514b3ee65c807c91a029a
+    keywords:
+    - tibco-platform
+    - platform
+    - integration
+    name: tp-cp-integration
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-1.8.28/tp-cp-integration-1.8.28.tgz
+    version: 1.8.28
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-integration
+    apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T08:26:03.34012006Z"
     dependencies:
@@ -11646,4 +11683,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-tibtunnel-1.0.97/tp-tibtunnel-1.0.97.tgz
     version: 1.0.97
-generated: "2025-06-23T13:12:26.664597941Z"
+generated: "2025-06-23T13:13:40.457396542Z"
