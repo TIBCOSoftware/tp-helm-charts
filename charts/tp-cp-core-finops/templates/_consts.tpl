@@ -32,7 +32,7 @@
     {{- end -}}
 {{ end -}}
 {{- define "tp-cp-core-finops.consts.hawkQueryNodeHost" }}querynode.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tp-cp-core-finops.consts.finopsPrometheusHost" }}tp-cp-finops-prometheus.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tp-cp-core-finops.consts.finopsPrometheusHost" }}prometheus-service.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.provisonerAgentHost" }}dp-%s.{{ .Release.Namespace }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.finopsOTelHost" }}otel-finops-cp-collector.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.beWebServer" }}tp-cp-be-webserver.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
