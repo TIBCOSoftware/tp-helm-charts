@@ -50,8 +50,10 @@ spec:
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/database-egress: enable
-{{- if (include "cp-core-configuration.enableLogging" .) }}
+
       annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+{{- if (include "cp-core-configuration.enableLogging" .) }}
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
@@ -478,7 +480,7 @@ spec:
             securityContext:
               {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
             {{- end }}
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
             imagePullPolicy: IfNotPresent
             {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
             resources:
@@ -537,7 +539,7 @@ spec:
             securityContext:
               {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
             {{- end }}
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
             imagePullPolicy: IfNotPresent
             {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
             resources:
@@ -600,7 +602,7 @@ spec:
             securityContext:
               {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
             {{- end }}          
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
             imagePullPolicy: IfNotPresent
             {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
             resources:
@@ -659,7 +661,7 @@ spec:
             securityContext:
               {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
             {{- end }}
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12"}}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
             imagePullPolicy: IfNotPresent
             resources:
               requests:
