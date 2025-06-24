@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-base
 description: TIBCO Platform base chart
 type: application
-version: 1.7.0
-appVersion: "1.7.0"
+version: 1.8.0-alpha.118
+appVersion: "1.8.0"
 keywords:
   - tibco-platform
   - platform
@@ -19,31 +19,31 @@ annotations:
   app.helm.sh/name: platform-base
 dependencies:
   - name: tp-cp-configuration
-    version: "1.7.1"
+    version: "1.8.2"
     repository: alias:tibco-platform
   - name: tp-cp-recipes
-    version: "1.7.47"
+    version: "1.8.37"
     repository: alias:tibco-platform
   - name: tp-cp-o11y
-    version: "1.7.10"
+    version: "1.8.6"
     repository: alias:tibco-platform
   - name: tp-cp-core
-    version: "1.7.36"
+    version: "1.8.43"
     repository: alias:tibco-platform
   - name: tp-cp-core-ops
-    version: "1.7.36"
+    version: "1.8.43"
     repository: alias:tibco-platform
   - name: tp-cp-core-finops
-    version: "1.7.561"
+    version: "1.8.565"
     repository: alias:tibco-platform
   - name: tp-cp-integration
-    version: "1.7.20"
+    version: "1.8.28"
     repository: alias:tibco-platform
     condition: tp-cp-integration.enabled
     tags:
       - integration
   - name: tp-cp-tibcohub-contrib
-    version: "1.7.4"
+    version: "1.8.4"
     repository: alias:tibco-platform
     condition: tp-cp-tibcohub-contrib.enabled
   - name: tp-cp-msg-contrib
@@ -63,8 +63,11 @@ dependencies:
     repository: alias:tibco-platform
     condition: tp-cp-hawk-recipes.enabled
   - name: tp-cp-cli
-    version: "0.9.36"
+    version: "0.9.51"
     repository: alias:tibco-platform
   - name: tp-cp-alerts
-    version: "1.7.4"
+    version: "1.8.1"
+    repository: alias:tibco-platform
+  - name: tp-cp-prometheus
+    version: "1.8.9"
     repository: alias:tibco-platform
