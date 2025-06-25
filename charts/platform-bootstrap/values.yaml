@@ -59,6 +59,9 @@ global:
           storage: 2Gi
       # 1. to create/use volumeName, uncomment storageClassName and set matching value as volume
       # 2. to use default storageClass, keep storageClassName key commented
-      # 3  to use pre-configured storageClass, uncomment storageClassName and pass the value
-      # volumeName: ""
-      # storageClassName: ""
+      # 3. to use pre-configured storageClass, uncomment storageClassName and pass the value
+      # 4. to use existing PVC, uncomment pvcName and set the name of the PVC, keep volumeName & storageClassName commented
+      # 5. to create/use volumeName with custom name, uncomment pvcName and set the desired name, uncomment storageClassName and set matching value as volume
+      # pvcName: "abc"
+      # volumeName: "123"
+      # storageClassName: "gp2"
