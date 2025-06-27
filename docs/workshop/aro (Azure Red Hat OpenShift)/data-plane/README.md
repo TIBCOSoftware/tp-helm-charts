@@ -6,6 +6,7 @@ Table of Contents
   * [Export Required Variables](#export-required-variables)
   * [Ingress Controller, DNS](#ingress-controller--dns)
   * [Install Storage class](#install-storage-class)
+  * [Regarding Data Plane Namespace and Service Accounts](#regarding-data-plane-namespace-and-service-accounts)
   * [Install / Configure Observability tools](#install--configure-observability-tools)
     * [Install Elastic stack](#install-elastic-stack)
     * [Configure Prometheus](#configure-prometheus)
@@ -153,6 +154,18 @@ volumeBindingMode: WaitForFirstConsumer
 EOF
 ```
 
+## Regarding Data Plane Namespace and Service Accounts
+Before creating the Data Plane, ensure that the service accounts in the Data Plane namespace have been granted permission to use the Security Context Constraints (SCC) defined in the [cluster setup README](../cluster-setup/README.md#create-security-context-constraints)
+
+This step is essential to ensure that Data Plane pods can be created and run properly in the cluster.
+
+```bash
+export DP_NAMESPACE="ns" # Replace with your Data Plane namespace
+export DP_SERVICE_ACCOUNT="sa" # Replace with your Data Plane service account
+oc adm policy add-scc-to-user tp-scc system:serviceaccount:${DP_NAMESPACE}:${DP_SERVICE_ACCOUNT}
+oc adm policy add-scc-to-user tp-scc system:serviceaccount:${DP_NAMESPACE}:default
+```
+
 ## Install / Configure Observability tools
 
 ### Install Elastic stack
@@ -228,7 +241,6 @@ you can then use the authorization header on data plane to query using the thano
 ```bash
 "Authorization: Bearer $TOKEN"
 ```
-
 
 ## Information needed to be set on TIBCO® Data Plane
 
