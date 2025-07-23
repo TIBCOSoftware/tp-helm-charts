@@ -33,15 +33,15 @@ In order to deploy TIBCO® Control Plane and/or Data Plane, you need to have a K
 ## Command Line Tools required
 
 The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The following tools are installed using [brew](https://brew.sh/):
-* envsubst (0.22.5, part of homebrew gettext)
-* jq (1.7.1)
-* yq (v4.44.1)
-* bash (5.2.26)
-* az (az-cli/2.70.0)
-* kubectl (v1.31.5)
-* helm (v3.14.3)
+* envsubst (0.24.1, part of homebrew gettext)
+* jq (1.8.0)
+* yq (v4.45.4)
+* bash (5.2.37)
+* az (az-cli/2.74.0)
+* kubectl (v1.33.1)
+* helm (v3.18.0)
 
-For reference, [Dockerfile](../../Dockerfile) with [apline 3.20](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]

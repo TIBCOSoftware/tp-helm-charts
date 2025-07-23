@@ -8,6 +8,7 @@ Table of Contents
   * [Recommended IAM Policies](#recommended-iam-policies)
   * [Export required variables](#export-required-variables)
     * [Regarding Network Policy](#regarding-network-policy)
+    * [Regarding Metrics Server](#regarding-metrics-server)
   * [Create Amazon Elastic Kubernetes Service (EKS) cluster](#create-amazon-elastic-kubernetes-service-eks-cluster)
   * [Generate kubeconfig to connect to EKS cluster](#generate-kubeconfig-to-connect-to-eks-cluster)
 * [Install Third Party Tools](#install-third-party-tools)
@@ -32,16 +33,16 @@ In order to deploy TIBCO® Control Plane and/or Data Plane, you need to have a K
 ## Command Line Tools required
 
 The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The following tools are installed using [brew](https://brew.sh/):
-* envsubst (0.22.5, part of homebrew gettext)
-* jq (1.7.1)
-* yq (v4.44.1)
-* bash (5.2.26)
-* aws (aws-cli/2.24.21)
-* eksctl (0.201.0)
-* kubectl (v1.31.5)
-* helm (v3.14.3)
+* envsubst (0.24.1, part of homebrew gettext)
+* jq (1.8.0)
+* yq (v4.45.4)
+* bash (5.2.37)
+* aws (aws-cli/2.27.31)
+* eksctl (0.210.0)
+* kubectl (v1.33.1)
+* helm (v3.18.0)
 
-For reference, [Dockerfile](../../Dockerfile) with [apline 3.20](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
+For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
 The subsequent steps can be followed from within the container.
 
 > [!IMPORTANT]
@@ -77,7 +78,7 @@ export TP_CLUSTER_REGION="${AWS_REGION}"
 export TP_VPC_CIDR="10.180.0.0/16" # vpc cidr for the cluster
 export TP_SERVICE_CIDR="172.20.0.0/16" # service IPv4 cidr for the cluster
 export TP_CLUSTER_NAME="eks-cluster-${TP_CLUSTER_REGION}" # name of the cluster to be prvisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.31" # please refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html; use 1.30 or above
+export TP_KUBERNETES_VERSION="1.33" # please refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html; use 1.33 or above
 export TP_NODEGROUP_INSTANCE_TYPE="m5a.xlarge" # Instance type for the EC2 Machines, please refer https://aws.amazon.com/ec2/instance-types/ 
 export TP_NODEGROUP_INITIAL_COUNT=3 # Number of desired nodes for the EKS cluster
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
@@ -102,6 +103,22 @@ In the previous versions of the workshop document, we were deploying Calico for 
 If you had deployed Calico, as per previous version document steps, you can remove Calico and decide to upgrade cluster.
 
 Please proceed with the next steps in the [current directory](./).
+
+## Regarding Metrics Server
+
+As part of eksctl 0.201.0, if default addons are enabled in the config yaml, metrics-server addon is created by default. Please refer: https://github.com/eksctl-io/eksctl/releases/tag/v0.201.0
+In the [eksctl-recipe.yaml](./eksctl-recipe.yaml#L62), we have disabled default addons
+```bash
+addonsConfig:
+  disableDefaultAddons: true
+```
+To include metrics-server as an addon, you can do one of the following
+
+1. You can remove the above section from [eksctl-recipe.yaml](./eksctl-recipe.yaml#L61) This will mean that all the default addons will be created.
+
+2. To control which addons are created, keep disableDefaultAddons: true, but uncomment the metrics-server section under addons in the [eksctl-recipe.yaml](./eksctl-recipe.yaml#L94).
+
+If you don't want to use metrics-server as an addon, you can continue with [metrics-server helm chart deployment](#install-metrics-server) as part of third party tools.
 
 ## Create Amazon Elastic Kubernetes Service (EKS) cluster
 

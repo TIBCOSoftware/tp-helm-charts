@@ -9,7 +9,7 @@ export TP_RDS_PORT=${TP_RDS_PORT:-"5432"}
 export TP_RDS_INSTANCE_CLASS=${TP_RDS_INSTANCE_CLASS:-"db.t3.medium"}
 export TP_RDS_USERNAME=${TP_RDS_USERNAME:-"TP_rdsadmin"}
 export TP_RDS_MASTER_PASSWORD=${TP_RDS_MASTER_PASSWORD:-"TP_DBAdminPassword"}
-export TP_RDS_ENGINE_VERSION=${TP_RDS_ENGINE_VERSION:-"14.11"}
+export TP_RDS_ENGINE_VERSION=${TP_RDS_ENGINE_VERSION:-"16.8"}
 export TP_WAIT_FOR_RESOURCE_AVAILABLE"="${TP_WAIT_FOR_RESOURCE_AVAILABLE:-"false"}
 
 [ "${TP_CLUSTER_NAME}" != "" ] || { echo "Cluster name is not specified"; exit 1; }

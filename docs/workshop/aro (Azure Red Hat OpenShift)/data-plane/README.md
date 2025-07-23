@@ -18,7 +18,7 @@ Table of Contents
 
 The goal of this workshop is to provide hands-on experience to prepare Azure Red Hat Openshift (ARO) cluster to be used as a Data Plane. In order to deploy Data Plane, you need to have some necessary tools installed. This workshop will guide you to install/use the necessary tools.
 
-> [!Note]
+> [!IMPORTANT]
 > This workshop is NOT meant for production deployment.
 
 To perform the steps mentioned in this workshop document, it is assumed you already have an ARO cluster created and can connect to it.
@@ -52,12 +52,15 @@ Please set/adjust the values of the variables as expected.
 export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv) # subscription id
 export TP_TENANT_ID=$(az account show --query tenantId -o tsv) # tenant id
 export TP_AZURE_REGION="eastus" # region of resource group
-export TP_RESOURCE_GROUP="openshift-azure"
+export TP_RESOURCE_GROUP="openshift-azure" # set the resource group name in which all resources will be deployed
 
 ## Cluster configuration specific variables
 export TP_CLUSTER_NAME="aroCluster"
 
-## Tooling specific variables
+## Network specific variables
+export TP_SERVICE_CIDR="10.0.0.0/16" # CIDR for service cluster IPs
+
+## Helm chart repo
 export TP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts # location of charts repo url
 
 ```
@@ -73,6 +76,12 @@ Use the following command to get the ingress class name.
 oc get ingressclass -A
 NAME                            CONTROLLER                                                     PARAMETERS                                        AGE
 openshift-default               openshift.io/ingress-to-route                                  IngressController.operator.openshift.io/default   39d
+```
+
+If you are using network policies, to ensure that network traffic is allowed from the default ingress namespace to the Data Plane namespace pods, label the namespace running following command
+
+```bash
+oc label namespace openshift-ingress networking.platform.tibco.com/non-dp-ns=enable --overwrite=true
 ```
 
 ### DNS
@@ -242,13 +251,14 @@ you can then use the authorization header on data plane to query using the thano
 "Authorization: Bearer $TOKEN"
 ```
 
+
 ## Information needed to be set on TIBCO® Data Plane
 
 You can get BASE_FQDN (fully qualified domain name) by running the command mentioned in [DNS](#dns) section.
 
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| Node / Pod CIDR             | 10.0.2.0/23                                                                    | from Worker Node subnet (Check [TP_WORKER_SUBNET_CIDR in cluster-setup](../cluster-setup/README.md#export-required-variables)                                      |
+| Node CIDR             | 10.0.2.0/23                                                                    | from Worker Node subnet Check [TP_WORKER_SUBNET_CIDR in cluster-setup](../cluster-setup/README.md#export-required-variables)                                      |
 | Service CIDR             | 172.30.0.0/16                                                                    | Run the command az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.serviceCidr -o tsv                                        |
 | Pod CIDR             | 10.128.0.0/14                                                                    |  Run the command az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.podCidr -o tsv                                        |
 | Ingress class name   | openshift-default                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |

@@ -5,13 +5,13 @@ Table of Contents
 * [vCluster Workshop README](#vcluster-workshop-readme)
   * [What is vCluster](#what-is-vcluster)
     * [Prerequisites for vCluster](#prerequisites)
-  * [Control Plane Deployment in vCluster](#steps-to-install-cp-in-vcluster)
+  * [Steps to install a vCluster in existing EKS cluster](#steps-to-install-a-vcluster-in-existing-eks-cluster)
     * [Export required variables](#export-required-variables)
     * [Create a CP vCluster](#cp-cluster-creation)
       * [Connect to the CP vCluster](#verify-if-the-cp-vcluster-is-running)
       * [Install Host Path Mapper chart](#install-hostpath-mapper-chart)
-    * [Platform Bootstrap chart deployment](#platform-bootstrap-chart-installation)
-      * [Bootstrap Chart values](#bootstrap-chart-values)
+  * [TIBCO® Control Plane Deployment](#tibco-control-plane-deployment)
+    * [Prerequisite for installing Control Plane](#prerequisites-1)
   * [Data Plane deployment in vCluster](#steps-to-install-dp-in-vcluster)
     * [Export required variables](#export-required-variables-1)
     * [Create a DP vCluster](#dp-cluster-creation)
@@ -49,9 +49,9 @@ Before starting the workshop, make sure you have the following prerequisites:
 > This workshop has been certified and validated using vcluster chart version v0.22 and hostpathmapper chart version v0.2.0, ensuring that all instructions and commands are accurate and fully compatible.
 
 ---
-## Steps to install CP in vCluster
+## Steps to install a vCluster in existing EKS cluster
 
-In this step we will deploy a vCluster instance named cp-vcluster to the cp-vcluster namespace. This instance will provide a isolated and scalable Kubernetes environment for our CP components. Before proceeding with the above steps, ensure that you have an IAM role configured with the necessary SES permissions for sending emails. This IAM role will be used by the CP cluster to send emails.
+In this step we will deploy a vCluster instance named cp-vcluster to the cp-vcluster namespace. This instance will provide a isolated and scalable Kubernetes environment for our CP components in the existing EKS cluster. Before proceeding with the above steps, ensure that you have an IAM role configured with the necessary SES permissions for sending emails. This IAM role will be used by the CP cluster to send emails.
 
 > [!IMPORTANT]
 > Update the cp-cluster.yaml file with the ARN of this IAM role to grant the required permissions.
@@ -102,86 +102,14 @@ helm install vcluster-hostpath-mapper vcluster-hpm \
     --version=0.2.0
 ``` 
 
-### Platform Bootstrap Chart installation
+## TIBCO® Control Plane Deployment
 
-#### Prerequisites
+### Prerequisites
 Make sure that the CP vCluster is running and you are connected to it.
    - Execute ``` vcluster connect ${TP_CP_VCLUSTER_NAME} ``` to connect to your vCluster context.
 Before installing Platform Bootstrap Chart we need to install [cert-manager](https://cert-manager.io/docs/installation/helm/#installing-cert-manager) (required by router, resource-set operator, hybrid-proxy) & [k8s metrics-server chart](https://github.com/kubernetes-sigs/metrics-server?tab=readme-ov-file#installation) in the virtual cluster.
 
-
-#### Export additional variables required for chart values
-```bash
-## Bootstrap and Configuration charts specific details
-export TP_MAIN_INGRESS_CONTROLLER=alb
-export TP_CONTAINER_REGISTRY_URL="csgprduswrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
-export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
-export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
-export TP_DOMAIN_CERT_ARN="" # replace with your TP_DOMAIN certificate arn
-export TP_TUNNEL_DOMAIN_CERT_ARN="" # replace with your TP_TUNNEL DOMAIN certificate arn
-```
-
-#### Bootstrap Chart values
-
-Following values can be stored in a file and passed to the platform-boostrap chart while deploying this chart.
-
-> [!IMPORTANT]
-> These values are for example only.
-
-```bash
-cat > aws-bootstrap-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_TUNNEL_DOMAIN}, ${TP_DOMAIN}, ${TP_VPC_CIDR}, ${TP_SERVICE_CIDR}, ${TP_STORAGE_CLASS_EFS}, ${TP_INGRESS_CONTROLLER}, ${TP_DOMAIN_CERT_ARN}, ${TP_TUNNEL_DOMAIN_CERT_ARN}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
-tp-cp-bootstrap:
-  # uncomment to enable logging
-  # otel-collector:
-    # enabled: true
-global:
-  tibco:
-    createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
-    containerRegistry:
-      url: "${TP_CONTAINER_REGISTRY_URL}"
-      username: "${TP_CONTAINER_REGISTRY_USER}"
-      password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
-    controlPlaneInstanceId: "${CP_INSTANCE_ID}"
-    serviceAccount: "${CP_INSTANCE_ID}-sa"
-    # uncomment to enable logging
-    # logging:
-    #   fluentbit:
-    #     enabled: true
-  external:
-    ingress:
-      ingressClassName: "${TP_INGRESS_CONTROLLER}"
-      # uncomment following value if 'alb' is used as TP_INGRESS_CONTROLLER
-      # certificateArn: "${TP_DOMAIN_CERT_ARN}"
-      annotations: {}
-        # optional policy to use TLS 1.3, if ingress class is `alb`
-        # alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    aws:
-      tunnelService:
-        loadBalancerClass: "service.k8s.aws/nlb"
-        certificateArn: "${TP_TUNNEL_DOMAIN_CERT_ARN}"
-        annotations: {}
-          # optional policy to use TLS 1.3, for `nlb`
-          # service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    clusterInfo:
-      nodeCIDR: "${TP_VPC_CIDR}"
-      podCIDR: "${TP_VPC_CIDR}"
-      serviceCIDR: "${TP_SERVICE_CIDR}"
-    dnsTunnelDomain: "${TP_TUNNEL_DOMAIN}"
-    dnsDomain: "${TP_DOMAIN}"
-    storage:
-      storageClassName: "${TP_STORAGE_CLASS_EFS}"
-        # uncomment following section if logging is enabled
-    # uncomment following section if logging is enabled
-    # logserver:
-    #   endpoint: ${TP_LOGSERVER_ENDPOINT}
-    #   index: ${TP_LOGSERVER_INDEX}
-    #   username: ${TP_LOGSERVER_USERNAME}
-    #   password: ${TP_LOGSERVER_PASSWORD}
-EOF
-)
-```
-
-Please proceed with deployment of TIBCO Control Plane on your virtual K8s EKS cluster as per [the steps mentioned in the document](https://docs.tibco.com/pub/platform-cp/1.2.0/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
+To install TIBCO® Control Plane in this vCluster, refer to the steps outlined in the [EKS Deployment Guide](../eks/control-plane/README.md), and proceed with the installation of the Platform Bootstrap and Platform Base charts as described.
 
 ---
 ## Steps to install DP in vCluster

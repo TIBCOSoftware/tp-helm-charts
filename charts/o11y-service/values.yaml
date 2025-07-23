@@ -121,6 +121,19 @@ global:
                 otlp:
                   type: http|grpc
                   endpoint: localhost:4317
+            exporterSecondary:
+              userApps:
+                enabled: false
+                kind: otlp
+                otlp:
+                  type: http|grpc
+                  endpoint: localhost:4317
+              services:
+                enabled: false
+                kind: otlp
+                otlp:
+                  type: http|grpc
+                  endpoint: localhost:4317
             proxy:
               userApps:
                 kind: elasticSearch
@@ -177,6 +190,12 @@ global:
               otlp:
                 type: http|grpc
                 endpoint: localhost:4317
+            exporterSecondary:
+              enabled: false
+              kind: otlp
+              otlp:
+                type: http|grpc
+                endpoint: localhost:4317
             proxy:
               enabled: true
               kind: prometheus
@@ -212,6 +231,12 @@ global:
                 protocol_version: somevalue
                 topic: somevalue
                 username: somevalue
+              otlp:
+                type: http|grpc
+                endpoint: localhost:4317
+            exporterSecondary:
+              enabled: false
+              kind: otlp
               otlp:
                 type: http|grpc
                 endpoint: localhost:4317
@@ -416,7 +441,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 2554
+      tag: 2648
 
 
 replicaCount: 1

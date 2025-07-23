@@ -57,6 +57,8 @@ vpc:
     - 0.0.0.0/0
 kubernetesNetworkConfig:
   serviceIPv4CIDR: ${TP_SERVICE_CIDR}
+addonsConfig:
+  disableDefaultAddons: true
 addons:
   - name: vpc-cni # no version is specified so it deploys the default version
     attachPolicyARNs:
@@ -87,3 +89,6 @@ addons:
               }
           }
       }
+  # uncomment the following to enable the metrics-server addon
+  # - name: metrics-server
+  #   version: latest
