@@ -756,6 +756,26 @@ entries:
     version: 1.6.1
   dp-configure-namespace:
   - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2025-07-23T06:41:04.676708702Z"
+    dependencies:
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.9.*
+    - condition: haproxy.enabled
+      name: haproxy
+      repository: ""
+      version: 1.44.4
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
+    digest: 4084b7569fc33ce3c4359a1cc868ebbbc38e2f3ccdc177eaad785742c14dfa59
+    name: dp-configure-namespace
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.9.1/dp-configure-namespace-1.9.1.tgz
+    version: 1.9.1
+  - apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T15:46:49.588795317Z"
     dependencies:
@@ -767,7 +787,8 @@ entries:
       name: haproxy
       repository: ""
       version: 1.44.3
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: ee16b0da49903d0fbdbe9462d7b4c6f7bbdf6cd85e8a59440acd8a94a6912465
     name: dp-configure-namespace
     type: application
@@ -786,7 +807,8 @@ entries:
       name: haproxy
       repository: ""
       version: 1.44.3
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: 8db3940b3324c0b6c453d83a3c5473fad23453c00cfe79bff4a61b18c69bf73e
     name: dp-configure-namespace
     type: application
@@ -805,7 +827,8 @@ entries:
       name: haproxy
       repository: ""
       version: 1.44.2
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: 8edeadff3467a84b1c259ddcc2a07c1ce5b6e3c3cf00488283cdb434a3b7cb2e
     name: dp-configure-namespace
     type: application
@@ -824,7 +847,8 @@ entries:
       name: haproxy
       repository: ""
       version: 1.44.2
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: 0a09bbec1b326aa187201c706e6741070a9633dd07aad288e56d34874224be93
     name: dp-configure-namespace
     type: application
@@ -843,7 +867,8 @@ entries:
       name: haproxy
       repository: ""
       version: 1.44.0
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: 8152a7da9fc6f5b3e6526a044269aaba68925e88a4b87049788e168395f61189
     name: dp-configure-namespace
     type: application
@@ -853,7 +878,8 @@ entries:
   - apiVersion: v2
     appVersion: 1.4.0
     created: "2025-01-24T06:17:36.542019064Z"
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: e1e707f5a06efffca29e8afc60004cd9c495658c82caf6d62b706555da9f60ca
     name: dp-configure-namespace
     type: application
@@ -863,7 +889,8 @@ entries:
   - apiVersion: v2
     appVersion: 1.3.0
     created: "2024-09-11T04:28:41.459974324Z"
-    description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
     digest: 7c57c4605e191dcfa7944e09a5d44c28279a93fd1acfc17777c8412bb0e3762a
     name: dp-configure-namespace
     type: application
@@ -871,6 +898,25 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.3.4/dp-configure-namespace-1.3.4.tgz
     version: 1.3.4
   dp-core-infrastructure:
+  - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2025-07-23T06:41:04.831985985Z"
+    dependencies:
+    - condition: tibtunnel.enabled
+      name: tp-tibtunnel
+      repository: ""
+      version: 1.9.*
+    - condition: tp-provisioner-agent.enabled
+      name: tp-provisioner-agent
+      repository: ""
+      version: 1.9.*
+    description: A Helm chart for Data Plane Infrastructure
+    digest: 519e8300f5e9111a5893756c1722df3134768ad81edd494d1487cbe01a34a59a
+    name: dp-core-infrastructure
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-core-infrastructure-1.9.3/dp-core-infrastructure-1.9.3.tgz
+    version: 1.9.3
   - apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T15:46:49.78159237Z"
@@ -1858,6 +1904,15 @@ entries:
     version: 1.3.14
   o11yservice:
   - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2025-07-23T06:41:04.97694252Z"
+    description: A helm chart for o11y service
+    digest: 71a7e32752bf8d47b70b544d436149e836dbc0fcf0e7a5de07ac8ac14cb98d17
+    name: o11yservice
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.9.3/o11yservice-1.9.3.tgz
+    version: 1.9.3
+  - apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T15:46:50.037971233Z"
     description: A helm chart for o11y service
@@ -1940,7 +1995,8 @@ entries:
     apiVersion: v2
     appVersion: 1.8.2
     created: "2025-06-23T16:35:12.794395628Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: 2523b81592802a4b88155d47bacab7e798d71db8957df6ec82bbcccfb1400dfe
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -1979,7 +2035,8 @@ entries:
     apiVersion: v2
     appVersion: 1.7.0
     created: "2025-06-03T06:10:50.045996654Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: d3524affab2b89bfc8525a86daa1308d362031ab847f47f363c122b154231ee7
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -2018,7 +2075,8 @@ entries:
     apiVersion: v2
     appVersion: 1.6.0
     created: "2025-04-24T11:06:24.520934025Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: 57a9218c6db520411cffda33675d7909cd2f7fa653d17c25f703ea5bb592c12c
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -2057,7 +2115,8 @@ entries:
     apiVersion: v2
     appVersion: 1.5.1
     created: "2025-03-21T06:49:30.093033083Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: 01b29c04912b1bc252ff8014e82d273228147680a00b320a724207d632a80e4d
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -2096,7 +2155,8 @@ entries:
     apiVersion: v2
     appVersion: 1.5.0
     created: "2025-02-22T04:18:01.924550814Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: 8569793374d8fd5c34a9305577abaccf1090b09a048fb6612d4242280bc52252
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -2135,7 +2195,8 @@ entries:
     apiVersion: v2
     appVersion: 1.4.0
     created: "2025-01-24T08:24:28.80493073Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: f532f3ceb00b3e32662238b3e066bcba87dc899d487bb52e87531ebaf505ac8c
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -2174,7 +2235,8 @@ entries:
     apiVersion: v2
     appVersion: 1.3.0
     created: "2024-09-12T05:01:16.326118934Z"
-    description: A reverse proxy that provides authentication with Google, Github or other providers
+    description: A reverse proxy that provides authentication with Google, Github
+      or other providers
     digest: 9e765b49581e03733e601f20e7ac699a5b424b5254caf73f7727581a28c8b38e
     home: https://oauth2-proxy.github.io/oauth2-proxy/
     keywords:
@@ -3531,7 +3593,8 @@ entries:
   - apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T15:46:50.456659828Z"
-    description: The Alertmanager handles alerts sent by client applications such as the Prometheus server.
+    description: The Alertmanager handles alerts sent by client applications such
+      as the Prometheus server.
     digest: 8bc5e4cb2210b1f19af24e4fc69cdbbd49be62b7df2e2eae2080ed2bb5718b3e
     keywords:
     - monitoring
@@ -3544,7 +3607,8 @@ entries:
   - apiVersion: v2
     appVersion: 1.7.0
     created: "2025-05-22T08:26:02.730443302Z"
-    description: The Alertmanager handles alerts sent by client applications such as the Prometheus server.
+    description: The Alertmanager handles alerts sent by client applications such
+      as the Prometheus server.
     digest: 5760efbfcdf5d12736b8535e0564b3ac59112a962bd283e4b56116ecbabe5c2d
     keywords:
     - monitoring
@@ -7590,6 +7654,18 @@ entries:
     version: 1.8.9
   tp-cp-proxy:
   - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2025-07-23T06:41:05.151376028Z"
+    description: A Helm chart for Control Plane Proxy
+    digest: 872649a177797c3a3c8ad20328f3aba04a468a86f0fa10fca973060f971a967f
+    keywords:
+    - cp-proxy
+    - data-plane
+    name: tp-cp-proxy
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-proxy-1.9.1/tp-cp-proxy-1.9.1.tgz
+    version: 1.9.1
+  - apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T15:46:51.68497637Z"
     description: A Helm chart for Control Plane Proxy
@@ -8834,4 +8910,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-07-02T10:17:10.98741589Z"
+generated: "2025-07-23T06:41:05.151921195Z"
