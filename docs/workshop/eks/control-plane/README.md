@@ -20,6 +20,7 @@ Table of Contents
     * [Nginx Ingress Controller](#install-nginx-ingress-controller)
   * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
   * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
+  * [Generate and Create session-keys Secret (Required for Router Pods)](#generate-and-create-session-keys-secret-required-for-router-pods)
   * [Bootstrap Chart values](#bootstrap-chart-values)
   * [Next Steps](#Next-steps)
 * [Clean-up](#clean-up)
@@ -259,7 +260,7 @@ crossplane-components:
         dbInstanceClass: "db.t3.medium"
         dbParameterGroupFamily: "aurora-postgresql16"
         engine: "aurora-postgresql"
-        engineVersion: "16.2"
+        engineVersion: "16.8"
         engineMode: "provisioned"
         masterUsername: "useradmin"
         port: 5432
@@ -474,6 +475,19 @@ export TP_MY_DOMAIN_CERT_ARN="" # replace with your TP_MY_DOMAIN certificate arn
 export TP_TUNNEL_DOMAIN_CERT_ARN="" # replace with your TP_TUNNEL DOMAIN certificate arn
 ```
 
+## Generate and Create session-keys Secret (Required for Router Pods)
+This secret is a required prerequisite for the platform-bootstrap chart. If this secret is not present in the Control Plane namespace, the router pods will fail to start correctly.
+```bash
+# Generate session keys and export as environment variables
+export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+export DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+
+# Create the Kubernetes secret required by router pods, default secret name is session-keys
+kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
+  --from-literal=TSC_SESSION_KEY=${TSC_SESSION_KEY} \
+  --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
+```
+
 ## Bootstrap Chart values
 
 Following values can be stored in a file and passed to the platform-boostrap chart while deploying this chart.
@@ -483,102 +497,108 @@ Following values can be stored in a file and passed to the platform-boostrap cha
 
 ```bash
 cat > aws-bootstrap-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_TUNNEL_DOMAIN}, ${TP_MY_DOMAIN}, ${TP_VPC_CIDR}, ${TP_SERVICE_CIDR}, ${TP_STORAGE_CLASS_EFS}, ${TP_INGRESS_CONTROLLER}, ${TP_MY_DOMAIN_CERT_ARN}, ${TP_TUNNEL_DOMAIN_CERT_ARN}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
-tp-cp-bootstrap:
-  hybrid-proxy:
-    # uncomment the following section (ports and service values), if you want to use a load balancer service for hybrid-proxy
-    # ports:
-    #   api:
-    #     enabled: true
-    #     serviceEnabled: false
-    #     containerPort: 88
-    #     servicePort: 88
-    #     protocol: TCP
-    #     targetPort: api
-    #   tunnel:
-    #     enabled: true
-    #     serviceEnabled: true
-    #     containerPort: 443
-    #     servicePort: 443
-    #     protocol: TCP
-    #     targetPort: tunnel
-    # service:
-    #   type: LoadBalancer
-    #   loadBalancerClass: "service.k8s.aws/nlb"
-    #   allocateLoadBalancerNodePorts: false
-    #   # annotation for load balancer service
-    #   annotations:
-    #     external-dns.alpha.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
-    #     service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${TP_TUNNEL_DOMAIN_CERT_ARN}"
-    #     service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=false
-    #     service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-    #     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-    #     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-    #     service.beta.kubernetes.io/aws-load-balancer-type: external
-    #     service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
-    #     # optional policy to use TLS 1.3, for `nlb`
-    #     service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    # alternatively, uncomment the following section, if you have deployed additional ingress controller (e.g. nginx) and want to use ingress for hybrid-proxy
-    # ingress:
-    #   enabled: true
-    #   ingressClassName: "${TP_INGRESS_CONTROLLER}"
+hybrid-proxy:
+  # uncomment the following section (ports and service values), if you want to use a load balancer service for hybrid-proxy
+  # ports:
+  #   api:
+  #     enabled: true
+  #     serviceEnabled: false
+  #     containerPort: 88
+  #     servicePort: 88
+  #     protocol: TCP
+  #     targetPort: api
+  #   tunnel:
+  #     enabled: true
+  #     serviceEnabled: true
+  #     containerPort: 443
+  #     servicePort: 443
+  #     protocol: TCP
+  #     targetPort: tunnel
+  # service:
+  #   type: LoadBalancer
+  #   loadBalancerClass: "service.k8s.aws/nlb"
+  #   allocateLoadBalancerNodePorts: false
+  #   # annotation for load balancer service
+  #   annotations:
+  #     external-dns.alpha.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
+  #     service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${TP_TUNNEL_DOMAIN_CERT_ARN}"
+  #     service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=false
+  #     service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+  #     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+  #     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+  #     service.beta.kubernetes.io/aws-load-balancer-type: external
+  #     service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+  #     # optional policy to use TLS 1.3, for `nlb`
+  #     service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  # alternatively, uncomment the following section, if you have deployed additional ingress controller (e.g. nginx) and want to use ingress for hybrid-proxy
+  # ingress:
+  #   enabled: true
+  #   ingressClassName: "${TP_INGRESS_CONTROLLER}"
+  #   # uncomment annotations from following section, as per your requirements
+  #   annotations:
+  #   # annotations for `nginx` ingress class
+  #   # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
+  #   # uncomment the following annotations, if not set globally using controller.config
+  #     nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+  #     nginx.ingress.kubernetes.io/proxy-body-size: "150m"
+  #   # uncomment following tls section to secure your ingress resource
+  #   tls:
+  #     - hosts:
+  #         - '*.${TP_TUNNEL_DOMAIN}'
+  #      # create a secret containing a TLS private key and certificate, and replace the value for secretName below
+  #      secretName: hybrid-proxy-tls
+  #   hosts:
+  #     - host: '*.${TP_TUNNEL_DOMAIN}'
+  #       paths:
+  #         - path: /
+  #           pathType: Prefix
+  #           port: 105
+router-operator:
+  ingress:
+    enabled: true
+  # SecretNames for environment variables TSC_SESSION_KEY and DOMAIN_SESSION_KEY.
+  tscSessionKey:
+    secretName: session-keys  # default secret name
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys  # default secret name
+    key: DOMAIN_SESSION_KEY
+    ingressClassName: "${TP_INGRESS_CONTROLLER}"
     #   # uncomment annotations from following section, as per your requirements
     #   annotations:
     #   # annotations for `nginx` ingress class
     #   # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
-    #   # uncomment the following annotations, if not set globally using controller.config
-    #     nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-    #     nginx.ingress.kubernetes.io/proxy-body-size: "150m"
+    #    # uncomment the following annotations, if not set globally using controller.config
+    #    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    #    nginx.ingress.kubernetes.io/proxy-body-size: "150m"
+    #   # annotation for `alb` ingress class
+    #   external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
+    #   alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
+    #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    #   alb.ingress.kubernetes.io/backend-protocol: HTTP
+    #   alb.ingress.kubernetes.io/scheme: internet-facing
+    #   alb.ingress.kubernetes.io/success-codes: 200-399
+    #   alb.ingress.kubernetes.io/target-type: ip
+    #   alb.ingress.kubernetes.io/healthcheck-port: '88'
+    #   alb.ingress.kubernetes.io/healthcheck-path: "/health"
+    #   alb.ingress.kubernetes.io/certificate-arn: "${TP_MY_DOMAIN_CERT_ARN}"
+    #   # optional policy to use TLS 1.3, for `alb` ingress class
+    #   alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+    hosts:
     #   # uncomment following tls section to secure your ingress resource
     #   tls:
     #     - hosts:
-    #         - '*.${TP_TUNNEL_DOMAIN}'
+    #         - '*.${TP_MY_DOMAIN}'
     #      # create a secret containing a TLS private key and certificate, and replace the value for secretName below
-    #      secretName: hybrid-proxy-tls
-    #   hosts:
-    #     - host: '*.${TP_TUNNEL_DOMAIN}'
-    #       paths:
-    #         - path: /
-    #           pathType: Prefix
-    #           port: 105
-  router-operator:
-    ingress:
-      enabled: true
-      ingressClassName: "${TP_INGRESS_CONTROLLER}"
-      #   # uncomment annotations from following section, as per your requirements
-      #   annotations:
-      #   # annotations for `nginx` ingress class
-      #   # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
-      #    # uncomment the following annotations, if not set globally using controller.config
-      #    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-      #    nginx.ingress.kubernetes.io/proxy-body-size: "150m"
-      #   # annotation for `alb` ingress class
-      #   external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
-      #   alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
-      #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-      #   alb.ingress.kubernetes.io/backend-protocol: HTTP
-      #   alb.ingress.kubernetes.io/scheme: internet-facing
-      #   alb.ingress.kubernetes.io/success-codes: 200-399
-      #   alb.ingress.kubernetes.io/target-type: ip
-      #   alb.ingress.kubernetes.io/healthcheck-port: '88'
-      #   alb.ingress.kubernetes.io/healthcheck-path: "/health"
-      #   alb.ingress.kubernetes.io/certificate-arn: "${TP_MY_DOMAIN_CERT_ARN}"
-      #   # optional policy to use TLS 1.3, for `alb` ingress class
-      #   alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-      hosts:
-      #   # uncomment following tls section to secure your ingress resource
-      #   tls:
-      #     - hosts:
-      #         - '*.${TP_MY_DOMAIN}'
-      #      # create a secret containing a TLS private key and certificate, and replace the value for secretName below
-      #      secretName: router-tls
-        - host: '*.${TP_MY_DOMAIN}'
-          paths:
-            - path: /
-              pathType: Prefix
-              port: 100
-  # uncomment to enable logging
-  # otel-collector:
-    # enabled: true
+    #      secretName: router-tls
+      - host: '*.${TP_MY_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+# uncomment to enable logging
+# otel-collector:
+  # enabled: true
 global:
   tibco:
     createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}

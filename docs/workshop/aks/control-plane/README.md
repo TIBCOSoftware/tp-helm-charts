@@ -19,6 +19,7 @@ Table of Contents
   * [Configure DNS records, Certificates](#configure-dns-records-certificates)
   * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
   * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
+  * [Generate and Create session-keys Secret (Required for Router Pods)](#generate-and-create-session-keys-secret-required-for-router-pods)
   * [Bootstrap Chart values](#bootstrap-chart-values)
   * [Next Steps](#next-steps)
 * [Clean-up](#clean-up)
@@ -467,6 +468,19 @@ export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry user
 export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
 ```
 
+## Generate and Create session-keys Secret (Required for Router Pods)
+This secret is a required prerequisite for the platform-bootstrap chart. If this secret is not present in the Control Plane namespace, the router pods will fail to start correctly.
+```bash
+# Generate session keys and export as environment variables
+export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+export DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+
+# Create the Kubernetes secret required by router pods, default secret name is session-keys
+kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
+  --from-literal=TSC_SESSION_KEY=${TSC_SESSION_KEY} \
+  --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
+```
+
 ## Bootstrap Chart values
 
 Following values can be stored in a file and passed to the platform-boostrap chart while deploying this chart.
@@ -476,54 +490,60 @@ Following values can be stored in a file and passed to the platform-boostrap cha
 
 ```bash
 cat > azure-bootstrap-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${CP_TUNNEL_DNS_DOMAIN}, ${CP_MY_DNS_DOMAIN}, ${TP_VNET_CIDR}, ${TP_SERVICE_CIDR}, ${TP_FILE_STORAGE_CLASS}, ${TP_INGRESS_CLASS}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
-tp-cp-bootstrap:
-  hybrid-proxy:
+hybrid-proxy:
+  enabled: true
+  ingress:
     enabled: true
-    ingress:
-      enabled: true
-      ingressClassName: ${TP_INGRESS_CLASS}
-      tls:
-        - secretName: tp-certificate-${CP_INSTANCE_ID}
-          hosts:
-            - '*.${CP_TUNNEL_DNS_DOMAIN}'
-      ## uncomment annotations from following section, as per your requirements
-      # annotations:
-        ## annotations for `nginx` ingress class
-        ## refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
-        ## uncomment the following annotations, if not set globally using controller.config
-        # nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        # nginx.ingress.kubernetes.io/proxy-body-size: "150m"
-      hosts:
-        - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
-          paths:
-            - path: /
-              pathType: Prefix
-              port: 105
-  router-operator:
+    ingressClassName: ${TP_INGRESS_CLASS}
+    tls:
+      - secretName: tp-certificate-${CP_INSTANCE_ID}
+        hosts:
+          - '*.${CP_TUNNEL_DNS_DOMAIN}'
+    ## uncomment annotations from following section, as per your requirements
+    # annotations:
+      ## annotations for `nginx` ingress class
+      ## refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
+      ## uncomment the following annotations, if not set globally using controller.config
+      # nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+      # nginx.ingress.kubernetes.io/proxy-body-size: "150m"
+    hosts:
+      - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 105
+router-operator:
+  enabled: true
+  # SecretNames for environment variables TSC_SESSION_KEY and DOMAIN_SESSION_KEY.
+  tscSessionKey:
+    secretName: session-keys  # default secret name
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys  # default secret name
+    key: DOMAIN_SESSION_KEY
+  ingress:
     enabled: true
-    ingress:
-      enabled: true
-      ingressClassName: "${TP_INGRESS_CLASS}"
-      tls:
-        - secretName: tp-certificate-${CP_INSTANCE_ID}
-          hosts:
-            - '*.${CP_MY_DNS_DOMAIN}'
-      ## uncomment annotations from following section, as per your requirements
-      # annotations:
-        ## annotations for `nginx` ingress class
-        ## refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
-        ## uncomment the following annotations, if not set globally using controller.config
-        # nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        # nginx.ingress.kubernetes.io/proxy-body-size: "150m"
-      hosts:
-        - host: '*.${CP_MY_DNS_DOMAIN}'
-          paths:
-            - path: /
-              pathType: Prefix
-              port: 100
-  # uncomment to enable logging
-  # otel-collector:
-    # enabled: true
+    ingressClassName: "${TP_INGRESS_CLASS}"
+    tls:
+      - secretName: tp-certificate-${CP_INSTANCE_ID}
+        hosts:
+          - '*.${CP_MY_DNS_DOMAIN}'
+    ## uncomment annotations from following section, as per your requirements
+    # annotations:
+      ## annotations for `nginx` ingress class
+      ## refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md to know more about the following annotation
+      ## uncomment the following annotations, if not set globally using controller.config
+      # nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+      # nginx.ingress.kubernetes.io/proxy-body-size: "150m"
+    hosts:
+      - host: '*.${CP_MY_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+# uncomment to enable logging
+# otel-collector:
+  # enabled: true
 global:
   tibco:
     createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
