@@ -55,21 +55,27 @@ spec:
             terminationGracePeriodSeconds: 10
             containers:
             -   name: "main"
-                # FIXME: for cross BMDP server sharing, use fixed EMS_ADMIN_PASSWORD!
                 {{ $dpAdminUser := printf "gems-%s" $emsParams.dp.name }}
-                # kubectl create secret generic $secretName -n {{ .Release.Namespace }} --from-literal=EMS_ADMIN_USER=tibadmin --from-literal=EMS_ADMIN_PASSWORD=tibco123  ; 
+                {{ $dpAdminPwd := printf "pw%s" (randAlphaNum 32) }}
+                {{ $dpViewUser := printf "gems-view-%s" $emsParams.dp.name }}
+                {{ $dpViewPwd := printf "pw%s" (randAlphaNum 32) }}
+                {{ $basename := printf "%s" "tp-msg-gateway"  }}
                 command: ['/compliance/check_eua', 'bash', '-c' ]
                 args:
                 - >
                   echo "Checking for tibadmin secret ... " ; 
                   set -x ;
-                  secretName="{{ $emsParams.ems.name }}-tibadmin" ;
+                  secretName="{{ $basename }}-tibadmin" ;
                   if kubectl get secret $secretName -n {{ .Release.Namespace }} ; then
-                    echo "Secret $secretName exists" ;
+                    echo "Secret $secretName exists, using existing secret" ;
                   else
                     echo "Secret $secretName does not exist" ;
                     echo "Creating secret $secretName" ;
-                    kubectl create secret generic $secretName -n {{ .Release.Namespace }} --from-literal=EMS_ADMIN_USER={{ $dpAdminUser }} --from-literal=EMS_ADMIN_PASSWORD={{ randAlphaNum 32 }} ; 
+                    kubectl create secret generic $secretName -n {{ .Release.Namespace }} \
+                      --from-literal=EMS_ADMIN_USER={{ $dpAdminUser }} --from-literal=EMS_ADMIN_PASSWORD={{ $dpAdminPwd }} \
+                      --from-literal=DP_ADMIN_USER={{ $dpAdminUser }} --from-literal=DP_ADMIN_PASSWORD={{ $dpAdminPwd }} \
+                      --from-literal=DP_VIEW_USER={{ $dpViewUser }} --from-literal=DP_VIEW_PASSWORD={{ $dpViewPwd }} \
+                      ; 
                     kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE ; 
                   fi ;
                 image: "{{ $emsParams.ems.image }}"

@@ -157,6 +157,8 @@ spec:
               - name: TCM_WATCHDOG_HOSTPORT
                 # note: $(MY_POD_NAME) will be one of {{ $stsname }}-[012]
                 value: "$(MY_POD_NAME):$(TCM_WD_PORT)"
+              - name: MY_DATAPLANE
+                value: "{{ $emsParams.dp.name }}"
               - name: COMMAND
                 value: "/data/boot/ops-tibemsadmin-shell.sh"
             volumes:
