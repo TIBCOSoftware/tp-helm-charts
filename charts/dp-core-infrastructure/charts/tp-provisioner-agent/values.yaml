@@ -10,10 +10,10 @@
 resources:
   requests:
     cpu: 200m
-    memory: 256Mi
+    memory: 350Mi
   limits:
-    cpu: 1000m
-    memory: 1024Mi
+    cpu: 1500m
+    memory: 1536Mi
 
 # no of replicas
 replicaCount: "1"
@@ -29,7 +29,7 @@ cacheCleanupInterval: "8h"
 
 image:
   name: infra-provisioner-agent
-  tag: 463
+  tag: 472
   pullPolicy: Always
 
 nodeSelector:

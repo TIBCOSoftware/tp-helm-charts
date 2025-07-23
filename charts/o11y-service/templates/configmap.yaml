@@ -95,6 +95,19 @@ data:
   {{- $appLogProc = "'[k8sattributes/general-ns, filter/userapp, transform/logs, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
+##logsserver:userapp secondary exporter
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.kind "otlp" }}
+  {{- $appLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.type "grpc" }}
+  {{- $appLogExp = printf "%s, %s" (trimAll "'[]'" $appLogExp) "otlp/logs-export" -}}
+  {{- $appLogExp = printf "'[%s]'" $appLogExp -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.type "http" }}
+  {{- $appLogExp = printf "%s, %s" (trimAll "'[]'" $appLogExp) "otlphttp/logs-export" -}}
+  {{- $appLogExp = printf "'[%s]'" $appLogExp -}}
+  {{- end }}
+  {{- end }}
+{{- end }}
 ##logsserver:userapp proxy
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.kind "elasticSearch" }}
@@ -142,6 +155,19 @@ data:
   {{- $svcLogProc = "'[k8sattributes/general-ns, filter/svc, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
+##logsserver:service secondary exporter
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.kind "otlp" }}
+  {{- $svcLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.type "grpc" }}
+  {{- $svcLogExp = printf "%s, %s" (trimAll "'[]'" $svcLogExp) "otlp/service-logs-export" -}}
+  {{- $svcLogExp = printf "'[%s]'" $svcLogExp -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.type "http" }}
+  {{- $svcLogExp = printf "%s, %s" (trimAll "'[]'" $svcLogExp) "otlphttp/service-logs-export" -}}
+  {{- $svcLogExp = printf "'[%s]'" $svcLogExp -}}
+  {{- end }}
+  {{- end }}
+{{- end }}
 ##metricsserver:exporter
 {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "prometheus" }}
@@ -186,6 +212,23 @@ data:
   {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
+##metricsserver:secondary exporter
+{{- if .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.kind "otlp" }}
+  {{- $metricsOtlpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.type "grpc" }}
+  {{- $appMetricsExp = printf "%s, %s" (trimAll "'[]'" $appMetricsExp) "otlp/metrics-export" -}}
+  {{- $appMetricsExp = printf "'[%s]'" $appMetricsExp -}}
+  {{- $promMetricsExp = printf "%s, %s" (trimAll "'[]'" $promMetricsExp) "otlp/metrics-export" -}}
+  {{- $promMetricsExp = printf "'[%s]'" $promMetricsExp -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.type "http"}}
+  {{- $appMetricsExp = printf "%s, %s" (trimAll "'[]'" $appMetricsExp) "otlphttp/metrics-export" -}}
+  {{- $appMetricsExp = printf "'[%s]'" $appMetricsExp -}}
+  {{- $promMetricsExp = printf "%s, %s" (trimAll "'[]'" $promMetricsExp) "otlphttp/metrics-export" -}}
+  {{- $promMetricsExp = printf "'[%s]'" $promMetricsExp -}}
+  {{- end }}
+  {{- end }}
+{{- end }}
 ##metricsserver:proxy
 {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.kind "prometheus" }}
@@ -225,6 +268,19 @@ data:
   {{- $traceProc = "'[k8sattributes/general, transform/traces, memory_limiter, batch]'" -}}
   {{- else }}
   {{- $traceProc = "'[k8sattributes/general-ns, transform/traces, memory_limiter, batch]'" -}}
+  {{- end }}
+{{- end }}
+##traceserver:secondary exporter
+{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.kind "otlp" }}
+  {{- $traceOtlpUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.endpoint }}
+  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.type "grpc" }}
+  {{- $traceExp = printf "%s, %s" (trimAll "'[]'" $traceExp) "otlp/traces-export" -}}
+  {{- $traceExp = printf "'[%s]'" $traceExp -}}
+  {{- else if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.type "http" }}
+  {{- $traceExp = printf "%s, %s" (trimAll "'[]'" $traceExp) "otlphttp/traces-export" -}}
+  {{- $traceExp = printf "'[%s]'" $traceExp -}}
+  {{- end }}
   {{- end }}
 {{- end }}
 {{- if not $appLogExpESOpt }}
