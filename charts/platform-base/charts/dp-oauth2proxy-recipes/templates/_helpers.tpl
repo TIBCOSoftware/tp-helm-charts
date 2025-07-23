@@ -53,7 +53,7 @@ helm.sh/chart: {{ include "dp-oauth2proxy-recipes.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.cloud.tibco.com/created-by: {{ include "dp-oauth2proxy-recipes.team" .}}
 platform.tibco.com/component: {{ include "dp-oauth2proxy-recipes.component" . }}
-platform.tibco.com/controlplane-instance-id: {{ include "dp-oauth2proxy-recipes.cp-instance-id" . }}
+platform.tibco.com/controlplane-instance-id: {{ .Values.global.tibco.controlPlaneInstanceId }}
 {{- end }}
 {{- end }}
 
@@ -69,44 +69,23 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{- define "dp-oauth2proxy.image.registry" }}
-  {{- if .Values.image.registry }} 
-    {{- .Values.image.registry }}
-  {{- else }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprdusw2reposaas.jfrog.io" "required" "false" "Release" .Release )}}
-  {{- end }}
+  {{- .Values.global.tibco.containerRegistry.url }}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "dp-oauth2proxy.image.repository" -}}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+  {{- .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
-
-
-{{/* Control plane environment configuration. This will have shared configuration used across control plane components. */}}
-{{- define "cp-env" -}}
-{{- $data := (lookup "v1" "ConfigMap" .Release.Namespace "cp-env") }}
-{{- $data | toYaml }}
-{{- end }}
 
 {{/* PVC configured for control plane. Fail if the pvc not exist */}}
 {{- define "dp-oauth2proxy-recipes.pvc-name" }}
-{{- if .Values.pvcName }}
-  {{- .Values.pvcName }}
+{{- if .Values.global.external.storage.pvcName }}
+  {{- .Values.global.external.storage.pvcName }}
 {{- else }}
-{{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "true"  "Release" .Release )}}
+  {{- "control-plane-pvc" }}
 {{- end }}
 {{- end }}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "dp-oauth2proxy-recipes.container-registry.secret" }}
-{{- if .Values.imagePullSecret }}
-  {{- .Values.imagePullSecret }}
-{{- else }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
-{{- end }}
-{{- end }}
+{{- define "dp-oauth2proxy-recipes.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
 
-{{/* Control plane instance Id. default value local */}}
-{{- define "dp-oauth2proxy-recipes.cp-instance-id" }}
-  {{- include "cp-env.get" (dict "key" "CP_INSTANCE_ID" "default" "cp1" "required" "false"  "Release" .Release )}}
-{{- end }}

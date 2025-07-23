@@ -9,7 +9,7 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for oauth2 proxy, default is latest
-    version: "10.2.16"
+    version: "10.2.17"
     tag: "v1.8.0"
     # Timestamp of capability release
     releaseDate: "2025/05/01"
@@ -20,12 +20,22 @@ global:
   cp:
     containerRegistry:
       repository: "tibco-platform-docker-prod"
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: "tibco-platform-docker-prod"  # repository
+    controlPlaneInstanceId: ""
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
 
 image:
   name: common-distroless-base-debian-debug
   registry: ""
   repo: ""
-  tag: 12
+  tag: 12.11
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

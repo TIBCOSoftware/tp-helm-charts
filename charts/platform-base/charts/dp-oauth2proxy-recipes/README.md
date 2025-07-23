@@ -30,6 +30,6 @@ image:
   name: distroless-base-debian-debug
   registry: ""
   repo: ""
-  tag: 12
+  tag: 12.11
   pullPolicy: IfNotPresent
 ```
