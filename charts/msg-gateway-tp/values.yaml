@@ -1,0 +1,33 @@
+# CP common setting
+global:
+  cp:
+    dataplane:
+      hostCloudType: "unset"
+    dataplaneId: "xx123"
+    containerRegistry:
+      registry: "ghcr.io"
+      repository: "tibco/msg-platform-cicd"
+      secret: "cic2-tcm-ghcr-secret"
+      pullSecret: "cic2-tcm-ghcr-secret"
+      pullPolicy: "Always"
+    resources:
+      serviceaccount:
+        serviceAccountName: "provisioner"
+    logging:
+      fluentbit:
+        enabled: true
+# Message Gateway additional settings
+msggw:
+  basename: ""
+  image: ""
+  # DELETEME: For Production
+  supportShellEnabled: "yes"
+dp:
+  pullSecret: ""
+  registry: ""
+  repo: ""
+  pullPolicy: ""
+  serviceAccount: ""
+# Support EMS values files
+ems:
+  msgData: {}

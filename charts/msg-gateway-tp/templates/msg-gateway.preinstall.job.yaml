@@ -1,0 +1,85 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Check for needed default credentials (like TLS support)
+#
+{{- $params := include "need.msg.gateway.params" . | fromYaml -}}
+{{- $basename := printf "%s" $params.msggw.basename  -}}
+{{- $jobname := printf "%s-preinstall-%s" $basename (randAlphaNum 4 | lower) -}}
+
+# Additional HELPER VARIABLE DEFINITIONS
+#
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $jobname }}"
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-preinstall
+    app.kubernetes.io/name: "{{ $params.msggw.basename }}-preinstall"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+spec:
+  backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  ttlSecondsAfterFinished: 14400
+  template:
+    metadata:
+      name: "{{ $jobname }}"
+      namespace: "{{ .Release.Namespace }}"
+      labels:
+        {{- include "msg-gateway.std.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.kubectl" . | indent 8}}
+        app.kubernetes.io/component: msg-gateway-preinstall
+        app.kubernetes.io/name: "{{ $params.msggw.basename }}-preinstall"
+    spec:
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if ne "none" $params.dp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $params.dp.pullSecret }}
+      {{- end }}
+      serviceAccountName: "{{ $params.dp.serviceAccount }}"
+      {{ include "msg.dp.security.pod" $params | nindent 6 }}
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: "main"
+        {{ $dpAdminUser := printf "gems-%s" $params.dp.name }}
+        {{ $dpAdminPwd := printf "pw%s" (randAlphaNum 32) }}
+        {{ $dpViewUser := printf "gems-view-%s" $params.dp.name }}
+        {{ $dpViewPwd := printf "pw%s" (randAlphaNum 32) }}
+        command: ['/compliance/check_eua', 'bash', '-c' ]
+        args:
+        - >
+          echo "Checking for tibadmin secret ... " ; 
+          set -x ;
+          secretName="{{ $basename }}-tibadmin" ;
+          if kubectl get secret $secretName -n {{ .Release.Namespace }} ; then
+            echo "Secret $secretName exists, using existing secret" ;
+          else
+            echo "Secret $secretName does not exist" ;
+            echo "Creating secret $secretName" ;
+            kubectl create secret generic $secretName -n {{ .Release.Namespace }} \
+              --from-literal=EMS_ADMIN_USER={{ $dpAdminUser }} --from-literal=EMS_ADMIN_PASSWORD={{ $dpAdminPwd }} \
+              --from-literal=DP_ADMIN_USER={{ $dpAdminUser }} --from-literal=DP_ADMIN_PASSWORD={{ $dpAdminPwd }} \
+              --from-literal=DP_VIEW_USER={{ $dpViewUser }} --from-literal=DP_VIEW_PASSWORD={{ $dpViewPwd }} \
+              ; 
+            kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE ; 
+          fi ;
+        image: "{{ $params.msggw.image }}"
+        resources:
+          {{ $params.job.resources | toYaml | nindent 10 }}
+        imagePullPolicy: "{{ $params.dp.pullPolicy }}"
+        {{ include "msg.dp.security.container" $params | nindent 8 }}
+        env:
+        # CAUTION! Setting Names here overrides envFrom values
+        {{ include "msg.dp.stdenv" $params | indent  8 }}
+        - name: ACCEPT_EUA
+          value: "y"
