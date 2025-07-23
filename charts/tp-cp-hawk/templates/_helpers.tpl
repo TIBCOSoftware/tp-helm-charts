@@ -103,7 +103,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "tp-hawk-infra.image.registry" }}
-{{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
+{{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprdusw2reposaas.jfrog.io" "required" "false" "Release" .Release )}}
 {{- end }}
 
 

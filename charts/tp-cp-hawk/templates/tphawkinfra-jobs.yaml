@@ -21,11 +21,10 @@ spec:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-setup-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/cluster-ingress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
@@ -139,11 +138,10 @@ spec:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/cluster-ingress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
@@ -256,11 +254,10 @@ spec:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/cluster-ingress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
@@ -373,11 +370,10 @@ spec:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback-{{ $resourceSuffix }}
       labels:
         {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/cluster-ingress: enable
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
       serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}

@@ -1,7 +1,7 @@
 # Copyright © 2024. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-
+#
 # TIBCO PLATFORM OVERLAY
 global:
   # .Values.global.enableLogging variable can be set to false to disable starting fluentbit side-car containers
@@ -32,7 +32,7 @@ global:
     fsGroupChangePolicy: "Always"
     seccompProfile:
       type: RuntimeDefault
-
+#
   containerSecurityContext:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
@@ -43,7 +43,6 @@ global:
         drop:
           - CAP_NET_RAW
           - ALL
-
     # The fluentbit configuration section.
     # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
     # Privilege escalation is not allowed for security reasons.
@@ -58,7 +57,7 @@ global:
           drop:
             - CAP_NET_RAW
             - ALL
-
+#
 # Resource values for production like setup
 hawkinfrajobs:
   resources:
@@ -76,7 +75,7 @@ fluentbit:
     limits:
       cpu: "150m"
       memory: "150Mi"
-
+#
 ## Images
 ##
 ## Control what images to use for each component
@@ -87,18 +86,13 @@ images:
       name: hawk-scripts
       pullPolicy: IfNotPresent
       # tag: 185
-      tag: "1.7.0.19"
-
+      tag: "1.9.0.28"
+#
 hawk:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
   ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
   deleteDBOnUninstall: "false"
-
+#
 # Default values for tp-cp-hawk-infra-querynode.
 tp-cp-hawk-infra-querynode:
-  enabled: true
-
-# Default values for tp-cp-hawk-infra-prometheus.
-tp-cp-hawk-infra-prometheus:
-  # PENDING-SinglePrometheis-Feature: enabled: false
   enabled: true

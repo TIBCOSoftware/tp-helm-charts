@@ -27,7 +27,10 @@ if [ -n "$EMS_CP_OWNER" ] ; then
     # adminList="$adminList"' {"name":"dmiller@tibco.com"},'
     # adminList="$adminList"' {"name":"bhorst@tibco.com"},'
     adminList="$adminList"' {"name":"'$EMS_CP_OWNER'"},'
-    msgGemsGrp='{"description":"CP Users with admin priviledges","members":[{"name":"'$EMS_CP_OWNER'"}],"name":"msg-gems-admin"},'
+    gemsDescription="CP Owner with admin priviledges"
+    gemsList='{"name":"'$EMS_CP_OWNER'"}'
+    gemsList="$gemsList"',{"name":"'$EMS_ADMIN_USER'"}'
+    msgGemsGrp='{"description":"'"$gemsDescription"'","members":['"$gemsList"'],"name":"msg-gems-admin"},'
 fi
 if [ -n "$EMS_ADMIN_USER" ] ; then 
     adminList="$adminList"' {"name":"'$EMS_ADMIN_USER'"},'

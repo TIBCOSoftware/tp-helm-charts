@@ -73,7 +73,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 
 {{- define "tp-cp-hawk-console-recipes.image.registry" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "reldocker.tibco.com" "required" "false" "Release" .Release )}}
+  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprdusw2reposaas.jfrog.io" "required" "false" "Release" .Release )}}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}

@@ -140,7 +140,7 @@ dp:
   scSharedName: {{ $scSharedName }}
   release: {{ .Release.Name }}
   namespace: {{ .Values.namespace | default .Release.Namespace }}
-  chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+  chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   fluentbitEnabled: {{ $fluentbitEnabled }}
   enableClusterScopedPerm: {{ $enableClusterScopedPerm }}
   enableSecurityContext: {{ $enableSecurityContext }}
@@ -175,7 +175,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.7.0.19"
+tib-dp-msgbuild: "1.9.0.28"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
@@ -311,6 +311,9 @@ msg.pv.vol.def - Generate a volumes: section from a standard volSpec structure
       {{- if .optional }}
     optional: true
       {{- end }}
+      {{- if .defaultMode }}
+    defaultMode: {{ .defaultMode }}
+      {{- end }}
 {{- else if eq "secret" .storageType -}}
 - name: {{ $volName }}
   secret:
@@ -435,6 +438,7 @@ securityContext:
   capabilities:
     drop:
     - ALL
+    - CAP_NET_RAW
   readOnlyRootFilesystem: true
   runAsNonRoot: true
     {{- end }}
@@ -447,7 +451,8 @@ securityContext:
   capabilities:
     drop:
     - ALL
-  readOnlyRootFilesystem: false
+    - CAP_NET_RAW
+  readOnlyRootFilesystem: true
   runAsNonRoot: true
     {{- end }}
   {{- end }}

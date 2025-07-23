@@ -4,6 +4,8 @@
 # in the license file that is distributed with this file.
 #
 
+# DO NOT SET .global.cp VALUES, these keys are controlled by the Control Plane
+# and will be overridden by the Control Plane.
 global:
   cp:
     dataplaneId:
@@ -13,6 +15,9 @@ global:
     logging:
       fluentbit:
         enabled: true
+    resources:
+      activationServer:
+        url: ""
 
 dp: {}
   # CAUTION:  Values set here will override .global.cp.*
@@ -26,6 +31,7 @@ ems:
   stores: ftl
   sizing: small
   use: dev
+  # .ems.activationUrl will be ignored once CP Activation server support is available
   activationUrl: "https://tib-activate:7070"
   # CAUTION: Current chart does not support overriding internal ports
   ports:

@@ -126,6 +126,7 @@ need.msg.dp.params
   {{- end -}}
 #
 dp:
+  activationUrl: "{{ .Values.dp.activationUrl | default .Values.global.cp.resources.activationServer.url | default .Values.ems.activationUrl | default "https://tib-activate:7070" }}"
   uid: 1000
   gid: 1000
   where: {{ $where }}
@@ -144,7 +145,7 @@ dp:
   scSharedName: {{ $scSharedName }}
   release: {{ .Release.Name }}
   namespace: {{ .Values.namespace | default .Release.Namespace }}
-  chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+  chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   fluentbitEnabled: {{ $fluentbitEnabled }}
   enableClusterScopedPerm: {{ $enableClusterScopedPerm }}
   enableResourceConstraints: {{ $enableResourceConstraints }}
@@ -180,7 +181,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.7.0.19"
+tib-dp-msgbuild: "1.9.0.28"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
@@ -321,6 +322,9 @@ msg.pv.vol.def - Generate a volumes: section from a standard volSpec structure
       {{- if .optional }}
     optional: true
       {{- end }}
+      {{- if .defaultMode }}
+    defaultMode: {{ .defaultMode }}
+      {{- end }}
 {{- else if eq "secret" .storageType -}}
 - name: {{ $volName }}
   secret:
@@ -459,7 +463,6 @@ securityContext:
     drop:
     - ALL
     - CAP_NET_RAW
-  # readOnlyRootFilesystem: false
   readOnlyRootFilesystem: true
   runAsNonRoot: true
     {{- end }}

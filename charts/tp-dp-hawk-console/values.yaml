@@ -20,7 +20,7 @@ replicaCount: "1"
 
 image:
   name: hawk-console
-  tag: "1.7.0.19"
+  tag: "1.9.0.28"
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -46,7 +46,7 @@ global:
       serviceaccount:
         serviceAccountName: ""
     containerRegistry:
-      url: "reldocker.tibco.com"
+      url: "csgprdusw2reposaas.jfrog.io"
       secret:
       repository: "tibco-platform-docker-prod"
     logging:
@@ -133,10 +133,24 @@ hawkconsole:
   # below are the intervals in milliseconds (example as below :30seconds) for each exporter subscription
   subscription:
     interval:
-      bw5: 30000
-      be: 30000
-      sys: 30000
-      o11y: 15000
+      bw5: 60000
+      be: 60000
+      sys: 60000
+      o11y: 60000
+
+  # Max file size and overall request size supported as a part of File upload request
+  fileupload:
+    fileSizeLimit: 30MB
+    requestSizeLimit: 32MB
+
+  # Domain specific properties
+  domain:
+    ems:
+      # Number of attempts and the interval in those attempts made
+      # to reinstate a connection with EMS server.
+      # The value should be comma separated value,
+      # where the first part represents the number of attempts and the second part represents interval in milli-seconds
+      reconnectAttemptsAndInterval: 1800,1000
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
