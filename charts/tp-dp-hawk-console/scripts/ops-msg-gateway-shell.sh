@@ -13,5 +13,17 @@ checkAuth=$(/logs/boot/ems-registration.sh checkHasDPAdmin)
 rtc=$?
 [ $rtc -ne 0 ] && echo "Manage Dataplane permission required, exiting." && exit $rtc
 mkdir -p $cliDir && pushd $cliDir
-/logs/boot/ems-registration.sh mainCliEmsAdmin
+if [[ "$MSG_CLI_APPNAME" =~ ^ems ]]; then
+    echo "Using app = $MSG_CLI_APPNAME"
+    /logs/boot/ems-registration.sh mainCliEmsAdmin
+elif [[ "$MSG_CLI_APPNAME" =~ ^support ]]; then
+    if [[ "$DP_SUPPORT_SHELL_ENABLED" =~ ^[FfNn0] ]]; then
+        echo "Support shell has been disabled, exiting."
+        exit 0
+    fi
+    echo "Using app = $MSG_CLI_APPNAME"
+    bash
+else
+    echo "Unknown app = $MSG_CLI_APPNAME"
+fi
 rm -rf $cliDir

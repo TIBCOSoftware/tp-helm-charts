@@ -18,7 +18,7 @@ services:
         size: 200
         num: 50
         rotateonfirststart: true
-  - name: admin-api
+  - name: tibemsrestd
     config:
       cmd: bash /logs/boot/start-multi-restd.sh
       cwd: ${EMS_RESTD_DIR}
@@ -26,6 +26,15 @@ services:
         size: 10
         num: 50
         debugfile: ${EMS_RESTD_DIR}/register-debug.log
+        rotateonfirststart: true
+  - name: tibrvmon
+    config:
+      cmd: bash /logs/boot/start-tibrvmon.sh
+      cwd: /logs/tibrvmon
+      log:
+        size: 10
+        num: 5
+        # debugfile: ${EMS_RESTD_DIR}/register-debug.log
         rotateonfirststart: true
   - name: pod-stats
     config:

@@ -41,7 +41,7 @@ curl_opts="-Ss -XPOST http://localhost:${LOG_ALERT_PORT-8099}/dp.routable"
 function alert
 { 
     log "ALERT: $*" 
-    payload="$(printf '{"message":"%s","level":"alert","caller":"%s"}' "$*" "health-watcher.sh" )"
+    payload="$(printf '{"message":"%s","level":"alert","caller":"%s"}' "$*" "pod-status.sh" )"
     if [ -n "$LOG_ALERT_PORT" ] ; then
         curl -d "$payload" -H "$curl_h" $curl_opts || true
     fi

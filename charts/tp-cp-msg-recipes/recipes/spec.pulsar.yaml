@@ -1,0 +1,154 @@
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+top: platform/pulsar
+# latest is first in versions.json
+files:
+  platform/pulsar/versions.json: |
+    [
+        {
+            "capabilityVersion": "1.5.0",
+            "minCPVersion": "1.5.0",
+            "maxCPVersion": "",
+            "minVersionRequiredForUpgrade": "1.4.0",
+            "minDPVersion": {
+                "dp-core-infrastructure": "1.4.0",
+                "dp-configure-namespace": "1.4.0"
+            },
+            "releaseNotes": "#cshid=migration_and_compatibility",
+            "releaseDate": "2025/2/27"
+        },
+        {
+            "capabilityVersion": "1.4.0",
+            "minCPVersion": "1.3.0",
+            "maxCPVersion": "",
+            "minVersionRequiredForUpgrade": "1.3.0",
+            "releaseNotes": "#cshid=migration_and_compatibility",
+            "releaseDate": "2024/12/15"
+        }
+    ]
+  platform/pulsar/1.5.0/recipe.yaml: |
+    #
+    # Copyright (c) 2023-2025. Cloud Software Group, Inc.
+    # This file is subject to the license terms contained
+    # in the license file that is distributed with this file.
+    #
+    recipe:
+      helmCharts:
+        - flags:
+            createNamespace: false
+            install: true
+          name: msg-pulsar-tp
+          namespace: ${NAMESPACE}
+          releaseName: ${SERVER_NAME}
+          repository:
+            chartMuseum:
+              host: "${HELM_REPO}"
+          values:
+            - content: |
+                apdVersion: "3.0.2-38"
+                apd:
+                  name: ${SERVER_NAME}
+                  use: ${ENV_USE}
+                  sizing: ${SERVER_SIZE}
+                cp: 
+                  adminUser: "${PROVISIONING_USER_EMAIL}"
+                  jwks: "${JWKS}"
+          version: "1.5.30"
+  platform/pulsar/1.5.0/package.json: |
+    {
+        "package": {
+            "allowMultipleInstances": true,
+            "capabilityResourceDependencies": [
+                {
+                    "description": "Select a resource for the storage-class of Pulsar message storage",
+                    "required": true,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Message Storage"
+                },
+                {
+                    "description": "Select a resource for the storage-class of Pulsar journal storage",
+                    "required": false,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Journal Storage"
+                },
+                {
+                    "description": "Select a resource for the storage-class of Pulsar log storage",
+                    "required": false,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Log Storage"
+                }
+            ],
+            "dependsOn": [],
+            "eula": true,
+            "provisioningRoles": [
+                "DEV_OPS"
+            ],
+            "services": []
+        }
+    }
+  platform/pulsar/1.4.0/recipe.yaml: |
+    #
+    # Copyright (c) 2023-2025. Cloud Software Group, Inc.
+    # This file is subject to the license terms contained
+    # in the license file that is distributed with this file.
+    #
+    recipe:
+      helmCharts:
+        - flags:
+            createNamespace: false
+            install: true
+          name: msg-pulsar-tp
+          namespace: ${NAMESPACE}
+          releaseName: ${SERVER_NAME}
+          repository:
+            chartMuseum:
+              host: "${HELM_REPO}"
+          values:
+            - content: |
+                apdVersion: "3.0.2-32"
+                apd:
+                  name: ${SERVER_NAME}
+                  use: ${ENV_USE}
+                  sizing: ${SERVER_SIZE}
+                cp: 
+                  adminUser: "${PROVISIONING_USER_EMAIL}"
+                  jwks: "${JWKS}"
+          version: "1.4"
+  platform/pulsar/1.4.0/package.json: |
+    {
+        "package": {
+            "allowMultipleInstances": true,
+            "capabilityResourceDependencies": [
+                {
+                    "description": "Select a resource for the storage-class of Pulsar message storage",
+                    "required": true,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Message Storage"
+                },
+                {
+                    "description": "Select a resource for the storage-class of Pulsar journal storage",
+                    "required": false,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Journal Storage"
+                },
+                {
+                    "description": "Select a resource for the storage-class of Pulsar log storage",
+                    "required": false,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Log Storage"
+                }
+            ],
+            "dependsOn": [],
+            "eula": true,
+            "provisioningRoles": [
+                "DEV_OPS"
+            ],
+            "services": []
+        }
+    }

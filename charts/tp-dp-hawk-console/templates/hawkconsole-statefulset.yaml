@@ -21,8 +21,6 @@ spec:
     metadata:
       labels:
         {{- include "tp-dp-hawk-console.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-web: enable
-        networking.platform.tibco.com/kubernetes-api: enable
         networking.platform.tibco.com/cluster-ingress: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
@@ -83,6 +81,12 @@ spec:
             value: {{ .Values.global.cp.controlTower.authToken }}
           - name: METRIC_AUTH_TOKEN
             value: {{ .Values.global.cp.controlTower.metricAuthToken }}
+          - name: MULTIPART_FILE_SIZE_LIMIT
+            value: {{ .Values.hawkconsole.fileupload.fileSizeLimit }}
+          - name: MULTIPART_FILE_REQUEST_SIZE_LIMIT
+            value: {{ .Values.hawkconsole.fileupload.requestSizeLimit }}
+          - name: EMS_DOMAIN_RECONNECT_ATTEMPTS_AND_INTERVAL
+            value: {{ .Values.hawkconsole.domain.ems.reconnectAttemptsAndInterval  }}
           - name: log_level
             value: {{ .Values.hawkconsole.log.level }}  
           - name: JAVA_TOOL_OPTIONS
@@ -176,13 +180,13 @@ spec:
             mountPath: /fluent-bit/etc/
 {{- end }}
       volumes:
-{{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: podlogs
-          emptyDir: {}
+          hostPath:
+            path: /var/log/pods
+            type: Directory
         - name: config-volume
           configMap:
             name: {{ include "tp-dp-hawk-console.consts.appName" . }}-fluentbit-config
-{{- end }}
         - name: hawkcerts
           secret:
             secretName: {{ include "tp-dp-hawk-console.consts.appName" . }}-certs

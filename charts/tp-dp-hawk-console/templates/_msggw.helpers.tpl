@@ -55,6 +55,7 @@ need.msg.dp.params
 dp:
   name: {{ .Values.global.cp.dataplaneId | default "no-dpName" }}
   release: {{ .Release.Name }}
+  chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   namespace: {{ .Values.namespace | default .Release.Namespace }}
   pullSecret: "{{ .Values.dp.pullSecret | default  .Values.global.cp.containerRegistry.secret | default "cic2-tcm-ghcr-secret" }}"
   adminUser: {{ .Values.dp.adminUser | default "tibadmin" }}
@@ -65,7 +66,7 @@ dp:
   cpHostname: {{ .Values.global.cp.cpHostname | default "no-cpHostname" }}
   subscriptionId: {{ .Values.global.cp.subscriptionId  | default "noSubid" }}
   cpInstanceId: {{ .Values.global.cp.instanceId  | default "noCPwho" }}
-  chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+  hostCloudType: {{ .Values.global.cp.hostCloudType | default "unset" }}
   enableClusterScopedPerm: {{ .Values.global.cp.enableClusterScopedPerm | default true }}
   fluentbitEnabled: {{ .Values.global.cp.logging.fluentbit.enabled | default true }}
   enableSecurityContext: true
@@ -79,13 +80,14 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-73" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-82" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
 msggw:
   basename: "{{ $basename }}"
   image: "{{ .Values.msggw.image | default $emsDefaultFullImage }}"
+  supportShellEnabled: {{ .Values.msggw.supportShellEnabled | quote }}
   ports:
     gatewayApiPort: 8376
     restdPort: 9014
@@ -97,6 +99,7 @@ msggw:
     storageType: configMap
     storageName: {{ $basename }}-scripts
     readOnly: true
+    defaultMode: 0777
   hawk: 
     volName: hawk
     storageType: sharedPvc
@@ -108,6 +111,19 @@ msggw:
     storageName: hawk-console-data-tp-dp-hawk-console-0
     subPath: "msg/logs"
   lbHost: "alternateNlbNameHere"
+  resources:
+    {{ if .Values.msggw.resources }}
+{{ .Values.msggw.resources | toYaml | indent 4 }}
+    {{ else }}
+    requests:
+      memory: "0.5Gi"
+      cpu: "0.1"
+    limits:
+      memory: "4Gi"
+      cpu: "3"
+    {{ end }}
+enableIngress: {{ .Values.enableIngress | default true }}
+securityProfile: "{{ .Values.securityProfile | default "pss-restrictive" }}"
 job:
   resources:
     {{ if and .Values.job .Values.job.resources }}
@@ -120,13 +136,15 @@ job:
       memory: "1Gi"
       cpu: "1"
     {{ end }}
-securityProfile: {{ .Values.securityProfile | default "pss-restrictive" }}
 {{ end }}
 
 {{/*
 msg.gateway.mon.labels $params - Generate CP monitoring labels
 */}}
 {{- define "msg.gateway.mon.labels" }}
+tib-dp-release: {{ .dp.release }}
+tib-dp-msgbuild: "1.9.0.28"
+tib-dp-chart: {{ .dp.chart }}
 platform.tibco.com/app-type: "msg-gateway"
 platform.tibco.com/scrape_finops: "true"
 platform.tibco.com/workload-type: "capability-service"
@@ -268,6 +286,9 @@ msg.pv.vol.def - Generate a volumes: section from a standard volSpec structure
     name: {{ .storageName }}
       {{- if .optional }}
     optional: true
+      {{- end }}
+      {{- if .defaultMode }}
+    defaultMode: {{ .defaultMode }}
       {{- end }}
 {{- else if eq "secret" .storageType -}}
 - name: {{ $volName }}

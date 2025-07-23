@@ -40,12 +40,19 @@ done
 
 echo "Waiting for EMS-Active Service ... "
 wait_for_active
-# 1.3.0 tibadmin init: Use admin user to fix tibadmin users
-emsData='{"name": "tibadmin", "description": "msgdp-update", "password": "'"$EMS_ADMIN_PASSWORD"'" }' || true
+
+# Set Password for GEMS user
+echo >&2 "#+: Set Password for GEMS user"
 export EMS_ADMIN_USER=""
 export EMS_ADMIN_PASSWORD=""
-/boot/emsadmin-curl.sh -a /users/tibadmin -X POST \
-   --data "$emsData" || true
+dataAddUser="$(printf '{"name":"%s","description":"user-update","password":"%s"}' $DP_ADMIN_USER $DP_ADMIN_PASSWORD )"
+dataAddGroup="$(printf '{"add_users":["%s"]}' $DP_ADMIN_USER )"
+addDebug=""
+/boot/emsadmin-curl.sh $addDebug -u admin -p ''  -s $EMS_ADMIN_URL -a /users/$DP_ADMIN_USER -X POST \
+   --data "$dataAddUser" || true
+cat curl.debug
+/boot/emsadmin-curl.sh $addDebug -u 'admin' -p '' -s $EMS_ADMIN_URL  --data "$dataAddGroup" \
+    -X POST -a "/groups/msg-gems-admin/users" || true
 cat curl.debug
 
 exit $rtc

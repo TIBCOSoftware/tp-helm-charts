@@ -18,8 +18,6 @@ spec:
     metadata:
       labels:
         {{- include "tp-hawk-infra-querynode.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/cluster-ingress: enable

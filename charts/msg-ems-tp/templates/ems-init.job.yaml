@@ -32,7 +32,7 @@ metadata:
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
-    ttlSecondsAfterFinished: 180
+    ttlSecondsAfterFinished: 3600
     template:
         metadata:
             name: "{{ $emsParams.ems.name }}-emsinit"
@@ -97,7 +97,7 @@ spec:
                   name: ems-data
                 envFrom:
                   - secretRef:
-                      name: "{{ $emsParams.ems.name }}-tibadmin"
+                      name: "tp-msg-gateway-tibadmin"
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
                 {{ include "msg.dp.stdenv" $emsParams | indent  16 }}

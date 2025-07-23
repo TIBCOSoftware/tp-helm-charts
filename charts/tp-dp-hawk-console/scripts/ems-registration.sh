@@ -27,6 +27,9 @@ export TIBEMSADMIN=${TIBEMSADMIN:-$EMS_HOME/bin/tibemsadmin}
 export EMS_RESTD_DIR=${EMS_RESTD_DIR:-/logs/restd-api}
 export restartRequest="${EMS_RESTD_DIR}/restart-request"
 export namespace=${MY_NAMESPACE:-NS-$RANDOM}
+export useHawk=no
+# [ "$DP_CLOUDTYPE" == "control-tower" ] && useHawk=yes
+[ -d "/data/hawk/emscerts" ] && useHawk=yes
 # set EMS_REG_DEBUG=y  For additional debug output
 # export EMS_REG_DEBUG=y
 export checkingErrors=()
@@ -56,6 +59,31 @@ function parseCmdOptions {
     mv "$regSpec" "$tmpId.reg.json"
     export regSpec="$tmpId.reg.json"
   fi
+}
+
+function k8EmsRegistrationPayload {
+  export groupName="${1:-"myems"}"
+  export outfile="${2:-groupName.reg.json}"
+  export podBase="$groupName-ems"
+  export podDom="$groupName-ems-pods.$MY_NAMESPACE.svc"
+  export clientUrl="tcp://$podBase-0.$podDom:9011,tcp://$podBase-1.$podDom:9011,tcp://$podBase-2.$podDom:9011"
+  export monitorUrl="http://$podBase-0.$podDom:9010,http://$podBase-1.$podDom:9010,http://$podBase-2.$podDom:9010"
+  export capabilityId="$(kubectl get cm/"$groupName-clients" -o=jsonpath='{.metadata.labels.tib-dp-capability-instance-id}')"
+  export capabilityName="$(kubectl get cm/$groupName-clients -o=jsonpath='{.metadata.labels.tib-msg-ems-name}-{.metadata.labels.tib-msg-ems-use}')"
+  export resourceInstanceId="$capabilityId"
+  echo >&2 "#+: CAP = $capabilityId, $capabilityName"
+  cat - <<EOF > $outfile
+{
+  "groupName": "$capabilityName",
+  "clientUrl": "$clientUrl",
+  "monitorUrl": "$monitorUrl",
+  "dataplaneId": "$MY_DATAPLANE",
+  "resourceInstanceId": "$capabilityId",
+  "registrationUser": "admin",
+  "registrationPass": "",
+}
+EOF
+  echo >&2 "#+: Registration spec created: $outfile"
 }
 
 function parseServerSpec {
@@ -122,18 +150,18 @@ function parseServerUrls {
   scheme="$(echo "$PrimaryUrl" | cut -d: -f1)"
   port="$(echo "$PrimaryUrl" | cut -d: -f3)"
   export PrimaryHost="$(echo "$PrimaryUrl" | cut -d: -f2 | cut -c3- )"
-  export PrimaryRole="$( echo "$PrimaryHost:$port" | tr '.' ',')"  # Hostname for healthcheck
+  export PrimaryRole="$( echo "$PrimaryHost:$port" )"  # Hostname for healthcheck
   export PrimaryListen="${scheme}://0.0.0.0:${port}"
   scheme="$(echo "$SecondaryUrl" | cut -d: -f1)"
   port="$(echo "$SecondaryUrl" | cut -d: -f3)"
   export SecondaryHost="$(echo "$SecondaryUrl" | cut -d: -f2 | cut -c3- )"
-  export SecondaryRole="$( echo "$SecondaryHost:$port" | tr '.' ',')"  # Hostname for healthcheck
+  export SecondaryRole="$( echo "$SecondaryHost:$port" )"  # Hostname for healthcheck
   export SecondaryListen="${scheme}://0.0.0.0:${port}"
   scheme="$(echo "$StandbyOnlyUrl" | cut -d: -f1)"
   port="$(echo "$StandbyOnlyUrl" | cut -d: -f3)"
   export StandbyOnlyListen="${scheme}://0.0.0.0:${port}"
   export StandbyOnlyHost="$(echo "$StandbyOnlyUrl" | cut -d: -f2 | cut -c3- )"
-  export StandbyOnlyRole="$( echo "$StandbyOnlyHost:$port" | tr '.' ',')"  # Hostname for healthcheck
+  export StandbyOnlyRole="$( echo "$StandbyOnlyHost:$port" )"  # Hostname for healthcheck
 
   # Process monitorUrl list
   export firstMon="$(echo "$monitorUrl" | cut -s -d, -f1)"
@@ -274,6 +302,7 @@ function genRestdServerConfig {
       tags:
         - $dataplaneId
         - $resourceInstanceId
+        - id=$resourceInstanceId
         - $groupName
         - $namespace
       servers:
@@ -679,6 +708,7 @@ function serverIsRegistered {
   return 0
 }
 function waitForConnect {
+  echo >&2 "#+: Waiting for group=$groupName"
   for try in $(seq 90) ; do 
     # restdConnect
     [ -n "$EMS_REG_DEBUG" ] && echo >&2 "Waiting for restd ($try)"
@@ -799,8 +829,7 @@ function hawkServer {
   # [ -n "$monitorCert" ] && useMtls=true
   if [ -n "$monitorCert" ] ; then
     useMtls=true
-    # FIXME: client-verify-server should not be required.
-    certVerif=true
+    certVerif=false
     [ -z "$monitorTrusted" ] && monitorTrusted="$clientTrusted"
   fi
   cat - <<EOF
@@ -971,6 +1000,75 @@ function testHawkPayload {
   genHawkPayload
 }
 
+function mainK8RegisterEms {
+  export checkingErrors=()
+  if [ -z "$1" ] ; then
+    echo >&2 "find and register K8DPs EMS"
+    mkdir -p "$tmpId.restd.bk"
+    mv "${EMS_RESTD_DIR}"/ems.*.restd.yaml "$tmpId.restd.bk/"
+    kubectl get cm -l=tib-dp-msg-info=ems-ew-clients | egrep -v NAME | while read cmClient o ; do 
+      export groupName="${cmClient%%-clients}"
+      echo >&2 "DEBUG: $groupName"
+      k8EmsRegistrationPayload "$groupName" "$tmpId.$groupName.reg.json"
+      export regSpec="$tmpId.$groupName.reg.json"
+      parseServerSpec
+      parseServerUrls
+      # checkRestdJson
+      [ $? -ne 0 ] && echo >&2 "ERROR:  $groupName - Errors found in configuration" && continue
+      genRestdServerConfig
+      log "    :$groupName: Registration complete"
+      echo "$groupName"  > $tmpId.groupname
+    done
+    # restartRestd
+    export groupName="$(cat $tmpId.groupname)"
+    requestRestdRestart
+    [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
+  elif [ preload = "$1" ] ; then
+    echo >&2 "find and preload K8DPs EMS restd configs"
+    mkdir -p "$tmpId.restd.bk"
+    mv "${EMS_RESTD_DIR}"/ems.*.restd.yaml "$tmpId.restd.bk/"
+    kubectl get cm -l=tib-dp-msg-info=ems-ew-clients | egrep -v NAME | while read cmClient o ; do 
+      export groupName="${cmClient%%-clients}"
+      echo >&2 "DEBUG: $groupName"
+      k8EmsRegistrationPayload "$groupName" "$tmpId.$groupName.reg.json"
+      export regSpec="$tmpId.$groupName.reg.json"
+      parseServerSpec
+      parseServerUrls
+      # checkRestdJson
+      [ $? -ne 0 ] && echo >&2 "ERROR:  $groupName - Errors found in configuration" && continue
+      genRestdServerConfig
+      log "    :$groupName: Registration complete"
+      echo "$groupName"  > $tmpId.groupname
+    done
+    export groupName="$(cat $tmpId.groupname)"
+  else 
+    echo >&2 "Regiester one request"
+    k8RegisterEms "$@"
+  fi
+  return ${#checkingErrors[@]}
+}
+
+function k8RegisterEms {
+  # Register an EMS K8s provisioned group
+  # mainRestdEmsConfig "$@"
+  parseCmdOptions "$@"
+  k8EmsRegistrationPayload "$groupName" "$tmpId.$groupname.reg.json"
+  export regSpec="$tmpId.$groupname.reg.json"
+  parseServerSpec
+  parseServerUrls
+  checkRestdJson
+  [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found in configuration" && return 1
+  genRestdServerConfig
+  # restartRestd
+  requestRestdRestart
+  waitForConnect
+  [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
+  enableGemsAdmin
+  [ $? -ne 0 ] && echo >&2 "ERROR:  Error during EMS Gems configuration" && return 1
+  log "    :$groupName: Registration complete"
+  return ${#checkingErrors[@]}
+}
+
 function mainRegisterEms {
   # Register an EMS group via JSON payload file
   mainRestdEmsConfig "$@"
@@ -981,9 +1079,11 @@ function mainRegisterEms {
   [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
   enableGemsAdmin
   [ $? -ne 0 ] && echo >&2 "ERROR:  Error during EMS Gems configuration" && return 1
-  hawkMsgHealthEndpoint
-  enableHawkScraping
-  [ $? -ne 0 ] && echo >&2 "ERROR:  Hawk config failed." && return 1
+  if [ yes = "$useHawk" ] ; then
+    hawkMsgHealthEndpoint
+    enableHawkScraping
+    [ $? -ne 0 ] && echo >&2 "ERROR:  Hawk config failed." && return 1
+  fi
   log "    :$groupName: Registration complete"
   return ${#checkingErrors[@]}
 }
