@@ -1,0 +1,192 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+#
+{{- $params := include "need.msg.gateway.params" . | fromYaml -}}
+{{- $basename := printf "%s" $params.msggw.basename  -}}
+{{- $stsname := printf "%s" $basename -}}
+#
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: "{{ $stsname }}"
+    namespace: "{{ .Release.Namespace }}"
+    labels:
+      {{ include "msg-gateway.std.labels" $params | nindent 6 }}
+      app.kubernetes.io/component: msg-gateway
+      tib-msg-stsname: "{{ $stsname }}"
+    # Omit until monitoring is ready
+    # annotations:
+    #   platform.tibco.com/quorum-min: "1"
+    #   platform.tibco.com/quorum-strategy: "active-active"
+spec:
+    podManagementPolicy: Parallel
+    replicas: 1
+    selector:
+        matchLabels:
+          tib-msg-stsname: "{{ $stsname }}"
+    serviceName: "{{ $stsname }}"
+    template:
+        metadata:
+            labels:
+              {{ include "msg-gateway.std.labels" $params | nindent 14 }}
+              {{ include "msg.dp.net.egress" . | indent 14 }}
+              networking.platform.tibco.com/kubernetes-api: enable
+              app.kubernetes.io/component: msg-gateway
+              tib-msg-stsname: "{{ $stsname }}"
+            name: {{ $stsname }}
+            annotations:
+              rollme: {{ randAlphaNum 5 | quote }}
+        spec:
+            {{- if ne "none" $params.dp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $params.dp.pullSecret }}
+            {{- end }}
+            # NOTE: if hostname/subdomain do not agree with podname/service
+            # .. DNS pod resolution problems can occur
+            hostname: "{{ $stsname }}"
+            enableServiceLinks: false
+            subdomain: "{{ $stsname }}"
+            nodeSelector:
+              kubernetes.io/os: linux
+            containers:
+            - name: "{{ $stsname }}"
+              image: "{{ $params.msggw.image }}"
+              # image: "ghcr.io/tibco/msg-platform-cicd/msg-ems-all:10.4.0-66b"
+              # v90-rollback: image: "ghcr.io/tibco/msg-platform-cicd/msg-ems-all:10.4.0-47"
+              # nightly: image: "ghcr.io/tibco/msg-platform-cicd/msg-ems-all:10.4.0-48"
+              imagePullPolicy: "{{ $params.dp.pullPolicy }}"
+              resources:
+{{ $params.msggw.resources | toYaml | indent 16 }}
+              # exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ; 
+              # exec /usr/local/watchdog/bin/watchdog  ; 
+              # cd /app ; exec /app/cloudshell  ; 
+              command: ['/compliance/check_eua', 'bash', '-c' ]
+              args:
+              - >
+                COPY_FROM=/boot COPY_TO=/logs/boot bash < /boot/copy-boot-config.sh ;
+                COPY_FROM=/boot COPY_TO=/data/boot bash < /boot/copy-boot-config.sh ;
+                COPY_FROM=/boot-certs COPY_TO=/data/certs bash < /boot/copy-boot-config.sh ;
+                COPY_FROM=/opt/tibco/ems/current-version/samples/certs COPY_TO=/data/certs/samples  bash < /boot/copy-boot-config.sh ;
+                /logs/boot/ems-registration.sh mainK8RegisterEms preload | tee /logs/init-registration.log || true ;
+                exec /usr/local/watchdog/bin/watchdog  ; 
+              ports:
+              - name: ops-shell
+                containerPort: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+                # Requires websocket upgrade support
+                protocol: TCP
+              - name: restd-port
+                containerPort: {{ int $params.msggw.ports.restdPort | default 9014 }}
+                protocol: TCP
+              - name: rvmon-port
+                containerPort: {{ int $params.msggw.ports.rvmon | default 7585 }}
+                protocol: TCP
+              - name: watchdog-port
+                containerPort: {{ int $params.msggw.ports.watchdogPort }}
+                protocol: TCP
+              - name: logger-port
+                containerPort: {{ int $params.msggw.ports.loggerPort }}
+                protocol: TCP
+              {{ include "msg.dp.security.container" $params | nindent 14 }}
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: 8376
+                initialDelaySeconds: 3
+                periodSeconds: 15
+                successThreshold: 1
+                failureThreshold: 4
+              readinessProbe:
+                httpGet:
+                  path: /readyz
+                  port: 8376
+                initialDelaySeconds: 3
+                periodSeconds: 10
+                successThreshold: 1
+                failureThreshold: 3
+              volumeMounts:
+              - mountPath: /boot
+                {{ include "msg.pv.vol.mount" $params.msggw.boot | nindent 16 }}
+              - mountPath: /data
+                {{ include "msg.pv.vol.mount" $params.msggw.data | nindent 16 }}
+              - mountPath: /logs
+                {{ include "msg.pv.vol.mount" $params.msggw.data | nindent 16 }}
+              - mountPath: /podinfo
+                name: podinfo
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              envFrom:
+                - secretRef:
+                    name : "{{ $basename }}-tibadmin"
+                    optional: true
+              env:
+              {{ include "msg.dp.stdenv" $params | indent  14 }}
+              - name: UPGRADE_ACTION
+                value: "force"
+              - name: COMMAND
+                value: /logs/boot/ops-msg-gateway-shell.sh
+              - name: EMS_RESTD_DIR
+                value: "/logs/restd-api"
+              - name: EMS_RESTD_URL
+                value: "http://localhost:{{ $params.msggw.ports.restdPort | default 9014 }}"
+              - name: MY_DATAPLANE
+                value: "{{ $params.dp.name }}"
+              - name: DP_USE_HAWK
+                value: "no"
+              - name: DP_CLOUDTYPE
+                value: "{{ $params.dp.hostCloudType }}"
+              - name: DP_SUPPORT_SHELL_ENABLED
+                value: {{ $params.msggw.supportShellEnabled | default "no" | quote }}
+              - name: MY_SVC_NAME
+                value: "{{ $stsname }}"
+              - name: MY_SVC_HOST
+                value: "$(MY_POD_NAME).{{ $stsname }}.{{ .Release.Namespace }}.svc"
+              - name: ALLOWED_HOSTNAMES
+                value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}"
+              - name: ACCEPT_EUA
+                value: "y"
+              - name: EMS_REG_DEBUG
+                # value: "y"
+                value: 
+              - name: GOTRACEBACK
+                value: "crash"
+              - name: TCM_WATCHDOG_LOG_FILE
+                value: /logs/watchdog.log
+              - name: TCM_WATCHDOG_CONFIG
+                value: "/logs/boot/toolset.wd.yaml"
+              - name: TCM_WD_PORT
+                value: "{{ $params.msggw.ports.watchdogPort }}"
+              - name: TCM_WATCHDOG_HOSTPORT
+                # note: $(MY_POD_NAME) will be one of {{ $stsname }}-[012]
+                value: "$(MY_POD_NAME):$(TCM_WD_PORT)"
+            volumes:
+            {{ include "msg.pv.vol.def" $params.msggw.boot | nindent 12 }}
+            {{ include "msg.pv.vol.def" $params.msggw.data | nindent 12 }}
+            # NOTE: $params.msggw.logs uses hawk shared PVC
+            - name: podinfo
+              downwardAPI:
+                items:
+                  - path: "labels"
+                    fieldRef:
+                      fieldPath: metadata.labels
+                  - path: "annotations"
+                    fieldRef:
+                      fieldPath: metadata.annotations
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            {{ include "msg.dp.security.pod" $params | nindent 12 }}
+            # The service account allows access to helm/kubectl actions
+            serviceAccountName: "{{ $params.dp.serviceAccount }}"
+            terminationGracePeriodSeconds: 10
+    updateStrategy:
+        # type: OnDelete
+    # MSG DATA ALLOCATE NEW STORAGE
+    volumeClaimTemplates:
+    {{ include "msg.pv.vol.vct" $params.msggw.data | nindent 4 }}
+...

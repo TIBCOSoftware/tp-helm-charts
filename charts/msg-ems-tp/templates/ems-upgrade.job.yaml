@@ -56,6 +56,7 @@ spec:
           - name: scripts-vol
             configMap:
               name: "{{ $emsParams.ems.name }}-scripts"
+              defaultMode: 0777
           - name: "ems-log"
             {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
             persistentVolumeClaim:
@@ -75,7 +76,6 @@ spec:
                 ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
                 mkdir -p /logs/boot ; cd /logs/boot ;
-                bash < /boot/fix-sample-certs.sh ; 
                 echo "Upgrading pods ..." ; 
                 kubectl get pods -l=tib-msg-stsname={{ $stsname }} | egrep -v NAME | while read x o ; do 
                   echo "POD=$x"; done ; 

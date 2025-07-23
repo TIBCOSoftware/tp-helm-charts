@@ -144,7 +144,7 @@ dp:
   scSharedName: {{ $scSharedName }}
   release: {{ .Release.Name }}
   namespace: {{ .Values.namespace | default .Release.Namespace }}
-  chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+  chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   fluentbitEnabled: {{ $fluentbitEnabled }}
   enableClusterScopedPerm: {{ $enableClusterScopedPerm }}
   enableResourceConstraints: {{ $enableResourceConstraints }}
@@ -180,7 +180,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.7.0.19"
+tib-dp-msgbuild: "1.9.0.28"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"

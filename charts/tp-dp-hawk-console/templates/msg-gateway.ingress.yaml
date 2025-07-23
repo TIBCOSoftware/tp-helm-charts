@@ -84,6 +84,32 @@ spec:
               # FIXME: Values setting
               number: 9014
 ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-rvmon"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ct/rvmon/(.*) /\1'
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ tpl .Values.ingress.className . }}
+  rules:
+  - host: "dp-{{ .Values.global.cp.dataplaneId }}.platform.local"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/msg/ct/rvmon/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              # FIXME: Values setting
+              # containerPort: {{ int $params.msggw.ports.rvmon | default 7585 }}
+              number: 7585
+---
 kind: Service
 apiVersion: v1
 metadata:
@@ -99,6 +125,9 @@ spec:
     protocol: TCP
   - name: restd
     port: 9014
+    protocol: TCP
+  - name: rvmon
+    port: 7585
     protocol: TCP
   selector:
     tib-msg-stsname: "{{ $svcname }}"

@@ -1,0 +1,131 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{- $params := include "need.msg.gateway.params" . | fromYaml -}}
+{{- $basename := printf "%s" $params.msggw.basename  -}}
+{{- $svcname := $basename -}}
+#
+{{- if $params.enableIngress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-ops"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ops/shell/toolset/(.*) /\1'
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: "tibco-dp-{{ $params.dp.name }}"
+  rules:
+  - host: "{{ .Values.global.cp.cpHostname }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/msg/ops/shell/toolset/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-api"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ct/toolset/(.*) /\1'
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: "tibco-dp-{{ $params.dp.name }}"
+  rules:
+  - host: "dp-{{ $params.dp.name }}.platform.local"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/msg/ct/toolset/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-restd"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ct/restd/(.*) /\1'
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: "tibco-dp-{{ $params.dp.name }}"
+  rules:
+  - host: "dp-{{ $params.dp.name }}.platform.local"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /tibco/agent/msg/ct/restd/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              # FIXME: Values setting
+              number: 9014
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcname }}"
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-service
+    tib-msg-stsname: "{{ $svcname }}"
+spec:
+  ports:
+  - name: ops-shell
+    port: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+    protocol: TCP
+  - name: restd
+    port: 9014
+    protocol: TCP
+  - name: rvmon
+    port: 7585
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $svcname }}"
+
+---
+# Pending removal - deferred to 1.7.0 w/ Single prometheus
+# 1.5.0: Monitors BMDP scrape service
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $svcname }}-finops"
+  annotations:
+    {{ include "msg.gateway.mon.anno" $params | indent 4 }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    {{ include "msg.gateway.mon.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-finops
+    tib-msg-stsname: "{{ $svcname }}"
+spec:
+  ports:
+  - name: ops-shell
+    port: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $svcname }}"
+
+{{- end }}

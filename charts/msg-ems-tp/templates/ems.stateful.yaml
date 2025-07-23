@@ -216,12 +216,16 @@ spec:
             {{ end }}
               envFrom:
                 - secretRef:
-                    name: "{{ $emsParams.ems.name }}-tibadmin"
+                    # name: "{{ $emsParams.ems.name }}-tibadmin"
+                    name: "tp-msg-gateway-tibadmin"
+                    optional: True
               env:
               {{ include "msg.dp.stdenv" $emsParams | indent  14 }}
               - name: TIBEMS_LICENSE
                 #TIBEMS_LICENSE=https://msgblade07.na.tibco.com:7070
-                value: "{{ $emsParams.ems.activationUrl }}"
+                value: "{{ $emsParams.dp.activationUrl }}"
+              - name: TIBFTL_LICENSE
+                value: "{{ $emsParams.dp.activationUrl }}"
               - name: ACCEPT_EUA
                 value: "y"
               - name: GOTRACEBACK
@@ -252,6 +256,8 @@ spec:
                 value: "{{ $emsParams.ems.name }}"
               - name: MY_INSTANCE_ID
                 value: "{{ $emsParams.dp.instanceId }}"
+              - name: MY_DATAPLANE
+                value: "{{ $emsParams.dp.name }}"
               - name: DATAPLANE_ID
                 value: "{{ $emsParams.dp.name }}"
               - name: MY_SVC_NAME

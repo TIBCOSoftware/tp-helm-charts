@@ -52,9 +52,10 @@ spec:
             containers:
             -   name: "msg-cp-efs"
                 command: ['bash', '-c', ]
+                # bash < /boot/copy-ui-to-cp.sh
                 args:
                 - >
-                  bash < /boot/copy-ui-to-cp.sh
+                  bash < /boot/extract-recipe-packages.sh
                 image: "{{ $recipesParams.cp.imageFullName }}"
                 imagePullPolicy: {{ $recipesParams.cp.pullPolicy }}
                 {{ include "msg.cp.security.container" $recipesParams | nindent 16 }}
