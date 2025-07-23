@@ -46,14 +46,51 @@ data:
       Name              parser
       Match             cp.*
       key_name          log
-      parser            tsc-node-logger
+      parser            x-log-level
       Reserve_Data      On
       Preserve_Key      On
+    [FILTER]
+      Name              parser
+      Match             cp.*
+      key_name          log
+      parser            x-app-id
+      Reserve_Data      On
+      Preserve_Key      On
+    [FILTER]
+      Name              parser
+      Match             cp.*
+      key_name          log
+      parser            webserver-x-user-id
+      Reserve_Data      On
+      Preserve_Key      On
+    [FILTER]
+      Name              parser
+      Match             cp.*
+      key_name          log
+      parser            node-logger
+      Reserve_Data      On
+      Preserve_Key      On
+    [FILTER]
+      Name              modify
+      Match             cp.*
+      Rename            log tscparseroriginal
+    [FILTER]
+      Name              nest
+      Match             cp.*
+      Operation         nest
+      Wildcard          tscparser*
+      Nest_under        log
+      Remove_prefix     tscparser
+    [FILTER]
+      Name lua
+      Match cp.*
+      Script update_record.lua
+      Call update_record
 
   output.conf: |
     [OUTPUT]
       Name                 opentelemetry
-      Match                *
+      Match                cp.*
       Host                 {{ include "be-webserver.cp-otel-services" . }}
       Port                 4318
       Logs_uri             /v1/logs
@@ -67,8 +104,56 @@ data:
 
   parsers.conf: |
     [PARSER]
-      Name tsc-node-logger
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+    [PARSER]
+      Name   x-log-level
+      Format regex
+      Regex ^*\[*x-log-level=(?:[\\" ]*)(?<LogLevel>[^ "\\\]]*).*$
+      Skip_Empty_Values False
+    [PARSER]
+      Name x-app-id
+      Format regex
+      Regex ^*\[*x-app-id=(?:[\\" ]*)(?<AppId>[^ "\\\]]*).*$
+      Skip_Empty_Values False
+    [PARSER]
+      Name x-user-id
+      Format regex
+      Regex ^*\[*x-user-id=(?:[\\" ]*)(?<UserId>[^ "\\\]]*).*$
+      Skip_Empty_Values False
+    [PARSER]
+      Name webserver-x-user-id
+      Format regex
+      Regex ^*\[*x-user-id:(?:[\\" ]*)(?<UserId>[^ "\\\]]*).*$
+      Skip_Empty_Values False
+    [PARSER]
+      Name node-logger
       Format regex
       Regex ^*(?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) \[.*\] (?<tscparserlogger>[^ ]*) (?<tscparsermessage>.*)$
       Skip_Empty_Values False
-{{- end -}}
+  update_record.lua: |
+    -- Function to append all fields under key "msg"
+    function update_record(tag, timestamp, record)
+      local newLog = record["log"]
+      local newMsg = newLog["msg"]
+      if(newLog ~= nil and type(newLog) == "table") then
+        for key, val in pairs(newLog) do
+          if(key ~= "level" and key ~= "caller" and key ~= "msg" and key ~= "stacktrace" and key ~= "error" and key ~= "errorVerbose") then
+            if(key ~= "time") then
+              newMsg = newMsg .. ", " .. key .. ": " .. tostring(val)
+            end
+            newLog[key] = nil
+          end
+        end
+        newLog["msg"] = newMsg
+        record["log"] = newLog
+      end
+      return 2, timestamp, record
+    end
+{{- end }}
+
