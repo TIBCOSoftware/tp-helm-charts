@@ -9,6 +9,38 @@ global:
   tibco:
     is_replica_region: false
     finops: "disable"
+    serviceAccount: ""
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""  # repository
+      certificateSecret: ""  # secret name containing the custom certificates
+    controlPlaneInstanceId: ""
+    useSingleNamespace: true
+    enableResourceConstraints: true
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          tag: 4.0.3
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+      repository: "tibco-platform-docker-prod"  # repository
   external:
     db_host: ""
     db_master_writer_host: ""
@@ -24,6 +56,8 @@ global:
     fromAndReplyToEmailAddress: ""
     cronJobReportsEmailAlias: ""
     platformEmailNotificationCcAddresses: ""
+    cpEncryptionSecretName: "cporch-encryption-secret"
+    cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
     emailServerType: "smtp"
     emailServer:
       ses:
@@ -40,7 +74,13 @@ global:
       firstname: ""
       lastname: ""
       customerID: ""
-
+    dnsDomain: ""
+    clusterInfo:
+      nodeCIDR: ""
+      serviceCIDR: ""
+      podCIDR: ""
+    storage:
+      pvcName: "control-plane-pvc"
 
 # Default values for tp-cp-integration.
 tp-cp-integration:
@@ -80,3 +120,28 @@ tp-cp-hawk:
 # Default values for tp-cp-prometheus.
 tp-cp-prometheus:
   enabled: true
+
+tp-cp-o11y:
+  enabled: true
+  # Resource values for production-like setup
+  # requests: Minimum amount of resources required for the application to run.
+  # limits: Maximum amount of resources the application can use.
+  resources:
+    requests:
+      cpu: 200m  # Minimum CPU required
+      memory: 256Mi  # Minimum memory required
+    limits:
+      cpu: 500m  # Maximum CPU allowed
+      memory: 1024Mi  # Maximum memory allowed
+
+tp-cp-configuration:
+  # Resource values for production-like setup
+  # requests: Minimum amount of resources required for the application to run.
+  # limits: Maximum amount of resources the application can use.
+  resources:
+    requests:
+      cpu: 50m  # Minimum CPU required
+      memory: 30Mi  # Minimum memory required
+    limits:
+      cpu: 100m  # Maximum CPU allowed
+      memory: 60Mi  # Maximum memory allowed

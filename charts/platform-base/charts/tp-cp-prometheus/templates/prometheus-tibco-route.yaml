@@ -1,0 +1,27 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+kind: TibcoRoute
+apiVersion: cloud.tibco.com/v1
+metadata:
+  name: {{ include "tp-cp-prometheus.consts.appNameTibcoRoute" . }}-prom-console
+  namespace: {{ include "tp-cp-prometheus.consts.namespace" . }}
+spec:
+  serviceName: prometheus-service
+  serviceNamespace: {{ include "tp-cp-prometheus.consts.namespace" . }}
+  env:
+  - name: CP_DNS_DOMAIN
+    value: admin.{{ include "tp-cp-prometheus.dns-domain" . }}
+  endpoints:
+  - path: /admin/hawk-console
+    protocol: http
+    port: 9090
+    internalPath: /
+    proxies:
+    - listener: virtual
+      config: secure
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: true
+      fqdn: ${CP_DNS_DOMAIN}

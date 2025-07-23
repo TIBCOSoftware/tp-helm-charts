@@ -1,0 +1,199 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "alerts-service.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "alerts-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "alerts-service.shared.labels.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "alerts-service.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+      annotations:
+{{- if (include "alerts-service.enableLogging" .) }}
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "alerts-service.service-account-name" .}}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: core-alerts-service
+        image: {{ include "alerts-service.image.registry" .}}{{"/"}}{{ include "alerts-service.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}  
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        volumeMounts:
+          - name : logs
+            mountPath: /tmp/logs
+          - name: config
+            mountPath: /configuration/alertmanager
+            readOnly: false
+            subPath: alertmanager/config
+          - name: config
+            mountPath: /configuration/prometheus
+            readOnly: false
+            subPath: alerts/prometheus/rules
+        ports:
+        - containerPort: 9979
+          name: server
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /version
+            port: 9979
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /version
+            port: 9979
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /version
+            port: 9979
+          failureThreshold: 1
+          successThreshold: 1
+          timeoutSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 10
+        env:
+          - name: ALERT_MANAGER_RELOAD_URL
+            value: http://platform-base-tp-cp-alertmanager.{{ .Release.Namespace }}.svc.cluster.local:9093/-/reload
+          - name: PROMETHEUS_RELOAD_URL
+            value: http://prometheus-service.{{ .Release.Namespace }}.svc.cluster.local:9090/-/reload
+          - name: ALERT_MANAGER_CONFIG_FILE_PATH
+            value: /configuration/alertmanager
+          - name: PROMETHEUS_RULES_CONFIG_FILE_PATH
+            value: /configuration/prometheus/rules_
+          - name:  ALERTS_SERVICE_HTTP_PORT
+            value: "9979"
+          - name:  CP_BACKEND_SERVICE_HOST
+            value: http://tp-cp-orchestrator.{{ .Release.Namespace }}.svc.cluster.local:8833
+          - name: POD_NAMESPACE
+            value: {{ .Release.Namespace }}
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "alerts-service.image.registry" .}}{{"/"}}{{ include "alerts-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }} 
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with .Values.global.tibco.logging.fluentbit.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: core-alerts-service
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        ports:
+        - containerPort: 2020
+          protocol: TCP  
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+          - name: db
+            mountPath: /var/log/db
+{{- end }}
+      volumes:
+        - name: logs
+          emptyDir: {}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-alerts-service.pvc-name" . }}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "alerts-service.consts.appName" . }}-fluentbit-config
+{{- end }}
+      imagePullSecrets:
+        - name: {{ include "alerts-service.container-registry.secret" . }}

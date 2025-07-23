@@ -1,0 +1,448 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-pengine.consts.appName" . }}
+  namespace: {{ include "tp-cp-pengine.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 7892
+    protocol: TCP
+    targetPort: 7892
+  - name: mgmt-server
+    port: 8892
+    protocol: TCP
+    targetPort: 8892
+  - name: monitor-server
+    port: 9892
+    protocol: TCP
+    targetPort: 9892
+  - name: test-server
+    port: 9832
+    protocol: TCP
+    targetPort: 9832
+  - name: pub-api-server
+    port: 10883
+    protocol: TCP
+    targetPort: 10883
+  selector:
+    {{- include "tp-cp-pengine.shared.labels.selector" . | nindent 4 }}
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-pengine.consts.appName" . }}
+  namespace: {{ include "tp-cp-pengine.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-pengine.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+          {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: tpcppengineservice
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.pengine }}:{{ include "pengine.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.tpcppengineservice.resources.requests.cpu }}
+            memory: {{ .Values.tpcppengineservice.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.tpcppengineservice.resources.limits.cpu }}
+            memory: {{ .Values.tpcppengineservice.resources.limits.memory }}
+        ports:
+        - containerPort: 7892
+          name: server
+        - containerPort: 8892
+          name: mgmt-server
+        - containerPort: 9892
+          name: monitor-server
+        - containerPort: 6832
+          name: test-server
+        - containerPort: 10833
+          name: pub-api-server
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9892
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 180
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9892
+          initialDelaySeconds: 1
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9892
+          initialDelaySeconds: 1
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          # be little generous and wait till we see two failures
+          # time of restarting pod, and new pod being available is greater than waiting until we see second failure
+          failureThreshold: 2
+        env:
+        - name: PERMISSIONS_ENGINE_HTTP_PORT
+          value: "7892"
+        - name: PERMISSIONS_ENGINE_MANAGEMENT_HTTP_PORT
+          value: "8892"
+        - name: PERMISSIONS_ENGINE_MONITOR_HTTP_PORT
+          value: "9892"
+        - name: PERMISSIONS_ENGINE_PUBLISHED_HTTP_PORT
+          value: "10883"
+        - name: PERMISSIONS_ENGINE_TEST_AUTOMATION_HTTP_PORT
+          value: "6832"
+        - name: TP_CP_PERMISSIONS_ENGINE_LOG_LEVEL
+          value: debug
+        - name: LRU_CACHE_SIZE
+          value: "10000"
+        - name: ENABLE_PERMISSION_ENFORCER_CACHE
+          value: "true"
+        - name: CACHE_METRICS_ROLLING_WINDOW_DURATION_IN_SECONDS
+          value: "1800"
+        - name: METRICS_SAMPLING_DURATION_IN_SECONDS
+          value: "2"
+        - name: TP_CP_PERMISSIONS_ENGINE_CORS_ALLOW_HEADERS
+          value: "Content-Type, X-Atmosphere-For-User"
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{include "tp-cp-pengine.consts.cp-db-configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: MasterWriterHost
+              {{- else }}
+              key: DBHost
+              {{- end }}
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{include "tp-cp-pengine.consts.cp-db-configuration" . }}
+              key: DBPort
+        - name: POSTGRES_USERNAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_pengineuser
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_penginedb
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pengine-postgres-credential
+              key: PGPASSWORD
+        - name: POSTGRES_DATABASE_DRIVER
+          value: postgres
+        - name: POSTGRES_ENDPOINT_URL
+          value: "$(PGHOST):$(PGPORT)"
+        - name: POSTGRES_DATABASE_SSL_ROOT_CERT_FILE_LOCATION
+          {{- if eq .Values.global.external.db_ssl_mode "disable" }}
+          value: ""
+          {{- else }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+          {{- end }}
+        - name: NOTIFICATION_PAYLOAD_THRESHOLD_SIZE_IN_BYTES
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.notificationPayloadThresholdSizeInBytes
+        - name: CASBIN_POLICY_LOCATION
+          value: /private/tsc/config/pengine/resources/policy.csv
+        - name: CASBIN_MODEL_CONFIG_LOCATION
+          value: /private/tsc/config/pengine/resources/model.conf
+        - name: DISABLE_CONFIGURATION_REFRESH
+          value: "false"
+        - name: TSC_CONFIG_LOCATION
+          value: /private/tsc
+        - name: TSC_DNS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: TSC_DNS_DOMAIN
+          value: https://$(TSC_DNS)
+        - name: TP_CP_IDM_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDM_HOST
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        - name: db-ssl-cert-vol
+          mountPath: /private/tsc/certificates
+          readOnly: true
+        - name: logs
+          mountPath: /tmp/logs
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      - name: fluentbit
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tpcppengineservice
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .)}}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-pengine.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tp-cp-pengine.consts.appName" . }}
+  namespace: {{ include "tp-cp-pengine.consts.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tp-cp-pengine.consts.appName" . }}
+  minReplicas: {{ .Values.replicaCount }}
+  # set max-replicas to 6, as these new replica pods will auto-scale up and down as needed when there is more load/traffic
+  maxReplicas: {{ add 5 .Values.replicaCount }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.hpa.cpu }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.hpa.memory }}
+---
+
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-pengine.consts.appName" . }}
+  namespace: {{ include "tp-cp-pengine.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-pengine.consts.appName" . }}
+  env:
+  - name: TSC_DNS_DOMAIN
+    valueFrom:
+      configMapKeyRef:
+        name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+        key: TSC_DNS_DOMAIN
+  - name: TSC_ADMIN_DNS_DOMAIN
+    valueFrom:
+      configMapKeyRef:
+        name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+        key: TSC_ADMIN_DNS_DOMAIN
+  endpoints:
+  - path: /pengine/v1/version$
+    internalPath: /v1/version
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /pengine/v1/metrics$
+    internalPath: /v1/metrics
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+      methods:
+      - GET
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /pengine/v1/accounts/([^/]+)/users/([^/]+)/permissions
+    internalPath: /v1/accounts/$1/users/$2/permissions
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /pengine/v1/accounts/([^/]+)/users/([^/]+)/enforce-permissions
+    internalPath: /v1/accounts/$1/users/$2/enforce-permissions
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - POST
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /pengine/v2/enforce-permissions
+    internalPath: /v2/enforce-permissions
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - POST
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
