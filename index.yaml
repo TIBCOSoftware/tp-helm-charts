@@ -3442,6 +3442,26 @@ entries:
     version: 1.3.36
   tibco-developer-hub:
   - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2025-07-24T07:23:20.715989029Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: 7fff66c97c1c3493ebd6a947d293859a28e61f257a0b3b4d4e8cbb58492de65c
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.9.2/tibco-developer-hub-1.9.2.tgz
+    version: 1.9.2
+  - apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T12:17:52.214966728Z"
     dependencies:
@@ -8720,6 +8740,26 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-tibcohub-recipes
     apiVersion: v2
+    appVersion: 1.9.0
+    created: "2025-07-24T07:23:20.846374255Z"
+    description: TIBCO Developer Hub Data Plane Recipes
+    digest: cb25b607de700eadaa380364ee5d4a6af8f0d12da467dc163f5b7ef5cb0834ad
+    home: https://github.com/tibco/tp-dev-hub.git
+    keywords:
+    - tibco-platform
+    - control-plane
+    maintainers:
+    - email: compute-dev@tibco.com
+      name: TIBCO CIC Compute Dev Team
+    name: tp-cp-tibcohub-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-tibcohub-recipes-1.9.4/tp-cp-tibcohub-recipes-1.9.4.tgz
+    version: 1.9.4
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-tibcohub-recipes
+    apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T12:17:52.511291137Z"
     description: TIBCO Developer Hub Data Plane Recipes
@@ -9131,4 +9171,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-07-24T03:33:13.548431476Z"
+generated: "2025-07-24T07:23:20.846997541Z"
