@@ -68,7 +68,6 @@ Flogo app deployment labels
 platform.tibco.com/app-name: {{ include "dp-flogo-app.fullname" . }}
 platform.tibco.com/app-version: {{ .Values.appConfig.appVersion | quote }}
 platform.tibco.com/build-id: {{ .Values.appConfig.buildId | quote }}
-platform.tibco.com/buildtype-base-image: {{ .Values.appConfig.flogoBaseImageTag | quote }}
 platform.tibco.com/buildtype-version: {{ .Values.appConfig.flogoBuildTypeTag | quote }}
 platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanceId | quote }}
 platform.tibco.com/capability-version: {{ .Values.dpConfig.capabilityVersion | quote }}

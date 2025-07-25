@@ -74,7 +74,7 @@ spec:
               finalStr=""
               finalStr=$finalStr"["
               bwceversionStr=""
-              for d in */ ; do
+              for d in $(ls -d */ | sort -r); do
                   bwceversion=$(echo "$d")
                   bwceversionStr=$bwceversionStr"   {"
                   bwceversionStr=$bwceversionStr"   \"Version\": \"${bwceversion%%/*}\","

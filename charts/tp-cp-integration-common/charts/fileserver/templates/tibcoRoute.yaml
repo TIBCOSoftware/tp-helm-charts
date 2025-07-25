@@ -31,6 +31,6 @@ spec:
     - name: TSC_DNS_DOMAIN
       valueFrom:
         configMapKeyRef:
-          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          name: {{ include "fileserver.dnsdomain-configmap" . }}
           key: TSC_DNS_DOMAIN
 {{- end }}
