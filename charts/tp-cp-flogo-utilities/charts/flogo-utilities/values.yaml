@@ -99,9 +99,9 @@ volumes:
 flogoVSCodeExtensionExtract: true
 flogoVSCodeExtensionImages:
   - image: tp-flogo-vscode-extension
-    path: /opt/downloads/1.3.1/
-    tag: 1.3.1-b1110-vscode-1.3.1
-    target_location: flogo-vscode-extension/1.3.1
+    path: /opt/downloads/1.3.2/
+    tag: 1.3.2-b1232-vscode-1.3.2
+    target_location: flogo-vscode-extension/1.3.2
 flogoVSCodeDelete: false
 flogoVSCodeDeleteVersions: ""
 
@@ -110,6 +110,7 @@ flogopluginsExtractB: true
 flogopluginsExtractC: true
 flogopluginsExtractD: true
 flogopluginsExtractE: true
+flogopluginsExtractF: true
 
 flogopluginsA:
   tp-flogo-connector-amazons3:
@@ -148,16 +149,16 @@ flogopluginsB:
     default: 3.0.1-hf1-b01
   tp-flogo-connector-ems:
     tags:
-      - 1.0.2-b01
-    default: 1.0.2-b01
+      - 1.0.2-hf1-b02
+    default: 1.0.2-hf1-b02
   tp-flogo-connector-gcps:
     tags:
       - 1.0.1-hf1-b01
     default: 1.0.1-hf1-b01
   tp-flogo-connector-general:
     tags:
-      - 1.6.6-b10
-    default: 1.6.6-b10
+      - 1.6.7-b03
+    default: 1.6.7-b03
   tp-flogo-connector-http:
     tags:
       - 1.1.1-b03
@@ -256,13 +257,23 @@ flogopluginsE:
     tags:
       - 1.0.1-b02
     default: 1.0.1-b02
+  tp-flogo-connector-gsheets:
+    tags:
+      - 1.0.0-hf1-b03
+    default: 1.0.0-hf1-b03
+
+flogopluginsF:
+  tp-flogo-connector-google:
+    tags:
+      - 1.0.2-hf1-b01
+    default: 1.0.2-hf1-b01
 
 buildtypesExtract: true
 flogoBuildtypeImages:
   - name: tp-flogo-buildtype
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.25.6-b251
+    tag: 2.25.7-b259
     target_location: flogo/buildtypes
 
 probes:

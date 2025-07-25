@@ -37,7 +37,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{- define "fileserver.cic-env-configmap" }}cic-env{{ end -}}
 
-{{- define "tp-control-plane-dnsdomain-configmap" }}tp-control-plane-on-prem-dnsdomains{{ end -}}
+{{- define "fileserver.dnsdomain-configmap" }}tp-cp-core-dnsdomains{{ end -}}
 
 {{/*
 Selector labels
