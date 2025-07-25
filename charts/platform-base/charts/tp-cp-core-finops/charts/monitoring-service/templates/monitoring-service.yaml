@@ -1,0 +1,681 @@
+#
+# Copyright © 2024-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "monitoring-service.consts.appName" . }}
+  namespace: {{ include "monitoring-service.consts.namespace" . }}
+  labels:
+    {{- include "monitoring-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 7831
+    protocol: TCP
+    targetPort: 7831
+  - name: monitor-server
+    port: 9831
+    protocol: TCP
+    targetPort: 9831
+  - name: agent-server
+    port: 8831
+    protocol: TCP
+    targetPort: agent-server
+  selector:
+    {{- include "monitoring-service.shared.labels.selector" . | nindent 4 }}
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "monitoring-service.consts.appName" . }}
+  namespace: {{ include "monitoring-service.consts.namespace" . }}
+  labels:
+    {{- include "monitoring-service.shared.labels.standard" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "monitoring-service.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring-service.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      terminationGracePeriodSeconds: 10
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: {{ include "monitoring-service.consts.appName" . }}
+        {{- if .Values.global.containerSecurityContext.monitoringService }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.monitoringService | nindent 10 }}
+        {{- end }}        
+        image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/tel-monitoring-service"}}:{{ include "monitoring-service.generated.buildNumber" . }}
+        {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
+        resources:
+          requests:
+            cpu: {{ .Values.monitoringservice.resources.requests.cpu }}
+            memory: {{ .Values.monitoringservice.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.monitoringservice.resources.limits.cpu }}
+            memory: {{ .Values.monitoringservice.resources.limits.memory }}
+        {{- end }}
+        ports:
+        - containerPort: 7831
+          name: server
+        - containerPort: 9831
+          name: monitor-server
+        - containerPort: 8831
+          name: agent-server
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9831
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /v1/monitor/ping
+            port: 9831
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: LOG_LEVEL
+          value: {{ .Values.global.finops.svcloglevel }}
+        - name: CP_ENCRYPTION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.external.cpEncryptionSecretName }}
+              key: {{ .Values.global.external.cpEncryptionSecretKey }}
+        - name: MONITORING_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_MONITORING_SERVICE_HOST
+        - name: CP_ORCHESTRATOR_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_ORCHESTRATOR_HOST
+        - name: CP_ORCHESTRATOR_PORT
+          value: "8833"
+        - name: CP_USER_SUBSCRIPTIONS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_USER_SUBSCRIPTIONS_HOST
+        - name: CP_BW6_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_BW6_WEBSERVER_HOST
+        - name: CP_BW5_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_BW5_WEBSERVER_HOST
+        - name: CP_BE_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: TP_CP_BE_WEBSERVER_HOST
+        - name: SERVER_PORT
+          value: {{ include "monitoring-service.consts.http.serverport" . | quote }}
+        - name: MONITOR_SERVER_PORT
+          value: {{ include "monitoring-service.consts.http.monitorserverport" . | quote }}
+        - name: CP_USER_SUBSCRIPTION_SERVER_PORT
+          value: "8832"
+        - name: CP_BW6_WEBSERVER_SERVICE_PORT
+          value: "3000"
+        - name: CP_BW5_WEBSERVER_SERVICE_PORT
+          value: "3001"
+        - name: CP_BE_WEBSERVER_SERVICE_PORT
+          value: "7654"
+        - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-env-configmap" . }}
+              key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+        - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_PORT
+          value: "80"
+        - name: SYSTEM_INTERNAL_MONITOR_AGENT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: SYSTEM_INTERNAL_MONITOR_AGENT_HOST
+        - name: SYSTEM_INTERNAL_MONITOR_AGENT_PORT
+          value: "80"
+        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_PORT
+          value: "80"
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_PORT
+          value: "9681"
+        - name: FINOPS_PROMETHEUS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+              key: FINOPS_PROMETHEUS_HOST
+        - name: FINOPS_PROMETHEUS_PORT
+          value: "9090"
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              key: REGION
+              name: {{ include "monitoring-service.tp-env-configmap" . }}
+        # Env varaibles for Postgres DB connection
+        - name: TABLE_NAME_PREFIX
+          value: V2_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: READ_PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
+              key: LocalReaderHost
+        - name: READ_PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: WRITE_POSTGRES_ENDPOINT_URL
+          value: "$(PGHOST):$(PGPORT)"
+        - name: READ_POSTGRES_ENDPOINT_URL
+          value: "$(READ_PGHOST):$(READ_PGPORT)"
+        - name: PSQL_MAX_OPEN_CONNECTIONS
+          value: {{ .Values.monitoringservice.psql.maxopenconnections | quote }}
+        - name: PSQL_MAX_IDLE_CONNECTIONS
+          value: {{ .Values.monitoringservice.psql.maxidleconnections | quote }}
+        - name: PSQL_CONNECTION_MAX_LIFE_TIME
+          value: {{ .Values.monitoringservice.psql.maxconnectionlifetime | quote }}
+        - name: POSTGRES_USERNAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_monitoringuser
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ include "cp-core-configuration.cp-instance-id" . }}_monitoringdb
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: monitoringdb-postgres-credential
+              key: PGPASSWORD
+        - name: POSTGRES_DATABASE_DRIVER
+          value: postgres
+        - name: WRITE_POSTGRES_DATABASE_SSL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
+              key: DBSSLMode
+        - name: WRITE_POSTGRES_DATABASE_SSL_CERT
+          value: ""
+        - name: WRITE_POSTGRES_DATABASE_SSL_KEY
+          value: ""
+        - name: WRITE_POSTGRES_DATABASE_SSL_ROOT_CERT
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+        - name: READ_POSTGRES_DATABASE_SSL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.consts.cp.db.configuration" . }}
+              key: DBSSLMode
+        - name: READ_POSTGRES_DATABASE_SSL_CERT
+          value: ""
+        - name: READ_POSTGRES_DATABASE_SSL_KEY
+          value: ""
+        - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+        volumeMounts:
+        - name: logs
+          mountPath: /tmp/logs
+        - name: db-ssl-cert-vol
+          mountPath: /private/tsc/certificates
+          readOnly: true
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      - name: fluentbit
+        image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        {{- if .Values.global.containerSecurityContext.monitoringService }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.monitoringService | nindent 10 }}
+        {{- end }}
+        {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        {{- end }}
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: {{ include "monitoring-service.consts.appName" . }}
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+            - name: logs
+              mountPath: /var/log/pods
+            - name: db
+              mountPath: /var/log/db          
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+        - name: logs
+          emptyDir: {}
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "monitoring-service.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "monitoring-service.consts.appName" . }}
+  namespace: {{ include "monitoring-service.consts.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "monitoring-service.consts.appName" . }}
+  minReplicas: {{ .Values.replicaCount }}
+  maxReplicas: {{ add 2 .Values.replicaCount }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.cpu }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.memory }}
+---
+
+kind: TibcoRoute
+apiVersion: cloud.tibco.com/v1
+metadata:
+  name: {{ include "monitoring-service.consts.appName" . }}
+  namespace: {{ include "monitoring-service.consts.namespace" . }}
+spec:
+  serviceName: {{ include "monitoring-service.consts.appName" . }}
+  serviceNamespace: {{ include "monitoring-service.consts.namespace" . }}
+  env:
+    - name: CONTROL_PLANE_HOME_URL
+      valueFrom:
+        configMapKeyRef:
+          key: TSC_DNS_DOMAIN
+          name: {{ include "monitoring-service.tp-env-configmap" . }}
+  endpoints:
+  - path: /finops/monitoring-service/public/v1/dpstatus
+    protocol: http
+    port: 8831
+    internalPath: /public/v1/dpstatus
+    proxies:
+    - listener: virtual
+      config: secure
+      methods:
+      - POST
+      fqdn: ${CONTROL_PLANE_HOME_URL}
+  - path: /finops/monitoring-service/public/v1/getnamespaces
+    protocol: http
+    port: 8831
+    internalPath: /public/v1/getnamespaces
+    proxies:
+    - listener: virtual
+      config: secure
+      methods:
+      - GET
+      fqdn: ${CONTROL_PLANE_HOME_URL}
+  - path: /finops/monitoring-service/public/v1/apps
+    protocol: http
+    port: 8831
+    internalPath: /public/v1/apps
+    proxies:
+    - listener: virtual
+      config: secure
+      methods:
+      - PUT
+      fqdn: ${CONTROL_PLANE_HOME_URL}
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tp-cp-monitoring-tibtunnel-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-tibtunnel-cronjob"
+spec:
+  schedule: {{ .Values.monitoringtibtunnel.schedule | quote}}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-tibtunnel-cronjob"
+        spec:
+          {{- if .Values.global.podSecurityContext }}
+          securityContext:
+            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
+          {{- end }}
+          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+          imagePullSecrets:
+            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+          {{- end }}
+          containers:
+          - name: tibtunnel-refresh
+            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
+            securityContext:
+              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
+            {{- end }}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
+            imagePullPolicy: IfNotPresent
+            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
+            resources:
+              requests:
+                cpu: {{ .Values.monitoringtibtunnel.resources.requests.cpu }}
+                memory: {{ .Values.monitoringtibtunnel.resources.requests.memory }}
+              limits:
+                cpu: {{ .Values.monitoringtibtunnel.resources.limits.cpu }}
+                memory: {{ .Values.monitoringtibtunnel.resources.limits.memory }}
+            {{- end }}
+            command: ['sh']
+            args:
+              - -c
+              - >
+                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/tibTunnelRefresh');
+                  echo $exit_status
+                  
+            env:
+              - name: MONITORING_SERVICE_HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+                    key: TP_CP_MONITORING_SERVICE_HOST
+          restartPolicy: OnFailure
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tp-cp-monitoring-capresources-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-capresources-cronjob"
+spec:
+  schedule: {{ .Values.monitoringcapresources.schedule | quote}}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-capresources-cronjob"
+        spec:
+          {{- if .Values.global.podSecurityContext }}
+          securityContext:
+            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
+          {{- end }}
+          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+          imagePullSecrets:
+            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+          {{ end }}
+          containers:
+          - name: tibtunnel-refresh
+            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
+            securityContext:
+              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
+            {{- end }}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
+            imagePullPolicy: IfNotPresent
+            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
+            resources:
+              requests:
+                cpu: {{ .Values.monitoringcapresources.resources.requests.cpu }}
+                memory: {{ .Values.monitoringcapresources.resources.requests.memory }}
+              limits:
+                cpu: {{ .Values.monitoringcapresources.resources.limits.cpu }}
+                memory: {{ .Values.monitoringcapresources.resources.limits.memory }}
+            {{- end }}
+            command: ['sh']
+            args:
+              - -c
+              - >
+                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/resourceRefresh');
+                  echo $exit_status
+                  
+            env:
+              - name: MONITORING_SERVICE_HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+                    key: TP_CP_MONITORING_SERVICE_HOST
+          restartPolicy: OnFailure
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tp-cp-monitoring-homepage-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
+spec:
+  schedule: |
+    {{- if or (eq (.Values.global.external.environment | lower) "staging") (hasPrefix "prod" (.Values.global.external.environment | lower)) }}
+    {{ .Values.monitoringhomepagemetrics.prodSchedule }}
+    {{- else }}
+    {{ .Values.monitoringhomepagemetrics.schedule }}
+    {{- end }}
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
+        spec:
+          {{- if .Values.global.podSecurityContext }}
+          securityContext:
+            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
+          {{- end }}          
+          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+          imagePullSecrets:
+            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+          {{ end }}
+          containers:
+          - name: homepage-refresh
+            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
+            securityContext:
+              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
+            {{- end }}          
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
+            imagePullPolicy: IfNotPresent
+            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
+            resources:
+              requests:
+                cpu: {{ .Values.monitoringhomepagemetrics.resources.requests.cpu }}
+                memory: {{ .Values.monitoringhomepagemetrics.resources.requests.memory }}
+              limits:
+                cpu: {{ .Values.monitoringtibtunnel.resources.limits.cpu }}
+                memory: {{ .Values.monitoringtibtunnel.resources.limits.memory }}
+            {{- end }}
+            command: ['sh']
+            args:
+              - -c
+              - >
+                  exit_status=$(wget --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/triggers/homepageMetrics');
+                  echo $exit_status
+                  
+            env:
+              - name: MONITORING_SERVICE_HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+                    key: TP_CP_MONITORING_SERVICE_HOST
+          restartPolicy: OnFailure
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tp-cp-monitoring-dataplane-sync-cronjob
+  labels:
+    app.kubernetes.io/name: "tp-cp-monitoring-dataplane-sync-cronjob"
+spec:
+  schedule: {{ .Values.monitoringdataplanesync.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "tp-cp-monitoring-dataplane-sync-cronjob"
+        spec:
+          {{- if .Values.global.podSecurityContext }}
+          securityContext:
+            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
+          {{- end }}
+          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+          imagePullSecrets:
+            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+          {{ end }}
+          containers:
+          - name: dataplane-sync
+            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
+            securityContext:
+              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
+            {{- end }}
+            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
+            imagePullPolicy: IfNotPresent
+            resources:
+              requests:
+                cpu: {{ .Values.monitoringdataplanesync.resources.requests.cpu }}
+                memory: {{ .Values.monitoringdataplanesync.resources.requests.memory }}
+              limits:
+                cpu: {{ .Values.monitoringdataplanesync.resources.limits.cpu }}
+                memory: {{ .Values.monitoringdataplanesync.resources.limits.memory }}
+            command: ['sh']
+            args:
+              - -c
+              - >
+                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/dataplaneSync');
+                  echo $exit_status
+                  
+            env:
+              - name: MONITORING_SERVICE_HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
+                    key: TP_CP_MONITORING_SERVICE_HOST
+          restartPolicy: OnFailure

@@ -1,0 +1,190 @@
+#
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-o11y.consts.appName" . }}
+  labels:
+    {{- include "tp-cp-o11y.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-o11y.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-o11y.shared.labels.standard" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 30
+{{- if (include "tp-cp-o11y.container-registry.secret" .) }}
+      imagePullSecrets:
+      - name: {{ include "tp-cp-o11y.container-registry.secret" . }}
+{{- end }}
+      serviceAccountName: {{ include "tp-cp-o11y.service-account-name" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tp-cp-o11y
+          image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.tibco.enableResourceConstraints }} 
+          {{- with .Values.o11yservice.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: tp-o11yservice
+          env:
+            - name: WHO
+              value: {{include "tp-cp-o11y.cp-instance-id" .}}
+            - name: IS_CP
+              value: "true"
+            - name: IS_ON_PREM
+              value: "{{ include "tp-cp-o11y.CPCustomerEnv" . }}"
+            - name: CP_DP_URL
+              value: {{ include "tp-cp-o11y.cp-dp-url" . }}
+            - name: CP_O11Y_DPCACHE_ENABLED
+              value: "true"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          startupProbe:
+            httpGet:
+              scheme: HTTP
+              path: v1/healthz
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+          volumeMounts:
+            - mountPath: /usr/tp/discovery
+              name: o11y-efs-vol
+              subPath: o11y/discovery
+            - mountPath: /usr/tp/dashboard
+              name: o11y-efs-vol
+              subPath: o11y/dashboard
+            - name: logs
+              mountPath: /tmp/logs
+  {{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: fluentbit
+          image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.tibco.enableResourceConstraints }} 
+          {{- with .Values.global.tibco.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: tp-cp-o11y
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          ports:
+            - containerPort: 2020
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          startupProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/pods
+            - name: db
+              mountPath: /var/log/db
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+        - name: o11y-efs-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-o11y.pvc-name" . }}
+        - name: logs
+          emptyDir: {}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-o11y.consts.appName" . }}-fluentbit-config
+{{- end }}
