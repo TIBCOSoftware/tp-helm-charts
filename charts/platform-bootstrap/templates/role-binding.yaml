@@ -1,0 +1,24 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{/* all cluster role bindings are created at once during the deployment of the chart in the namespace */}}
+{{- if .Values.global.tibco.rbac.infra }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "platform-bootstrap.globalResourceName" . }}
+  labels:
+    {{- include "platform-bootstrap.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "platform-bootstrap.globalResourceName" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "platform-bootstrap.serviceAccount" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end -}}
