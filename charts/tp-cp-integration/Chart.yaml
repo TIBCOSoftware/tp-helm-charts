@@ -7,8 +7,8 @@ name: tp-cp-integration
 description: TIBCO Platform Integration chart
 
 type: application
-version: 1.8.28
-appVersion: "1.8.0"
+version: 1.9.25
+appVersion: "1.9.0"
 keywords:
   - tibco-platform
   - platform
@@ -18,21 +18,21 @@ annotations:
   app.helm.sh/name: tp-cp-integration
 dependencies:
   - name: tp-cp-integration-common
-    version: "1.7.1"
+    version: "1.9.1"
     repository: alias:tibco-platform
   - name: tp-cp-integration-bw
-    version: "1.8.13"
+    version: "1.9.13"
     repository: alias:tibco-platform
     condition: tp-cp-integration-bw.enabled
   - name: tp-cp-integration-flogo
-    version: "1.8.8"
+    version: "1.9.5"
     repository: alias:tibco-platform
     condition: tp-cp-integration-flogo.enabled
   - name: tp-cp-bwce-utilities
-    version: "1.8.4"
+    version: "1.9.3"
     repository: alias:tibco-platform
     condition: tp-cp-bwce-utilities.enabled
   - name: tp-cp-flogo-utilities
-    version: "1.8.8"
+    version: "1.9.8"
     repository: alias:tibco-platform
     condition: tp-cp-flogo-utilities.enabled
