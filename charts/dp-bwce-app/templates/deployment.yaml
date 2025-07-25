@@ -57,6 +57,10 @@ spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - env:
         - name: TIBCO_INTERNAL_APP_ID

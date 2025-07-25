@@ -14,6 +14,9 @@ metadata:
   labels:
     {{- include "dp-flogo-app.labels" . | nindent 4 }}
     {{- include "dp-flogo-app.flogoapp.deployment.labels" . | nindent 4 }}
+    {{- if not .Values.appConfig.customFQImage }}
+    platform.tibco.com/buildtype-base-image: {{ .Values.appConfig.flogoBaseImageTag | quote }}
+    {{- end }}
     {{- with .Values.deploymentLabels }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -33,6 +36,9 @@ spec:
       {{- include "dp-flogo-app.flogoapp.pod.annotations" . | nindent 8 }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.appConfig.customFQImage }}
+        platform.tibco.com/custom-app-image: {{ .Values.appConfig.customFQImage | quote }}
       {{- end }}
       labels:
         {{- include "dp-flogo-app.labels" . | nindent 8 }}
@@ -57,6 +63,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if eq .Values.appConfig.customFQImage "" }}
       initContainers:
       - name: app-init
         image: {{ .Values.image.repository }}{{ .Values.image.appInitImageName }}:{{ .Values.image.appInitImageTag }}
@@ -81,9 +88,14 @@ spec:
           value: {{ .Values.dpConfig.capabilityDefaultNamespace }}
         resources:
           {{- toYaml .Values.appInit.resources | nindent 10 }}
+      {{- end }}
       containers:
       - name: flogoapp
+        {{- if .Values.appConfig.customFQImage }}
+        image: {{ .Values.appConfig.customFQImage }}
+        {{- else }}
         image: {{ .Values.image.repository }}{{ .Values.image.flogoBaseImageName }}:{{ .Values.appConfig.flogoBaseImageTag }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         {{- range $svcPort := .Values.service.ports }}
@@ -93,8 +105,10 @@ spec:
         securityContext:
         {{- toYaml .Values.flogoapp.securityContext | nindent 10 }}
         volumeMounts:
+        {{- if eq .Values.appConfig.customFQImage "" }}
         - name: artifacts-share
           mountPath: /app/artifacts
+        {{- end }}
         - name: logs-share
           mountPath: /app/logs
         {{- if .Values.enableTmpVolume }}
@@ -115,8 +129,13 @@ spec:
           value: {{ .Values.dpConfig.dataplaneId }}
         - name: TIBCO_INTERNAL_FLOGO_BUILDTYPE_TAG
           value: {{ .Values.appConfig.flogoBuildTypeTag | quote }}
+        {{- if .Values.appConfig.customFQImage }}
+        - name: TIBCO_INTERNAL_CUSTOM_FQIMAGE
+          value: {{ .Values.appConfig.customFQImage | quote }}
+        {{- else }}
         - name: TIBCO_INTERNAL_FLOGO_BASE_IMAGE_TAG
           value: {{ .Values.appConfig.flogoBaseImageTag | quote }}
+        {{- end }}
         - name: FLOGO_APP_PROPS_ENV
           value: {{ .Values.appConfig.flogoAppPropsEnv | quote }}
         - name: FLOGO_EXPOSE_SWAGGER_EP
@@ -211,8 +230,10 @@ spec:
           {{- toYaml .Values.fluentBit.resources | nindent 10 }}
       {{- end }}
       volumes:
+      {{- if not .Values.appConfig.customFQImage }}
       - name: artifacts-share
         emptyDir: {}
+      {{- end }}
       {{- if .Values.enableTmpVolume }}
       - name: tmp
         emptyDir: {}

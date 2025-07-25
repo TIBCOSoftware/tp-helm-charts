@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.8.0",
-      "minCPVersion": "1.8.0",
+      "capabilityVersion": "1.9.0",
+      "minCPVersion": "1.9.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwadapter.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwadapter.releaseNotes | quote }},
@@ -53,7 +53,7 @@ data:
       helmCharts:
         - name: dp-bw-adapter
           namespace: ${NAMESPACE}
-          version: "1.8.1"
+          version: "1.9.1"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -62,7 +62,7 @@ data:
                 global:
                   bwadapter:
                     image:
-                      tag: 46
+                      tag: 47
           flags:
             install: true
             createNamespace: false
@@ -115,7 +115,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.8.0"
+          value: "1.9.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

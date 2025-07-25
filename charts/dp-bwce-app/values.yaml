@@ -51,7 +51,7 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-bwce-app-init"
-  appInitImageTag: "47"
+  appInitImageTag: "48"
   fluentBitImageName: "common-fluentbit"
   fluentBitImageTag: "4.0.3"
   bwceBaseImageName: "tp-bwce-base"
@@ -260,6 +260,8 @@ pvc: []
 #    size: "1Gi"
 #    storageClass: "standard"
 #    selector: {}
+
+hostAliases: []
 
 strategy:
   type: RollingUpdate
