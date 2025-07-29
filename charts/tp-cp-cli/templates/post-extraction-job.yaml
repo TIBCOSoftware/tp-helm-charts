@@ -77,7 +77,7 @@ spec:
                   tpcliversionStr=$tpcliversionStr"   \"Platforms\": ["
                   platformStr=""
                   for platform in $(ls "$tpcliversion") ; do
-                    installer=$(find "$tpcliversion""$platform"  -name '*.gz')
+                    installer=$(find "$tpcliversion""$platform"  -name '*.*')
                     installer=$basePath$installer
                     arch=${platform#*-}
                     arch=$(echo $arch | tr 'a-z' 'A-Z')

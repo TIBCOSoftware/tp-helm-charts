@@ -60,34 +60,32 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{- define "tpcli-utilities.image.registry" }}
-    {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY" "default" "csgprduswrepoedge.jfrog.io" "required" "false" "Release" .Release )}}
+  {{- .Values.global.tibco.containerRegistry.url }}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tpcli-utilities.infra.image.repository" -}}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+  {{ .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tpcli-utilities.tpcli.image.repository" -}}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_REPO" "default" "tibco-platform-docker-prod" "required" "false" "Release" .Release )}}
+  {{ .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "tpcli-utilities.container-registry.secret" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
-{{- end }}
+{{- define "tpcli-utilities.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
 
 {{/* PVC configured for control plane. Fail if the pvc not exist */}}
 {{- define "tpcli-utilities.pvc-name" }}
-{{- if .Values.pvcName }}
-  {{- .Values.pvcName }}
+{{- if .Values.global.external.storage.pvcName }}
+  {{- .Values.global.external.storage.pvcName }}
 {{- else }}
-{{- include "cp-env.get" (dict "key" "CP_PVC_NAME" "default" "control-plane-pvc" "required" "false"  "Release" .Release )}}
+{{- "control-plane-pvc" }}
 {{- end }}
 {{- end }}
 
 {{/* Image pull custom certificate secret configured for control plane. default value empty */}}
 {{- define "tpcli-utilities.container-registry.custom-cert-secret" }}
-  {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_CERTIFICATE_SECRET" "default" "" "required" "false"  "Release" .Release )}}
+  {{- .Values.global.tibco.containerRegistry.certificateSecret }}
 {{- end }}
