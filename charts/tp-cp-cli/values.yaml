@@ -13,13 +13,13 @@ source:
 tpCLIExtract: true
 
 # Value in version will define the directory name on EFS where the tp-cli releases will be extracted
-version: 0.9.5
+version: 1.0.0
 
 # Value in buildPathVersion is same as version used in package.json of tp-cli-main
-buildPathVersion: 0.9.5
+buildPathVersion: 1.0.0
 
 # Value in BID is the build id of Team City job(Tibco Platform CLI)
-BID: 245
+BID: 317
 
 debug:
   image:
@@ -43,13 +43,9 @@ tpCLIImages:
   - image: dx-tibco-platform-cli
     type: linux-amd64
   - image: dx-tibco-platform-cli
-    type: linux-arm64
-  - image: dx-tibco-platform-cli
     type: windows-amd64
-  - image: dx-tibco-platform-cli
-    type: windows-amd86
 tpcliDelete: true
-tpcliDeleteVersions: "0.9.0,1.0.46"
+tpcliDeleteVersions: "0.9.0,0.9.5,1.0.46"
 
 podAnnotations: {}
 
@@ -101,3 +97,12 @@ securityContext:
 global:
   tibco:
     enableLogging: true
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: "tibco-platform-docker-prod"
+      certificateSecret: ""  # secret name containing the custom certificates
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
