@@ -75,7 +75,7 @@ tibco-platform
 {{- define "tp-cp-monitor-agent.consts.appName" }}tp-dp-monitor-agent{{ end -}}
 
 {{- define "tp-cp-monitor-agent.image.registry" }}
-  {{- .Values.global.cp.containerRegistry.url }}
+  {{- .Values.global.tibco.containerRegistry.url }}
 {{- end -}}
  
 {{/* set repository to the global value. */}}
