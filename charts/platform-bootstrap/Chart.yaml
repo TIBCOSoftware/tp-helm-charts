@@ -8,16 +8,30 @@ apiVersion: v2
 name: platform-bootstrap
 description: TIBCO Platform bootstrap chart
 type: application
-version: 1.8.0
-appVersion: "1.8.0"
+version: 1.9.0
+appVersion: "1.9.0"
 keywords:
   - tibco-platform
   - platform
   - bootstrap
+  - control-plane
+  - infra
 annotations:
   app.helm.sh/component: control-plane
   app.helm.sh/name: platform-bootstrap
 dependencies:
-  - name: tp-cp-bootstrap
-    version: "1.8.10"
-    repository: alias:tibco-platform
+  - name: hybrid-proxy
+    version: "1.9.*"
+    condition: hybrid-proxy.enabled
+  - name: resource-set-operator
+    version: "1.9.*"
+    condition: resource-set-operator.enabled
+  - name: router-operator
+    version: "1.9.*"
+    condition: router-operator.enabled
+  - name: compute-services
+    version: "1.9.*"
+    condition: compute-services.enabled
+  - name: otel-collector
+    version: "0.116.*"
+    condition: otel-collector.enabled
