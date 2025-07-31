@@ -1,0 +1,22 @@
+#
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-o11y.consts.appName" . }}
+  labels:
+    {{- include "tp-cp-o11y.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: server
+      port: {{ .Values.service.port }}
+      protocol: TCP
+      targetPort: {{ .Values.service.targetPort }}
+  selector:
+    {{- include "tp-cp-o11y.shared.labels.selector" . | nindent 4 }}

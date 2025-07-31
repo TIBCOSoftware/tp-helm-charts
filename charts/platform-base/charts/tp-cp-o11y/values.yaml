@@ -1,0 +1,172 @@
+#
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# Default values for o11y service.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""  # repository
+    controlPlaneInstanceId: ""
+    useSingleNamespace: true
+    enableResourceConstraints: true
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          tag: 4.0.3
+          pullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+replicaCount: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+service:
+  type: ClusterIP
+  port: 7820
+  targetPort: 7820
+
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    failureThreshold: 3
+    periodSeconds: 10
+    timeoutSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    failureThreshold: 3
+    periodSeconds: 3
+    timeoutSeconds: 3
+  startup:
+    initialDelaySeconds: 20
+    failureThreshold: 30
+    periodSeconds: 5
+    timeoutSeconds: 5
+
+image:
+  name: "o11y-service"
+  pullPolicy: IfNotPresent
+  tag: 2648
+
+tibcoRouter:
+  path: /o11y
+  create: true
+
+o11yservice:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+
+capabilities:
+  o11y:
+    default:
+      # if set to true then existing recipe will be overwritten by latest recipe.
+      overwriteRecipe: "false"
+      # set to true for latest version of recipe
+      isLatest: "true"
+      # Timestamp of capability release
+      releaseDate: "2024/02/22"
+      # Either a link to document or the document itself specifying _what was fixed in this release.
+      releaseNotes: "Enhancements, Bug fixes, etc."
+      # helm chart and image version for o11y service, default helm chart version is latest
+      o11yservice:
+        version: "1.9.3"
+      # helm chart and image version for opentelemetry collector, default helm chart version is latest
+      opentelemetryCollector:
+        version: "0.116.4"
+      # helm chart and image version for jaeger, default helm chart version is latest
+      jaeger:
+        version: "0.72.36"
+    withResources:
+      # if set to true then existing recipe will be overwritten by latest recipe.
+      overwriteRecipe: "false"
+      # set to true for latest version of recipe
+      isLatest: "true"
+      # Timestamp of capability release
+      releaseDate: "2024/02/22"
+      # Either a link to document or the document itself specifying _what was fixed in this release.
+      releaseNotes: "Enhancements, Bug fixes, etc."
+      # helm chart and image version for o11y service, default helm chart version is latest
+      o11yservice:
+        version: "1.9.3"
+      # helm chart and image version for opentelemetry collector, default helm chart version is latest
+      opentelemetryCollector:
+        version: "0.116.4"
+      # helm chart and image version for jaeger, default helm chart version is latest
+      jaeger:
+        version: "0.72.36"
+job:
+  image:
+    name: common-distroless-base-debian-debug
+    tag: 12.11
+    pullPolicy: IfNotPresent
+
+# Resources
+# https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources:
+  requests:
+    cpu: 50m
+    memory: 30Mi
+  limits:
+    cpu: 100m
+    memory: 60Mi
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
