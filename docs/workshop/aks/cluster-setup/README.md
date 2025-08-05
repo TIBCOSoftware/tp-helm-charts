@@ -91,7 +91,7 @@ export TP_AZURE_REGION="eastus" # region of resource group
 ## Cluster configuration specific variables
 export TP_RESOURCE_GROUP="" # set the resource group name in which all resources will be deployed
 export TP_CLUSTER_NAME="tp-cluster" # name of the cluster to be prvisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.31.5" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli
+export TP_KUBERNETES_VERSION="1.33" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity" # user assigned identity to be associated with cluster
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
