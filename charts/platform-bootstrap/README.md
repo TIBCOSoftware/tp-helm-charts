@@ -29,10 +29,6 @@ The following table lists the configurable parameters of the bootstrap chart and
 
 | Parameter                                | Description                                               | Default                         |
 | -----------------------------------------|-----------------------------------------------------------| ------------------------------- |
-| **cp-compute-services**                  |
-| `compute-services.enabled`            | enable compute service                                    | `true`                          |
-| `compute-services.dpMetadata.dpCoreInfrastructureChartVersion` | dp core infrastructure chart version installed in dataplanes | `*` |
-| `compute-services.dpMetadata.dpConfigureNamespaceChartVersion` | dp configure namespace chart version installed in dataplanes | `*` |
 | **cp-router-operator**                  |
 | `router-operator.enabled`            | enable router operator                                    | `true`                          |
 | `router-operator.tscSessionKey.secretName` | tscSessionKey secretName  | `session-keys` |
