@@ -18,7 +18,7 @@ capabilities:
     version: ""
     tag: "107"
     # Timestamp of capability release
-    releaseDate: "2025/02/26"
+    releaseDate: "2025/08/13"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "Enhancements, Bug fixes, etc."
 ```

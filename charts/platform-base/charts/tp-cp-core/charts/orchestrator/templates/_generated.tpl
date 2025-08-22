@@ -1,2 +1,2 @@
-{{- define "orchestrator.generated.buildNumber" }}4671{{end -}}
-{{- define "orchestrator.generated.buildTimestamp" }}03-07-25_08.36.37_AM{{end -}}
+{{- define "orchestrator.generated.buildNumber" }}5085{{end -}}
+{{- define "orchestrator.generated.buildTimestamp" }}08-18-25_02.09.37_PM{{end -}}

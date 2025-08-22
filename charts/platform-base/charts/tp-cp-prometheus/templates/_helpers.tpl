@@ -191,12 +191,12 @@ Return if ingress supports pathType.
 Create the name of the service account to use for the server component
 */}}
 {{- define "prometheus.serviceAccountName.server" -}}
-{{- if .Values.serviceAccounts.server.create -}}
-    {{ default (include "prometheus.server.fullname" .) .Values.serviceAccounts.server.name }}
+{{- if empty .Values.global.tibco.serviceAccount -}}
+   {{- "control-plane-sa" }}
 {{- else -}}
-    {{ default "default" .Values.serviceAccounts.server.name }}
-{{- end -}}
-{{- end -}}
+   {{- .Values.global.tibco.serviceAccount | quote }}
+{{- end }}
+{{- end }}
 
 {{/*
 Define the prometheus.namespace template if set with forceNamespace or .Release.Namespace is set

@@ -57,6 +57,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
     {{- if .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
@@ -201,6 +202,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_BW_HOST
+        - name: TP_CP_BW5CE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW5CE_HOST
         - name: TP_CP_BW5_HOST
           valueFrom:
             configMapKeyRef:

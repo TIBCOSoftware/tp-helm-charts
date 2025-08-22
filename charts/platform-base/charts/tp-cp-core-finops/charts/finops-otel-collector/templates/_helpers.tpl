@@ -129,13 +129,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "finops-otel-collector.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "finops-otel-collector.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- if empty .Values.global.tibco.serviceAccount -}}
+   {{- "control-plane-sa" }}
+{{- else -}}
+   {{- .Values.global.tibco.serviceAccount | quote }}
 {{- end }}
 {{- end }}
-
 
 {{/*
 Create the name of the clusterRole to use

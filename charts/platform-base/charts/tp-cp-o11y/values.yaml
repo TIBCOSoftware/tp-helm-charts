@@ -79,7 +79,7 @@ probes:
 image:
   name: "o11y-service"
   pullPolicy: IfNotPresent
-  tag: 2648
+  tag: 3000
 
 tibcoRouter:
   path: /o11y
@@ -107,13 +107,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.9.3"
+        version: "1.10.5"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.116.4"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.36"
+        version: "0.72.39"
     withResources:
       # if set to true then existing recipe will be overwritten by latest recipe.
       overwriteRecipe: "false"
@@ -125,13 +125,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.9.3"
+        version: "1.10.5"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.116.4"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.36"
+        version: "0.72.39"
 job:
   image:
     name: common-distroless-base-debian-debug
