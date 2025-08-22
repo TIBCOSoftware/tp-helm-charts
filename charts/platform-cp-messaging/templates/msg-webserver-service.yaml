@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: msg-webserver
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  selector:
+    app.kubernetes.io/name: msg-webserver
+  ports:
+    - protocol: TCP
+      port: 7513
+      targetPort: 7513
+  type: ClusterIP
