@@ -1,0 +1,198 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# set to false if you want to skip deploying this chart
+enabled: true
+
+replicaCount: 1
+
+image:
+  name: infra-container-image-extractor
+  registry: ""
+  repo: ""
+  tag: 160-distroless
+  pullPolicy: IfNotPresent
+
+debug:
+  image:
+    name: common-distroless-base-debian-debug
+    tag: 12.11
+
+nameOverride: ""
+
+podAnnotations: {}
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+      - CAP_NET_RAW
+
+scripts:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 75Mi
+    limits:
+      cpu: 100m
+      memory: 150Mi
+
+buildtype:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+    limits:
+      cpu: 200m
+      memory: 200Mi
+
+installer:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 700Mi
+    limits:
+      cpu: "1"
+      memory: 1024Mi
+
+plugins:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 150Mi
+    limits:
+      cpu: 100m
+      memory: 300Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+toolsMountPath: /downloads/tools
+toolsSubPath: tsc/tools
+
+bwPluginsJobA:
+  tci-bw-plugin-customlibs:
+    tags:
+      - 1.0.0.v1-tci-2.0
+    default: 1.0.0.v1-tci-2.0
+  tci-bw-plugin-lx:
+    tags:
+      - 1.1.0.v23.1-tci-2.0
+    default: 1.1.0.v23.1-tci-2.0
+  tci-bw-plugin-mongodb:
+    tags:
+      - 1.1.1.v6.1-tci-2.0
+    default: 1.1.1.v6.1-tci-2.0
+
+bwPluginsJobB:
+  tci-bw-plugin-kafka:
+    tags:
+      - 5.0.1.v10-tci-2.0
+    default: 5.0.1.v10-tci-2.0
+  tci-bw-plugin-salesforce:
+    tags:
+      - 2.6.0.v18-tci-2.0
+    default: 2.6.0.v18-tci-2.0
+  tci-bw-plugin-ap:
+    tags:
+      - 5.0.0.v11.2-tci-2.0
+    default: 5.0.0.v11.2-tci-2.0
+  tci-bw-plugin-sp:
+    tags:
+      - 1.1.1.v3-tci-2.0
+    default: 1.1.1.v3-tci-2.0
+  
+bwPluginsJobC:
+  tci-bw-plugin-restjson:
+    tags:
+      - 2.1.0.v71.2-tci-2.0
+    default: 2.1.0.v71.2-tci-2.0
+  tci-bw-plugin-bc:
+    tags:
+      - 6.5.0.v4.1-tci-2.0
+    default: 6.5.0.v4.1-tci-2.0
+  tci-bw-plugin-iprocess:
+    tags:
+      - 11.10.0.v7-tci-2.0
+    default: 11.10.0.v7-tci-2.0
+
+bwAdaptersExtractJob:
+  tci-bw-adapter-adfiles:
+    tags:
+      - 7.1.1.v37-tci-2.0
+    default: 7.1.1.v37-tci-2.0
+  tci-bw-adapter-adadb:
+    tags:
+      - 7.3.2.v45.1-tci-2.0
+    default: 7.3.2.v45.1-tci-2.0
+  tci-bw-adapter-adldap:
+    tags:
+      - 6.1.2.v6-tci-2.0
+    default: 6.1.2.v6-tci-2.0
+  tci-bw-adapter-adr3:
+    tags:
+      - 7.3.2.v34.5-tci-2.0
+    default: 7.3.2.v34.5-tci-2.0
+  tci-bw-adapter-adsbl:
+    tags:
+      - 6.1.0.v55-tci-2.0
+    default: 6.1.0.v55-tci-2.0
+
+
+volumes:
+  plugins:
+    volumePath: "/data/"
+    mountPath: /usr/share/nginx/html
+    toolsMountPath: /downloads/tools
+    subPath: integration
+
+bwPluginsExtractJobA: true
+bwPluginsExtractJobB: true
+bwPluginsExtractJobC: true
+
+bwAdapterExtractJob: true
+buildtypesExtract: true
+bw5CardJob: true
+
+
+buildtypeImages:
+- name: tp-bw5ce-buildtype
+  extract_image: true
+  path: /var/lib/bw5ce/buildtypes
+  tag: preview-0.1
+  target_location: bw5ce/buildtypes
+
+probes:
+  startupProbe: {}
+  # enable startup probe only if security policy is blocking you from deployment, otherwise its not recommended to use it
+  #  exec:
+  #    command:
+  #    - touch
+  #    - /tmp/healthy
+  #  initialDelaySeconds: 5
+  #  periodSeconds: 5
+  #  failureThreshold: 5
+  #  successThreshold: 1
+  #  timeoutSeconds: 5

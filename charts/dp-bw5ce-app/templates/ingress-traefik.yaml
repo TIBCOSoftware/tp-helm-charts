@@ -1,0 +1,70 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.ingress.enabled -}}
+{{- if eq .Values.ingress.controllerName "traefik" -}}
+{{- $dot := . }}
+{{- range $rule := .Values.ingress.rules -}}
+{{- range $path := $rule.paths }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-{{ include "dp-bw5ce-app.fullname" $dot }}-{{ $path.port }}@kubernetescrd
+    {{- if $path.serviceDiscoverable }}
+    platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
+    {{- end }}
+    {{- with $.Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "dp-bw5ce-app.labels" $dot | nindent 4 }}
+    platform.tibco.com/service-discoverable: {{ $path.serviceDiscoverable | quote }}
+  name: {{ include "dp-bw5ce-app.fullname" $dot }}-{{ $path.port }}
+spec:
+  ingressClassName: {{ $.Values.ingress.className }}
+  {{- if $.Values.ingress.tls }}
+  tls:
+    {{- range $.Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+  - host: {{ $rule.host | quote }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ include "dp-bw5ce-app.fullname" $dot }}
+            port:
+              number: {{ $path.port }}
+        path: {{ $path.path }}
+        pathType: {{ $path.pathType }}
+
+--- 
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  labels:
+    {{- include "dp-bw5ce-app.labels" $dot | nindent 4 }}
+  name: {{ include "dp-bw5ce-app.fullname" $dot }}-{{ $path.port }}
+spec:
+  {{- if $path.customCRDConfig }}
+  {{- toYaml $path.customCRDConfig | nindent 2 }}
+  {{- else }}
+  stripPrefix:
+    forceSlash: false
+    prefixes:
+    - {{ $path.path }}
+  {{- end }}
+
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
