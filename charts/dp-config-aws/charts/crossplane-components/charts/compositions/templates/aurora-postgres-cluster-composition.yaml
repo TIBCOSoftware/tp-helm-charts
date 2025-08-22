@@ -95,24 +95,24 @@ spec:
             - type: string
               string:
                 fmt: "%s-db-subnet-group"
-    - name: dbclusterparametergroup
-      base:
-        apiVersion: rds.aws.crossplane.io/v1alpha1
-        kind: DBClusterParameterGroup
-        spec:
-          providerConfigRef:
-            name: aws-provider-config
-          forProvider:
-            description: "Parameter group for Aurora cluster"
-      patches:
-        - patchSetName: RegionParameter
-          type: PatchSet
-        - patchSetName: TagsParameter
-          type: PatchSet
-        - fromFieldPath: "spec.parameters.dbParameterGroupFamily"
-          toFieldPath: "spec.forProvider.dbParameterGroupFamily"
-        - fromFieldPath: "spec.parameters.groupFamilyParameters"
-          toFieldPath: "spec.forProvider.parameters"    
+    # - name: dbclusterparametergroup
+    #   base:
+    #     apiVersion: rds.aws.crossplane.io/v1alpha1
+    #     kind: DBClusterParameterGroup
+    #     spec:
+    #       providerConfigRef:
+    #         name: aws-provider-config
+    #       forProvider:
+    #         description: "Parameter group for Aurora cluster"
+    #   patches:
+    #     - patchSetName: RegionParameter
+    #       type: PatchSet
+    #     - patchSetName: TagsParameter
+    #       type: PatchSet
+    #     - fromFieldPath: "spec.parameters.dbParameterGroupFamily"
+    #       toFieldPath: "spec.forProvider.dbParameterGroupFamily"
+    #     - fromFieldPath: "spec.parameters.groupFamilyParameters"
+    #       toFieldPath: "spec.forProvider.parameters"    
     - name: dbcluster
       base:
         apiVersion: rds.aws.crossplane.io/v1alpha1
@@ -123,8 +123,8 @@ spec:
           forProvider:
             copyTagsToSnapshot: true
             # matchControllerRef to use the dbClusterParameterGroupName from same controller
-            dbClusterParameterGroupNameSelector:
-              matchControllerRef: true
+            # dbClusterParameterGroupNameSelector:
+            #   matchControllerRef: true
             # matchControllerRef to use the dbSubnetGroup from same controller
             dbSubnetGroupNameSelector:
               matchControllerRef: true
@@ -153,6 +153,8 @@ spec:
                 fmt: "%s-aurora-cluster"
         - fromFieldPath: "spec.parameters.allowMajorVersionUpgrade"
           toFieldPath: "spec.forProvider.allowMajorVersionUpgrade"
+        - fromFieldPath: "spec.parameters.dbClusterParameterGroupName"
+          toFieldPath: "spec.forProvider.dbClusterParameterGroupName"
         - fromFieldPath: "spec.parameters.applyImmediately"
           toFieldPath: "spec.forProvider.applyImmediately"
         - fromFieldPath: "spec.parameters.autogeneratePassword"

@@ -4,11 +4,11 @@
     in the license file that is distributed with this file.
 */}}
 
-{{- if .Values.rbac.flogo}}
+{{- if .Values.rbac.bw5ce }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-bw5ce
   labels:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
 rules:
@@ -41,6 +41,9 @@ rules:
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "list", "create", "update", "delete", "patch"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "delete", "update", "list", "watch"]
 {{- if .Values.rbac.ingressController.traefik }}
 - apiGroups: ["traefik.io"]
   resources: ["middlewares"]
@@ -57,14 +60,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-bw5ce
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-flogo
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-bw5ce
 subjects:
 - kind: ServiceAccount
   name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}

@@ -4,8 +4,8 @@
 
 apiVersion: v2
 name: dp-config-aws
-version: "1.8.2"
-appVersion: "1.8.0"
+version: "1.10.1"
+appVersion: "1.10.0"
 description: Helm chart to configure pre-requisites on AWS
 type: application
 dependencies:
@@ -27,7 +27,7 @@ dependencies:
     repository: https://charts.crossplane.io/stable
     condition: crossplane.enabled
   - name: crossplane-components
-    version: "1.8.2"
+    version: "1.10.0"
     repository: file://charts/crossplane-components
     condition: crossplane-components.enabled
 annotations:

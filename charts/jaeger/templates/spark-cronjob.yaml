@@ -5,7 +5,7 @@
 #
 
 {{ if .Values.spark.enabled }}
-apiVersion: {{ include "common.capabilities.cronjob.apiVersion" $ }}
+apiVersion: {{ include "jaeger.capabilities.cronjob.apiVersion" . }}
 kind: CronJob
 metadata:
   name: {{ include "jaeger.fullname" . }}-spark

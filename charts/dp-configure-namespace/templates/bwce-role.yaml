@@ -5,27 +5,6 @@
 */}}
 
 {{- if .Values.rbac.bwce }}
-{{- if .Values.global.tibco.enableClusterScopedPerm -}}
-{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-bwce-cluster-scope
-  labels:
-    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
-    platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
-rules:
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["list"]
-- apiGroups: [""]
-  resources: ["namespaces"]
-  verbs: ["list", "get"]
-{{- end -}}
-{{- end }}
-
----
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -62,9 +41,6 @@ rules:
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "list", "create", "update", "delete", "patch"]
-- apiGroups: ["batch"]
-  resources: ["jobs"]
-  verbs: ["create", "get", "delete", "update", "list", "watch"]
 {{- if .Values.rbac.ingressController.traefik }}
 - apiGroups: ["traefik.io"]
   resources: ["middlewares"]

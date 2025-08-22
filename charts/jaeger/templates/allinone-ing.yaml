@@ -5,7 +5,7 @@
 #
 
 {{ if and (.Values.allInOne.enabled) (.Values.allInOne.ingress.enabled) -}}
-{{- $ingressSupportsIngressClassName := eq (include "common.ingress.supportsIngressClassname" .) "true" }}
+{{- $ingressSupportsIngressClassName := eq (include "jaeger.ingress.supportsIngressClassname" .) "true" }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -28,7 +28,7 @@ spec:
         paths:
           - path: /
             pathType: {{ default "ImplementationSpecific" $.Values.allInOne.ingress.pathType }}
-            backend: {{- include "common.ingress.backend" (dict "serviceName" (include "jaeger.query.name" $) "servicePort" 16686 "context" $) | nindent 14 }}
+            backend: {{- include "jaeger.ingress.backend" (dict "serviceName" (include "jaeger.query.name" $) "servicePort" 16686 "context" $) | nindent 14 }}
   {{- end -}}
   {{- if .Values.allInOne.ingress.tls }}
   tls:

@@ -11,6 +11,7 @@ global:
   tibco:
     dataPlaneId: "abcd"
     subscriptionId: "sub1"
+    serviceAccount: ""  # user provided service account.
     containerRegistry:
       url: ""
       repository: "tibco-platform-docker-prod"
@@ -54,7 +55,7 @@ replicaCount: "1"
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 205
+  tag: 209
 
 nodeSelector:
   kubernetes.io/os: linux

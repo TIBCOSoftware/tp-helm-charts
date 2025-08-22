@@ -87,9 +87,11 @@ in the license file that is distributed with this file.
 {{- if not .Values.auroraCluster.mandatoryConfigurationParameters }}
 {{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters are required to be passed as helm values") -}}
 {{- end }}
+{{/*
 {{- if not .Values.auroraCluster.mandatoryConfigurationParameters.dbParameterGroupFamily }}
 {{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.dbParameterGroupFamily is required to be passed as helm values") -}}
 {{- end }}
+*/}}
 {{- if not .Values.auroraCluster.mandatoryConfigurationParameters.dbInstanceClass }}
 {{- fail (printf "crossplane-components.claims.auroraCluster.mandatoryConfigurationParameters.dbInstanceClass is required to be passed as helm values") -}}
 {{- end }}
