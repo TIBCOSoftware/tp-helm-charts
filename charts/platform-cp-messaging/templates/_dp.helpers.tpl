@@ -35,7 +35,6 @@ need.msg.dp.params
   {{- $instanceId := "no-instanceId" -}}
   {{- $fluentbitEnabled := .Values.global.cp.logging.fluentbit.enabled -}}
   {{- $enableClusterScopedPerm := .Values.global.cp.enableClusterScopedPerm -}}
-  {{- $enableResourceConstraints := .Values.global.cp.enableResourceConstraints -}}
   {{- $enableSecurityContext := true -}}
   {{- $enableHaproxy := true -}}
   # These 3 are currently unused!
@@ -114,9 +113,6 @@ need.msg.dp.params
       {{- if hasKey .Values.dp "enableClusterScopedPerm" -}}
         {{- $enableClusterScopedPerm = .Values.dp.enableClusterScopedPerm -}}
       {{- end -}}
-      {{- if hasKey .Values.dp "enableResourceConstraints" -}}
-        {{- $enableResourceConstraints = .Values.dp.enableResourceConstraints -}}
-      {{- end -}}
       {{- if hasKey .Values.dp "enableSecurityContext" -}}
         {{- $enableSecurityContext = .Values.dp.enableSecurityContext -}}
       {{- end -}}
@@ -126,7 +122,6 @@ need.msg.dp.params
   {{- end -}}
 #
 dp:
-  activationUrl: "{{ .Values.dp.activationUrl | default .Values.global.cp.resources.activationServer.url | default .Values.ems.activationUrl | default "https://tib-activate:7070" }}"
   uid: 1000
   gid: 1000
   where: {{ $where }}
@@ -148,7 +143,6 @@ dp:
   chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   fluentbitEnabled: {{ $fluentbitEnabled }}
   enableClusterScopedPerm: {{ $enableClusterScopedPerm }}
-  enableResourceConstraints: {{ $enableResourceConstraints }}
   enableSecurityContext: {{ $enableSecurityContext }}
   enableHaproxy: {{ $enableHaproxy }}
 {{- end }}
@@ -205,9 +199,6 @@ msg.dp.net.fullCluster
 Labels to allow pods full K8s + cluster CIDR (ingress/LBs) access
 */}}
 {{- define "msg.dp.net.fullCluster" }}
-networking.platform.tibco.com/msgInfra: enable
-networking.platform.tibco.com/cluster-ingress: enable
-networking.platform.tibco.com/cluster-egress: enable
 ingress.networking.platform.tibco.com/cluster-access: enable
 {{- end }}
 
@@ -216,8 +207,6 @@ msg.dp.net.external
 Labels to allow pods external N-S access
 */}}
 {{- define "msg.dp.net.external" }}
-networking.platform.tibco.com/internet-ingress: enable
-networking.platform.tibco.com/internet-egress: enable
 egress.networking.platform.tibco.com/internet-all: enable
 ingress.networking.platform.tibco.com/internet-access: enable
 {{- end }}
