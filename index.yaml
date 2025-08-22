@@ -530,6 +530,41 @@ entries:
         - kind: changed
           description: "added crossplane charts"
     apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-22T06:18:24.500955551Z"
+    dependencies:
+    - condition: traefik.enabled
+      name: traefik
+      repository: https://traefik.github.io/charts
+      version: 34.4.1
+    - condition: ingress-nginx.enabled
+      name: ingress-nginx
+      repository: https://kubernetes.github.io/ingress-nginx
+      version: 4.12.1
+    - condition: kong.enabled
+      name: kong
+      repository: https://charts.konghq.com
+      version: 2.33.3
+    - condition: crossplane.enabled
+      name: crossplane
+      repository: https://charts.crossplane.io/stable
+      version: v1.13.2
+    - condition: crossplane-components.enabled
+      name: crossplane-components
+      repository: file://charts/crossplane-components
+      version: 1.10.0
+    description: Helm chart to configure pre-requisites on AWS
+    digest: 8aea837eb5f804e98b80cf01f730822e5ebbe7ffa13ee8609ab3581c30481529
+    name: dp-config-aws
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-config-aws-1.10.1/dp-config-aws-1.10.1.tgz
+    version: 1.10.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
+          description: "added crossplane charts"
+    apiVersion: v2
     appVersion: 1.8.0
     created: "2025-06-23T15:13:26.914897084Z"
     dependencies:
@@ -803,6 +838,26 @@ entries:
     version: 1.6.1
   dp-configure-namespace:
   - apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-22T06:18:24.64484363Z"
+    dependencies:
+    - condition: config.enabled
+      name: config
+      repository: ""
+      version: 1.9.*
+    - condition: haproxy.enabled
+      name: haproxy
+      repository: ""
+      version: 1.44.4
+    description: A Helm chart for creating service account, cluster-role, cluster-role-binding,
+      role-binding & network-policies
+    digest: 161a9eec4061072c48d0d3a2db9482ef525911056efc129f861c239663ecd693
+    name: dp-configure-namespace
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.10.4/dp-configure-namespace-1.10.4.tgz
+    version: 1.10.4
+  - apiVersion: v2
     appVersion: 1.9.0
     created: "2025-07-23T06:41:04.676708702Z"
     dependencies:
@@ -945,6 +1000,25 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-configure-namespace-1.3.4/dp-configure-namespace-1.3.4.tgz
     version: 1.3.4
   dp-core-infrastructure:
+  - apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-22T06:18:24.758405363Z"
+    dependencies:
+    - condition: tibtunnel.enabled
+      name: tp-tibtunnel
+      repository: ""
+      version: 1.10.*
+    - condition: tp-provisioner-agent.enabled
+      name: tp-provisioner-agent
+      repository: ""
+      version: 1.10.*
+    description: A Helm chart for Data Plane Infrastructure
+    digest: 82e983330b27e439d1b791b0cab2c14b8e3c5df8b530e642033de18230cd8d48
+    name: dp-core-infrastructure
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/dp-core-infrastructure-1.10.3/dp-core-infrastructure-1.10.3.tgz
+    version: 1.10.3
   - apiVersion: v2
     appVersion: 1.9.0
     created: "2025-07-23T06:41:04.831985985Z"
@@ -1513,6 +1587,26 @@ entries:
   jaeger:
   - apiVersion: v2
     appVersion: 1.66.0
+    created: "2025-08-22T06:18:24.945525937Z"
+    description: A Jaeger Helm chart for Kubernetes
+    digest: 544ccafa0539f136029351324a730fc049c7e2f593fa4351341ccaae3864b853
+    home: https://jaegertracing.io
+    icon: https://camo.githubusercontent.com/afa87494e0753b4b1f5719a2f35aa5263859dffb/687474703a2f2f6a61656765722e72656164746865646f63732e696f2f656e2f6c61746573742f696d616765732f6a61656765722d766563746f722e737667
+    keywords:
+    - jaeger
+    - opentracing
+    - tracing
+    - instrumentation
+    kubeVersion: '>= 1.21-0'
+    name: jaeger
+    sources:
+    - https://hub.docker.com/u/jaegertracing/
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/jaeger-0.72.39/jaeger-0.72.39.tgz
+    version: 0.72.39
+  - apiVersion: v2
+    appVersion: 1.66.0
     created: "2025-05-22T06:09:34.743086375Z"
     dependencies:
     - condition: provisionDataStore.cassandra
@@ -2021,6 +2115,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-pulsar-tp-1.3.14/msg-pulsar-tp-1.3.14.tgz
     version: 1.3.14
   o11yservice:
+  - apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-22T06:18:25.105083317Z"
+    description: A helm chart for o11y service
+    digest: 4c514bd26477a279bccc05adb38fdc837487cce1058fb0f342dac52f52f3c728
+    name: o11yservice
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/o11yservice-1.10.5/o11yservice-1.10.5.tgz
+    version: 1.10.5
   - apiVersion: v2
     appVersion: 1.9.0
     created: "2025-07-23T06:41:04.97694252Z"
@@ -8467,6 +8570,18 @@ entries:
     version: 1.8.9
   tp-cp-proxy:
   - apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-22T06:18:25.264002368Z"
+    description: A Helm chart for Control Plane Proxy
+    digest: 66937778ec7a895b1755aa824ceec747caf59d957e9e9dc08b4c4a24a3085717
+    keywords:
+    - cp-proxy
+    - data-plane
+    name: tp-cp-proxy
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-proxy-1.10.2/tp-cp-proxy-1.10.2.tgz
+    version: 1.10.2
+  - apiVersion: v2
     appVersion: 1.9.0
     created: "2025-07-23T06:41:05.151376028Z"
     description: A Helm chart for Control Plane Proxy
@@ -9821,4 +9936,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-08-22T05:47:24.875218488Z"
+generated: "2025-08-22T06:18:25.265104245Z"
