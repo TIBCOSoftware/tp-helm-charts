@@ -52,6 +52,8 @@ spec:
             - containerPort: {{ .Values.service.port }}
               name: tp-o11yservice
           env:
+            - name: AUDITSAFE_TOGGLE
+              value: "off"
             - name: IS_CP
               value: "false"
             - name: NAMESPACE

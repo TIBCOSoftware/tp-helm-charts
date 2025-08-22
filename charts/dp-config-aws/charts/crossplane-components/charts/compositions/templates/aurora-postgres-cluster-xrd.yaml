@@ -75,7 +75,9 @@ spec:
                     default: 1
                   databaseName:
                     type: string
-                  dbParameterGroupFamily:
+                  # dbParameterGroupFamily:
+                  #   type: string
+                  dbClusterParameterGroupName:
                     type: string
                   deletionProtection:
                     type: boolean
@@ -177,7 +179,7 @@ spec:
                   - nodeCIDR
                   - subnetIds
                   - prefix
-                  - dbParameterGroupFamily
+                  #- dbParameterGroupFamily
                   - engine
                   - engineVersion
                   - engineMode

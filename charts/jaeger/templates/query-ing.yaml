@@ -5,10 +5,10 @@
 #
 
 {{ if .Values.query.ingress.enabled }}
-{{- $ingressSupportsIngressClassName := eq (include "common.ingress.supportsIngressClassname" .) "true" }}
+{{- $ingressSupportsIngressClassName := eq (include "jaeger.ingress.supportsIngressClassname" .) "true" }}
   {{- $servicePort := .Values.query.service.port -}}
   {{- $basePath := .Values.query.basePath -}}
-apiVersion: {{ include "common.capabilities.ingress.apiVersion" $ }}
+apiVersion: {{ include "jaeger.capabilities.ingress.apiVersion" . }}
 kind: Ingress
 metadata:
   name: {{ template "jaeger.query.name" . }}
@@ -33,12 +33,12 @@ spec:
         paths:
           - path: {{ $basePath }}
             pathType: {{ default "ImplementationSpecific" $.Values.query.ingress.pathType }}
-            backend: {{- include "common.ingress.backend" (dict "serviceName" (include "jaeger.query.name" $) "servicePort" $servicePort "context" $) | nindent 14 }}
+            backend: {{- include "jaeger.ingress.backend" (dict "serviceName" (include "jaeger.query.name" $) "servicePort" $servicePort "context" $) | nindent 14 }}
           {{- end -}}
           {{- if .Values.query.ingress.health.exposed }}
           - path: /health
             pathType: {{ default "ImplementationSpecific" $.Values.query.ingress.pathType }}
-            backend: {{- include "common.ingress.backend" (dict "serviceName" (include "jaeger.query.name" $) "servicePort" 16687 "context" $) | nindent 14 }}
+            backend: {{- include "jaeger.ingress.backend" (dict "serviceName" (include "jaeger.query.name" $) "servicePort" 16687 "context" $) | nindent 14 }}
   {{- end -}}
   {{- if .Values.query.ingress.tls }}
   tls:
