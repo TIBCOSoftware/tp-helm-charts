@@ -14,27 +14,27 @@ in the license file that is distributed with this file.
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "tpcli-utilities.name" -}}
+{{- define "cp-cli-utilities.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "tpcli-utilities.fullname" }}tp-cp-cli{{ end -}}
+{{- define "cp-cli-utilities.fullname" }}tp-cp-cli{{ end -}}
 
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "tpcli-utilities.chart" -}}
+{{- define "cp-cli-utilities.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Selector labels
 */}}
-{{- define "tpcli-utilities.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "tpcli-utilities.name" . }}
+{{- define "cp-cli-utilities.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "cp-cli-utilities.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 networking.platform.tibco.com/internet-egress: enable
 networking.platform.tibco.com/cluster-egress: enable
@@ -44,9 +44,9 @@ networking.platform.tibco.com/containerRegistry-egress: enable
 {{/*
 Common labels
 */}}
-{{- define "tpcli-utilities.labels" -}}
-helm.sh/chart: {{ include "tpcli-utilities.chart" . }}
-{{ include "tpcli-utilities.selectorLabels" . }}
+{{- define "cp-cli-utilities.labels" -}}
+helm.sh/chart: {{ include "cp-cli-utilities.chart" . }}
+{{ include "cp-cli-utilities.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -59,25 +59,25 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $data | toYaml }}
 {{- end }}
 
-{{- define "tpcli-utilities.image.registry" }}
+{{- define "cp-cli-utilities.image.registry" }}
   {{- .Values.global.tibco.containerRegistry.url }}
 {{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
-{{- define "tpcli-utilities.infra.image.repository" -}}
+{{- define "cp-cli-utilities.infra.image.repository" -}}
   {{ .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
-{{- define "tpcli-utilities.tpcli.image.repository" -}}
+{{- define "cp-cli-utilities.cp-cli.image.repository" -}}
   {{ .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "tpcli-utilities.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-cli-utilities.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
 
 {{/* PVC configured for control plane. Fail if the pvc not exist */}}
-{{- define "tpcli-utilities.pvc-name" }}
+{{- define "cp-cli-utilities.pvc-name" }}
 {{- if .Values.global.external.storage.pvcName }}
   {{- .Values.global.external.storage.pvcName }}
 {{- else }}
@@ -86,6 +86,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/* Image pull custom certificate secret configured for control plane. default value empty */}}
-{{- define "tpcli-utilities.container-registry.custom-cert-secret" }}
+{{- define "cp-cli-utilities.container-registry.custom-cert-secret" }}
   {{- .Values.global.tibco.containerRegistry.certificateSecret }}
+{{- end }}
+
+{{/* Control plane enable or disable resource constraints */}}
+{{- define "cp-cli-utilities.enableResourceConstraints" -}}
+{{- default "false" .Values.global.tibco.enableResourceConstraints | quote }}
 {{- end }}
