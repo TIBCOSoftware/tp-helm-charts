@@ -1,0 +1,16 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    use-subpath: "true"
+  labels:
+    {{- include "bw5provisioner.labels" . | nindent 4 }}
+  name: fluentbit-config-otel-bw5ce
+data:
+{{ (.Files.Glob "config/otel/*.conf").AsConfig | indent 2 }}
+{{ (.Files.Glob "config/otel/*.lua").AsConfig | indent 2 }}

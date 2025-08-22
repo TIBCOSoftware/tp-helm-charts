@@ -1,0 +1,20 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# TP iApp BW WebServer Service definition; exposes the service on targetPort 3000
+apiVersion: v1
+kind: Service
+metadata:
+  name: tp-cp-bw5ce-webserver
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: bw5ce
+      port: 3003
+      protocol: TCP
+      targetPort: 3003
+  selector:
+    {{- include "bw-webserver.shared.labels.selector" . | nindent 4 }}

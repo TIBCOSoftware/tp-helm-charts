@@ -65,15 +65,6 @@ buildtype:
       cpu: 200m
       memory: 200Mi
 
-studio:
-  resources:
-    requests:
-      cpu: 500m
-      memory: 700Mi
-    limits:
-      cpu: "1"
-      memory: 1024Mi
-
 plugins:
   resources:
     requests:
@@ -92,35 +83,7 @@ affinity: {}
 toolsMountPath: /downloads/tools
 toolsSubPath: tsc/tools
 
-bwStudioExtract: true
-
-bwStudioImages:
-  - image: tp-bw-studio
-    path: /opt/downloads/
-    tag: 2.10.0-linux-amd64
-    target_location: bwce-studio/2.10.0/linux-amd64/
-  - image: tp-bw-studio
-    path: /opt/downloads/
-    tag: 2.10.0-mac-amd64
-    target_location: bwce-studio/2.10.0/mac-amd64/
-  - image: tp-bw-studio
-    path: /opt/downloads/
-    tag: 2.10.0-win-amd64
-    target_location: bwce-studio/2.10.0/windows-amd64/
-  - image: tp-bw-studio
-    path: /opt/downloads/
-    tag: 2.10.0-HF1-hotfix-amd64
-    target_location: bwce-studio/2.10.0-HF1/hotfix-amd64/
-  - image: tp-bw-studio
-    path: /opt/downloads/
-    tag: 2.10.0-HF2-hotfix-amd64
-    target_location: bwce-studio/2.10.0-HF2/hotfix-amd64/
-  - image: tp-bw-studio
-    path: /opt/downloads/
-    tag: 2.10.0-HF3-hotfix-amd64
-    target_location: bwce-studio/2.10.0-HF3/hotfix-amd64/
-bwStudioDelete: false
-bwStudioDeleteVersions: ""
+bwStudioCard: true
 
 bwPluginsJobA:
   tci-bw-plugin-customplugin:
@@ -201,8 +164,8 @@ bwPluginsJobB:
 bwPluginsJobC:
   tci-bw-plugin-adbplugin:
     tags:
-      - 8.6.0.v40-tci-2.0
-    default: 8.6.0.v40-tci-2.0
+      - 8.6.0.v41.1-tci-2.0
+    default: 8.6.0.v41.1-tci-2.0
   tci-bw-plugin-bigquery:
     tags:
       - 6.1.0.v9.1-tci-2.0
@@ -225,8 +188,8 @@ bwPluginsJobC:
     default: 6.2.2.v12-tci-2.0
   tci-bw-plugin-googlepubsub:
     tags:
-      - 6.0.2.v6-tci-2.0
-    default: 6.0.2.v6-tci-2.0
+      - 6.0.2.v23-tci-2.0
+    default: 6.0.2.v23-tci-2.0
   tci-bw-plugin-kafka:
     tags:
       - 6.8.2.v8-tci-2.0
@@ -343,8 +306,8 @@ bwPluginsJobF:
     default: 6.0.1.v13.3-tci-2.0
   tci-bw-plugin-cdcplugin:
     tags:
-      - 6.1.0.v10.1-tci-2.0
-    default: 6.1.0.v10.1-tci-2.0
+      - 6.2.0.v17.1-tci-2.0
+    default: 6.2.0.v17.1-tci-2.0
   tci-bw-plugin-amazonredshift:
     tags:
       - 6.1.0.v6.1-tci-2.0
@@ -409,7 +372,7 @@ buildtypeImages:
 - name: tp-bwce-buildtype
   extract_image: true
   path: /var/lib/bwce/buildtypes
-  tag: 2.10.0-HF3
+  tag: 6.12.0
   target_location: bwce/buildtypes
 
 probes:

@@ -26,15 +26,6 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
-flogoVSCodeExtension:
-  resources:
-    requests:
-      cpu: 50m
-      memory: 75Mi
-    limits:
-      cpu: 100m
-      memory: 150Mi
-
 buildtype:
   resources:
     requests:
@@ -96,14 +87,7 @@ volumes:
     toolsMountPath: /downloads/tools
     subPath: integration
 
-flogoVSCodeExtensionExtract: true
-flogoVSCodeExtensionImages:
-  - image: tp-flogo-vscode-extension
-    path: /opt/downloads/1.3.2/
-    tag: 1.3.2-b1232-vscode-1.3.2
-    target_location: flogo-vscode-extension/1.3.2
-flogoVSCodeDelete: false
-flogoVSCodeDeleteVersions: ""
+vsCodeExtensionCardExtract: true
 
 flogopluginsExtractA: true
 flogopluginsExtractB: true
@@ -149,24 +133,24 @@ flogopluginsB:
     default: 3.0.1-hf1-b01
   tp-flogo-connector-ems:
     tags:
-      - 1.0.2-hf1-b02
-    default: 1.0.2-hf1-b02
+      - 1.0.2-hf2-b01
+    default: 1.0.2-hf2-b01
   tp-flogo-connector-gcps:
     tags:
       - 1.0.1-hf1-b01
     default: 1.0.1-hf1-b01
   tp-flogo-connector-general:
     tags:
-      - 1.6.7-b03
-    default: 1.6.7-b03
+      - 1.6.8-b01
+    default: 1.6.8-b01
   tp-flogo-connector-http:
     tags:
       - 1.1.1-b03
     default: 1.1.1-b03
   tp-flogo-connector-kafka:
     tags:
-      - 1.3.3-b01
-    default: 1.3.3-b01
+      - 1.3.3-hf1-b02
+    default: 1.3.3-hf1-b02
   tp-flogo-connector-lambda:
     tags:
       - 1.3.2-b01-flogo-2.25.1
@@ -195,12 +179,12 @@ flogopluginsC:
     default: 2.7.1-b01
   tp-flogo-connector-pulsar:
     tags:
-      - 1.3.4-b03
-    default: 1.3.4-b03
+      - 1.3.4-hf1-b03
+    default: 1.3.4-hf1-b03
   tp-flogo-connector-redis:
     tags:
-      - 1.3.0-b06
-    default: 1.3.0-b06
+      - 1.3.1-b04
+    default: 1.3.1-b04
 
 flogopluginsD:
   tp-flogo-connector-salesforce:
@@ -225,8 +209,8 @@ flogopluginsD:
     default: 1.0.1-b01
   tp-flogo-connector-tcm:
     tags:
-      - 1.3.3-b01
-    default: 1.3.3-b01
+      - 1.4.0-b11
+    default: 1.4.0-b11
   tp-flogo-connector-tdv:
     tags:
       - 1.1.2-b05
@@ -267,13 +251,21 @@ flogopluginsF:
     tags:
       - 1.0.2-hf1-b01
     default: 1.0.2-hf1-b01
+  tp-flogo-connector-sap:
+    tags:
+      - 1.0.0-hf1-b04
+    default: 1.0.0-hf1-b04
+  tp-flogo-connector-saps4hana:
+    tags:
+      - 1.3.0-hf1-b05
+    default: 1.3.0-hf1-b05
 
 buildtypesExtract: true
 flogoBuildtypeImages:
   - name: tp-flogo-buildtype
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.25.7-b259
+    tag: 2.25.8-b271
     target_location: flogo/buildtypes
 
 probes:

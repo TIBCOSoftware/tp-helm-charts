@@ -1,0 +1,37 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if gt (len .Values.service.ports) 0  -}}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- if .Values.service.serviceDiscoverable }}
+    platform.tibco.com/service-description: {{ .Values.service.serviceDescription | squote }}
+    {{- end }}
+    {{- with .Values.service.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "dp-bw5ce-app.labels" . | nindent 4 }}
+    platform.tibco.com/service-discoverable: {{ .Values.service.serviceDiscoverable | quote }}
+    {{- with .Values.service.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ include "dp-bw5ce-app.fullname" . }}
+spec:
+  ports:
+  {{- range $svcPort := .Values.service.ports }}
+  - name: port-{{ $svcPort.port }}
+    port: {{ $svcPort.port }}
+    protocol: TCP
+    targetPort: {{ $svcPort.targetPort }}
+  {{- end }}
+  selector:
+    {{- include "dp-bw5ce-app.selectorLabels" . | nindent 4 }}
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+{{- end }}

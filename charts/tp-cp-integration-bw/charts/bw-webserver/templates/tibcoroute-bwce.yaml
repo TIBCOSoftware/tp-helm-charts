@@ -81,3 +81,33 @@ spec:
           enableRedirects: true
           fqdn: ${TSC_DNS_DOMAIN}
           listener: virtual
+    - internalPath: /bwce-alerts-config-widget
+      path: /cp/bwce/widgets/bwce-alerts-config
+      port: 3000
+      protocol: http
+      proxies:
+        - allowClientCache: true
+          allowXFrameOptions: false
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          enableRedirects: true
+          fqdn: ${TSC_DNS_DOMAIN}
+          listener: virtual
+    - internalPath: /bwce-alerts-preview-widget
+      path: /cp/bwce/widgets/bwce-alerts-preview
+      port: 3000
+      protocol: http
+      proxies:
+        - allowClientCache: true
+          allowXFrameOptions: false
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          enableRedirects: true
+          fqdn: ${TSC_DNS_DOMAIN}
+          listener: virtual
