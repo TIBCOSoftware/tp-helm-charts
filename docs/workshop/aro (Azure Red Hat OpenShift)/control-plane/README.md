@@ -169,28 +169,48 @@ EOF
 
 ## Install Postgres
 
-Please use the following chart deployment to install Postgres in your cluster.
-Optionally, you can use any pre-existing Postgres installation, but please make sure that the Control Plane pods can communicate with that database.
+In this section, we will install postgres server chart. We have made a helm chart called `on-premises-third-party` that encapsulates the installation of postgres server.
+
+You can optionally use any pre-existing postgres installation, but please make sure that the Control Plane pods can communicate with that database.
 
 ```bash
+export TP_CONTAINER_REGISTRY_URL="csgprduswrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
+export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
+export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
+export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-prod" # replace with your container registry repository
+
 helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n tibco-ext postgresql postgresql \
-  --repo https://charts.bitnami.com/bitnami \
+  -n tibco-ext postgresql on-premises-third-party \
   --labels layer=2 \
-  --version "15.5.38" -f - <<EOF
-auth:
-  postgresPassword: postgres
-  username: postgres
-  password: postgres
-  database: "postgres"
+  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 global:
+  tibco:
+    containerRegistry:
+      url: "${TP_CONTAINER_REGISTRY_URL}"
+      username: "${TP_CONTAINER_REGISTRY_USER}"
+      password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+      repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
   storageClass: ${TP_DISK_STORAGE_CLASS}
-primary:
-  # resourcesPreset: "nano" # nano micro small https://github.com/bitnami/charts/blob/7ba54fc3775106036c813a3819c76feab6deee83/bitnami/common/templates/_resources.tpl#L15
-  resources:
-    requests:
-      cpu: 250m
-      memory: 256Mi
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: postgres
+    username: postgres
+    password: postgres
+    database: "postgres"
+  image:
+    registry: "${TP_CONTAINER_REGISTRY_URL}"
+    repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
+    tag: 16.4.0-debian-12-r14
+    pullSecrets:
+    - tibco-container-registry-credentials
+    debug: true
+  primary:
+    # resourcesPreset: "nano" # nano micro small
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
 EOF
 ```
 
@@ -202,7 +222,7 @@ oc label namespace tibco-ext networking.platform.tibco.com/non-cp-ns=enable --ov
 
 > [!IMPORTANT]
 > Please note that the Postgres installed above does not enforce SSL, by default. It has to be manually configured.
-> To enforce SSL while to connecting to the instance, please [configure the tls values for the above chart](https://github.com/bitnami/charts/blob/main/bitnami/postgresql/values.yaml#L280)
+> To enforce SSL while to connecting to the instance, please configure the tls values for the above chart
 
 
 # TIBCO® Control Plane Deployment
@@ -369,6 +389,7 @@ dig +short test.${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}
 export TP_CONTAINER_REGISTRY_URL="csgprduswrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
 export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
 export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
+export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-prod" # replace with your container registry repository
 ```
 
 ## Generate and Create session-keys Secret (Required for Router Pods)
@@ -392,7 +413,7 @@ The following values can be stored in a file and passed to the platform-boostrap
 > These values are for example only.
 
 ```bash
-cat > aro-bootstrap-values.yaml <(envsubst '${TP_INGRESS_CLASS}, ${CP_TUNNEL_DNS_DOMAIN}, ${CP_MY_DNS_DOMAIN}, ${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_NODE_CIDR}, ${TP_POD_CIDR}, ${TP_SERVICE_CIDR}, ${TP_FILE_STORAGE_CLASS}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
+cat > aro-bootstrap-values.yaml <(envsubst '${TP_INGRESS_CLASS}, ${CP_TUNNEL_DNS_DOMAIN}, ${CP_MY_DNS_DOMAIN}, ${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${TP_CONTAINER_REGISTRY_REPOSITORY}, ${CP_INSTANCE_ID}, ${TP_NODE_CIDR}, ${TP_POD_CIDR}, ${TP_SERVICE_CIDR}, ${TP_FILE_STORAGE_CLASS}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
 hybrid-proxy:
   enabled: true
   ingress:
@@ -466,7 +487,7 @@ global:
       url: "${TP_CONTAINER_REGISTRY_URL}"
       username: "${TP_CONTAINER_REGISTRY_USER}"
       password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
-      repository: "tibco-platform-docker-prod"
+      repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
     controlPlaneInstanceId: "${CP_INSTANCE_ID}"
     serviceAccount: "${CP_INSTANCE_ID}-sa"
   external:
