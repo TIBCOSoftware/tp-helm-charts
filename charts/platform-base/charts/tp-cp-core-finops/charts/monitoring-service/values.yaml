@@ -78,41 +78,15 @@ fluentbit:
       memory: "150Mi"
 monitoringtibtunnel:
   schedule: "* * * * *"
-  resources:
-    requests:
-      cpu: "50m"
-      memory: "20Mi"
-    limits:
-      cpu: "80m"
-      memory: "20Mi"
 monitoringcapresources:
   schedule: "* * * * *"
-  resources:
-    requests:
-      cpu: "50m"
-      memory: "20Mi"
-    limits:
-      cpu: "80m"
-      memory: "20Mi"
+monitoringnonreporting:
+  schedule: "* * * * *"
 monitoringhomepagemetrics:
   schedule: "0 * * * *"  # For dev and QA environments, runs once every hour 
   prodSchedule: "0 * * * *"  # For production environment, runs once every hour  
-  resources:
-    requests:
-      cpu: "50m"
-      memory: "20Mi"
-    limits:
-      cpu: "80m"
-      memory: "20Mi"
 monitoringdataplanesync:
   schedule: "0 0 * * *" 
-  resources:
-    requests:
-      cpu: "50m"
-      memory: "20Mi"
-    limits:
-      cpu: "80m"
-      memory: "20Mi"
 # HPA
 hpa:
   cpu: 70

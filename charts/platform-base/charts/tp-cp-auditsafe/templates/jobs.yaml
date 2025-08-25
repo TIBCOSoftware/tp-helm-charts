@@ -1,0 +1,480 @@
+{{- if eq .Values.global.tibco.is_replica_region false }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-auditsafe.consts.appName" . }}-setup
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-auditsafe.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-auditsafe.consts.appName" . }}-setup
+      labels:
+        {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tp-cp-auditsafe-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "tp-cp-auditsafe-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-auditsafe-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: auditsafe-setup
+        {{- if .Values.global.containerTpcpauditsafeJob.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerTpcpauditsafeJob.securityContext | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-cp-auditsafe-configuration.container-registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.auditsafeScripts }}:{{ include "tp-cp-auditsafe-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.tibco.region }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/auditsafe/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: AUDITSAFE_CONFIG_LOCATION
+          value: /opt/tibco/auditsafe/config
+        - name: AUDITSAFE_CERTIFICATES_LOCATION
+          value: /opt/tibco/auditsafe/certificates
+        - name: AUDITSAFE_VOLUME_LOCATION
+          value: /private/auditsafe
+        - name: DB_SSL_MODE
+          value: {{ .Values.global.external.db_ssl_mode }}
+        - name: DB_SSL_CERT_SECRET_NAME
+          value: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          # Check the DB_SSL_MODE
+          if [ $DB_SSL_MODE == "disable"  ]; then
+            echo "No certificate check required. Proceeding"
+          else
+            # Check if the Kubernetes secret exists (using kubectl)
+            if [ -z $DB_SSL_CERT_SECRET_NAME ]; then
+              echo "ERROR: The value for global.tibco.db_ssl_root_cert_secretname cannot be empty when ssl mode is set to $DB_SSL_MODE. Exiting"
+              exit 1
+            else
+              #If the SSL_MODE is not disable then check the presence of the DB SSL secret in the namespace
+              if kubectl get secret $DB_SSL_CERT_SECRET_NAME >/dev/null 2>&1; then
+                  echo "Kubernetes secret $DB_SSL_CERT_SECRET_NAME found. Proceeding..."
+                else
+                  echo "ERROR: Certificate secret $DB_SSL_CERT_SECRET_NAME not found. Exiting."
+                  exit 2
+              fi
+            fi
+          fi
+          /opt/tibco/auditsafe/scripts/init.sh install
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: store-vol
+          mountPath: /private/auditsafe
+          # creating auditsafe as subfolder in shared EFS.
+          subPath: auditsafe
+        - name: secret-volume
+          mountPath: /private/auditsafe/secret-volume
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-auditsafe-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-auditsafe.consts.appName" . }}-upgrade
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-auditsafe.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-auditsafe.consts.appName" . }}-upgrade
+      labels:
+        {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tp-cp-auditsafe-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "tp-cp-auditsafe-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-auditsafe-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: auditsafe-upgrade
+        {{- if .Values.global.containerTpcpauditsafeJob.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerTpcpauditsafeJob.securityContext | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-cp-auditsafe-configuration.container-registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.auditsafeScripts }}:{{ include "tp-cp-auditsafe-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.tibco.region }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/auditsafe/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: AUDITSAFE_CONFIG_LOCATION
+          value: /opt/tibco/auditsafe/config
+        - name: AUDITSAFE_CERTIFICATES_LOCATION
+          value: /opt/tibco/auditsafe/certificates
+        - name: AUDITSAFE_VOLUME_LOCATION
+          value: /private/auditsafe
+        - name: DB_SSL_MODE
+          value: {{ .Values.global.external.db_ssl_mode }}
+        - name: DB_SSL_CERT_SECRET_NAME
+          value: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            # Check the DB_SSL_MODE
+            if [ $DB_SSL_MODE == "disable"  ]; then
+              echo "No certificate check required. Proceeding"
+            else
+              # Check if the Kubernetes secret exists (using kubectl)
+              if [ -z $DB_SSL_CERT_SECRET_NAME ]; then
+                echo "ERROR: The value for global.tibco.db_ssl_root_cert_secretname cannot be empty when ssl mode is set to $DB_SSL_MODE. Exiting"
+                exit 1
+              else
+                #If the SSL_MODE is not disable then check the presence of the DB SSL secret in the namespace
+                if kubectl get secret $DB_SSL_CERT_SECRET_NAME >/dev/null 2>&1; then
+                    echo "Kubernetes secret $DB_SSL_CERT_SECRET_NAME found. Proceeding..."
+                  else
+                    echo "ERROR: Certificate secret $DB_SSL_CERT_SECRET_NAME not found. Exiting."
+                    exit 2
+                fi
+              fi
+            fi
+            /opt/tibco/auditsafe/scripts/init.sh upgrade
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: store-vol
+          mountPath: /private/auditsafe
+          subPath: auditsafe
+        - name: secret-volume
+          mountPath: /private/auditsafe/secret-volume
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-auditsafe-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+
+---
+
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-auditsafe.consts.appName" . }}-cleanup
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-auditsafe.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-auditsafe.consts.appName" . }}-cleanup
+      labels:
+        {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tp-cp-auditsafe-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "tp-cp-auditsafe-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-auditsafe-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: auditsafe-cleanup
+        {{- if .Values.global.containerTpcpauditsafeJob.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerTpcpauditsafeJob.securityContext | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-cp-auditsafe-configuration.container-registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.auditsafeScripts }}:{{ include "tp-cp-auditsafe-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.tibco.region }}
+        - name: DeleteDBOnUninstall
+          value: {{ .Values.cp.deleteDBOnUninstall | quote }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/auditsafe/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: AUDITSAFE_CONFIG_LOCATION
+          value: /opt/tibco/auditsafe/config
+        - name: AUDITSAFE_CERTIFICATES_LOCATION
+          value: /opt/tibco/auditsafe/certificates
+        - name: AUDITSAFE_VOLUME_LOCATION
+          value: /private/auditsafe
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/auditsafe/scripts/init.sh delete"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: store-vol
+          mountPath: /private/auditsafe
+          subPath: auditsafe
+        - name: secret-volume
+          mountPath: /private/auditsafe/secret-volume
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-auditsafe-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-auditsafe.consts.appName" . }}-rollback
+  annotations:
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-cp-auditsafe.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: {{ include "tp-cp-auditsafe.consts.appName" . }}-rollback
+      labels:
+        {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tp-cp-auditsafe-configuration.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "tp-cp-auditsafe-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-auditsafe-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: auditsafe-rollback
+        {{- if .Values.global.containerTpcpauditsafeJob.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerTpcpauditsafeJob.securityContext | nindent 10 }}
+        {{- end }}
+        image: {{ include "tp-cp-auditsafe-configuration.container-registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.auditsafeScripts }}:{{ include "tp-cp-auditsafe-job.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBPort
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-cp-core.consts.cp.db.configuration" . }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.tibco.region }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/auditsafe/scripts/postgres
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: AUDITSAFE_CONFIG_LOCATION
+          value: /opt/tibco/auditsafe/config
+        - name: AUDITSAFE_CERTIFICATES_LOCATION
+          value: /opt/tibco/auditsafe/certificates
+        - name: AUDITSAFE_VOLUME_LOCATION
+          value: /private/auditsafe
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/auditsafe/scripts/init.sh rollback"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: store-vol
+          mountPath: /private/auditsafe
+          subPath: auditsafe
+        - name: secret-volume
+          mountPath: /private/auditsafe/secret-volume
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-auditsafe-configuration.pvc-name" . }}
+        - name: secret-volume
+          secret:
+            secretName: {{ .Values.global.external.db_secret_name }}
+            items:
+            - key: USERNAME
+              path: USERNAME
+            - key: PASSWORD
+              path: PASSWORD
+
+---
+{{- end }}

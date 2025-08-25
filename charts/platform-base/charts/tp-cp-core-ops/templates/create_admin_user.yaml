@@ -95,7 +95,7 @@ spec:
             set -o errexit
             region=${REGION}
             echo "Provisioning the Admin Subscription for ${EMAIL_ID}.."
-            curl -sS -XPOST -H 'x-atmosphere-for-user: ProvisioningUser' -H "Content-type: application/json" -H "Host: ${TSC_DNS_DOMAIN}" -H "x-real-ip: 0.0.0.0" -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"admin","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' 'http://'${TP_CP_ORCH_HOST}:8833'/v1/tibco-subscriptions'
+            curl -sS -XPOST -H 'x-atmosphere-for-user: ProvisioningUser' -H "Content-type: application/json" -H "Host: ${TSC_DNS_DOMAIN}" -H "x-real-ip: 0.0.0.0" -H "X-Initial-Admin-User: true" -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"admin","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' 'http://'${TP_CP_ORCH_HOST}:8833'/v1/tibco-subscriptions'
             echo "Subscription for ${EMAIL_ID} provisioned successfully."
 
 

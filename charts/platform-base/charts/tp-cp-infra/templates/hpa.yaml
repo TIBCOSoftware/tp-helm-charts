@@ -1,5 +1,5 @@
 #
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -8,13 +8,13 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "alerts-service.consts.appName" . }}
+  name: {{ include "tp-cp-infra.consts.deploymentName" . }}
   namespace: {{ .Release.Namespace }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "alerts-service.consts.appName" . }}
+    name: {{ include "tp-cp-infra.consts.deploymentName" . }}
   minReplicas: {{ .Values.replicaCount }}
   maxReplicas: {{ add 3 .Values.replicaCount }}
   metrics:

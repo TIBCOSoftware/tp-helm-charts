@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.9.0",
+      "capabilityVersion": "1.10.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -58,11 +58,6 @@ data:
           {
             "name": "otel-userapp-metrics",
             "description": "otel userapp metrics",
-            "monitoringPriority": "essential"
-          },
-          {
-            "name": "otel-finops",
-            "description": "otel finops",
             "monitoringPriority": "essential"
           }
         ],
@@ -504,10 +499,10 @@ data:
                   prometheus.io/port: "4319"
                 resources:
                   requests:
-                    cpu: 100m
-                    memory: 128Mi
-                  limits:
                     cpu: 500m
+                    memory: 512Mi
+                  limits:
+                    cpu: 1000m
                     memory: 1024Mi
                 serviceAccount:
                   create: false
@@ -593,9 +588,6 @@ data:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
                              regex: "true"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
-                             regex: "tp-dp-monitor-agent"
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
                              regex: "${DATAPLANE-ID}"
@@ -689,9 +681,6 @@ data:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
                              regex: "true"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
-                             regex: "tp-dp-monitor-agent"
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_dataplane_id]
                              regex: "${DATAPLANE-ID}"
@@ -979,6 +968,7 @@ data:
                       - context: datapoint
                         statements:
                         - set(attributes["app_id"], resource.attributes["capability_instance_id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
+                        - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
                   exporters:
                     debug: {}
                     prometheus/user:
@@ -1039,138 +1029,28 @@ data:
             dependencyUpdate: true
             isDevTesting: true
         - name: opentelemetry-collector
-          namespace: ${NAMESPACE}
+          namespace: ${NAMESPACE} 
           releaseName: otel-finops
-          version: {{ .Values.capabilities.o11y.withResources.opentelemetryCollector.version | quote }}
+          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
           values:
             - content: |
+                global:
+                  cp:
+                    svcPod:
+                      enabled: false
                 mode: "deployment"
                 fullnameOverride: otel-finops
-                podLabels:
-                  networking.platform.tibco.com/kubernetes-api: enable
-                  networking.platform.tibco.com/prometheus: enable
-                  networking.platform.tibco.com/internet-egress: enable
-                  networking.platform.tibco.com/cluster-egress: enable
                 serviceAccount:
                   create: false
+                  annotations: {}
                   name: ${SERVICE-ACCOUNT}
-                extraEnvsFrom:
-                  - configMapRef:
-                      name: o11y-service
-                ports:
-                  otlp-http:
-                    enabled: true
-                    containerPort: 4318
-                    servicePort: 4318
-                    hostPort: 4318
-                    protocol: TCP
-                  metrics:
-                    enabled: true
-                    containerPort: 8888
-                    servicePort: 8888
-                    hostPort: 8888
-                    protocol: TCP
-                  prometheus:
-                    enabled: true
-                    containerPort: 4319
-                    servicePort: 4319
-                    hostPort: 4319
-                    protocol: TCP
-                config:
-                  receivers:
-                    prometheus/finops:
-                      config:
-                        scrape_configs:
-                          - job_name: monitoring-agent
-                            scrape_interval: 60s
-                            kubernetes_sd_configs:
-                            - role: service
-                              namespaces:
-                                names: ${env:app_namespaces}
-                            relabel_configs:
-                            - action: keep
-                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_finops]
-                              regex: "true"
-                            - action: keep
-                              regex: "true"
-                              source_labels:
-                              - __meta_kubernetes_service_label_prometheus_io_scrape
-                            - action: keep
-                              regex: ${DATAPLANE-ID}
-                              source_labels:
-                              - __meta_kubernetes_service_label_platform_tibco_com_dataplane_id
-                            - action: replace
-                              regex: (.+)
-                              source_labels:
-                              - __meta_kubernetes_service_annotation_prometheus_io_path
-                              target_label: __metrics_path__
-                    prometheus/finops_pulsar:
-                      config:
-                        scrape_configs:
-                          - job_name: pulsar
-                            scrape_interval: 60s
-                            kubernetes_sd_configs:
-                            - role: pod
-                              namespaces:
-                                names: ${env:app_namespaces}
-                            relabel_configs:
-                            - action: keep
-                              source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_scrape_finops]
-                              regex: "true"
-                            - action: keep
-                              regex: "true"
-                              source_labels:
-                              - __meta_kubernetes_pod_label_prometheus_io_scrape
-                            - action: keep
-                              regex: ${DATAPLANE-ID}
-                              source_labels:
-                              - __meta_kubernetes_pod_label_platform_tibco_com_dataplane_id
-                            - action: replace
-                              regex: (.+)
-                              source_labels:
-                              - __meta_kubernetes_pod_annotation_prometheus_io_path
-                              target_label: __metrics_path__
-                  processors:
-                    memory_limiter:
-                      check_interval: 1s
-                      limit_mib: 2000
-                    batch: {}
-                    attributes/finops:
-                      actions:
-                      - key: dataplane_id
-                        action: insert
-                        value: ${DATAPLANE-ID}
-                  exporters:
-                    debug: {}
-                    otlphttp/finops:
-                      metrics_endpoint: http://cp-proxy/finops/finops-service/api/v1/proxy
-                  service:
-                    telemetry:
-                      logs: {}
-                      metrics:
-                        address: :8888
-                    extensions:
-                      - health_check
-                    pipelines:
-                      metrics:
-                        exporters:
-                          - debug
-                          - otlphttp/finops
-                        processors:
-                          - memory_limiter
-                          - batch
-                          - attributes/finops
-                        receivers:
-                          - prometheus/finops
-                          - prometheus/finops_pulsar
           flags:
             install: true
             createNamespace: false
             dependencyUpdate: true
-            isDevTesting: true
         - name: jaeger
           namespace: ${NAMESPACE}
           releaseName: jaeger
@@ -1321,7 +1201,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.9.0"
+          value: "1.10.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

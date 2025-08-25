@@ -30,4 +30,12 @@ helm.sh/chart: {{ include "tp-identity-management.shared.labels.chartLabelValue"
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end -}}
 
+{{- define "cp-core-configuration.service-account-name" }}
+{{- if empty .Values.global.tibco.serviceAccount -}}
+   {{- "control-plane-sa" }}
+{{- else -}}
+   {{- .Values.global.tibco.serviceAccount | quote }}
+{{- end }}
+{{- end }}
+
 

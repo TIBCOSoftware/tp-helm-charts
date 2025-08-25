@@ -17,3 +17,11 @@
 {{- define "tp-cp-core-finops.enableResourceConstraints" -}}
   {{- .Values.global.tibco.enableResourceConstraints | default "false" }}
 {{- end }}
+
+{{- define "cp-core-configuration.service-account-name" }}
+{{- if empty .Values.global.tibco.serviceAccount -}}
+   {{- "control-plane-sa" }}
+{{- else -}}
+   {{- .Values.global.tibco.serviceAccount | quote }}
+{{- end }}
+{{- end }}

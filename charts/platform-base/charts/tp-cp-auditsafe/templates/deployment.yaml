@@ -1,0 +1,270 @@
+#
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-auditsafe-web-server.consts.appName" . }}
+  labels:
+    {{- include "tp-cp-auditsafe-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-auditsafe-web-server.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-auditsafe-web-server.shared.labels.standard" . | nindent 8 }}
+        egress.networking.platform.tibco.com/internet-all: enable
+        egress.networking.platform.tibco.com/internet-web: enable
+        ingress.networking.platform.tibco.com/cluster-access: enable
+        egress.networking.platform.tibco.com/cluster-all: enable
+        ingress.networking.platform.tibco.com/internet-access: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+{{- if .Values.global.enableLogging }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      terminationGracePeriodSeconds: 30
+      automountServiceAccountToken: false
+{{- if (include "tp-cp-auditsafe-web-server.container-registry.secret" .) }}
+      imagePullSecrets:
+      - name: {{ include "tp-cp-auditsafe-web-server.container-registry.secret" . }}
+{{- end }}
+      serviceAccountName: {{ include "tp-cp-auditsafe-web-server.service-account-name" . }}
+      securityContext:
+        {{- toYaml .Values.auditsafe.podSecurityContext | nindent 8 }}
+      containers:
+        - name: auditsafe
+          image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}o11y-tas-web-server:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.auditsafe.securityContext }}
+          securityContext:
+            {{- toYaml .Values.auditsafe.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.tibco.enableResourceConstraints }}
+          {{- with .Values.auditsafe.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: server
+          readinessProbe:
+            tcpSocket:
+              port: 7070
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          livenessProbe:
+            tcpSocket:
+              port: 7070
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          startupProbe:
+            tcpSocket:
+              port: 7070
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+          env:
+            - name: TIBCO_INTERNAL_VAGRANT
+              value: "true"
+            - name: WHO
+              value: {{include "tp-cp-auditsafe-web-server.cp-instance-id" .}}
+            - name: CP_DP_URL
+              value: {{ include "tp-cp-auditsafe-web-server.cp-dp-url" . }}
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: TSC_DNS_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+                  key: TSC_DNS_DOMAIN
+            - name: TCTA_WEBSERVER_VERSION
+              value: "1.1.0"
+            - name: spring_profiles_active
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-env-configmap" . }}
+                  key: springProfilesActive
+                  optional: true
+            - name: TCTA_WEB_SERVER_DB_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-env-configmap" . }}
+                  key: TCTA_WEB_SERVER_DB_POOL_SIZE
+                  optional: true
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBHost
+                  optional: true
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBPort
+                  optional: true
+            - name: TCTA_DTS_DB_HOSTPORT
+              value: "$(PGHOST):$(PGPORT)"
+            - name: TCTA_DTS_DB_USER_NAME
+              value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_tctadataserveruser
+            - name: TCTA_DTS_DB_USER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: tasdataserver-postgres-credential
+                  key: PGPASSWORD
+            - name: TCTA_DTS_DB_NAME
+              value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_tctadataserver
+            - name: TCTA_DTS_DB_SCHEMA_NAME
+              value: {{ include "tp-cp-auditsafe-configuration.cp-instance-id" . }}_tctadataserver
+            - name: TCTA_DNS_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+                  key: TCTA_DNS_DOMAIN
+                  optional: true
+            - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+                  key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+            - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+                  key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+            - name: TSC_ADMIN_DNS_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+                  key: TSC_DNS_DOMAIN
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-env-configmap" . }}
+                  key: tasJavaOpts
+            - name: TCI_DNS_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: cic-env
+                  key: TCI_DNS_DOMAIN
+                  optional: true
+            - name: INTERNAL_ROUTER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-web-server.cic-env-configmap" . }}
+                  key: SYSTEM_INTERNAL_ROUTER_HOST
+                  optional: true
+            - name: TIBCO_INTERNAL_INTERCOM_URL
+              value: http://$(INTERNAL_ROUTER_HOST):90
+
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: fluentbit
+          image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if eq (include "tp-cp-auditsafe-web-server.enableResourceConstraints" . ) "true" }}
+          {{- with .Values.global.tibco.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: auditsafe
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          ports:
+            - containerPort: 2020
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          startupProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/pods
+            - name: db
+              mountPath: /var/log/db
+            - name: config-volume
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+        - name: logs
+          emptyDir: {}
+        - name: tmp-volume
+          emptyDir: {}
+{{- if .Values.global.tibco.logging.fluentbit.enabled }}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-auditsafe-web-server.consts.appName" . }}-fluentbit-config
+{{- end }}

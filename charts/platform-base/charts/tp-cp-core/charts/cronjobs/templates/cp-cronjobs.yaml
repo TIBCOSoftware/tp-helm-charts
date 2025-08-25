@@ -53,6 +53,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
       {{- if .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}

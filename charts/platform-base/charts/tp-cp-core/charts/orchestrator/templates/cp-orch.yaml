@@ -85,13 +85,12 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
     {{- if .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
     {{- end }}
-      {{- if eq .Values.global.external.emailServerType "ses" }}
-      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
-      {{- else }}
+      {{- if ne .Values.global.external.emailServerType "ses" }}
       automountServiceAccountToken: false
       {{- end }}
       nodeSelector:
@@ -434,6 +433,8 @@ spec:
           value: {{ .Values.global.external.helmRepo }}
         - name: DP_DEFAULT_HELM_REPO
           value: {{ .Values.global.tibco.helm | toJson | quote }}
+        - name: INITIAL_ADMIN_PASSWORD
+          value: {{ .Values.global.external.adminInitialPassword }}
         - name: EMAIL_SERVICE_SERVICE_HTTP_PORT
           value: "7879"
         - name: EMAIL_SERVICE_SERVICE_MONITOR_HTTP_PORT
@@ -487,15 +488,21 @@ spec:
           value: /private/tsc
         - name: TSC_CONFIGURATION_LOCATION_EMAIL_SERVICE
           value: file:///private/tsc/config/emailservice/emailservice.json
+        - name: EMAIL_SERVICE_SMTP_INSECURE_SKIP_VERIFY_TLS
+          value: {{ .Values.global.external.emailServer.smtp.insecureSkipVerifyTls | quote }}
         volumeMounts:
-        - name: store-vol
-          mountPath: /private/tsc/config
-          subPath: tsc/config
-        - name: db-ssl-cert-vol
-          mountPath: /private/tsc/certificates
-          readOnly: true
-        - name: logs
-          mountPath: /tmp/logs
+        {{- if .Values.global.external.emailServer.smtp.customCertsSecretName }} 
+          - name: smtp-certs
+            mountPath: /etc/tibco/smtp_ssl/
+        {{- end }}
+          - name: store-vol
+            mountPath: /private/tsc/config
+            subPath: tsc/config
+          - name: db-ssl-cert-vol
+            mountPath: /private/tsc/certificates
+            readOnly: true
+          - name: logs
+            mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -577,6 +584,13 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-orchestrator.consts.appName" . }}-fluentbit-config
+{{- end }}
+{{- if .Values.global.external.emailServer.smtp.customCertsSecretName }}
+        - name: smtp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.external.emailServer.smtp.customCertsSecretName }}
+            optional: true
 {{- end }}
         - name: logs
           emptyDir: {}
