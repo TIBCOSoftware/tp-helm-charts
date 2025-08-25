@@ -2667,6 +2667,22 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/oauth2-proxy-10.1.022/oauth2-proxy-10.1.022.tgz
     version: 10.1.022
+  on-premises-third-party:
+  - apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-25T05:12:30.048425825Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: file://charts/postgresql
+      version: 15.5.38
+    description: A Helm chart for Kubernetes
+    digest: 474116715cb01b5d0eb3e5f936adf2d59441becedd29d21da39427b4127e06bb
+    name: on-premises-third-party
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/on-premises-third-party-1.10.1/on-premises-third-party-1.10.1.tgz
+    version: 1.10.1
   opentelemetry-collector:
   - apiVersion: v2
     appVersion: 0.119.0
@@ -3829,6 +3845,42 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.3.338/platform-base-1.3.338.tgz
     version: 1.3.338
   platform-bootstrap:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-bootstrap
+    apiVersion: v2
+    appVersion: 1.10.0
+    created: "2025-08-25T05:12:30.271023375Z"
+    dependencies:
+    - condition: hybrid-proxy.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.10.*
+    - condition: resource-set-operator.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.10.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.9.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.116.*
+    description: TIBCO Platform bootstrap chart
+    digest: 633e2bb63a032d7cf56ac09cda87377ddf7232840850e598e02edb6d7b4c1040
+    keywords:
+    - tibco-platform
+    - platform
+    - bootstrap
+    - control-plane
+    - infra
+    name: platform-bootstrap
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-bootstrap-1.10.0-alpha.10/platform-bootstrap-1.10.0-alpha.10.tgz
+    version: 1.10.0-alpha.10
   - annotations:
       app.helm.sh/component: control-plane
       app.helm.sh/name: platform-bootstrap
@@ -10341,4 +10393,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-08-22T22:10:07.127515761Z"
+generated: "2025-08-25T05:12:30.27173251Z"
