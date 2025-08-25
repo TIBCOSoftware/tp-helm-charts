@@ -1,0 +1,229 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Default values for bw5provisioner.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  cp:
+    dataplaneId: dp-dp1
+    instanceId: defaultinstid
+    containerRegistry:
+      secret: ""
+      url: ""
+      repository: "tibco-platform-docker-prod"
+    environmentType: ""
+    enableResourceConstraints: true
+    resources:
+      serviceaccount:
+        namespace: ""
+        serviceAccountName: ""
+      ingress:
+        fqdn: foo.com
+        ingressClassName: nginx
+        ingressController: nginx
+        annotations: {}
+      activationServer:
+        url: ""
+
+    logging:
+      # The fluentbit configuration section.
+      # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+      # Privilege escalation is not allowed for security reasons.
+      # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+      # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+      fluentbit:
+        apps:
+          enabled: true
+        enabled: true
+        image:
+          tag: 4.0.3
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+              - CAP_NET_RAW
+
+  bw5provisioner:
+    serviceAccount: ""
+    image:
+      registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
+      tag: 452
+    deploymanager:
+      image:
+        enabled: false
+        registry: ""
+        tag: ""
+        resources: {}
+
+replicaCount: 1
+
+image:
+  repository: tibco-platform/tp-bw5-provisioner
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # This section of the configuration is for the artifact manager.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  bw5provisioner:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+        - CAP_NET_RAW
+
+service:
+  type: ClusterIP
+  port: 7814
+  targetPort: 7814
+
+publicApiService:
+  type: ClusterIP
+  port: 7816
+  targetPort: 7816
+
+ingress:
+  # -- Enables configuration of ingress to expose bw5provisioner. Requires ingress support in the Kubernetes cluster.
+  enabled: true
+  hostsOverride: false
+  className: haproxy
+  hosts:
+    - host: "placeholder"
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- Annotations for the ingress object. See documentation for your ingress controller for valid annotations.
+  annotations:
+    haproxy.org/cors-enable: "true"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/src-ip-header: X-Real-IP
+    # haproxy.org/timeout-http-request: 600s
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 700Mi
+  limits:
+    cpu: "1"
+    memory: 1024Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+topologySpreadConstraints: []
+
+probes:
+  liveness:
+    initialDelaySeconds: 3
+    failureThreshold: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
+
+# -- Additional environment variables.
+extraEnvVars: []
+#  - name: NAME
+#    value: value
+
+# The name of ConfigMap containing additional environment variables.
+extraEnvVarsCM: ""
+
+# The name of Secret containing extra additional environment variables.
+extraEnvVarsSecret: ""
+
+# -- Extra volumeMounts for the integration services container.
+# More info: `kubectl explain deployment.spec.template.spec.containers.volumeMounts`.
+extraVolumeMounts: []
+  # - name: example
+  #   mountPath: /opt/tibco/example.txt
+#   subPath: example.txt
+
+# -- Extra volumes for the integration services container.
+# More info: `kubectl explain deployment.spec.template.spec.volumes`.
+extraVolumes: []
+  # - name: example
+  #   persistentVolumeClaim:
+#     claimName: exampleClaim
+
+# -- Additional init containers to add to the automationservices pod.
+extraInitContainers: []
+  # - name: dummy-init
+  #   image: busybox
+#   command: ['echo', "hey"]
+
+config:
+  ARTIFACT_MANAGER_PORT: "7813"
+  APP_INIT_IMAGE_TAG: "48"
+  BW5CE_APP_HELMCHART_NAME: "dp-bw5ce-app"
+  BW5CE_APP_HELMCHART_VERSION: "1.10.1"
+  PROVISIONER_AGENT_SERVICE_PORT: "80"
+
+publicApi:
+  ingress:
+    controllerName: nginx
+    config:
+      className: nginx
+      pathPrefix: /tibco/bw
+      fqdn: ""

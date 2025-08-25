@@ -1,0 +1,262 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.workload "deployment" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "dp-bw5ce-app.bwapp.deployment.annotations" . | nindent 4 }}
+    {{- with .Values.deploymentAnnotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "dp-bw5ce-app.labels" . | nindent 4 }}
+    {{- include "dp-bw5ce-app.bwapp.deployment.labels" . | nindent 4 }}
+    {{- with .Values.deploymentLabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ include "dp-bw5ce-app.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dp-bw5ce-app.selectorLabels" . | nindent 6 }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+      {{- include "dp-bw5ce-app.bwapp.pod.annotations" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "dp-bw5ce-app.labels" . | nindent 8 }}
+        {{- include "dp-bw5ce-app.bwapp.pod.labels" . | nindent 8 }}
+        networking.platform.tibco.com/internet-egress: {{ .Values.networkPolicy.internetAll | quote }}
+        networking.platform.tibco.com/internet-web-egress: {{ .Values.networkPolicy.internetWeb | quote }}
+        networking.platform.tibco.com/msgInfra: {{ .Values.networkPolicy.msgInfra | quote }}
+        networking.platform.tibco.com/database-egress: {{ .Values.networkPolicy.databaseEgress | quote }}
+        networking.platform.tibco.com/proxy-egress: {{ .Values.networkPolicy.proxyEgress | quote }}
+        networking.platform.tibco.com/userApps: {{ .Values.networkPolicy.userApps | quote }}
+        {{- if .Values.serviceMesh.enabled }}
+        sidecar.istio.io/inject: {{ .Values.serviceMesh.enabled | quote }}
+        {{- end }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - env:
+        - name: TIBCO_INTERNAL_APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: TIBCO_INTERNAL_BUILD_ID
+          value: {{ .Values.appConfig.buildId }}
+        - name: TIBCO_INTERNAL_INSTANCE_ID
+          value: {{ .Values.dpConfig.capabilityInstanceId }}
+        - name: TIBCO_INTERNAL_DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: TIBCO_INTERNAL_BW5_BUILDTYPE_TAG
+          value: {{ .Values.appConfig.bw5ceBuildTypeTag | quote }}
+        - name: TIBCO_INTERNAL_BW5_BASE_IMAGE_TAG
+          value: {{ .Values.appConfig.bw5ceBaseImageTag | quote }}
+        - name: BW_PROJECT_NAME
+          value: {{ .Values.appConfig.originalAppName | quote }}
+        - name: BW_PROJECT_VERSION
+          value: {{ .Values.appConfig.appVersion | quote }}
+        - name: BW_ACTIVATION_SERVICE_URL
+          value: {{ .Values.dpConfig.activationServiceUrl | quote }}
+        {{- if .Values.otel.enabled }}
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: http://otel-userapp-traces.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: http://otel-userapp-metrics.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
+        - name: OTEL_SERVICE_NAME
+          value: bw5ce-app.{{ $.Release.Namespace }}
+        {{- end }}
+        - name: BW_PROFILE
+          value: {{ .Values.appConfig.bwProfile }}
+        {{- with .Values.bwapp.envs }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "dp-bw5ce-app.fullname" . }}-appprops
+        - configMapRef:
+            name: {{ include "dp-bw5ce-app.fullname" . }}-engineprops
+        {{- range $val := .Values.bwapp.envFrom.configMapRef }}
+        - configMapRef:
+            name: {{ $val }}
+        {{- end }}
+        - secretRef:
+            name: {{ include "dp-bw5ce-app.fullname" . }}-appprops
+        - secretRef:
+            name: {{ include "dp-bw5ce-app.fullname" . }}-engineprops
+        {{- range $val := .Values.bwapp.envFrom.secretRef }}
+        - secretRef:
+            name: {{ $val }}
+        {{- end }}
+        {{- if .Values.appConfig.customBaseImagePath }}
+        image: {{ .Values.appConfig.customBaseImagePath }}:{{ .Values.appConfig.bw5ceBaseImageTag }}
+        {{- else }}
+        image: {{ .Values.image.repository }}{{ .Values.image.bw5ceBaseImageName }}:{{ .Values.appConfig.bw5ceBaseImageTag }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        startupProbe:
+          {{- toYaml .Values.bwapp.startupProbe | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.bwapp.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.bwapp.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.bwapp.resources | nindent 10 }}
+        name: bwapp
+        ports:
+        {{- range $svcPort := .Values.service.ports }}
+        - containerPort: {{ $svcPort.port }}
+          protocol: TCP
+        {{- end }}
+        securityContext:
+        {{- toYaml .Values.bwapp.securityContext | nindent 10 }}
+        volumeMounts:
+        - mountPath: /app/artifacts
+          name: artifacts-share
+        - mountPath: /app/logs
+          name: logs-share
+        {{- if .Values.enableResourcesVolumes }}
+        - mountPath: /resources/addons/plugins
+          name: resources-addons-plugins
+        - mountPath: /resources/addons/lib
+          name: resources-addons-lib
+        - mountPath: /resources/addons/jars
+          name: resources-addons-jars
+        - mountPath: /resources/addons/certs
+          name: resources-addons-certs
+        {{- end }}
+        {{- with .Values.bwapp.volumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if .Values.fluentBit.enabled }}
+      - env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_ID
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.uid
+        - name: CONTAINER_NAME
+          value: bwapp
+        - name: DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: APP_TYPE
+          value: {{ .Values.appConfig.appType }}
+        - name: WORKLOAD_TYPE
+          value: {{ .Values.appConfig.workloadType }}
+        image: {{ .Values.image.repository }}{{ .Values.image.fluentBitImageName }}:{{ .Values.image.fluentBitImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: fluent-bit
+        ports:
+        - containerPort: 2020
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.fluentBit.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.fluentBit.securityContext | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.fluentBit.livenessProbe | nindent 10 }}
+        volumeMounts:
+        - mountPath: /var/log/pods/
+          name: logs-share
+        - mountPath: /fluent-bit/etc/
+          name: fluentbit-config
+      {{- end }}
+      initContainers:
+      - env:
+        - name: TIBCO_INTERNAL_APP_TYPE
+          value: bw5
+        - name: TIBCO_INTERNAL_DP_ID
+          value: {{ .Values.dpConfig.dataplaneId }}
+        - name: TIBCO_INTERNAL_BUILD_ID
+          value: {{ .Values.appConfig.buildId }}
+        - name: TIBCO_INTERNAL_INSTANCE_ID
+          value: {{ .Values.dpConfig.capabilityInstanceId }}
+        - name: TIBCO_INTERNAL_APP_ID
+          value: {{ .Values.appConfig.appId }}
+        - name: TIBCO_INTERNAL_AM_NAMESPACE
+          value: {{ .Values.dpConfig.capabilityDefaultNamespace }}
+        image: {{ .Values.image.repository }}{{ .Values.image.appInitImageName }}:{{ .Values.image.appInitImageTag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: app-init
+        resources:
+          {{- toYaml .Values.appInit.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.appInit.securityContext | nindent 10 }}
+        volumeMounts:
+        - mountPath: /app/artifacts
+          name: artifacts-share
+      volumes:
+      - emptyDir: {}
+        name: artifacts-share
+      {{- if .Values.enableResourcesVolumes }}
+      - emptyDir: {}
+        name: resources-addons-lib
+      - emptyDir: {}
+        name: resources-addons-jars
+      - emptyDir: {}
+        name: resources-addons-plugins
+      - emptyDir: {}
+        name: resources-addons-certs
+      {{- end }}
+      - emptyDir: {}
+        name: logs-share
+      {{- if .Values.fluentBit.enabled }}
+      - configMap:
+          name: {{ .Values.fluentBit.configMapName }}
+        name: fluentbit-config
+      {{- end }}
+      {{- with .Values.volumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

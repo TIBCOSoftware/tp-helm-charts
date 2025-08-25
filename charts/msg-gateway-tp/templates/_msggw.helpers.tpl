@@ -80,7 +80,7 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-82" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-85" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -167,7 +167,7 @@ platform.tibco.com/dataplane-id: "{{ .dp.name }}"
 app.cloud.tibco.com/created-by: tp-msg
 app.cloud.tibco.com/tenant-name: messaging
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.9.0.28"
+tib-dp-msgbuild: "1.10.0.7"
 tib-dp-chart: {{ .dp.chart }}
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"

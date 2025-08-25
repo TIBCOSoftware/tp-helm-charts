@@ -113,6 +113,8 @@ spec:
               value: "{{ .Values.global.cp.logging.fluentbit.apps.enabled }}"
             - name: FLUENT_BIT_SIDECAR_IMAGE
               value: {{ include "bwprovisioner.image.registry" .}}{{"/"}}{{ include "bwprovisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+            - name: ACTIVATION_SERVICE_URL
+              value: {{ .Values.global.cp.resources.activationServer.url | quote }}
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:

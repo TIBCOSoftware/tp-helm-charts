@@ -75,6 +75,8 @@ spec:
           value: {{ .Values.appConfig.bwceBuildTypeTag | quote }}
         - name: TIBCO_INTERNAL_BW_BASE_IMAGE_TAG
           value: {{ .Values.appConfig.bwceBaseImageTag | quote }}
+        - name: LICENSE_SOURCE
+          value: {{ .Values.dpConfig.activationServiceUrl | quote }}
         {{- if .Values.otel.enabled }}
         - name: BW_OTEL_ENABLED
           value: {{ .Values.otel.enabled | quote }}

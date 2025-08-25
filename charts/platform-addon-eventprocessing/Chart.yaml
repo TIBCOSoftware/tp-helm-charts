@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-addon-eventprocessing
 description: TIBCO Platform chart for BE addon
 type: application
-version: 1.9.0
-appVersion: "1.9.0"
+version: 1.10.0-alpha.1
+appVersion: "1.10.0"
 keywords:
   - tibco-platform
   - platform
@@ -20,7 +20,7 @@ annotations:
   app.helm.sh/name: platform-addon-eventprocessing
 dependencies:
   - name: tp-cp-eventprocessing-be
-    version: "1.9.2"
+    version: "1.10.1"
     repository: alias:tibco-platform
     condition: tp-cp-eventprocessing-be.enabled
     tags:

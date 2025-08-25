@@ -1,0 +1,158 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.buildtypesExtract }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bw5ce-utilities.fullname" $dot }}-buildtype-extract-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "bw5ce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bw5ce-utilities.selectorLabels" . | nindent 8 }}
+        {{- include "bw5ce-utilities.networkPolicyLabels" . | nindent 8 }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bw5ce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      {{- range $index, $image := .Values.buildtypeImages }}
+      {{- if $image.delete_image  }}
+      - name: {{ $image.name }}-{{ $image.tag | replace "." "-" | lower }}-delete
+        image: {{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "bw5ce-utilities.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.scripts.resources | nindent 10 }}
+        {{- end }}
+        command:
+          - "sh"
+          - "-c"
+          - |
+            path=/usr/share/nginx/html/{{ $image.target_location }}/{{ $image.tag }}
+            rm -rf "${path}"
+            echo "Deleted buildtype from location: $path"
+        volumeMounts:
+          - name: store-vol
+            mountPath: {{ $.Values.volumes.plugins.mountPath }}
+            subPath: {{ $.Values.volumes.plugins.subPath }}
+          - name: tmp-vol
+            mountPath: /tmp
+      {{- end }}
+      {{- if $image.extract_image  }}
+      - name: {{ $image.name }}-{{ randAlphaNum 5 | lower }}
+        image: {{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+        imagePullPolicy: Always
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "bw5ce-utilities.enableResourceConstraints" $dot ) "true" }}
+        resources:
+        {{- toYaml $.Values.buildtype.resources | nindent 10 }}
+        {{- end }}
+        env:
+        - name: SOURCE_DOCKER_IMAGE
+          value: "{{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.bw5ce.image.repository" $dot }}{{"/"}}{{ $image.name }}:{{ $image.tag }}"
+        - name: IMAGE_TEMP_DIR
+          value: "/tmp/{{ $image.name }}/"
+        - name: SOURCE_DIRS
+          value: "{{ $image.path }}"
+        - name: TARGET_DIRS
+          value: "/usr/share/nginx/html/{{ $image.target_location }}/{{ $image.tag }}"
+        - name: LOG_LEVEL
+          value: debug
+        - name: CLEAN_UP_TARGET_DIRS
+          value: "true"
+        {{- if (include "bw5ce-utilities.cp-no-proxy" $dot ) }}
+        - name: NO_PROXY
+          value: "{{ include "bw5ce-utilities.cp-no-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "bw5ce-utilities.cp-http-proxy" $dot ) }}
+        - name: HTTP_PROXY
+          value: "{{ include "bw5ce-utilities.cp-http-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "bw5ce-utilities.cp-https-proxy" $dot ) }}
+        - name: HTTPS_PROXY
+          value: "{{ include "bw5ce-utilities.cp-https-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "bw5ce-utilities.container-registry.custom-cert-secret" $dot) }}
+        - name: SSL_CERT_DIR
+          value: "/etc/certs/"
+        {{- end }}
+        volumeMounts:
+        - mountPath: {{ $.Values.volumes.plugins.mountPath }}
+          subPath: {{ $.Values.volumes.plugins.subPath }}
+          name: store-vol
+        - name: tmp-vol
+          mountPath: /tmp
+        - name: kaniko-vol
+          mountPath: /kaniko/.docker
+# mount this secret only if private container registry is configured for CP.
+{{- if (include "bw5ce-utilities.container-registry.secret" $dot) }}
+        - mountPath: /tibco/containerregistry
+          name: container-registry-secret
+{{- end }}
+# mount this secret only if private container registry with custom certs is configured for CP.
+{{- if (include "bw5ce-utilities.container-registry.custom-cert-secret" $dot) }}
+        - mountPath: /etc/certs
+          name: container-registry-custom-cert-secret
+          readOnly: true
+{{- end }}
+      {{- end }}
+      {{- end }}
+      volumes:
+      - name: store-vol
+        persistentVolumeClaim:
+          claimName: {{ include "bw5ce-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
+{{- if (include "bw5ce-utilities.container-registry.custom-cert-secret" $dot) }}
+      - name: container-registry-custom-cert-secret
+        secret:
+          defaultMode: 420
+          secretName: {{ include "bw5ce-utilities.container-registry.custom-cert-secret" $dot }}
+{{- end }}
+{{- if (include "bw5ce-utilities.container-registry.secret" $dot) }}
+      - name: container-registry-secret
+        secret:
+          secretName: {{ include "bw5ce-utilities.container-registry.secret" $dot }}
+      imagePullSecrets:
+        - name: {{ include "bw5ce-utilities.container-registry.secret" $dot }}          
+{{- end }}
+{{- end }}

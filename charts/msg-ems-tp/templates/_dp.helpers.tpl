@@ -181,7 +181,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.9.0.28"
+tib-dp-msgbuild: "1.10.0.7"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
