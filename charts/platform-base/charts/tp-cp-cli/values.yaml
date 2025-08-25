@@ -10,22 +10,12 @@ capability:
 source:
   directory: /app
 
-tpCLIExtract: true
-
-# Value in version will define the directory name on EFS where the tp-cli releases will be extracted
-version: 1.0.0
-
-# Value in buildPathVersion is same as version used in package.json of tp-cli-main
-buildPathVersion: 1.0.0
-
-# Value in BID is the build id of Team City job(Tibco Platform CLI)
-BID: 317
-
 debug:
   image:
     name: common-distroless-base-debian-debug
     tag: 12.11
 
+cpCliCard: true
 scripts:
   resources:
     requests:
@@ -34,18 +24,6 @@ scripts:
     limits:
       cpu: 100m
       memory: 150Mi
-
-tpCLIImages:
-  - image: dx-tibco-platform-cli
-    type: darwin-amd64
-  - image: dx-tibco-platform-cli
-    type: darwin-arm64
-  - image: dx-tibco-platform-cli
-    type: linux-amd64
-  - image: dx-tibco-platform-cli
-    type: windows-amd64
-tpcliDelete: true
-tpcliDeleteVersions: "0.9.0,0.9.5,1.0.46"
 
 podAnnotations: {}
 
@@ -106,3 +84,16 @@ global:
   external:
     storage:
       pvcName: "control-plane-pvc"
+
+probes:
+  startupProbe: {}
+  # enable startup probe only if security policy is blocking you from deployment, otherwise its not recommended to use it
+  #  exec:
+  #    command:
+  #    - touch
+  #    - /tmp/healthy
+  #  initialDelaySeconds: 5
+  #  periodSeconds: 5
+  #  failureThreshold: 5
+  #  successThreshold: 1
+  #  timeoutSeconds: 5
