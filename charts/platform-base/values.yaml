@@ -58,10 +58,10 @@ global:
     platformEmailNotificationCcAddresses: ""
     cpEncryptionSecretName: "cporch-encryption-secret"
     cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
-    emailServerType: "smtp"
+    emailServerType: "ses"  # Default to SES with dummy value
     emailServer:
       ses:
-        arn: ""
+        arn: "arn:aws:ses:us-east1:123456789012:identity/user@example.com"
       smtp:
         server: ""
         port: "25"
