@@ -29,20 +29,22 @@ spec:
 ---
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "monitoring-service.consts.appName" . }}
   namespace: {{ include "monitoring-service.consts.namespace" . }}
   labels:
     {{- include "monitoring-service.shared.labels.standard" . | nindent 4 }}
 spec:
+  serviceName: {{ include "monitoring-service.consts.appName" . }}  # Required for StatefulSet, using the same name as the service
   selector:
     matchLabels:
       {{- include "monitoring-service.shared.labels.selector" . | nindent 6 }}
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
+  podManagementPolicy: OrderedReady
+  updateStrategy:
     type: RollingUpdate
+    rollingUpdate:
+      partition: 0
   template:
     metadata:
       labels:
@@ -57,6 +59,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}  
       {{- if .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
@@ -203,7 +206,23 @@ spec:
             configMapKeyRef:
               key: REGION
               name: {{ include "monitoring-service.tp-env-configmap" . }}
-        # Env varaibles for Postgres DB connection
+        # Env variables for cronjobs
+        - name: TIBTUNNEL_SCHEDULE
+          value: {{ .Values.monitoringtibtunnel.schedule | quote }}
+        - name: CAPRESOURCES_SCHEDULE
+          value: {{ .Values.monitoringcapresources.schedule | quote }}
+        - name: DP_SYNC_SCHEDULE
+          value: {{ .Values.monitoringdataplanesync.schedule | quote }}
+        - name: NON_REPORTING_SCHEDULE
+          value: {{ .Values.monitoringnonreporting.schedule | quote }}
+        - name: HOMEPAGE_METRICS_SCHEDULE
+          value: |
+            {{- if or (eq (.Values.global.external.environment | lower) "staging") (hasPrefix "prod" (.Values.global.external.environment | lower)) }}
+            {{ .Values.monitoringhomepagemetrics.prodSchedule }}
+            {{- else }}
+            {{ .Values.monitoringhomepagemetrics.schedule }}
+            {{- end }}
+         # Env variables for Postgres DB connection
         - name: TABLE_NAME_PREFIX
           value: V2_
         - name: PGHOST
@@ -377,8 +396,13 @@ metadata:
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
-    kind: Deployment
+    kind: StatefulSet
     name: {{ include "monitoring-service.consts.appName" . }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Wait 5 min before scaling down
+    scaleUp:
+      stabilizationWindowSeconds: 60   # More responsive scale up
   minReplicas: {{ .Values.replicaCount }}
   maxReplicas: {{ add 2 .Values.replicaCount }}
   metrics:
@@ -441,241 +465,3 @@ spec:
       methods:
       - PUT
       fqdn: ${CONTROL_PLANE_HOME_URL}
----
-
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: tp-cp-monitoring-tibtunnel-cronjob
-  labels:
-    app.kubernetes.io/name: "tp-cp-monitoring-tibtunnel-cronjob"
-spec:
-  schedule: {{ .Values.monitoringtibtunnel.schedule | quote}}
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
-  jobTemplate:
-    spec:
-      template:
-        metadata:
-          labels:
-            app.kubernetes.io/name: "tp-cp-monitoring-tibtunnel-cronjob"
-        spec:
-          {{- if .Values.global.podSecurityContext }}
-          securityContext:
-            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
-          {{- end }}
-          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
-          imagePullSecrets:
-            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
-          {{- end }}
-          containers:
-          - name: tibtunnel-refresh
-            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
-            securityContext:
-              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
-            {{- end }}
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
-            imagePullPolicy: IfNotPresent
-            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
-            resources:
-              requests:
-                cpu: {{ .Values.monitoringtibtunnel.resources.requests.cpu }}
-                memory: {{ .Values.monitoringtibtunnel.resources.requests.memory }}
-              limits:
-                cpu: {{ .Values.monitoringtibtunnel.resources.limits.cpu }}
-                memory: {{ .Values.monitoringtibtunnel.resources.limits.memory }}
-            {{- end }}
-            command: ['sh']
-            args:
-              - -c
-              - >
-                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/tibTunnelRefresh');
-                  echo $exit_status
-                  
-            env:
-              - name: MONITORING_SERVICE_HOST
-                valueFrom:
-                  configMapKeyRef:
-                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
-                    key: TP_CP_MONITORING_SERVICE_HOST
-          restartPolicy: OnFailure
----
-
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: tp-cp-monitoring-capresources-cronjob
-  labels:
-    app.kubernetes.io/name: "tp-cp-monitoring-capresources-cronjob"
-spec:
-  schedule: {{ .Values.monitoringcapresources.schedule | quote}}
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
-  jobTemplate:
-    spec:
-      template:
-        metadata:
-          labels:
-            app.kubernetes.io/name: "tp-cp-monitoring-capresources-cronjob"
-        spec:
-          {{- if .Values.global.podSecurityContext }}
-          securityContext:
-            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
-          {{- end }}
-          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
-          imagePullSecrets:
-            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
-          {{ end }}
-          containers:
-          - name: tibtunnel-refresh
-            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
-            securityContext:
-              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
-            {{- end }}
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
-            imagePullPolicy: IfNotPresent
-            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
-            resources:
-              requests:
-                cpu: {{ .Values.monitoringcapresources.resources.requests.cpu }}
-                memory: {{ .Values.monitoringcapresources.resources.requests.memory }}
-              limits:
-                cpu: {{ .Values.monitoringcapresources.resources.limits.cpu }}
-                memory: {{ .Values.monitoringcapresources.resources.limits.memory }}
-            {{- end }}
-            command: ['sh']
-            args:
-              - -c
-              - >
-                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/resourceRefresh');
-                  echo $exit_status
-                  
-            env:
-              - name: MONITORING_SERVICE_HOST
-                valueFrom:
-                  configMapKeyRef:
-                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
-                    key: TP_CP_MONITORING_SERVICE_HOST
-          restartPolicy: OnFailure
----
-
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: tp-cp-monitoring-homepage-cronjob
-  labels:
-    app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
-spec:
-  schedule: |
-    {{- if or (eq (.Values.global.external.environment | lower) "staging") (hasPrefix "prod" (.Values.global.external.environment | lower)) }}
-    {{ .Values.monitoringhomepagemetrics.prodSchedule }}
-    {{- else }}
-    {{ .Values.monitoringhomepagemetrics.schedule }}
-    {{- end }}
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
-  jobTemplate:
-    spec:
-      template:
-        metadata:
-          labels:
-            app.kubernetes.io/name: "tp-cp-monitoring-homepage-cronjob"
-        spec:
-          {{- if .Values.global.podSecurityContext }}
-          securityContext:
-            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
-          {{- end }}          
-          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
-          imagePullSecrets:
-            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
-          {{ end }}
-          containers:
-          - name: homepage-refresh
-            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
-            securityContext:
-              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
-            {{- end }}          
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
-            imagePullPolicy: IfNotPresent
-            {{- if (include "tp-cp-core-finops.enableResourceConstraints" .) }}
-            resources:
-              requests:
-                cpu: {{ .Values.monitoringhomepagemetrics.resources.requests.cpu }}
-                memory: {{ .Values.monitoringhomepagemetrics.resources.requests.memory }}
-              limits:
-                cpu: {{ .Values.monitoringtibtunnel.resources.limits.cpu }}
-                memory: {{ .Values.monitoringtibtunnel.resources.limits.memory }}
-            {{- end }}
-            command: ['sh']
-            args:
-              - -c
-              - >
-                  exit_status=$(wget --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/triggers/homepageMetrics');
-                  echo $exit_status
-                  
-            env:
-              - name: MONITORING_SERVICE_HOST
-                valueFrom:
-                  configMapKeyRef:
-                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
-                    key: TP_CP_MONITORING_SERVICE_HOST
-          restartPolicy: OnFailure
----
-
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: tp-cp-monitoring-dataplane-sync-cronjob
-  labels:
-    app.kubernetes.io/name: "tp-cp-monitoring-dataplane-sync-cronjob"
-spec:
-  schedule: {{ .Values.monitoringdataplanesync.schedule | quote }}
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
-  jobTemplate:
-    spec:
-      template:
-        metadata:
-          labels:
-            app.kubernetes.io/name: "tp-cp-monitoring-dataplane-sync-cronjob"
-        spec:
-          {{- if .Values.global.podSecurityContext }}
-          securityContext:
-            {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
-          {{- end }}
-          {{- if (include "cp-core-configuration.container-registry.secret" .) }}
-          imagePullSecrets:
-            - name: {{ include "cp-core-configuration.container-registry.secret" . }}
-          {{ end }}
-          containers:
-          - name: dataplane-sync
-            {{- if .Values.global.containerSecurityContext.monitoringCronJob }}
-            securityContext:
-              {{- toYaml .Values.global.containerSecurityContext.monitoringCronJob | nindent 14 }}
-            {{- end }}
-            image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-distroless-base-debian-debug:12.11"}}
-            imagePullPolicy: IfNotPresent
-            resources:
-              requests:
-                cpu: {{ .Values.monitoringdataplanesync.resources.requests.cpu }}
-                memory: {{ .Values.monitoringdataplanesync.resources.requests.memory }}
-              limits:
-                cpu: {{ .Values.monitoringdataplanesync.resources.limits.cpu }}
-                memory: {{ .Values.monitoringdataplanesync.resources.limits.memory }}
-            command: ['sh']
-            args:
-              - -c
-              - >
-                  exit_status=$(wget --timeout=56 --output-document=/dev/null http://${MONITORING_SERVICE_HOST}':7831/api/v1/dataplaneSync');
-                  echo $exit_status
-                  
-            env:
-              - name: MONITORING_SERVICE_HOST
-                valueFrom:
-                  configMapKeyRef:
-                    name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
-                    key: TP_CP_MONITORING_SERVICE_HOST
-          restartPolicy: OnFailure

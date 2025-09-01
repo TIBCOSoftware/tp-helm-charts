@@ -1,0 +1,91 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.cpCliCard }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "cp-cli-utilities.fullname" . }}-card-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    {{- include "cp-cli-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "cp-cli-utilities.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: post-extractor
+          image: {{ include "cp-cli-utilities.image.registry" .}}{{"/"}}{{ include "cp-cli-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: {{ $.Values.containerImageExtractor.image.pullPolicy }}
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if eq (include "cp-cli-utilities.enableResourceConstraints" . ) "true" }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              basePath="/downloads/tools/tp-cli/"
+              if [ -d "$basePath" ]; then
+                # Remove existing extracted TP CLI versions
+                rm -rf ${basePath}*
+              fi
+              mkdir -p ${basePath}
+              cd /downloads/tools/tp-cli
+              
+              # Generate download json file for UI
+              finalStr=$finalStr"["
+                  finalStr=$finalStr"   {"
+                  finalStr=$finalStr"   \"Name\": \"TIBCO Platform CLI\","
+                  finalStr=$finalStr"   \"Description\": \"Accelerate operations with the TIBCO Platform CLI, this utility will allow you to create & manage the TIBCO Platform in a scripted and repeatable way.\","
+                  finalStr=$finalStr"   \"RedirectLink\": \"https://www.tibco.com/downloads/12407\","
+                  finalStr=$finalStr"   \"BuildDate\":\"$(date "+%Y-%m-%dT%H:%M:%S%Z")\""
+                  finalStr=$finalStr"   }"
+              finalStr=$finalStr"]"
+
+              echo $finalStr > tp_cp_cli_download.json
+              cat tp_cp_cli_download.json
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.toolsMountPath }}
+              subPath: {{ $.Values.toolsSubPath }}
+            - name: tmp-vol
+              mountPath: /tmp
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-cli-utilities.pvc-name" . }}
+        - emptyDir: {}
+          name: tmp-vol
+{{- if (include "cp-cli-utilities.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-cli-utilities.container-registry.secret" . }}
+{{- end }}
+{{- end }}
+

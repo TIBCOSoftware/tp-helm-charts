@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -58,10 +58,10 @@ global:
     platformEmailNotificationCcAddresses: ""
     cpEncryptionSecretName: "cporch-encryption-secret"
     cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
-    emailServerType: "smtp"
+    emailServerType: "ses"  # Default to SES with dummy value
     emailServer:
       ses:
-        arn: ""
+        arn: "arn:aws:ses:us-east1:123456789012:identity/user@example.com"
       smtp:
         server: ""
         port: "25"
@@ -75,23 +75,25 @@ global:
       lastname: ""
       customerID: ""
     dnsDomain: ""
+    dnsTunnelDomain: ""
     clusterInfo:
       nodeCIDR: ""
       serviceCIDR: ""
       podCIDR: ""
+    adminInitialPassword: ""
     storage:
       pvcName: "control-plane-pvc"
 
 # Default values for tp-cp-integration.
 tp-cp-integration:
   enabled: true
-  tp-cp-integration-bwce:
+  tp-cp-integration-bw:
     enabled: true
   tp-cp-integration-flogo:
     enabled: true
-  tp-cp-integration-bw5:
-    enabled: true
   tp-cp-bwce-utilities:
+    enabled: true
+  tp-cp-bw5ce-utilities:
     enabled: true
   tp-cp-flogo-utilities:
     enabled: true
@@ -99,8 +101,17 @@ tp-cp-integration:
 tags:
   integration: true
 
+# Default values for tp-cp-recipes.
+tp-cp-recipes:
+  enabled: true
+
 # Default values for tp-cp-tibcohub-contrib.
 tp-cp-tibcohub-contrib:
+  enabled: true
+
+# Default values for platform-cp-messaging
+platform-cp-messaging:
+  useCpEnv: true
   enabled: true
 
 # Default values for tp-cp-msg-contrib.
@@ -116,6 +127,10 @@ tp-cp-hawk:
   enabled: true
   tp-cp-hawk-infra-prometheus:
     enabled: false
+
+# Default values for tp-cp-cli.
+tp-cp-cli:
+  enabled: true
 
 # Default values for tp-cp-prometheus.
 tp-cp-prometheus:
@@ -145,3 +160,34 @@ tp-cp-configuration:
     limits:
       cpu: 100m  # Maximum CPU allowed
       memory: 60Mi  # Maximum memory allowed
+
+tp-cp-infra:
+  enabled: true
+  dpMetadata:
+    dpCoreInfrastructureChartVersion: "1.10.3"
+    dpCoreInfrastructureAppVersion: "1.10.0"
+    dpConfigureNamespaceChartVersion: "1.10.4"
+    dpConfigureNamespaceAppVersion: "1.10.0"
+  # Resource values for production-like setup
+  # requests: Minimum amount of resources required for the application to run.
+  # limits: Maximum amount of resources the application can use.
+  resources:
+    requests:
+      cpu: 200m  # Minimum CPU required
+      memory: 256Mi  # Minimum memory required
+    limits:
+      cpu: 500m  # Maximum CPU allowed
+      memory: 1024Mi  # Maximum memory allowed
+
+tp-cp-auditsafe:
+  enabled: true
+  # Resource values for production-like setup
+  # requests: Minimum amount of resources required for the application to run.
+  # limits: Maximum amount of resources the application can use.
+  resources:
+    requests:
+      cpu: 200m  # Minimum CPU required
+      memory: 256Mi  # Minimum memory required
+    limits:
+      cpu: 500m  # Maximum CPU allowed
+      memory: 1024Mi  # Maximum memory allowed

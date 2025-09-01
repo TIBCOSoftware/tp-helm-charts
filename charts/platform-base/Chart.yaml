@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-base
 description: TIBCO Platform base chart
 type: application
-version: 1.9.0
-appVersion: "1.9.0"
+version: 1.10.0
+appVersion: "1.10.0"
 keywords:
   - tibco-platform
   - platform
@@ -18,53 +18,55 @@ annotations:
   app.helm.sh/component: control-plane
   app.helm.sh/name: platform-base
 dependencies:
+  - name: tp-cp-infra
+    version: "1.10.*"
+    condition: tp-cp-infra.enabled
   - name: tp-cp-o11y
-    version: "1.9.*"
+    version: "1.10.*"
     condition: tp-cp-o11y.enabled
   - name: tp-cp-configuration
-    version: "1.9.*"
+    version: "1.10.*"
   - name: tp-cp-recipes
-    version: "1.9.19"
+    version: "1.10.18"
     repository: alias:tibco-platform
+    condition: tp-cp-recipes.enabled
   - name: tp-cp-core
-    version: "1.9.*"
+    version: "1.10.*"
   - name: tp-cp-core-ops
-    version: "1.9.*"
+    version: "1.10.*"
   - name: tp-cp-core-finops
-    version: "1.9.577"
+    version: "1.10.*"
   - name: tp-cp-integration
-    version: "1.9.25"
+    version: "1.10.32"
     repository: alias:tibco-platform
     condition: tp-cp-integration.enabled
     tags:
       - integration
   - name: tp-cp-tibcohub-contrib
-    version: "1.8.4"
+    version: "1.10.1"
     repository: alias:tibco-platform
     condition: tp-cp-tibcohub-contrib.enabled
-  - name: tp-cp-msg-contrib
-    version: "1.9.28"
+  - name: platform-cp-messaging
+    version: "1.10.8"
     repository: alias:tibco-platform
-    condition: tp-cp-msg-contrib.enabled
-  - name: tp-cp-msg-recipes
-    version: "1.9.28"
-    repository: alias:tibco-platform
-    condition: tp-cp-msg-recipes.enabled
+    condition: platform-cp-messaging.enabled
   - name: tp-cp-hawk
-    version: "1.9.28"
+    version: "1.10.7"
     repository: alias:tibco-platform
     condition: tp-cp-hawk.enabled
   - name: tp-cp-hawk-console-recipes
-    version: "1.9.28"
+    version: "1.10.7"
     repository: alias:tibco-platform
     condition: tp-cp-hawk-recipes.enabled
   - name: tp-cp-cli
-    version: "1.0.0"
+    version: "1.1.1"
+    condition: tp-cp-cli.enabled
   - name: tp-cp-alertmanager
     version: "1.9.*"
-  - name: tp-cp-alerts-service
-    version: "1.9.*"
   - name: tp-cp-prometheus
-    version: "1.9.8"
+    version: "1.10.10"
   - name: dp-oauth2proxy-recipes
-    version: "1.9.*"
+    version: "1.10.*"
+  - name: tp-cp-auditsafe
+    version: "1.10.*"
+    condition: tp-cp-auditsafe.enabled

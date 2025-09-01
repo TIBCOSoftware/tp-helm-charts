@@ -1,6 +1,6 @@
 #
 #
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -10,10 +10,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "alerts-service.consts.appName" . }}-fluentbit-config
+  name: {{ include "tp-cp-infra.consts.appName" . }}-fluentbit-config
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "alerts-service.shared.labels.standard" . | nindent 4 }}
+    {{- include "tp-cp-infra.shared.labels.standard" . | nindent 4 }}
 data:
   fluent-bit.conf: |
     [SERVICE]
@@ -32,10 +32,20 @@ data:
   input.conf: |
     [INPUT]
       Name              tail
-      Tag               cp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
-      Path              /var/log/pods/{{ include "alerts-service.consts.appName" . }}.log
-      multiline.parser  docker, cri
-      DB                /var/log/db/flb_kube.db
+      Tag               infra-compute-services
+      Path              /var/log/pods/compute-services.log
+      Multiline.parser  docker, cri
+      DB                /var/log/db/flb_infra_compute.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+    [INPUT]
+      Name              tail
+      Tag               infra-alerts-services
+      Path              /var/log/pods/alerts-service.log
+      Multiline.parser  docker, cri
+      DB                /var/log/db/flb_infra_alerts.db
       Mem_Buf_Limit     5MB
       Skip_Long_Lines   On
       Refresh_Interval  10
@@ -43,34 +53,28 @@ data:
   filter.conf: |
     [FILTER]
       Name              record_modifier
-      Match             cp.*
-      Record            container.name ${CONTAINER_NAME}
+      Match             *
       Remove_key        stream
       Remove_key        _p
 
     [FILTER]
       Name              parser
-      Match             cp.*
+      Match             *
       Key_Name          log
       Parser            json_decode
       Reserve_Data      True
 
     [FILTER]
-      Name lua
-      Match cp.*
-      Script update_record.lua
-      Call update_record
+      Name              lua
+      Match             *
+      Script            update_record.lua
+      Call              update_record
 
   output.conf: |
     [OUTPUT]
-      Name   stdout
-      Match  cp.*
-      Format json
-
-    [OUTPUT]
       Name                 opentelemetry
-      Match                cp.*
-      Host                 {{ include "alerts-service.otel.services" . }}.${POD_NAMESPACE}.svc.cluster.local
+      Match                *
+      Host                 {{ include "tp-cp-infra.otel.services" . }}.${POD_NAMESPACE}.svc.cluster.local
       Port                 4318
       Logs_uri             /v1/logs
       Log_response_payload True
@@ -86,6 +90,7 @@ data:
       Time_Format       %Y-%m-%dT%H:%M:%S.%L
       Time_Keep         On
       Decode_Field_As   json log
+
   update_record.lua: |
     -- Function to append all fields under key "msg"
     function update_record(tag, timestamp, record)
@@ -101,9 +106,10 @@ data:
           end
         end
         newLog["msg"] = newMsg
-        newLog["container.name"] = record["container.name"]
+        newLog["container.name"] = tag
         record["log"] = newLog
+        return 2, timestamp, record
       end
-      return 2, timestamp, record
+      return 1, timestamp, record
     end
-{{- end }}
+{{- end -}}

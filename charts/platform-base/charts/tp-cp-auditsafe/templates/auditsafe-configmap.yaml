@@ -1,0 +1,16 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-auditsafe.consts.appName" . }}-env
+  namespace: {{ include "tp-cp-auditsafe.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-auditsafe.shared.labels.standard" . | nindent 4 }}
+data:
+  TCTA_WEB_SERVER_DB_POOL_SIZE: "20"
+  springProfilesActive: 'aws'
+  tasJavaOpts: '-Xms1024m -Xmx4096m'

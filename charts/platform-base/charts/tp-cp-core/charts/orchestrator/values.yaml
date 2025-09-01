@@ -21,6 +21,13 @@ global:
         port: "25"
         username: ""
         password: ""
+        # Name of an optional secret containing one or more certificates to trust when doing TLS connection with SMTP server using a custom certificate, i.e. not issued by a well-known CA.
+        # The certificate's SubjectAlternativeName must match server's name. Both PEM and DER formats are accepted.
+        customCertsSecretName: ""
+        # Set to true, t, or 1 to skip verification of server's TLS certificate.
+        # This INSECURE setting leaves you exposed to active main-in-the-middle attacks but you're still protected from a passive attacker inspecting traffic.
+        # Use it especially if cert's SubjectAlternativeName doesn't match server's name.
+        insecureSkipVerifyTls: "false"
       sendgrid:
         apiKey: ""
       graph:

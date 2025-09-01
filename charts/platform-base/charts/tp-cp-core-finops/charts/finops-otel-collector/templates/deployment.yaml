@@ -39,6 +39,7 @@ spec:
         {{- include "finops-otel-collector.component" . | nindent 8 }}
         {{- include "finops-otel-collector.podLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "finops-otel-collector.serviceAccountName" . }}
       {{- with .Values.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}

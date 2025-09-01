@@ -1,2 +1,2 @@
-{{- define "tp-cp-core-job.generated.buildNumber" }}8800{{end -}}
+{{- define "tp-cp-core-job.generated.buildNumber" }}8819{{end -}}
 {{- define "tp-cp-core-ops.generated.buildTimestamp" }}02-07-25_05.50.12_AM{{end -}}
