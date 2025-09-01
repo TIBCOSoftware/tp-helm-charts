@@ -3,26 +3,6 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-
-compute-services:
-  enabled: true
-  dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.9.3"
-    dpCoreInfrastructureAppVersion: "1.9.0"
-    dpConfigureNamespaceChartVersion: "1.9.1"
-    dpConfigureNamespaceAppVersion: "1.9.0"
-  # Resource values for production-like setup
-  # requests: Minimum amount of resources required for the application to run.
-  # limits: Maximum amount of resources the application can use.
-  resources:
-    requests:
-      cpu: 200m  # Minimum CPU required
-      memory: 256Mi  # Minimum memory required
-    limits:
-      cpu: 500m  # Maximum CPU allowed
-      memory: 1024Mi  # Maximum memory allowed
-
-
 hybrid-proxy:
   # switch to false to disable hybrid-proxy
   enabled: true
@@ -79,7 +59,7 @@ resource-set-operator:
 
 otel-collector:
   # switch to true to enable otel-collector
-  enabled: false
+  enabled: true
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.

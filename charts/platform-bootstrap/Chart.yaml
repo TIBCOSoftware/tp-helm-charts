@@ -8,8 +8,8 @@ apiVersion: v2
 name: platform-bootstrap
 description: TIBCO Platform bootstrap chart
 type: application
-version: 1.9.0
-appVersion: "1.9.0"
+version: 1.10.0
+appVersion: "1.10.0"
 keywords:
   - tibco-platform
   - platform
@@ -21,17 +21,14 @@ annotations:
   app.helm.sh/name: platform-bootstrap
 dependencies:
   - name: hybrid-proxy
-    version: "1.9.*"
+    version: "1.10.*"
     condition: hybrid-proxy.enabled
   - name: resource-set-operator
-    version: "1.9.*"
+    version: "1.10.*"
     condition: resource-set-operator.enabled
   - name: router-operator
     version: "1.9.*"
     condition: router-operator.enabled
-  - name: compute-services
-    version: "1.9.*"
-    condition: compute-services.enabled
   - name: otel-collector
     version: "0.116.*"
     condition: otel-collector.enabled

@@ -1,0 +1,16 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v2
+name: on-premises-third-party
+description: A Helm chart for Kubernetes
+type: application
+version: 1.10.1
+appVersion: "1.10.0"
+dependencies:
+  # postgresql chart
+  - name: postgresql
+    repository: file://charts/postgresql
+    condition: postgresql.enabled
+    version: "15.5.38"
