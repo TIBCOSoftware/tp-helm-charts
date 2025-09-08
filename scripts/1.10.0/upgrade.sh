@@ -67,6 +67,7 @@ Prerequisites:
   - Bash version 4.0+
   - Helm v3.17+ (for helm operations)
   - kubectl (for upgrade verification)
+  - jq (for JSON parsing during upgrade validation)
 
 No command-line arguments needed - everything is handled interactively!
 EOF
@@ -437,14 +438,19 @@ setup_temp_dir() {
 
 # Check dependencies and versions
 check_dependencies() {
-    # Check yq availability and version
-    command -v yq >/dev/null
-    if [[ $? -ne 0 ]]; then
+    print_info "Checking dependencies..."
+    # Check yq availability and version (safe under set -e)
+    if ! command -v yq >/dev/null 2>&1; then
         print_error "yq is required. Install with: sudo apt-get install yq or brew install yq"
+        echo "Dependency check failed: yq not found"  # explicit stdout message
         exit 1
     fi
+    print_info "yq path: $(command -v yq)"
     
-    local yq_version=$(yq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+    local yq_version=""
+    if yq --version >/dev/null 2>&1; then
+        yq_version=$(yq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+    fi
     if [[ -n "${yq_version}" ]]; then
         local yq_major=$(echo "${yq_version}" | cut -d. -f1)
         if [[ ${yq_major} -lt 4 ]]; then
@@ -458,13 +464,17 @@ check_dependencies() {
     
     # Check helm availability and version (for helm mode and upgrade mode)
     if [[ "${OPERATION_MODE}" == "helm" || "${HELM_UPGRADE_MODE}" == "true" ]]; then
-        command -v helm >/dev/null
-        if [[ $? -ne 0 ]]; then
+        if ! command -v helm >/dev/null 2>&1; then
             print_error "helm is required for helm mode. Install from: https://helm.sh/docs/intro/install/"
+            echo "Dependency check failed: helm not found"  # explicit stdout message
             exit 1
         fi
+        print_info "helm path: $(command -v helm)"
         
-        local helm_version=$(helm version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | head -1 | sed 's/v//')
+        local helm_version=""
+        if helm version --short >/dev/null 2>&1; then
+            helm_version=$(helm version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | head -1 | sed 's/v//')
+        fi
         if [[ -n "${helm_version}" ]]; then
             local helm_major=$(echo "${helm_version}" | cut -d. -f1)
             local helm_minor=$(echo "${helm_version}" | cut -d. -f2)
@@ -481,6 +491,39 @@ check_dependencies() {
             print_warning "Could not determine Helm version. Proceeding with caution..."
         fi
     fi
+    
+    # Check jq availability (used for JSON parsing in upgrade validation)
+    if ! command -v jq >/dev/null 2>&1; then
+        print_error "jq is required. Install with: sudo apt-get install jq or brew install jq"
+        echo "Dependency check failed: jq not found"  # explicit stdout message
+        exit 1
+    fi
+    print_info "jq path: $(command -v jq)"
+    
+    # Soft-check jq version (recommend 1.5+)
+    local jq_version=""
+    if jq --version >/dev/null 2>&1; then
+        jq_version=$(jq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+    fi
+    if [[ -n "${jq_version}" ]]; then
+        local jq_major=$(echo "${jq_version}" | cut -d. -f1)
+        local jq_minor=$(echo "${jq_version}" | cut -d. -f2)
+        if [[ ${jq_major} -lt 1 ]] || [[ ${jq_major} -eq 1 && ${jq_minor} -lt 5 ]]; then
+            print_warning "jq version ${jq_version} detected. Recommended: jq 1.5 or higher"
+        else
+            print_info "jq version ${jq_version} - OK"
+        fi
+    else
+        print_warning "Could not determine jq version. Proceeding with caution..."
+    fi
+    
+    # Check kubectl availability (used in verification steps)
+    if ! command -v kubectl >/dev/null 2>&1; then
+        print_error "kubectl is required. Install from: https://kubernetes.io/docs/tasks/tools/"
+        echo "Dependency check failed: kubectl not found"  # explicit stdout message
+        exit 1
+    fi
+    print_info "kubectl path: $(command -v kubectl)"
 }
 
 # Extract Helm values
