@@ -5,6 +5,7 @@
 */}}
 
 {{/* all cluster roles are created at once during the deployment of the chart in primary namespace */}}
+{{- if .Values.global.tibco.enableClusterScopedPerm -}}
 {{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -18,4 +19,5 @@ aggregationRule:
       platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
       platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
 rules: []
+{{- end }}
 {{- end }}
