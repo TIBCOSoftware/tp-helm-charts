@@ -473,6 +473,9 @@ grafana:
     ingressClassName: ${TP_INGRESS_CLASS}
     hosts:
     - grafana.${TP_DOMAIN}
+  # default values for grafana adminUser and adminPassword are as follows, uncomment and edit the values as per requirement.
+  # adminUser: admin
+  # adminPassword: prom-operator
 prometheus:
   prometheusSpec:
     enableRemoteWriteReceiver: true
@@ -505,11 +508,12 @@ prometheus:
         target_label: __metrics_path__
         regex: (.+)
         replacement: /$1
-  ingress:
-    enabled: true
-    ingressClassName: ${TP_INGRESS_CLASS}
-    hosts:
-    - prometheus-internal.${TP_DOMAIN}
+  # uncomment following values for ingress, if you want to enable public endpoint for prometheus
+  # ingress:
+  #   enabled: true
+  #   ingressClassName: ${TP_INGRESS_CLASS}
+  #   hosts:
+  #   - prometheus-internal.${TP_DOMAIN}
 EOF
 )
 ```
@@ -549,8 +553,9 @@ kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
 | Elastic Search password          | xxx                                                                              | Elastic Search password in dp-config-es-es-elastic-user secret                                             |
 | Tracing server host  | https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200               | Elastic Search internal endpoint                                         |
 | Prometheus service internal endpoint | http://kube-prometheus-stack-prometheus.prometheus-system.svc.cluster.local:9090 | Prometheus service                                        |
-| Prometheus public endpoint | https://prometheus-internal.\<BASE_FQDN\>  |  Prometheus ingress host                                        |
-| Grafana endpoint  | https://grafana.\<BASE_FQDN\> | Grafana ingress host                                        |
+| Prometheus public endpoint | https://prometheus-internal.\<BASE_FQDN\>  |  Prometheus ingress host, if ingress is enabled using values                                        |
+| Grafana endpoint  | https://grafana.\<BASE_FQDN\> | Grafana ingress host (default username: admin & password: prom-operator)                                        |
+| Grafana password  | xxx | Grafana password is in secret kube-prometheus-stack-grafana of prometheus-system namespace (username: admin & password: prom-operator) |
 Network Policies Details for Data Plane Namespace | [Data Plane Network Policies Document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/controlling-traffic-with-network-policies.htm) |
 
 ## Clean-up
