@@ -75,8 +75,6 @@
   {{- $emailServerType := .Values.global.external.emailServerType -}}
   {{- if $emailServerType }}
     {{- $emailServerConfig = get .Values.global.external.emailServer $emailServerType | toJson }}
-  {{- else }}
-    {{- $emailServerConfig = get .Values.global.external.emailServer "smtp" | toJson }}
   {{- end }}
   {{ $emailServerConfig }}
 {{- end -}}

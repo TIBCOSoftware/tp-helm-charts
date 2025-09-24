@@ -227,6 +227,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_BE_HOST
+        - name: TP_CP_EMS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMS_HOST
         - name: SYSTEM_WHO
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
@@ -306,6 +311,8 @@ spec:
           value: {{ include "cp-core-configuration.container-registry" . | quote }}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
+        - name: AUDITSAFE_ENABLED
+          value: "true"
         - name: DEPLOYMENT_REGION
           valueFrom:
             configMapKeyRef:

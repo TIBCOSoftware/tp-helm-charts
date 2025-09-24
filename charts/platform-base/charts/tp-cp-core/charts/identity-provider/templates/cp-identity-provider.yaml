@@ -349,6 +349,15 @@ spec:
           config: empty
           fqdn: ${DEFAULTIDP_DNS_DOMAIN}
           enableRedirects: true
+    - path: /login
+      internalPath: /sso
+      port: 8000
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
     - path: /ping/not_exposed
       internalPath: /ping
       port: 9893

@@ -31,7 +31,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.0.3
+          tag: 4.0.8
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -58,7 +58,7 @@ global:
     platformEmailNotificationCcAddresses: ""
     cpEncryptionSecretName: "cporch-encryption-secret"
     cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
-    emailServerType: "ses"  # Default to SES with dummy value
+    emailServerType: ""
     emailServer:
       ses:
         arn: "arn:aws:ses:us-east1:123456789012:identity/user@example.com"
@@ -109,17 +109,9 @@ tp-cp-recipes:
 tp-cp-tibcohub-contrib:
   enabled: true
 
-# Default values for platform-cp-messaging
-platform-cp-messaging:
+# Default values for tibco-cp-messaging
+tibco-cp-messaging:
   useCpEnv: true
-  enabled: true
-
-# Default values for tp-cp-msg-contrib.
-tp-cp-msg-contrib:
-  enabled: true
-
-# Default values for tp-cp-msg-recipes.
-tp-cp-msg-recipes:
   enabled: true
 
 # Default values for tp-cp-hawk.
@@ -161,23 +153,25 @@ tp-cp-configuration:
       cpu: 100m  # Maximum CPU allowed
       memory: 60Mi  # Maximum memory allowed
 
+# Default values for tp-cp-infra.
 tp-cp-infra:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.10.3"
-    dpCoreInfrastructureAppVersion: "1.10.0"
-    dpConfigureNamespaceChartVersion: "1.10.4"
-    dpConfigureNamespaceAppVersion: "1.10.0"
+    dpCoreInfrastructureChartVersion: "1.11.4"
+    dpCoreInfrastructureAppVersion: "1.11.0"
+    dpConfigureNamespaceChartVersion: "1.11.3"
+    dpConfigureNamespaceAppVersion: "1.11.0"
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
   resources:
-    requests:
-      cpu: 200m  # Minimum CPU required
-      memory: 256Mi  # Minimum memory required
-    limits:
-      cpu: 500m  # Maximum CPU allowed
-      memory: 1024Mi  # Maximum memory allowed
+    infra-compute-services:
+      requests:
+        cpu: 200m  # Minimum CPU required
+        memory: 256Mi  # Minimum memory required
+      limits:
+        cpu: 500m  # Maximum CPU allowed
+        memory: 1024Mi  # Maximum memory allowed
 
 tp-cp-auditsafe:
   enabled: true
