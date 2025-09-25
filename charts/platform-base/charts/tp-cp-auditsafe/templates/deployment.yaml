@@ -111,24 +111,38 @@ spec:
                   name: {{ include "tp-cp-auditsafe-env-configmap" . }}
                   key: springProfilesActive
                   optional: true
-            - name: TCTA_WEB_SERVER_DB_POOL_SIZE
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "tp-cp-auditsafe-env-configmap" . }}
-                  key: TCTA_WEB_SERVER_DB_POOL_SIZE
-                  optional: true
             - name: PGHOST
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: MasterWriterHost
+                  {{- else }}
                   key: DBHost
-                  optional: true
+                  {{- end }}
             - name: PGPORT
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
                   key: DBPort
-                  optional: true
+            - name: READ_PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: LocalReaderHost
+                  {{- else }}
+                  key: DBHost
+                  {{- end }}
+            - name: READ_PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: WRITE_POSTGRES_ENDPOINT_URL
+              value: "$(PGHOST):$(PGPORT)"
+            - name: READ_POSTGRES_ENDPOINT_URL
+              value: "$(READ_PGHOST):$(READ_PGPORT)"
             - name: TCTA_DTS_DB_HOSTPORT
               value: "$(PGHOST):$(PGPORT)"
             - name: TCTA_DTS_DB_USER_NAME
@@ -182,16 +196,27 @@ spec:
                   optional: true
             - name: TIBCO_INTERNAL_INTERCOM_URL
               value: http://$(INTERNAL_ROUTER_HOST):90
-
+            # max read db pool size
+            - name: TAS_WEB_SERVER_READ_DB_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-env-configmap" . }}
+                  key: tasMaxReadDBPoolSize
+            # max write db pool size
+            - name: TAS_WEB_SERVER_WRITE_DB_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-auditsafe-env-configmap" . }}
+                  key: tasMaxWriteDBPoolSize
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: fluentbit
           image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
           imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
-          {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+          {{- if .Values.auditsafe.securityContext }}
           securityContext:
-            {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 12 }}
+            {{- toYaml .Values.auditsafe.securityContext | nindent 12 }}
           {{- end }}
-          {{- if eq (include "tp-cp-auditsafe-web-server.enableResourceConstraints" . ) "true" }}
+          {{- if .Values.global.tibco.enableResourceConstraints }}
           {{- with .Values.global.tibco.logging.fluentbit.resources }}
           resources:
             {{- toYaml . | nindent 12 }}

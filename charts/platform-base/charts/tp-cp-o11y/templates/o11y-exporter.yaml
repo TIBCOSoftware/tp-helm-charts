@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.10.0",
+      "capabilityVersion": "1.11.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -205,11 +205,18 @@ data:
                     servicePort: 8888
                     hostPort: 8888
                     protocol: TCP
-                  prometheus:
+                  otlp-tas:
                     enabled: true
-                    containerPort: 4319
-                    servicePort: 4319
-                    hostPort: 4319
+                    containerPort: 24317
+                    servicePort: 24317
+                    hostPort: 24317
+                    protocol: TCP
+                    appProtocol: grpc
+                  otlp-http-tas:
+                    enabled: true
+                    containerPort: 24318
+                    servicePort: 24318
+                    hostPort: 24318
                     protocol: TCP
                 config:
                   receivers:
@@ -223,6 +230,16 @@ data:
                               - http://*
                               - https://*
                           endpoint: 0.0.0.0:4318
+                    otlp/auditsafe:
+                      protocols:
+                        grpc:
+                          endpoint: 0.0.0.0:24317
+                        http:
+                          cors:
+                            allowed_origins:
+                              - http://*
+                              - https://*
+                          endpoint: 0.0.0.0:24318
                   processors:
                     memory_limiter:
                       check_interval: 5s
@@ -358,6 +375,30 @@ data:
                           - set(attributes["app_version"], resource.attributes["app_version"])
                           - set(attributes["capability_instance_id"], resource.attributes["capability_instance_id"])
                           - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
+                    transform/auditsafe:
+                      error_mode: ignore
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(cache["ep0"]["prop_name"], "dataplane_id")
+                        - set(cache["ep0"]["prop_value"], resource.attributes["dataplane_id"])
+                        - set(cache["ep1"]["prop_name"], "workload_type")
+                        - set(cache["ep1"]["prop_value"], resource.attributes["workload_type"])
+                        - set(cache["ep2"]["prop_name"], "namespace")
+                        - set(cache["ep2"]["prop_value"], resource.attributes["pod_namespace"])
+                        - set(cache["ep3"]["prop_name"], "pod_name")
+                        - set(cache["ep3"]["prop_value"], resource.attributes["pod_name"])
+                        - set(cache["len"], Len(body["extra_props"])) where body["extra_props"] != nil or Len(body["extra_props"]) > 0
+                        - set(cache["len"], 0) where body["extra_props"] == nil or Len(body["extra_props"]) == 0
+                        - append(body["extra_props"], values = ["el0", "el1", "el2", "el3"])
+                        - set(body["extra_props"][Int(cache["len"])], cache["ep0"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(1))], cache["ep1"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(2))], cache["ep2"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(3))], cache["ep3"])
+                        - set(body["service_name"], resource.attributes["app_name"])
+                        - set(body["trans_destination"], resource.attributes["pod_namespace"])
+                        - set(body["user_trans_id"], resource.attributes["app_id"])
+                        - set(body["trans_source"], resource.attributes["dataplane_id"])
                   exporters:
                     debug: {}
                     elasticsearch/log:
@@ -372,6 +413,20 @@ data:
                         insecure: false
                         insecure_skip_verify: true
                       headers: ${env:headers_logs_expo_userapp}
+                    elasticsearch/auditsafe:
+                      mapping:
+                        mode: bodymap
+                      endpoints:
+                      - ${env:LOGS_EXPORTER_AUDITSAFE_ES_ENDPOINT}
+                      logs_index: ${env:LOGS_EXPORTER_AUDITSAFE_ES_INDEX_NAME}
+                      user: ${env:LOGS_EXPORTER_AUDITSAFE_ES_USERNAME}
+                      password: ${env:LOGS_EXPORTER_AUDITSAFE_ES_PASSWORD}
+                      retry:
+                        enabled: false
+                      tls:
+                        insecure: false
+                        insecure_skip_verify: true
+                      headers: ${env:headers_logs_expo_auditsafe}
                     otlp/trace:
                       endpoint: ${env:JAEGER_COLLECTOR_ENDPOINT}
                       tls:
@@ -465,6 +520,10 @@ data:
                         receivers: ${env:app_logs_receiver}
                         processors: ${env:app_logs_processor}
                         exporters: ${env:app_logs_exporter}
+                      logs/auditsafe:
+                        receivers: ${env:auditsafe_receiver}
+                        processors: ${env:auditsafe_processor}
+                        exporters: ${env:auditsafe_exporter}
                       logs/svc:
                         exporters: ${env:svc_logs_exporter}
                         processors: ${env:svc_logs_processor}
@@ -584,6 +643,11 @@ data:
                            - role: service
                              namespaces:
                                names: ${env:app_namespaces}
+                           metric_relabel_configs:
+                           # Keep only specific metrics related to messaging health related metrics
+                           - action: keep
+                             source_labels: [__name__]
+                             regex: "(tibco_ems_server_client_connections|tibco_messaging_instance_count|tibco_messaging_instance_health|tibco_integration_app_restarts|tibco_integration_desired_app_instances|tibco_integration_running_app_instances)"
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
@@ -593,26 +657,6 @@ data:
                              regex: "${DATAPLANE-ID}"
                            - action: replace
                              source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-                             target_label: __metrics_path__
-                             regex: (.+)
-                         - job_name: envoy-stats
-                           scrape_interval: 20s
-                           kubernetes_sd_configs:
-                           - role: pod
-                             namespaces:
-                               names: ${env:app_namespaces}
-                           relabel_configs:
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
-                             regex: "true"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_container_port_name]
-                             regex: ".*-envoy-prom"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_dataplane_id]
-                             regex: "${DATAPLANE-ID}"
-                           - action: replace
-                             source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
                              target_label: __metrics_path__
                              regex: (.+)
                          - job_name: ems-svc
@@ -677,6 +721,11 @@ data:
                            scrape_interval: 20s
                            kubernetes_sd_configs:
                            - role: service
+                           metric_relabel_configs:
+                           # Keep only specific metrics related to messaging health related metrics
+                           - action: keep
+                             source_labels: [__name__]
+                             regex: "(tibco_ems_server_client_connections|tibco_messaging_instance_count|tibco_messaging_instance_health|tibco_integration_app_restarts|tibco_integration_desired_app_instances|tibco_integration_running_app_instances)"
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
@@ -686,24 +735,6 @@ data:
                              regex: "${DATAPLANE-ID}"
                            - action: replace
                              source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-                             target_label: __metrics_path__
-                             regex: (.+)
-                         - job_name: envoy-stats
-                           scrape_interval: 20s
-                           kubernetes_sd_configs:
-                           - role: pod
-                           relabel_configs:
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
-                             regex: "true"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_container_port_name]
-                             regex: ".*-envoy-prom"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_dataplane_id]
-                             regex: "${DATAPLANE-ID}"
-                           - action: replace
-                             source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
                              target_label: __metrics_path__
                              regex: (.+)
                          - job_name: ems-svc
@@ -1201,7 +1232,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.10.0"
+          value: "1.11.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

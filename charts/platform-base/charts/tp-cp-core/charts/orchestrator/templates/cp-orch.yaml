@@ -264,6 +264,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: TP_CP_IDP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDP_HOST
         - name: TP_CP_ALERT_SERVICE_HOST
           valueFrom:
             configMapKeyRef:
@@ -345,6 +350,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.enableBannedEmailDomainsCheck
+        - name: TP_CP_APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_APP_VERSION
         - name: PGHOST
           valueFrom:
             configMapKeyRef:

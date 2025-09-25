@@ -15,7 +15,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 4.0.3
+          tag: 4.0.8
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.
@@ -87,6 +87,8 @@ monitoringhomepagemetrics:
   prodSchedule: "0 * * * *"  # For production environment, runs once every hour  
 monitoringdataplanesync:
   schedule: "0 0 * * *" 
+monitoringfinopsmetrics:
+  schedule: "1 0 * * *"
 # HPA
 hpa:
   cpu: 70

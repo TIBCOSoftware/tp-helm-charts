@@ -47,6 +47,9 @@ spec:
 {{- if .Values.server.priorityClassName }}
       priorityClassName: "{{ .Values.server.priorityClassName }}"
 {{- end }}
+{{- if .Values.server.runtimeClassName }}
+      runtimeClassName: "{{ .Values.server.runtimeClassName }}"
+{{- end }}
 {{- if .Values.server.schedulerName }}
       schedulerName: "{{ .Values.server.schedulerName }}"
 {{- end }}
@@ -80,7 +83,7 @@ spec:
               drop:
                 - CAP_NET_RAW
                 - ALL
-          image: {{ include "tp-cp-prometheus.image.registry" .}}{{"/"}}{{ include "tp-cp-prometheus.image.repository" .}}{{"/"}}common-distroless-base-debian-debug:12.11
+          image: {{ include "tp-cp-prometheus.image.registry" .}}{{"/"}}{{ include "tp-cp-prometheus.image.repository" .}}{{"/"}}common-distroless-base-debian-debug:12.12
           imagePullPolicy: "{{ .Values.server.image.pullPolicy }}"      
           command:
             - sh
@@ -162,7 +165,7 @@ spec:
         {{- end }}
 
         - name: {{ template "prometheus.name" . }}-{{ .Values.server.name }}
-          image: {{ include "tp-cp-prometheus.image.registry" .}}{{"/"}}{{ include "tp-cp-prometheus.image.repository" .}}{{"/"}}hawk-prometheus:{{ .Values.server.image.tag }}
+          image: {{ include "tp-cp-prometheus.image.registry" .}}{{"/"}}{{ include "tp-cp-prometheus.image.repository" .}}{{"/"}}infra-prometheus:{{ .Values.server.image.tag }}
           imagePullPolicy: "{{ .Values.server.image.pullPolicy }}"
           {{- with .Values.server.command }}
           command:
@@ -280,6 +283,24 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: prom-volume
+              mountPath: /etc/prometheus-community/
+            - name: server-ds-vol
+              mountPath: /etc/prometheus-community/discovery/
+              readOnly: true
+              subPath: hawk/discovery
+            - name: server-ds-vol
+              mountPath: /etc/prometheus-community/o11y/
+              readOnly: true
+              subPath: o11y/discovery
+            - name: server-ds-vol
+              mountPath: /prometheus
+              subPath: hawk/prometheus
+              readOnly: false
+            - name: server-ds-vol
+              mountPath: /prometheus/rules
+              subPath: alerts/prometheus/rules
+              readOnly: false
             - name: config-volume
               mountPath: /etc/config
             - name: {{ ternary .Values.server.persistentVolume.statefulSetNameOverride "storage-volume" (and .Values.server.persistentVolume.enabled (not (empty .Values.server.persistentVolume.statefulSetNameOverride))) }}
@@ -377,6 +398,13 @@ spec:
     {{- end }}
       terminationGracePeriodSeconds: {{ .Values.server.terminationGracePeriodSeconds }}
       volumes:
+        - name: prom-volume
+          configMap:
+            defaultMode: 420
+            name: prom-server-conf
+        - name: server-ds-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-prometheus.pvc-name" . }}
         - name: config-volume
         {{- if empty .Values.server.configFromSecret }}
           configMap:

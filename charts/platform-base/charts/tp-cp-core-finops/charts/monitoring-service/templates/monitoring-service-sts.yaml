@@ -222,6 +222,8 @@ spec:
             {{- else }}
             {{ .Values.monitoringhomepagemetrics.schedule }}
             {{- end }}
+        - name: FINOPS_METRICS_SCHEDULE
+          value: {{ .Values.monitoringfinopsmetrics.schedule | quote }}
          # Env variables for Postgres DB connection
         - name: TABLE_NAME_PREFIX
           value: V2_

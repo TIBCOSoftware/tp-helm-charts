@@ -45,11 +45,11 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 4.0.3
+          tag: 4.0.8
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
-        tag: 12.11
+        tag: 12.12
     self_hosted_deployment: true
     is_replica_region: false
     finops: "disable"
@@ -74,7 +74,7 @@ global:
     externalIdpRequestCcAddresses: ""
     cpEncryptionSecretName: "cporch-encryption-secret"
     cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
-    emailServerType: "smtp"
+    emailServerType: ""
     emailServer:
       ses:
         arn: ""

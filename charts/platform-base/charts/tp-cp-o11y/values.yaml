@@ -32,7 +32,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.0.3
+          tag: 4.0.8
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -79,7 +79,7 @@ probes:
 image:
   name: "o11y-service"
   pullPolicy: IfNotPresent
-  tag: 3077
+  tag: 3144
 
 tibcoRouter:
   path: /o11y
@@ -107,13 +107,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.10.6"
+        version: "1.11.5"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.116.4"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.39"
+        version: "0.72.40"
     withResources:
       # if set to true then existing recipe will be overwritten by latest recipe.
       overwriteRecipe: "false"
@@ -125,17 +125,17 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.10.6"
+        version: "1.11.5"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.116.4"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.39"
+        version: "0.72.40"
 job:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.11
+    tag: 12.12
     pullPolicy: IfNotPresent
 
 # Resources

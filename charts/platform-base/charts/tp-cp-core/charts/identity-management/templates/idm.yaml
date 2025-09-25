@@ -534,6 +534,16 @@ spec:
       methods:
       - GET
       - DELETE
+  - path: /idm/v1/management/oauth2/clients/update-redirect-uri
+    internalPath: /v1/management/oauth2/clients/update-redirect-uri
+    port: 7831
+    protocol: http
+    proxies:
+    - listener: intercom
+      config: empty
+      fqdn: ""
+      methods:
+      - PATCH
   - path: /idm/v1/oauth2/clients
     internalPath: /v1/oauth2/clients
     port: 7831

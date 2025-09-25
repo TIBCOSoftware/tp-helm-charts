@@ -493,7 +493,7 @@ metadata:
     {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
 spec:
   backoffLimit: 0
-  activeDeadlineSeconds: 60 # Timeout and terminate after 60 seconds
+  activeDeadlineSeconds: 120 # Timeout and terminate after 120 seconds
   ttlSecondsAfterFinished: 3600 # Remove the job 1 hour after completion
   template:
     metadata:
