@@ -8444,6 +8444,47 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-integration
     apiVersion: v2
+    appVersion: 1.11.0
+    created: "2025-09-25T11:01:08.252238415Z"
+    dependencies:
+    - name: tp-cp-integration-common
+      repository: alias:tibco-platform
+      version: 1.9.1
+    - condition: tp-cp-integration-bw.enabled
+      name: tp-cp-integration-bw
+      repository: alias:tibco-platform
+      version: 1.11.12
+    - condition: tp-cp-integration-flogo.enabled
+      name: tp-cp-integration-flogo
+      repository: alias:tibco-platform
+      version: 1.11.11
+    - condition: tp-cp-bwce-utilities.enabled
+      name: tp-cp-bwce-utilities
+      repository: alias:tibco-platform
+      version: 1.11.5
+    - condition: tp-cp-bw5ce-utilities.enabled
+      name: tp-cp-bw5ce-utilities
+      repository: alias:tibco-platform
+      version: 1.11.5
+    - condition: tp-cp-flogo-utilities.enabled
+      name: tp-cp-flogo-utilities
+      repository: alias:tibco-platform
+      version: 1.11.11
+    description: TIBCO Platform Integration chart
+    digest: 6629eb1f2d25267048c86ca1ccb9ce9fc013e806fa1dae91a439c9c87c0eb455
+    keywords:
+    - tibco-platform
+    - platform
+    - integration
+    name: tp-cp-integration
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-integration-1.11.30/tp-cp-integration-1.11.30.tgz
+    version: 1.11.30
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-integration
+    apiVersion: v2
     appVersion: 1.10.0
     created: "2025-08-22T10:46:32.397898406Z"
     dependencies:
@@ -9952,6 +9993,33 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tp-cp-recipes
     apiVersion: v2
+    appVersion: 1.11.0
+    created: "2025-09-25T11:01:08.456731432Z"
+    dependencies:
+    - name: tp-cp-bwce-recipes
+      repository: alias:tibco-platform
+      version: 1.11.5
+    - name: tp-cp-flogo-recipes
+      repository: alias:tibco-platform
+      version: 1.11.12
+    - name: tp-cp-tibcohub-recipes
+      repository: alias:tibco-platform
+      version: 1.11.5
+    description: TIBCO Platform recipe chart
+    digest: b7013e011384b633fad98e21d0f786f459852f1a7b3f053cb502ae50ea8f8828
+    keywords:
+    - tibco-platform
+    - platform
+    - recipes
+    name: tp-cp-recipes
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-cp-recipes-1.11.20/tp-cp-recipes-1.11.20.tgz
+    version: 1.11.20
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tp-cp-recipes
+    apiVersion: v2
     appVersion: 1.10.0
     created: "2025-08-22T11:49:43.800547063Z"
     dependencies:
@@ -11305,4 +11373,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-09-25T10:47:46.507386087Z"
+generated: "2025-09-25T11:01:08.457556585Z"
