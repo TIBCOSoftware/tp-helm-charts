@@ -12,13 +12,13 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 160-distroless
+  tag: 170-distroless
   pullPolicy: IfNotPresent
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.11
+    tag: 12.12
 
 nameOverride: ""
 podAnnotations: {}
@@ -141,8 +141,8 @@ flogopluginsB:
     default: 1.0.1-hf1-b01
   tp-flogo-connector-general:
     tags:
-      - 1.6.8-b01
-    default: 1.6.8-b01
+      - 1.6.9-b04
+    default: 1.6.9-b04
   tp-flogo-connector-http:
     tags:
       - 1.1.1-b03
@@ -153,8 +153,8 @@ flogopluginsB:
     default: 1.3.3-hf1-b02
   tp-flogo-connector-lambda:
     tags:
-      - 1.3.2-b01-flogo-2.25.1
-    default: 1.3.2-b01-flogo-2.25.1
+      - 1.3.2-hf1-b01
+    default: 1.3.2-hf1-b01
 
 flogopluginsC:
   tp-flogo-connector-mongodb:
@@ -171,8 +171,8 @@ flogopluginsC:
     default: 2.4.5-b03
   tp-flogo-connector-oracledb:
     tags:
-      - 1.2.2-b03
-    default: 1.2.2-b03
+      - 1.2.3-b03
+    default: 1.2.3-b03
   tp-flogo-connector-postgres:
     tags:
       - 2.7.1-b01
@@ -259,13 +259,21 @@ flogopluginsF:
     tags:
       - 1.3.0-hf1-b05
     default: 1.3.0-hf1-b05
+  tp-flogo-connector-auditsafe:
+    tags:
+      - 1.0.0-b02
+    default: 1.0.0-b02
+  tp-flogo-connector-sapsolutions:
+    tags:
+      - 1.0.0-hf1-b01
+    default: 1.0.0-hf1-b01
 
 buildtypesExtract: true
 flogoBuildtypeImages:
   - name: tp-flogo-buildtype
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.25.8-b271
+    tag: 2.25.9-b300
     target_location: flogo/buildtypes
 
 probes:
