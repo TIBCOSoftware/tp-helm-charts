@@ -9,7 +9,7 @@ controlPlane:
           image:
             registry: public.ecr.aws  # The registry where the etcd image is stored
             repository: eks-distro/etcd-io/etcd  # The repository for the etcd image
-            tag: v3.5.9-eks-1-31-6  # Version tag for the etcd image, updated for Kubernetes 1.31
+            tag: v3.5.16-eks-1-31-29  # Version tag for the etcd image, updated for Kubernetes 1.31
           persistence:
             volumeClaim:
               storageClass: "gp2"  # Storage class for persistent volumes (gp2 is a general-purpose SSD)
@@ -21,12 +21,12 @@ controlPlane:
         image:
           registry: public.ecr.aws  # The registry for the Kubernetes API server image
           repository: eks-distro/kubernetes/kube-apiserver  # The repository for the API server image
-          tag: v1.31.0-eks-1-31-6  # Version tag for the Kubernetes API server, updated to 1.31
+          tag: v1.31.12-eks-1-31-29  # Version tag for the Kubernetes API server, updated to 1.31
       controllerManager:
         image:
           registry: public.ecr.aws  # The registry for the Kubernetes controller manager image
           repository: eks-distro/kubernetes/kube-controller-manager  # The repository for the controller manager image
-          tag: v1.31.0-eks-1-31-6  # Version tag for the Kubernetes controller manager, updated to 1.31
+          tag: v1.31.12-eks-1-31-29  # Version tag for the Kubernetes controller manager, updated to 1.31
       enabled: true  # Enable the Kubernetes distribution components
   
   # Configuration for host path mapping

@@ -12,12 +12,13 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.10.0",
-      "minCPVersion": "1.10.0",
+      "capabilityVersion": "1.11.0",
+      "minCPVersion": "1.11.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
+      "minRollbackVersion": "1.10.0",
       "minDPVersion": {
         "dp-core-infrastructure": "1.7.0",
         "dp-configure-namespace": "1.7.0"
@@ -47,7 +48,7 @@ data:
           {
             "version": [
               1,
-              10,
+              11,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -88,7 +89,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: "1.10.11"
+        version: "1.11.4"
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -171,7 +172,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.10.0"
+          value: "1.11.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

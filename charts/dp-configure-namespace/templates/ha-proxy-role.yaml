@@ -5,6 +5,7 @@
 */}}
 
 {{/* all cluster roles are created at once during the deployment of the chart in primary namespace */}}
+{{- if .Values.global.tibco.enableClusterScopedPerm -}}
 {{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -24,8 +25,10 @@ rules:
   resources: ["customresourcedefinitions"]
   verbs: ["get", "list"]
 {{- end }}
+{{- end }}
 
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

@@ -5,6 +5,7 @@
 */}}
 
 {{/* all cluster role bindings are created at once during the deployment of the chart in primary namespace */}}
+{{- if .Values.global.tibco.enableClusterScopedPerm -}}
 {{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -20,4 +21,5 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
     namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
-{{- end -}}
+{{- end }}
+{{- end }}

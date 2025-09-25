@@ -32,7 +32,7 @@ cat - <<EOF > $outfile
     Rename message log.msg
     Rename level log.level
     Rename caller log.caller
-    Rename datetime time
+    Rename datetime log.logtime
 
 # standardize log levels to allowed values INFO,ERROR,WARN,DEBUG
 [FILTER]

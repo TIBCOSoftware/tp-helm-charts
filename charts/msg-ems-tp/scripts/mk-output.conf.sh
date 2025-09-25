@@ -20,7 +20,7 @@ if [ "$DP_LOGGING_FLUENTBIT_ENABLED" = "true" ] ; then
 [OUTPUT]
     Name                 opentelemetry
     Match                dp.routable*
-    Host                 otel-services.${MY_NAMESPACE}.svc.cluster.local
+    Host                 otel-userapp.${MY_NAMESPACE}.svc.cluster.local
     Port                 4318
     Logs_uri             /v1/logs
     Log_response_payload True

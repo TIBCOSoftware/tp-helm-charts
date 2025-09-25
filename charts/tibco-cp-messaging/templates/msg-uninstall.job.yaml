@@ -1,0 +1,96 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- $params := include "need.msg.recipes.params" . | fromYaml -}}
+{{- $jobname := printf "%s-uninstall-%s" .Release.Name $params.randomSuffix }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: "{{ $jobname }}"
+    labels:
+      name: "{{ $jobname }}"
+      app.kubernetes.io/name: msg-cp-uninstall
+      app.kubernetes.io/component: msg 
+    namespace: "{{ .Release.Namespace }}"
+    annotations:
+      "helm.sh/hook": post-delete
+      "helm.sh/hook-weight": "5"
+spec:
+    backoffLimit: 0
+    #4hr limit -  activeDeadlineSeconds: 14400
+    #72hr limit -  activeDeadlineSeconds: 259200
+    ttlSecondsAfterFinished: 7200
+    template:
+        metadata:
+          name: "{{ $jobname }}"
+          namespace: "{{ .Release.Namespace }}"
+          labels:
+            name: "{{ $jobname }}"
+            app.kubernetes.io/name: msg-cp-uninstall
+            app.kubernetes.io/component: msg
+            networking.platform.tibco.com/kubernetes-api: enable
+        spec:
+            enableServiceLinks: false
+            nodeSelector:
+                kubernetes.io/os: linux
+            {{- if $params.cp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $params.cp.pullSecret }}
+            {{- end }}
+            serviceAccountName: "{{ $params.cp.serviceAccount }}"
+            restartPolicy: Never
+            volumes:
+            - name: efs-vol
+              persistentVolumeClaim:
+                claimName: "{{ $params.cp.CP_VOLUME_CLAIM }}"
+            {{ include "msg.cp.security.pod" $params | nindent 12 }}
+            terminationGracePeriodSeconds: 10
+            containers:
+            -   name: "msg-cp-uninstall"
+                command: ['bash', '-c']
+                args:
+                - |
+                  # Cleanup old hook jobs
+                  echo "Cleaning up old hook jobs"
+                  kubectl get jobs -l=app.kubernetes.io/name=msg-cp-uninstall | egrep "Complet|Fail" | while read x o ; do
+                    echo "Deleting job $x"
+                    kubectl delete job $x
+                  done
+                  # -- Do uninstall
+                  pushd "$TARGET_PATH"
+                  CAPS="infra/msgcore platform/ems platform/pulsar"
+                  echo "--- Before Uninstall ---"
+                  find $CAPS -type f -ls 
+                  for capdir in $CAPS ; do 
+                    if [ -d "${capdir}" ]; then
+                      echo "Uninstalling ${capdir} capabilities";
+                      mv "${capdir}" "${capdir}.old" ;
+                    else
+                      echo "No ${capdir} capabilities found to uninstall";
+                    fi
+                  done
+                  echo --- After ---
+                  ls -lh infra platform 
+                  exit 0
+
+                image: "{{ $params.cp.imageFullName }}"
+                imagePullPolicy: {{ $params.cp.pullPolicy }}
+                {{ include "msg.cp.security.container" $params | nindent 16 }}
+                {{- if $params.cp.enableResourceConstraints }}
+                {{- with .Values.resources }}
+                resources:
+                  {{- toYaml . | nindent 18}}
+                {{- end }}
+                {{- end }}
+                volumeMounts:
+                - mountPath: /private/tsc
+                  name: efs-vol
+                  subPath: tsc
+                env:
+                - name: TARGET_PATH
+                  value: "{{ $params.recipes.TARGET_PATH }}"
+                - name: ROLLME
+                  # REQUIRE NEW JOB TO START
+                  value: {{ $params.randomSuffix }}

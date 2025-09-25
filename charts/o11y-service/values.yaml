@@ -11,6 +11,7 @@ global:
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
+    subscriptionId: sub-id1
     namespace: tp-dp-dp1
     containerRegistry:
       secret: ""
@@ -121,6 +122,13 @@ global:
                 otlp:
                   type: http|grpc
                   endpoint: localhost:4317
+              auditSafe:
+                enabled: false
+                kind: elasticSearch
+                elasticSearch:
+                  logIndex: ""
+                  endpoint: ""
+                  username: ""
             exporterSecondary:
               userApps:
                 enabled: false
@@ -146,6 +154,13 @@ global:
                   logIndex: somevalue
                   endpoint: somevalue
                   username: somevalue
+              auditSafe:
+                kind: elasticSearch
+                enabled: true
+                elasticSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
           secret:
             exporter:
               userApps:
@@ -166,12 +181,20 @@ global:
                   headers: {}
                 kafka:
                   password: somevalue
+              auditSafe:
+                elasticSearch:
+                  password: somevalue
+                  headers: {}
             proxy:
               userApps:
                 elasticSearch:
                   headers: {}
                   password: somevalue
                 openSearch:
+                  headers: {}
+                  password: somevalue
+              auditSafe:
+                elasticSearch:
                   headers: {}
                   password: somevalue
         metricsServer:
@@ -422,7 +445,7 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 4.0.3
+          tag: 4.0.8
         resources:
           requests:
             cpu: 10m
@@ -441,7 +464,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 3077
+      tag: 3144
 
 
 replicaCount: 1

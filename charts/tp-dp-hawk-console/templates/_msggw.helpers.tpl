@@ -80,13 +80,14 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-85" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-92" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.4.0-6" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
 msggw:
   basename: "{{ $basename }}"
-  image: "{{ .Values.msggw.image | default $emsDefaultFullImage }}"
+  image: "{{ .Values.msggw.image | default $gwDefaultFullImage }}"
   supportShellEnabled: {{ .Values.msggw.supportShellEnabled | quote }}
   ports:
     gatewayApiPort: 8376
@@ -143,7 +144,7 @@ msg.gateway.mon.labels $params - Generate CP monitoring labels
 */}}
 {{- define "msg.gateway.mon.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.10.0.7"
+tib-dp-msgbuild: "1.11.0.15"
 tib-dp-chart: {{ .dp.chart }}
 platform.tibco.com/app-type: "msg-gateway"
 platform.tibco.com/scrape_finops: "true"
@@ -180,6 +181,7 @@ app.cloud.tibco.com/tenant-name: messaging
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"
 tib-dp-app: msg-gateway
+tib-msgdp-mm-version: "1.11.0-0"
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: tp-hawk-console
@@ -234,7 +236,6 @@ Labels to allow pods kube+cluster+external
 {{ include "msg.dp.net.fullCluster" . }}
 {{ include "msg.dp.net.external" . }}
 {{- end }}
-
 
 {{/*
 msg.pv.vol.mount - Generate a volumeMount from a standard volSpec structure
