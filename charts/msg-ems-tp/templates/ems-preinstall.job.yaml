@@ -20,6 +20,7 @@ metadata:
     name: "{{ $jobname }}"
     labels:
       name: "{{ $jobname }}"
+      tib-msg-jobname: {{ $emsParams.ems.name }}-preinstall
       {{ include "msg.dp.labels" . | indent 6 }}
       {{ include "ems.std.labels" $emsParams | indent 6 }}
       tib-dp-app: msg-ems-ftl
@@ -60,24 +61,28 @@ spec:
                 {{ $dpViewUser := printf "gems-view-%s" $emsParams.dp.name }}
                 {{ $dpViewPwd := printf "pw%s" (randAlphaNum 32) }}
                 {{ $basename := printf "%s" "tp-msg-gateway"  }}
+                {{- $jobLabel := printf "-l=tib-msg-jobname=%s-preinstall" $emsParams.ems.name -}}
                 command: ['/compliance/check_eua', 'bash', '-c' ]
                 args:
-                - >
-                  echo "Checking for tibadmin secret ... " ; 
-                  set -x ;
-                  secretName="{{ $basename }}-tibadmin" ;
+                - |
+                  # set -x
+                  # Protect against downgrades
+                  {{ include "msg.rollback.protection" (dict "v" .Chart.Version "cr" (printf "sts/%s" $svcEms)) | nindent 18 }}
+                  # Cleanup old hook jobs 
+                  {{ include "msg.oldjob.cleanup" ( $jobLabel ) | nindent 18 }}
+                  echo "Checking for tibadmin secret ... "
+                  secretName="{{ $basename }}-tibadmin"
                   if kubectl get secret $secretName -n {{ .Release.Namespace }} ; then
-                    echo "Secret $secretName exists, using existing secret" ;
+                    echo "Secret $secretName exists, using existing secret"
                   else
-                    echo "Secret $secretName does not exist" ;
-                    echo "Creating secret $secretName" ;
+                    echo "Secret $secretName does not exist"
+                    echo "Creating secret $secretName"
                     kubectl create secret generic $secretName -n {{ .Release.Namespace }} \
                       --from-literal=EMS_ADMIN_USER={{ $dpAdminUser }} --from-literal=EMS_ADMIN_PASSWORD={{ $dpAdminPwd }} \
                       --from-literal=DP_ADMIN_USER={{ $dpAdminUser }} --from-literal=DP_ADMIN_PASSWORD={{ $dpAdminPwd }} \
-                      --from-literal=DP_VIEW_USER={{ $dpViewUser }} --from-literal=DP_VIEW_PASSWORD={{ $dpViewPwd }} \
-                      ; 
-                    kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE ; 
-                  fi ;
+                      --from-literal=DP_VIEW_USER={{ $dpViewUser }} --from-literal=DP_VIEW_PASSWORD={{ $dpViewPwd }} 
+                    kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE
+                  fi
                 image: "{{ $emsParams.ems.image }}"
                 imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
                 resources:

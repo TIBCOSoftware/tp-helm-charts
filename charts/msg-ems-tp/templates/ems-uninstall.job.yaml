@@ -13,6 +13,7 @@
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
+{{- $jobLabel := printf "-l=tib-msg-jobname=%s-uninstall" $emsParams.ems.name -}}
 # Additional HELPER VARIABLE DEFINITIONS
 #
 apiVersion: batch/v1
@@ -21,6 +22,7 @@ metadata:
     name: "{{ $jobname }}"
     labels:
       name: "{{ $jobname }}"
+      tib-msg-jobname: {{ $emsParams.ems.name }}-uninstall
       {{ include "msg.dp.labels" . | indent 6 }}
       {{ include "ems.std.labels" $emsParams | indent 6 }}
     namespace: "{{ .Release.Namespace }}"
@@ -58,14 +60,15 @@ spec:
             -   name: "main"
                 command: ['/compliance/check_eua', 'bash', '-c' ]
                 args:
-                - >
-                  echo "Cleaning up PVCs ... " ; 
+                - |
+                  {{ include "msg.oldjob.cleanup" ( $jobLabel ) | nindent 18 }}
+                  echo "Cleaning up PVCs ... "
                   kubectl get pvc -l=tib-dp-release={{ .Release.Name }} | egrep -v NAME | while read x o ; do 
-                    kubectl delete pvc $x || true ; done ;
-                  echo "Cleaning up Secrets ... " ; 
+                    kubectl delete pvc $x || true ; done
+                  echo "Cleaning up Secrets ... "
                   kubectl get secrets -l=tib-dp-release={{ .Release.Name }} | egrep -v NAME | while read x o ; do 
-                    kubectl delete secret $x || true ; done ;
-                  echo "Cleaning up Jobs ... " ; 
+                    kubectl delete secret $x || true ; done
+                  echo "Cleaning up Jobs ... "
                   kubectl get jobs -l=tib-dp-release={{ .Release.Name }} | egrep -v 'NAME|uninstall' | while read x o ; do 
                     kubectl delete job $x || true ; done
                   exit 0

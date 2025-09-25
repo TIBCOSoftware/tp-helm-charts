@@ -12,6 +12,7 @@
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEmsHost := printf "%s.%s.svc" $svcEms $emsParams.ems.namespace -}}
 {{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
@@ -117,6 +118,19 @@ spec:
                   value: "{{ $emsParams.ems.ports.realmPort }}"
                 - name: EMS_TCP_PORT
                   value: "{{ $emsParams.ems.ports.tcpPort }}"
+                - name: EMS_SSL_PORT
+                  value: "{{ $emsParams.ems.ports.sslPort }}"
+                {{ if .Values.ems.tcpEnable }}
+                - name: EMS_CLIENT_URL
+                  value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
+                - name: EMS_ACTIVE_URL
+                  value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT)"
+                {{ else if .Values.ems.sslEnable }}
+                - name: EMS_CLIENT_URL
+                  value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
+                - name: EMS_ACTIVE_URL
+                  value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT)"
+                {{ end }}
                 - name: EMS_INIT_JSON
                   value: "/data/boot/tibemsd-ftl.json"
                 - name: EMS_HTTP_PORT
