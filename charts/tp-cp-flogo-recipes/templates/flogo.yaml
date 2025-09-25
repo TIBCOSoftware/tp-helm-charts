@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.10.0",
-      "minCPVersion": "1.10.0",
+      "capabilityVersion": "1.11.0",
+      "minCPVersion": "1.11.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
@@ -42,7 +42,7 @@ data:
           {
             "version": [
               1,
-              8,
+              11,
               0
             ],
             "capabilityId": "INTEGRATIONCORE",
@@ -51,7 +51,7 @@ data:
           {
             "version": [
               1,
-              10,
+              11,
               0
             ],
             "capabilityId": "OAUTH2PROXY",
@@ -79,7 +79,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.10.1"
+          version: "1.11.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -93,10 +93,10 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   flogoprovisioner:
                     image:
-                      tag: 647-platform-1.10.0
+                      tag: 689-platform-1.11.0
                 config:
-                  APP_INIT_IMAGE_TAG: "43"
-                  APP_HELMCHART_VERSION: "1.9.2"
+                  APP_INIT_IMAGE_TAG: "50"
+                  APP_HELMCHART_VERSION: "1.11.5"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
@@ -160,7 +160,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.10.0"
+          value: "1.11.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

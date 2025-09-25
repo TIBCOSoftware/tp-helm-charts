@@ -136,6 +136,10 @@ spec:
         - name: TIBCO_INTERNAL_FLOGO_BASE_IMAGE_TAG
           value: {{ .Values.appConfig.flogoBaseImageTag | quote }}
         {{- end }}
+        - name: FLOGO_AUDITSAFE_O11Y_SVC_ENDPOINT
+          value: "http://o11y-service.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:7820"
+        - name: FLOGO_AUDITSAFE_OTLP_ENDPOINT
+          value: "http://otel-userapp-logs.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:24318"
         - name: FLOGO_APP_PROPS_ENV
           value: {{ .Values.appConfig.flogoAppPropsEnv | quote }}
         - name: FLOGO_EXPOSE_SWAGGER_EP
