@@ -21,7 +21,7 @@ az group delete -n ${TP_RESOURCE_GROUP} -y
 
 # explicit fileshares deletion is require if it is NOT same as AKS resource group
 # otherwise fileshares will be deleted as part of the resource group deletion
-if [ -n "${TP_STORAGE_ACCOUNT_RESOURCE_GROUP}" -a "${TP_STORAGE_ACCOUNT_RESOURCE_GROUP}" != "${TP_RESOURCE_GROUP}" ]; then
+if [ -n "${TP_STORAGE_ACCOUNT_RESOURCE_GROUP}" ] && [ "${TP_STORAGE_ACCOUNT_RESOURCE_GROUP}" != "${TP_RESOURCE_GROUP}" ]; then
   echo "deleting file shares"
   while read -r line
     do
