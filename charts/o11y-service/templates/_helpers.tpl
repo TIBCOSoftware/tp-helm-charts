@@ -144,3 +144,14 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 
 {{- define "hawkconsole.conn.url" }}tp-dp-hawk-console-connect.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local:9687{{ end -}}
 
+{{- define "auditsafe.logs.enabled" -}}
+{{- if and .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.enabled
+          (eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.kind "elasticSearch")
+          .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.logIndex
+          .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.endpoint
+          .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.username -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}

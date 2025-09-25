@@ -33,12 +33,12 @@ _ret=$?
 verify_error "${_ret}" "VNet"
 
 # create master nodes subnet
-az network vnet subnet create -g ${TP_RESOURCE_GROUP} --vnet-name "${TP_VNET_NAME}" -n "${TP_MASTER_SUBNET_NAME}" --address-prefixes "${TP_MASTER_SUBNET_CIDR}"
+az network vnet subnet create -g "${TP_RESOURCE_GROUP}" --vnet-name "${TP_VNET_NAME}" -n "${TP_MASTER_SUBNET_NAME}" --address-prefixes "${TP_MASTER_SUBNET_CIDR}"
 _ret=$?
 verify_error "${_ret}" "master_nodes_subnet"
 
 # create worker nodes subnet
-az network vnet subnet create -g ${TP_RESOURCE_GROUP} --vnet-name "${TP_VNET_NAME}" -n "${TP_WORKER_SUBNET_NAME}" --address-prefixes "${TP_WORKER_SUBNET_CIDR}"
+az network vnet subnet create -g "${TP_RESOURCE_GROUP}" --vnet-name "${TP_VNET_NAME}" -n "${TP_WORKER_SUBNET_NAME}" --address-prefixes "${TP_WORKER_SUBNET_CIDR}"
 _ret=$?
 verify_error "${_ret}" "worker_nodes_subnet"
 

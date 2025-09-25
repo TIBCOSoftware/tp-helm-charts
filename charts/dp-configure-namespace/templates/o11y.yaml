@@ -1,23 +1,24 @@
 {{/*
-    Copyright © 2024. Cloud Software Group, Inc.
+    Copyright © 2025. Cloud Software Group, Inc.
     This file is subject to the license terms contained
     in the license file that is distributed with this file.
 */}}
 
 {{/* all cluster roles are created at once during the deployment of the chart in primary namespace */}}
+{{- if .Values.rbac.o11y -}}
 {{- if .Values.global.tibco.enableClusterScopedPerm -}}
 {{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: dp-{{ include "dp-configure-namespace.dataPlaneId" . }}
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-o11y-cluster-scope
   labels:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
-aggregationRule:
-  clusterRoleSelectors:
-  - matchLabels:
-      platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
-      platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
-rules: []
+    platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
+rules:
+- apiGroups: [""]
+  resources: ["namespaces", "namespaces/status", "pods", "services"]
+  verbs: ["get", "watch", "list"]
+{{- end -}}
 {{- end }}
 {{- end }}

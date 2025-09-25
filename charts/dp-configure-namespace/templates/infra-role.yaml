@@ -4,52 +4,7 @@
     in the license file that is distributed with this file.
 */}}
 
-{{/* all cluster roles are created at once during the deployment of the chart in primary namespace */}}
-{{- if .Values.global.tibco.enableClusterScopedPerm -}}
-{{- if eq .Release.Namespace .Values.global.tibco.primaryNamespaceName -}}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-cluster-scope
-  labels:
-    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
-    platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
-rules:
-# monitoring
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["list", "watch", "get"]
-- apiGroups: ["apps"]
-  resources: ["statefulsets"]
-  verbs: ["list", "get"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["list", "watch", "get"]
-# observability
-- apiGroups: [""]
-  resources: ["namespaces", "events", "namespaces/status", "nodes", "nodes/spec", "nodes/stats"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["events.k8s.io"]
-  resources: ["events"] 
-  verbs: ["list", "watch"]
-- apiGroups: ["metrics.k8s.io"]
-  resources: ["pods"] 
-  verbs: ["list", "get"]
-- apiGroups: ["apps"]
-  resources: ["daemonsets"] 
-  verbs: ["list", "watch", "get"]
-- apiGroups: ["extensions"]
-  resources: ["daemonsets"] 
-  verbs: ["list", "watch", "get"]
-# otel-finops requires services
-- apiGroups: [""]
-  resources: ["services"] 
-  verbs: ["list", "watch"]
-{{- end -}}
-{{- end }}
-
----
-
+{{/* infra roles are created during chart deployment*/}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

@@ -52,8 +52,6 @@ spec:
             - containerPort: {{ .Values.service.port }}
               name: tp-o11yservice
           env:
-            - name: AUDITSAFE_TOGGLE
-              value: "off"
             - name: IS_CP
               value: "false"
             - name: NAMESPACE
@@ -71,6 +69,8 @@ spec:
 {{- if and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") }}
             - name: O11y
               value: "o11yV3"
+            - name: AUDITSAFE_LOGS_ENABLED
+              value: {{ include "auditsafe.logs.enabled" . | quote }}
 {{- end }}
           volumeMounts:
             - name: o11y-cfgs

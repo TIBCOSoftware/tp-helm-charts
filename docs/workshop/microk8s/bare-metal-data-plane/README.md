@@ -231,6 +231,7 @@ Alternatively, you can also install Prometheus on another machine that allows yo
    - [Install Nginx Ingress Controller](#install-nginx-ingress-controller) for exposing metrics query service of target Control Tower Data Plane
       - Apply ingress [prometheus_ingress.yaml](./prometheus_ingress.yaml) to ensure the `ingressClassName`, `namespace` and `host` are set proper accordingly
          - The ingress for Prometheus allows allows other Control Tower Data Planes running outside the cluster to query
+         - This may create a public endpoint with no authentication required, depending on your ingress controller and machine network configuration
 
          ```bash
          PROM_INGRESS_FILE=prometheus_ingress.yaml
