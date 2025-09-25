@@ -151,6 +151,7 @@ dp:
   enableResourceConstraints: {{ $enableResourceConstraints }}
   enableSecurityContext: {{ $enableSecurityContext }}
   enableHaproxy: {{ $enableHaproxy }}
+  enableLogViewer: {{ .Values.ems.enableLogViewer | default false }}
 {{- end }}
 
 {{/*
@@ -159,7 +160,12 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dp.mon.annotations" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml }}
+{{- if $dpParams.dp.enableLogViewer }}
+# WORK-AROUND: MSGDP-1418 - required to enable log viewer
+platform.tibco.com/workload-type: "user-app"
+{{- else }}
 platform.tibco.com/workload-type: "capability-service"
+{{- end }}
 platform.tibco.com/dataplane-id: "{{ $dpParams.dp.name }}"
 platform.tibco.com/cpHostname: "{{ $dpParams.dp.cpHostname }}"
 platform.tibco.com/environmentType: "{{ $dpParams.dp.environmentType }}"
@@ -181,12 +187,16 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.10.0.7"
+tib-dp-msgbuild: "1.11.0.15"
 tib-dp-chart: {{ .dp.chart }}
-tib-dp-workload-type: "capability-service"
+tib-dp-workload-type: "user-app"
 tib-dp-dataplane-id: "{{ .dp.name }}"
 tib-dp-capability-instance-id: "{{ .dp.instanceId }}"
+{{- if .dp.enableLogViewer }}
+platform.tibco.com/workload-type: "user-app"
+{{- else }}
 platform.tibco.com/workload-type: "capability-service"
+{{- end }}
 platform.tibco.com/capability-instance-id: "{{ .dp.instanceId }}"
 platform.tibco.com/dataplane-id: "{{ .dp.name }}"
 platform.tibco.com/subscriptionId: "{{ .dp.subscriptionId }}"
@@ -392,7 +402,6 @@ msg.zone.skew - Generate topology zone skew contraint from a $params struct
     matchLabels:
       tib-msg-stsname: {{ printf "%s-%s" .params.name .comp }}
 {{- end }}
-
 
 {{/*
 msg.dp.security.pod - Generate a pod securityContext section from $xxParams struct

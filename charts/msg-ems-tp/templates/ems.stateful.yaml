@@ -284,6 +284,15 @@ spec:
               - name: EMS_TCP_URL
                 # the service load-balanced EMS TCP URL
                 value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
+              - name: EMS_CLIENT_URL
+                value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
+              - name: EMS_ACTIVE_URL
+                value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT)"
+              {{ else if .Values.ems.sslEnable }}
+              - name: EMS_CLIENT_URL
+                value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
+              - name: EMS_ACTIVE_URL
+                value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT)"
               {{ end }}
               {{ if .Values.ems.sslEnable }}
               - name: EMS_SSL_URL

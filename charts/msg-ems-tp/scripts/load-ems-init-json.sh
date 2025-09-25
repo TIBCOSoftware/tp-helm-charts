@@ -40,19 +40,9 @@ done
 
 echo "Waiting for EMS-Active Service ... "
 wait_for_active
+sleep 2  ; # wait DNS resolver
 
 # Set Password for GEMS user
-echo >&2 "#+: Set Password for GEMS user"
-export EMS_ADMIN_USER=""
-export EMS_ADMIN_PASSWORD=""
-dataAddUser="$(printf '{"name":"%s","description":"user-update","password":"%s"}' $DP_ADMIN_USER $DP_ADMIN_PASSWORD )"
-dataAddGroup="$(printf '{"add_users":["%s"]}' $DP_ADMIN_USER )"
-addDebug=""
-/boot/emsadmin-curl.sh $addDebug -u admin -p ''  -s $EMS_ADMIN_URL -a /users/$DP_ADMIN_USER -X POST \
-   --data "$dataAddUser" || true
-cat curl.debug
-/boot/emsadmin-curl.sh $addDebug -u 'admin' -p '' -s $EMS_ADMIN_URL  --data "$dataAddGroup" \
-    -X POST -a "/groups/msg-gems-admin/users" || true
-cat curl.debug
+bash < /boot/k8DpadminSetup.sh
 
 exit $rtc
