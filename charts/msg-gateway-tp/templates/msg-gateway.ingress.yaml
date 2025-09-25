@@ -24,7 +24,7 @@ metadata:
 spec:
   ingressClassName: "tibco-dp-{{ $params.dp.name }}"
   rules:
-  - host: "{{ .Values.global.cp.cpHostname }}"
+  - host: "{{ .Values.global.cp.cpHostname | default "sub.cp.platform.local" }}"
     http:
       paths:
       - pathType: Prefix

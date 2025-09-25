@@ -18,6 +18,7 @@ metadata:
   name: "{{ $jobname }}"
   labels:
     {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    tib-msg-jobname: {{ $params.msggw.basename }}-preinstall
     app.kubernetes.io/component: msg-gateway-preinstall
     app.kubernetes.io/name: "{{ $params.msggw.basename }}-preinstall"
   namespace: "{{ .Release.Namespace }}"
@@ -55,9 +56,15 @@ spec:
         {{ $dpAdminPwd := printf "pw%s" (randAlphaNum 32) }}
         {{ $dpViewUser := printf "gems-view-%s" $params.dp.name }}
         {{ $dpViewPwd := printf "pw%s" (randAlphaNum 32) }}
+        {{- $stsname := printf "sts/%s" $basename -}}
+        {{- $jobLabel := printf "-l=tib-msg-jobname=%s-preinstall" $params.msggw.basename -}}
         command: ['/compliance/check_eua', 'bash', '-c' ]
         args:
-        - >
+        - |
+          # Prevent downgrades
+          {{ include "msg.rollback.protection" (dict "v" .Chart.Version "cr" $stsname ) | nindent 10 }}
+          # Cleanup old hook jobs
+          {{ include "msg.oldjob.cleanup" ( $jobLabel ) | nindent 10 }}
           echo "Checking for tibadmin secret ... " ; 
           set -x ;
           secretName="{{ $basename }}-tibadmin" ;

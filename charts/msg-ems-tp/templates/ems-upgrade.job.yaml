@@ -13,6 +13,8 @@
 {{- $jobname := printf "%s-emsupgrade-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
+{{- $svcEmsHost := printf "%s.%s.svc" $svcEms $emsParams.ems.namespace -}}
+{{- $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
 # Additional HELPER VARIABLE DEFINITIONS
@@ -70,12 +72,14 @@ spec:
           terminationGracePeriodSeconds: 10
           containers:
           -   name: "main"
+              # {{ $svcEmsActiveHost := printf "%sactive.%s.svc" $svcEms .Release.Namespace }}
               command: ['/compliance/check_eua', 'bash', '-c' ]
               args:
               - >
                 ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
                 mkdir -p /logs/boot ; cd /logs/boot ;
+                bash < /boot/k8DpadminSetup.sh ;
                 echo "Upgrading pods ..." ; 
                 kubectl get pods -l=tib-msg-stsname={{ $stsname }} | egrep -v NAME | while read x o ; do 
                   echo "POD=$x"; done ; 
@@ -99,6 +103,11 @@ spec:
                 {{ end }}
               - mountPath: /data 
                 name: ems-data
+              envFrom:
+                - secretRef:
+                    # name: "{{ $emsParams.ems.name }}-tibadmin"
+                    name: "tp-msg-gateway-tibadmin"
+                    optional: True
               env:
               # CAUTION! Setting Names here overrides envFrom values
               {{ include "msg.dp.stdenv" $emsParams | nindent  14 }}
@@ -116,6 +125,19 @@ spec:
                 value: "{{ $emsParams.ems.ports.realmPort }}"
               - name: EMS_TCP_PORT
                 value: "{{ $emsParams.ems.ports.tcpPort }}"
+              - name: EMS_SSL_PORT
+                value: "{{ $emsParams.ems.ports.sslPort }}"
+              {{ if .Values.ems.tcpEnable }}
+              - name: EMS_CLIENT_URL
+                value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
+              - name: EMS_ACTIVE_URL
+                value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT)"
+              {{ else if .Values.ems.sslEnable }}
+              - name: EMS_CLIENT_URL
+                value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
+              - name: EMS_ACTIVE_URL
+                value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT)"
+              {{ end }}
               - name: EMS_INIT_JSON
                 value: "/data/boot/tibemsd-ftl.json"
               - name: EMS_HTTP_PORT

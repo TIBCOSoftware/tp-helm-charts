@@ -1,0 +1,150 @@
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+top: infra/msgcore
+# latest is first in versions.json
+files:
+  infra/msgcore/versions.json: |
+    [
+      {
+        "capabilityVersion": "1.11.0",
+        "minRollbackVersion": "1.11.0",
+        "minCPVersion": "1.9.0",
+        "maxCPVersion": "",
+        "releaseDate": "2025/08/26",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.9.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.9.0",
+          "dp-configure-namespace": "1.9.0"
+        }
+      },
+      {
+        "capabilityVersion": "1.10.0",
+        "minRollbackVersion": "1.10.0",
+        "minCPVersion": "1.9.0",
+        "maxCPVersion": "",
+        "releaseDate": "2025/08/26",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.9.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.9.0",
+          "dp-configure-namespace": "1.9.0"
+        }
+      },
+      {
+        "capabilityVersion": "1.9.0",
+        "minCPVersion": "1.7.0",
+        "maxCPVersion": "",
+        "releaseDate": "2025/07/26",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.7.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.7.0",
+          "dp-configure-namespace": "1.7.0"
+        }
+      }
+    ]
+  infra/msgcore/1.11.0/recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: msg-gateway-tp
+          namespace: ${NAMESPACE}
+          version: "1.11.15"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                gwVersion: "10.4.0-92"
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+  infra/msgcore/1.11.0/package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-msg-gateway",
+            "description": "Messaging K8DP Gateway Services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }
+  infra/msgcore/1.10.0/recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: msg-gateway-tp
+          namespace: ${NAMESPACE}
+          version: "1.10.7"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                gwVersion: "10.4.0-85"
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+  infra/msgcore/1.10.0/package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-msg-gateway",
+            "description": "Messaging K8DP Gateway Services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }
+  infra/msgcore/1.9.0/recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: msg-gateway-tp
+          namespace: ${NAMESPACE}
+          version: "1.9.28"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                gwVersion: "10.4.0-82"
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+  infra/msgcore/1.9.0/package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-msg-gateway",
+            "description": "Messaging K8DP Gateway Services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }

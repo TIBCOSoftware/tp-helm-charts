@@ -1,0 +1,94 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{-  $recipesParams := include "need.msg.recipes.params" . | fromYaml -}}
+{{- $nameSuffix := randAlphaNum 4 | lower -}}
+{{- $jobname := printf "tp-cp-msg-recipes-job-%s" $nameSuffix }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: "{{ $jobname }}"
+    labels:
+      name: "{{ $jobname }}"
+      app.kubernetes.io/name: msg-recipes
+      app.kubernetes.io/component: msg 
+    namespace: "{{ .Release.Namespace }}"
+spec:
+    backoffLimit: 0
+    #4hr limit -  activeDeadlineSeconds: 14400
+    #72hr limit -  activeDeadlineSeconds: 259200
+    ttlSecondsAfterFinished: 259200
+    template:
+        metadata:
+          name: "{{ $jobname }}"
+          namespace: "{{ .Release.Namespace }}"
+          labels:
+            name: "{{ $jobname }}"
+            app.kubernetes.io/name: msg-recipes
+            app.kubernetes.io/component: msg
+        spec:
+            enableServiceLinks: false
+            nodeSelector:
+                kubernetes.io/os: linux
+            {{- if $recipesParams.cp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $recipesParams.cp.pullSecret }}
+            {{- end }}
+            serviceAccountName: "{{ $recipesParams.cp.serviceAccount }}"
+            restartPolicy: Never
+            volumes:
+            - name: recipes-vol
+              configMap:
+                name: tp-cp-msg-recipes-pkg-{{ $nameSuffix }}
+            - name: msg-recipes-data
+              emptyDir: {}
+            - name: efs-vol
+              persistentVolumeClaim:
+                claimName: "{{ $recipesParams.cp.CP_VOLUME_CLAIM }}"
+            {{ include "msg.cp.security.pod" $recipesParams | nindent 12 }}
+            terminationGracePeriodSeconds: 10
+            containers:
+            -   name: "msg-cp-efs"
+                command: ['bash', '-c', ]
+                # bash < /boot/copy-ui-to-cp.sh
+                args:
+                - >
+                  bash < /boot/extract-recipe-packages.sh
+                image: "{{ $recipesParams.cp.imageFullName }}"
+                imagePullPolicy: {{ $recipesParams.cp.pullPolicy }}
+                {{ include "msg.cp.security.container" $recipesParams | nindent 16 }}
+                {{- if $recipesParams.cp.enableResourceConstraints }}
+                {{- with .Values.resources }}
+                resources:
+                  {{- toYaml . | nindent 18}}
+                {{- end }}
+                {{- end }}
+                volumeMounts:
+                - mountPath: /boot
+                  name: recipes-vol
+                  readOnly: true
+                - mountPath: /data
+                  name: msg-recipes-data
+                - mountPath: /private/tsc
+                  name: efs-vol
+                  subPath: tsc
+                env:
+                - name: TARGET_PATH
+                  value: "{{ $recipesParams.recipes.TARGET_PATH }}"
+                - name: JOB_POST_SLEEP
+                  value: "{{ $recipesParams.recipes.jobPostSleep }}"
+                - name: ROLLME
+                  # REQUIRE NEW JOB TO START
+                  value: {{ randAlphaNum 5 | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tp-cp-msg-recipes-pkg-{{ $nameSuffix }}
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+data:
+{{ (.Files.Glob "recipes/*").AsConfig | indent 2 }}
+...
