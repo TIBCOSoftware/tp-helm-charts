@@ -88,7 +88,7 @@ spec:
         - name: SOURCE_DOCKER_IMAGE
           value: "{{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.bw5ce.image.repository" $dot }}{{"/"}}{{ $image.name }}:{{ $image.tag }}"
         - name: IMAGE_TEMP_DIR
-          value: "/tmp/{{ $image.name }}/"
+          value: "/tmp/{{ $image.name }}/{{ $image.tag }}/"
         - name: SOURCE_DIRS
           value: "{{ $image.path }}"
         - name: TARGET_DIRS
