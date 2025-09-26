@@ -64,6 +64,7 @@ data:
 {{- $esEndpoint := "https://elasticsearch-master:9200" }}
 {{- $appLogExpESOpt := false }}
 {{- $svcLogExpESOpt := false }}
+{{- $auditsafeExpESOpt := false }}
 ##logsserver:userapp exporter
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "elasticSearch" }}
@@ -169,6 +170,29 @@ data:
   {{- $svcLogExp = printf "%s, %s" (trimAll "'[]'" $svcLogExp) "otlphttp/service-logs-export" -}}
   {{- $svcLogExp = printf "'[%s]'" $svcLogExp -}}
   {{- end }}
+  {{- end }}
+{{- end }}
+##logsserver:auditSafe exporter
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.kind "elasticSearch" }}
+  LOGS_EXPORTER_AUDITSAFE_ES_INDEX_NAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.logIndex }}
+  LOGS_EXPORTER_AUDITSAFE_ES_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.endpoint }}
+  LOGS_EXPORTER_AUDITSAFE_ES_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.username }}
+  {{- $auditsafeExpESOpt = true -}}
+  {{- $auditsafeExp = "'[elasticsearch/auditsafe]'" -}}
+  {{- end }}
+  {{- if .Values.global.cp.enableClusterScopedPerm }}
+  {{- $auditsafeProc = "'[k8sattributes/general, transform/logs, transform/auditsafe, memory_limiter, batch]'" -}}
+  {{- else }}
+  {{- $auditsafeProc = "'[k8sattributes/general-ns, transform/logs, transform/auditsafe, memory_limiter, batch]'" -}}
+  {{- end }}
+{{- end }}
+##logsserver:auditSafe proxy
+{{- if .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.enabled }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.kind "elasticSearch" }}
+  logserver-proxy-auditsafe-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.logIndex }}
+  logserver-proxy-auditsafe-endpoint: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.endpoint }}
+  logserver-proxy-auditsafe-userName: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.username }}
   {{- end }}
 {{- end }}
 ##metricsserver:exporter
@@ -292,6 +316,9 @@ data:
 {{- if not $svcLogExpESOpt }}
   LOGS_EXPORTER_SVC_ES_ENDPOINT: {{ $esEndpoint }}
 {{- end }}
+{{- if not $auditsafeExpESOpt }}
+  LOGS_EXPORTER_AUDITSAFE_ES_ENDPOINT: {{ $esEndpoint }}
+{{- end }}
   LOGS_EXPORTER_APP_OTLP_URL: {{ $appLogOtlpUrl }}
   LOGS_EXPORTER_SVC_OTLP_URL: {{ $svcLogOtlpUrl }}
   METRICS_EXPORTER_OTLP_URL: {{ $metricsOtlpUrl }}
@@ -304,6 +331,10 @@ data:
   svc_logs_receiver: {{ $svcLogRec }}
   svc_logs_processor: {{ $svcLogProc }}
   svc_logs_exporter: {{ $svcLogExp }}
+##pipeline:auditsafe
+  auditsafe_receiver: {{ $auditsafeRec }}
+  auditsafe_processor: {{ $auditsafeProc }}
+  auditsafe_exporter: {{ $auditsafeExp }}
 ##pipeline:metrics
   metrics_appengines_rec: {{ $appMetricsRec }}
   metrics_appengines_proc: {{ $appMetricsProc }}
