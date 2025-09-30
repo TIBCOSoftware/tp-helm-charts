@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.10.0",
+      "capabilityVersion": "1.11.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
@@ -163,12 +163,6 @@ data:
                     enabled: false
                     containerPort: 8888
                     servicePort: 8888
-                    protocol: TCP
-                  prometheus:
-                    enabled: true
-                    containerPort: 4319
-                    servicePort: 4319
-                    hostPort: 4319
                     protocol: TCP
                 config:
                   receivers:
@@ -431,6 +425,11 @@ data:
                            - role: service
                              namespaces:
                                names: ${env:app_namespaces}
+                           metric_relabel_configs:
+                           # Keep only specific metrics related to messaging health related metrics
+                           - action: keep
+                             source_labels: [__name__]
+                             regex: "(tibco_ems_server_client_connections|tibco_messaging_instance_count|tibco_messaging_instance_health|tibco_integration_app_restarts|tibco_integration_desired_app_instances|tibco_integration_running_app_instances)"
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
@@ -440,26 +439,6 @@ data:
                              regex: "${DATAPLANE-ID}"
                            - action: replace
                              source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-                             target_label: __metrics_path__
-                             regex: (.+)
-                         - job_name: envoy-stats
-                           scrape_interval: 20s
-                           kubernetes_sd_configs:
-                           - role: pod
-                             namespaces:
-                               names: ${env:app_namespaces}
-                           relabel_configs:
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
-                             regex: "true"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_container_port_name]
-                             regex: ".*-envoy-prom"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_dataplane_id]
-                             regex: "${DATAPLANE-ID}"
-                           - action: replace
-                             source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
                              target_label: __metrics_path__
                              regex: (.+)
                          - job_name: ems-svc
@@ -524,6 +503,11 @@ data:
                            scrape_interval: 20s
                            kubernetes_sd_configs:
                            - role: service
+                           metric_relabel_configs:
+                           # Keep only specific metrics related to messaging health related metrics
+                           - action: keep
+                             source_labels: [__name__]
+                             regex: "(tibco_ems_server_client_connections|tibco_messaging_instance_count|tibco_messaging_instance_health|tibco_integration_app_restarts|tibco_integration_desired_app_instances|tibco_integration_running_app_instances)"
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_prometheus_io_scrape]
@@ -533,24 +517,6 @@ data:
                              regex: "${DATAPLANE-ID}"
                            - action: replace
                              source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-                             target_label: __metrics_path__
-                             regex: (.+)
-                         - job_name: envoy-stats
-                           scrape_interval: 20s
-                           kubernetes_sd_configs:
-                           - role: pod
-                           relabel_configs:
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_prometheus_io_scrape]
-                             regex: "true"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_container_port_name]
-                             regex: ".*-envoy-prom"
-                           - action: keep
-                             source_labels: [__meta_kubernetes_pod_label_platform_tibco_com_dataplane_id]
-                             regex: "${DATAPLANE-ID}"
-                           - action: replace
-                             source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
                              target_label: __metrics_path__
                              regex: (.+)
                          - job_name: ems-svc
@@ -991,7 +957,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.10.0"
+          value: "1.11.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

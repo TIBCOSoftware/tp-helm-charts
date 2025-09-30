@@ -123,12 +123,18 @@ global:
           tag: 4.0.3
           pullPolicy: IfNotPresent
         securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop:
               - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
     region: "global"
     image_name:
       auditsafeScripts: "cp-auditsafe-scripts"
@@ -188,7 +194,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.0.3
+          tag: 4.0.8
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -231,7 +237,7 @@ probes:
 
 image:
   pullPolicy: IfNotPresent
-  tag: 258
+  tag: 355
 
 tibcoRouter:
   create: true
