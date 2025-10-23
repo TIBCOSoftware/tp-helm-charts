@@ -46,7 +46,7 @@
 {{- define "tpcontrol-plane.consts.tpCpFLOGOServiceName" }}tp-cp-flogo-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpEMSServiceName" }}msg-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.11.0/doc/html{{ end -}}
+{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.12.0/doc/html{{ end -}}
 
 {{- define "cp-core-configuration.service-account-name" }}
 {{- if empty .Values.global.tibco.serviceAccount -}}
