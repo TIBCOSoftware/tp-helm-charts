@@ -37,6 +37,10 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
 {{- end }}
     spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
       terminationGracePeriodSeconds: 30
       automountServiceAccountToken: false
 {{- if (include "tp-cp-auditsafe-web-server.container-registry.secret" .) }}
@@ -87,6 +91,8 @@ spec:
           volumeMounts:
             - name: tmp-volume
               mountPath: /tmp
+            - name: logs
+              mountPath: /tmp/logs
           env:
             - name: TIBCO_INTERNAL_VAGRANT
               value: "true"
