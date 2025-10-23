@@ -5269,6 +5269,32 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-cp-messaging-1.10.8/platform-cp-messaging-1.10.8.tgz
     version: 1.10.8
+  tibco-cp-addon-eventprocessing:
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tibco-cp-addon-eventprocessing
+    apiVersion: v2
+    appVersion: 1.12.0
+    created: "2025-10-23T17:31:11.183017431Z"
+    dependencies:
+    - condition: tp-cp-eventprocessing-be.enabled
+      name: tp-cp-eventprocessing-be
+      repository: ""
+      tags:
+      - be
+      version: 1.12.*
+    description: TIBCO Platform chart for BE addon
+    digest: e2bb40a6c3b0e90c4e420d0f8e188f461e6dd423d71bfcf6d7fc474ceb642acf
+    keywords:
+    - tibco-platform
+    - platform
+    - eventprocessing
+    - addon
+    name: tibco-cp-addon-eventprocessing
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-addon-eventprocessing-1.12.0-alpha.2/tibco-cp-addon-eventprocessing-1.12.0-alpha.2.tgz
+    version: 1.12.0-alpha.2
   tibco-cp-hawk:
   - apiVersion: v2
     appVersion: 1.11.0
@@ -11827,4 +11853,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-10-07T09:32:32.71037404Z"
+generated: "2025-10-23T17:31:11.18398097Z"
