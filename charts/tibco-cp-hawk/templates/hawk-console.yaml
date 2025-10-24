@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.11.0",
+      "capabilityVersion": "1.12.0",
       "minCPVersion": "1.5.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.hawkConsole.releaseDate | quote }},
@@ -55,7 +55,7 @@ data:
         - name: tp-dp-hawk-console
           namespace: ${NAMESPACE}
           # FIXME: ??use: .Values.capabilities.hawkConsole.version ??
-          version: "1.11.15"
+          version: "1.12.9"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -133,7 +133,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.11.0"
+          value: "1.12.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

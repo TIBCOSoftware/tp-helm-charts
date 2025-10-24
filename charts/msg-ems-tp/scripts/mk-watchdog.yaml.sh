@@ -10,7 +10,8 @@ cat - <<EOF > $outfile
 services:
   - name: ftl
     config:
-      cmd: tibftlserver -n ${MY_POD_NAME} -c /data/boot/ftlserver.yml
+      cmd: bash /boot/start-ftlserver.sh
+      # cmd: tibftlserver -n ${MY_POD_NAME} -c /data/boot/ftlserver.yml
       # cmd: wait-for-shutdown.sh
       cwd: /logs/${MY_POD_NAME}
       log:

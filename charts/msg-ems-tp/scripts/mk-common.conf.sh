@@ -29,10 +29,10 @@ cat - <<EOF > $outfile
     Alias common.filter
     Match *
     Add level info
-    Rename message log.msg
-    Rename level log.level
+    Rename message log.message
+    Rename level log.log_level
     Rename caller log.caller
-    Rename datetime log.logtime
+    Rename datetime log.log_time
 
 # standardize log levels to allowed values INFO,ERROR,WARN,DEBUG
 [FILTER]

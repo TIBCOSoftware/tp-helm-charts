@@ -35,6 +35,19 @@ trap do_shutdown SIGINT
 trap do_shutdown SIGTERM
 trap do_sighup SIGHUP
 
+function waitForConfig {
+  MYCONFIG=${1:?"missing config file arg"}
+  log "waitForConfig: waiting for $MYCONFIG"
+  while true ; do
+    flist=()
+    flist+=($MYCONFIG)
+    [ -f ${flist[0]} ] && break
+    sleep 3
+    echo -n "."
+  done
+  log "waitForConfig: $MYCONFIG found"
+}
+
 # OUTLINE
 # Generate config file
 # set LD_LIBRARY_PATH
@@ -46,6 +59,18 @@ trap do_sighup SIGHUP
 # .. connect to server TLS listen
 # .. open a TLS listen for msg-gems and future apps
 
+# FIX old installs on upgrade
+rm -rf ./ems.default.restd.yaml
+
+# Wait for a registered EMS server config file
+EMSCONFIG=ems.*.restd.yaml
+waitForConfig $EMSCONFIG
+serverlist=()
+serverlist+=($EMSCONFIG)
+server0=$( egrep '[-] name: ' ${serverlist[0]}  | head -1 | cut -d: -f2 | tr -d ' ' )
+ 
+
+# Generate a clean multi-config
 cat - <<! > ./multi.restd.yaml
 # UPDATE 1.4.0 Proxy (10.4 pre-release hotfix version)
 loglevel: info
@@ -65,38 +90,12 @@ proxy:
   minimum_cache_timeout: 0
   server_check_interval: 5
 !
-cat - <<! > ./ems.default.restd.yaml
-    - name: "default"
-      # Alternate \$ENV: EMSRESTD_EMS_SERVER_GROUPS_{GROUP NAME}_TAGS='red,blue'
-      tags:
-        - $dataplaneID
-      servers:
-        - role: "primary"
-          tags:
-          # Optionally: Use *-emsactive URL ? 
-          url: tcp://localhost:9011
-          monitor_url: http://localhost:9010
-          client_id: "$POD_NAME"
-          # tls:
-          #   verify_hostname: false
-          #   verify_certificate: false
-          #   expected_hostnames: server
-          #   trusted_certificates:
-          #     - /data/certs/samples/server_root.cert.pem
-          #   client_certificate: /data/certs/samples/client.cert.pem
-          #   client_private_key: /data/certs/samples/client.key.p8
-          #   client_private_key_password: password
-          #   certificate_authority:
-          #     certificate: /data/certs/samples/server_root.cert.pem
-          #     private_key: /data/certs/samples/server_root.cert.pem
-          #     private_key_password: password
-!
 cat - <<! > ./server-list.restd.yaml
 ems:
-  default_server_group: "default"
+  default_server_group: "$server0"
   server_groups:
 !
-cat ems.*.restd.yaml >> server-list.restd.yaml
+cat $EMSCONFIG >> server-list.restd.yaml
 
 export LD_LIBRARY_PATH="/opt/tibco/ems/current-version/lib:$LD_LIBRARY_PATH"
 tibemsrestd --config ./multi.restd.yaml,server-list.restd.yaml --loglevel debug

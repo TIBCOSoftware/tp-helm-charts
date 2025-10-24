@@ -9,9 +9,9 @@ files:
   platform/ems/versions.json: |
     [
         {
-            "capabilityVersion": "1.11.0",
-            "minRollbackVersion": "1.11.0",
-            "minCPVersion": "1.10.0",
+            "capabilityVersion": "1.12.0",
+            "minRollbackVersion": "1.12.0",
+            "minCPVersion": "1.11.0",
             "maxCPVersion": "",
             "minVersionRequiredForUpgrade": "1.10.0",
             "minDPVersion": {
@@ -20,6 +20,19 @@ files:
             },
             "releaseNotes": "#cshid=migration_and_compatibility",
             "releaseDate": "2025/10/30"
+        },
+        {
+          "capabilityVersion": "1.11.0",
+          "minRollbackVersion": "1.11.0",
+          "minCPVersion": "1.10.0",
+          "maxCPVersion": "",
+          "releaseDate": "2025/09/30",
+          "releaseNotes": "Enhancements, Bug fixes, etc.",
+          "minVersionRequiredForUpgrade": "1.10.0",
+          "minDPVersion": {
+            "dp-core-infrastructure": "1.10.0",
+            "dp-configure-namespace": "1.10.0"
+          }
         },
         {
             "capabilityVersion": "1.10.0",
@@ -59,6 +72,68 @@ files:
             "releaseDate": "2025/5/30"
         }
     ]
+  platform/ems/1.12.0/recipe.yaml: |
+    recipe:
+        helmCharts:
+        -   flags:
+                createNamespace: false
+                install: true
+            name: msg-ems-tp
+            namespace: ${NAMESPACE}
+            releaseName: ${EMS_NAME}
+            repository:
+                chartMuseum:
+                    host: "${HELM_REPO}"
+            values:
+            -   content: |
+                  emsVersion: "10.4.0-95"
+                  ems:
+                    name: ${EMS_NAME}
+                    use: ${EMS_USE}
+                    sizing: ${EMS_SIZE}
+            version: "1.12.9"
+  platform/ems/1.12.0/package.json: |
+    {
+        "package": {
+            "allowMultipleInstances": true,
+            "capabilityResourceDependencies": [
+                {
+                    "required": true,
+                    "description": "Select a resource for the storage-class of EMS message data",
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Message Storage"
+                },
+                {
+                    "description": "Select a resource for the storage-class of EMS logs store",
+                    "required": false,
+                    "resourceId": "STORAGE",
+                    "resourceType": "PLATFORM",
+                    "type": "Log Storage"
+                }
+            ],
+    	    "dependsOn": [
+    	      {
+    		"version": [
+    		  1,
+    		  9,
+    		  0
+    		],
+    		"capabilityId": "MSGCORE",
+    		"capabilityType": "INFRA"
+    	      }
+    	    ],
+            "provisioningRoles": [
+                "DEV_OPS"
+            ],
+            "services": [
+                {
+                    "description": "EMS Service",
+                    "name": "ems"
+                }
+            ]
+        }
+    }
   platform/ems/1.11.0/recipe.yaml: |
     recipe:
         helmCharts:
@@ -73,7 +148,7 @@ files:
                     host: "${HELM_REPO}"
             values:
             -   content: |
-                  emsVersion: "10.4.0-92"
+                  emsVersion: "10.4.0-95"
                   ems:
                     name: ${EMS_NAME}
                     use: ${EMS_USE}

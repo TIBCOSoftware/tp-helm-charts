@@ -126,7 +126,7 @@ need.msg.dp.params
   {{- end -}}
 #
 dp:
-  activationUrl: "{{ .Values.dp.activationUrl | default .Values.global.cp.resources.activationServer.url | default .Values.ems.activationUrl | default "https://tib-activate:7070" }}"
+  activationUrl: "{{ .Values.dp.activationUrl | default .Values.global.cp.resources.activationServer.url | default .Values.ems.activationUrl }}"
   uid: 1000
   gid: 1000
   where: {{ $where }}
@@ -187,7 +187,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.11.0.15"
+tib-dp-msgbuild: "1.12.0.9"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "user-app"
 tib-dp-dataplane-id: "{{ .dp.name }}"

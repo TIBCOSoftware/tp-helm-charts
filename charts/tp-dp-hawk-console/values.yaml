@@ -20,7 +20,7 @@ replicaCount: "1"
 
 image:
   name: hawk-console
-  imageTag: "1.11.0.15"
+  imageTag: "1.12.0.9"
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -70,8 +70,7 @@ global:
             cpu: 50m
             memory: 30Mi
         securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
