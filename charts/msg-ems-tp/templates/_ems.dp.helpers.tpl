@@ -14,7 +14,7 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-92" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-95" $dpParams.dp.registry $dpParams.dp.repo -}}
 #{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-56" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
@@ -118,6 +118,8 @@ ems:
   isProduction: {{ $isProduction }}
   pvcShareName: {{ $pvcShareName }}
   pvcShareSize: {{ $pvcShareSize }}
+  activationSecret: "{{ .Values.ems.activationSecret | default "cp-license-file-secret" }}"
+  activationSecretKey: "{{ .Values.ems.activationSecretKey | default "license-file.bin" }}"
   msgData: 
     volName: ems-data
     storageType: {{ $msgStorageType }}
@@ -222,7 +224,7 @@ note: expects a $emsParams as its argument
 {{- define "ems.std.labels" }}
 release: "{{ .dp.release }}"
 tib-dp-app: msg-ems-ftl
-tib-msgdp-mm-version: "1.11.0-0"
+tib-msgdp-mm-version: "1.12.0-0"
 tib-msg-group-name: "{{ .ems.name }}"
 tib-msg-ems-name: "{{ .ems.name }}"
 tib-msg-ems-sizing: "{{ .ems.sizing }}"

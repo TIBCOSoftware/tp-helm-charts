@@ -154,6 +154,9 @@ spec:
               volumeMounts:
               - mountPath: /boot
                 name: scripts-vol
+              - mountPath: /boot-activation/license-file.bin
+                name: activation-vol
+                subPath: license-file.bin
               - mountPath: /boot-certs
                 name: certs-vol
               - mountPath: /data 
@@ -316,6 +319,13 @@ spec:
               secret:
                 secretName: "{{ $emsParams.ems.name }}-certs"
                 optional: True
+            - name: activation-vol
+              secret:
+                secretName: "{{ $emsParams.ems.activationSecret | default "cp-license-file-secret" }}"
+                optional: True
+                items:
+                  - key: "{{ $emsParams.ems.activationSecretKey | default "license-file.bin" }}"
+                    path: license-file.bin
             - name: fluentbit-config
               configMap:
                 name: "{{ $emsParams.ems.name }}-fluentbit-config"

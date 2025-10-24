@@ -6,22 +6,24 @@ cmd="${0##*/}"
 
 usage="
     emsadmin-curl.sh [options] -a <api-path> -- Issue a curl command to tibemsrestd
-    -a <api-path>   : REST API path
-    -s <server-url> : explicit tibemsrestd URL
-    -u <username>   : set username
-    -p <password>   : set password
-    -b <bear-token> : use a bearer token
-    -c              : confirm
-    *               : pass everything else to curl
+    -a <api-path>    : REST API path
+    -s <server-url>  : explicit tibemsrestd URL
+    -u <username>    : set username
+    -p <password>    : set password
+    -b <bear-token>  : use a bearer token
+    -q <k1=v1&k2=v2> : set /connect query params
+    -c               : confirm
+    *                : pass everything else to curl
 ENV overrides:
     EMS_ADMIN_URL   : http schema://host:port of rest proxy
     EMS_ADMIN_HOST  : load-balancer hostname (assumes http & 9014)
 Examples:
     ./emsadmin-curl.sh -a /server
     ./emsadmin-curl.sh -a /users
+    ./emsadmin-curl.sh -s http://gateway-svc:9014 -q server_group_tags=emsname -a /server
     EMS_ADMIN_URL=http://my-nlb:10001 ./emsadmin-curl.sh -a /server
 For defaults use:
-    EMS_TCP_URL, EMS_ADMIN_PORT, EMS_ADMIN_USER, EMS_ADMIN_PASSWORD
+    EMS_TCP_URL, EMS_ADMIN_PORT, EMS_ADMIN_USER, EMS_ADMIN_PASSWORD, EMS_CONNECT_PARAMS
 "
 
 curl_opts=()
@@ -46,6 +48,7 @@ while [ $# -gt 0 ] ; do arg="$1"
     -u) EMS_ADMIN_USER="${2}" ; shift ;;
     -p) EMS_ADMIN_PASSWORD="${2}" ; shift ;;
     -b) EMS_ADMIN_BEARER="${2}" ; shift ;;
+    -q) EMS_CONNECT_PARAMS="${2}" ; shift ;;
     -c) confirm=true ;;
     -debug|--debug)  set -x ;;
     -help) echo "$usage" ; exit 1 ;;
@@ -75,7 +78,7 @@ fi
 # Avoid corrupting curl openssl build
 export LD_LIBRARY_PATH= 
 > curl.debug
-curl "${curl_opts[@]}" "${auth_opts[@]}" -i -X POST  "$EMS_ADMIN_URL"/connect >> curl.debug 2>> curl.debug 
+curl "${curl_opts[@]}" "${auth_opts[@]}" -i -X POST  "$EMS_ADMIN_URL"/connect?${EMS_CONNECT_PARAMS} >> curl.debug 2>> curl.debug
 
 if [ "$confirm" ] ; then
     response=$(curl "${curl_opts[@]}" "${auth_opts[@]}"  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}" 2>> curl.debug)
