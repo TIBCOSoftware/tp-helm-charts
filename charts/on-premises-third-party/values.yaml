@@ -38,21 +38,24 @@ postgresql:
   # Set to false if using an external PostgreSQL instance
   enabled: true
 
+  global:
+    imageRegistry: ""
+    imagePullSecrets:
+    - tibco-container-registry-credentials
+
   # PostgreSQL container image configuration
   image:
-    # Container registry URL (leave empty to use default registry)
-    # Example: "your-registry.com" or "docker.io"
-    registry: ""
-
-    # Repository path for the PostgreSQL image
-    # This should match your organization's repository structure
     repository: tibco-platform-docker-dev/common-postgresql
-
-    # PostgreSQL image tag specifying the version
-    # Format: postgresql-version-os-version-revision
     tag: 16.4.0-debian-12-r14
 
-    # List of image pull secrets for private registries
-    # These secrets must exist in the target namespace
-    pullSecrets:
-    - tibco-container-registry-credentials
+  # PostgreSQL exporter container image configuration
+  metrics:
+    image:
+      repository: tibco-platform-docker-dev/common-postgres-exporter
+      tag: 0.15.0-debian-12-r43
+
+  # PostgreSQL ssl container image configuration
+  volumePermissions:
+    image:
+      repository: tibco-platform-docker-dev/common-os-shell
+      tag: 12-debian-12-r30

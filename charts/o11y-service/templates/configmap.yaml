@@ -94,9 +94,9 @@ data:
   {{- end }}
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
-  {{- $appLogProc = "'[k8sattributes/general, filter/userapp, transform/logs, memory_limiter, batch]'" -}}
+  {{- $appLogProc = "'[k8sattributes/general, transform/logs, filter/userapp, memory_limiter, batch]'" -}}
   {{- else }}
-  {{- $appLogProc = "'[k8sattributes/general-ns, filter/userapp, transform/logs, memory_limiter, batch]'" -}}
+  {{- $appLogProc = "'[k8sattributes/general-ns, transform/logs, filter/userapp, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
 ##logsserver:userapp secondary exporter

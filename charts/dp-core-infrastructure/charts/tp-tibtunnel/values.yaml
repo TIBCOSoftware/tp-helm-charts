@@ -55,7 +55,7 @@ replicaCount: "1"
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 211
+  tag: 215
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -66,7 +66,7 @@ tolerations: {}
 
 fluentbit:
   image:
-    tag: 4.0.8
+    tag: 4.1.0
     name: common-fluentbit
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

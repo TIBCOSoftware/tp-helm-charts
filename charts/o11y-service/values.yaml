@@ -445,7 +445,7 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 4.0.8
+          tag: 4.1.0
         resources:
           requests:
             cpu: 10m
@@ -464,7 +464,10 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 3144
+      tag: 3308
+    job:
+      image:
+        tag: 24
 
 
 replicaCount: 1
