@@ -1,6 +1,6 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# in the license file that is distributed with this file
 
 # Default values for the TIBCO Hub chart.
 # This is a YAML-formatted file.
@@ -25,6 +25,7 @@ global:
     enableResourceConstraints: true
     resources:
       serviceaccount:
+        namespace: ""
         serviceAccountName: ""
       ingress:
         fqdn: foo.com
@@ -49,7 +50,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 4.0.8
+          tag: 4.1.0
         enabled: true
         resources:
           requests:
@@ -67,12 +68,18 @@ global:
             drop:
               - ALL
               - CAP_NET_RAW
+    secrets:
+      # iat : Control Plane Authentication
+      # this is used to generate client id and client secret.
+      # Client Id and secret are used to generate time bound access token
+      iat: ""  # initial access token used to generate client credentials
     # proxy configuration for the outward traffic from cp proxy
     # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
     proxy:
       httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
       httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
       noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
+
   # -- Global Docker registry secret names as an array
   # </br> E.g. `imagePullSecrets: [myRegistryKeySecretName]`
   imagePullSecrets: []
@@ -151,7 +158,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "1086"
+    tag: "1154"
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -493,7 +500,7 @@ metrics:
 
 fluentbit:
   image:
-    tag: 4.0.8
+    tag: 4.1.0
     pullPolicy: Always
   securityContext:
     runAsNonRoot: false
@@ -556,3 +563,42 @@ appInit:
     requests:
       cpu: 10m
       memory: 20Mi
+
+job:
+  # Job resources
+  resources:
+    requests:
+      cpu: 50m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi
+
+image:
+  name: infra-cp-proxy
+  tag: 280
+  pullPolicy: IfNotPresent
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # This section of the configuration is for the cp proxy.
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

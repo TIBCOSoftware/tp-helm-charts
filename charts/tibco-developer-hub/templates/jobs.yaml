@@ -1,0 +1,155 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tibcohub.consts.appName" . }}-client-cred-creation-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+    {{- include "tibcohub.platform.commonLabels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 18000 #cleanup after 5hr
+  template:
+    metadata:
+      name: {{ include "tibcohub.consts.appName" . }}-client-cred-creation
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/internet-web-egress: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+        # This label is used by the network policy to allow traffic to access control Plane, when createInternetScopePolicy is disabled
+        networking.platform.tibco.com/cp-egress: enable
+        {{- include "tibcohub.platform.commonLabels" . | nindent 8 }}
+    spec:
+      {{ if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      containers:
+        - name: tibco-developer-hub-pre-install-job
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.job.resources }}
+          resources:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
+          {{- end }}
+          args:
+            - configure
+            - -i
+            - {{ .Values.global.cp.secrets.iat }}
+            - -o
+            - "https://{{ .Values.global.cp.cpHostname}}"
+            - -s
+            - {{ include "tibcohub.consts.outputSecretName" .}}
+            - -g
+            - authorization_code
+            - -p
+            - {{ .Values.ingress.pathPrefix }}
+            - -d
+            - "https://{{ .Values.global.cp.resources.ingress.fqdn }}"
+            - -c
+            - /api/auth/tibco-control-plane/handler/frame
+            - -l
+            - /api/oidc/backchannel-logout
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: INSTANCE_ID
+              value: {{ .Values.global.cp.instanceId }}
+            - name: CP_DOMAIN
+              value: {{ include "tibcohub.cp.domain" . }}
+          volumeMounts:
+            - name: logs
+              mountPath: /tmp/logs
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+      volumes:
+        - name: logs
+          emptyDir: {}
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tibcohub.consts.appName" . }}-client-cred-deletion-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+    {{- include "tibcohub.platform.commonLabels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  ttlSecondsAfterFinished: 18000  #cleanup after 5hr
+  backoffLimit: 2
+  template:
+    metadata:
+      name: {{ include "tibcohub.consts.appName" . }}-client-cred-secret-deletion
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/internet-web-egress: enable
+        networking.platform.tibco.com/kubernetes-api: enable
+        # This label is used by the network policy to allow traffic to access control Plane, when createInternetScopePolicy is disabled
+        networking.platform.tibco.com/cp-egress: enable
+        {{- include "tibcohub.platform.commonLabels" . | nindent 8 }}
+    spec:
+      {{ if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      containers:
+        - name: tibco-developer-hub-pre-delete-job
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          volumeMounts:
+            - name: logs
+              mountPath: /tmp/logs
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.job.resources }}
+          resources:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
+          {{- end }}
+          args:
+            - delete
+            - -s
+            - {{ include "tibcohub.consts.outputSecretName" .}}
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: INSTANCE_ID
+              value: {{ .Values.global.cp.instanceId }}
+            - name: CP_DOMAIN
+              value: {{ include "tibcohub.cp.domain" . }}
+          securityContext:
+            readOnlyRootFilesystem: true
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+      volumes:
+        - name: logs
+          emptyDir: {}

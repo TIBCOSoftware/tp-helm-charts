@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -7,7 +7,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-oauth-errors@kubernetescrd,{{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-forward-auth@kubernetescrd,{{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "common.names.fullname" . }}-strip-prefix@kubernetescrd
     {{- with .Values.global.cp.resources.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -35,37 +35,5 @@ spec:
   stripPrefix:
     prefixes:
       - {{ .Values.ingress.pathPrefix }}
-
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: {{ include "common.names.fullname" . }}-forward-auth
-  namespace: {{ .Release.Namespace | quote }}
-spec:
-  forwardAuth:
-    address: http://oauth2-proxy-{{ .Values.global.cp.instanceId }}.{{ .Release.Namespace }}.svc.cluster.local/auth
-    authResponseHeaders:
-      - X-Auth-Request-User
-      - X-Auth-Request-Email
-      - X-Forwarded-Access-Token
-      - X-Auth-Request-Access-Token
-      - X-Atmosphere-Token
-    trustForwardHeader: true
-
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: {{ include "common.names.fullname" . }}-oauth-errors
-  namespace: {{ .Release.Namespace | quote }}
-spec:
-  errors:
-    query: {{ .Values.ingress.pathPrefix }}/oauth2/sign_in?rd={url}
-    service:
-      name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
-      port: 80
-    status:
-      - "401"
 {{- end }}
 

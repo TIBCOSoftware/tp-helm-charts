@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2023. Cloud Software Group, Inc.
+Copyright © 2025. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -186,3 +186,5 @@ imagePullSecrets:
 {{- define "postgresql.dbResourceSecret" -}}
 DB_PWD: {{ .Values.global.cp.resources.dbconfig.secretDbPassword | quote }}
 {{- end }}
+
+{{- define "tibcohub.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}
