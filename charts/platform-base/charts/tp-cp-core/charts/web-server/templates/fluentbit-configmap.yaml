@@ -38,10 +38,20 @@ data:
       Skip_Long_Lines   On
       Refresh_Interval  10
 
+    [INPUT]
+      Name              tail
+      Tag               cp-mcp-server
+      Path              /var/log/pods/cp-mcp-server.log
+      multiline.parser  docker, cri
+      DB                /var/log/db/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
   filter.conf: |
     [FILTER]
       Name              record_modifier
-      Match             cp.*
+      Match             *
       Remove_key        stream
       Remove_key        _p
     [FILTER]
@@ -85,19 +95,25 @@ data:
       Remove_prefix     tscparser
     [FILTER]
       Name lua
-      Match cp.*
+      Match *
       Script update_record.lua
       Call update_record
+    [FILTER]
+      Name              parser
+      Match             cp-mcp-server
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
 
   output.conf: |
     [OUTPUT]
       Name   stdout
-      Match  cp.*
+      Match  *
       Format json
 
     [OUTPUT]
       Name                 opentelemetry
-      Match                cp.*
+      Match                *
       Host                 {{ include "cp-core-bootstrap.otel.services" . }}.${POD_NAMESPACE}.svc.cluster.local
       Port                 4318
       Logs_uri             /v1/logs
@@ -154,6 +170,7 @@ data:
           end
         end
         newLog["msg"] = newMsg
+        newLog["container.name"] = tag
         record["log"] = newLog
       end
       return 2, timestamp, record

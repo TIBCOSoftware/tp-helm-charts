@@ -120,9 +120,11 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.0.3
+          tag: 4.1.0
           pullPolicy: IfNotPresent
         securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:
@@ -137,7 +139,7 @@ global:
             memory: 150Mi
     region: "global"
     image_name:
-      auditsafeScripts: "cp-auditsafe-scripts"
+      auditsafeScripts: "o11y-auditsafe-scripts"
     self_hosted_deployment: true
     is_replica_region: false
     finops: "disable"
@@ -194,7 +196,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.0.8
+          tag: 4.1.0
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -237,7 +239,7 @@ probes:
 
 image:
   pullPolicy: IfNotPresent
-  tag: 355
+  tag: 369
 
 tibcoRouter:
   create: true

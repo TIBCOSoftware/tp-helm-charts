@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.11.0",
+      "capabilityVersion": "1.12.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -388,17 +388,16 @@ data:
                         - set(cache["ep2"]["prop_value"], resource.attributes["pod_namespace"])
                         - set(cache["ep3"]["prop_name"], "pod_name")
                         - set(cache["ep3"]["prop_value"], resource.attributes["pod_name"])
+                        - set(cache["ep4"]["prop_name"], "app_id")
+                        - set(cache["ep4"]["prop_value"], resource.attributes["app_id"])
                         - set(cache["len"], Len(body["extra_props"])) where body["extra_props"] != nil or Len(body["extra_props"]) > 0
                         - set(cache["len"], 0) where body["extra_props"] == nil or Len(body["extra_props"]) == 0
-                        - append(body["extra_props"], values = ["el0", "el1", "el2", "el3"])
+                        - append(body["extra_props"], values = ["el0", "el1", "el2", "el3", "el4"])
                         - set(body["extra_props"][Int(cache["len"])], cache["ep0"])
                         - set(body["extra_props"][Int(cache["len"]+Int(1))], cache["ep1"])
                         - set(body["extra_props"][Int(cache["len"]+Int(2))], cache["ep2"])
                         - set(body["extra_props"][Int(cache["len"]+Int(3))], cache["ep3"])
-                        - set(body["service_name"], resource.attributes["app_name"])
-                        - set(body["trans_destination"], resource.attributes["pod_namespace"])
-                        - set(body["user_trans_id"], resource.attributes["app_id"])
-                        - set(body["trans_source"], resource.attributes["dataplane_id"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(4))], cache["ep4"])
                   exporters:
                     debug: {}
                     elasticsearch/log:
@@ -665,6 +664,9 @@ data:
                            - role: service
                              namespaces:
                                names: ${env:app_namespaces}
+                           metric_relabel_configs:
+                           - action: labeldrop
+                             regex: "ServerState"
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_o11y]
@@ -714,6 +716,14 @@ data:
                            file_sd_configs:
                            - files:
                              - /conf/hawkconsole/hawktargets.yml
+                           metric_relabel_configs:
+                           # Keep only specific metrics related to BW5 on-prem metrics
+                           - action: keep
+                             source_labels: [__name__]
+                             regex: "(hawk_trao11y_getserviceinstancesdetails_statecode|hawk_trao11y_onnewstatusorcmd_cpu_percent|hawk_trao11y_onnewstatusorcmd_cpu_total|hawk_trao11y_onnewstatusorcmd_mem_usage|hawk_bw5o11y_getprocessdefinitions_aborted|hawk_bw5o11y_getprocessdefinitions_completed|hawk_bw5o11y_getprocessdefinitions_created|hawk_bw5o11y_getprocessdefinitions_totalelapsed|hawk_bw5o11y_getprocessdefinitions_totalexecution)"
+                           # Drop labels that are not required for hawkconsole metrics
+                           - action: labeldrop
+                             regex: "(?i)^(agent_os_name|agent_os_version|agent_host_name|agent_ip|agent_name|component_instance|microagent_display_name|microagent_instance|data|out_of_sync|archive_instance|net_host_name|net_host_port|job|url_scheme|http_scheme|instance)$"
                     prometheus/receive:
                       config:
                         scrape_configs:
@@ -741,6 +751,9 @@ data:
                            scrape_interval: 20s
                            kubernetes_sd_configs:
                            - role: service
+                           metric_relabel_configs:
+                           - action: labeldrop
+                             regex: "ServerState"
                            relabel_configs:
                            - action: keep
                              source_labels: [__meta_kubernetes_service_label_platform_tibco_com_scrape_o11y]
@@ -788,6 +801,14 @@ data:
                            file_sd_configs:
                            - files:
                              - /conf/hawkconsole/hawktargets.yml
+                           metric_relabel_configs:
+                           # Keep only specific metrics related to BW5 on-prem metrics
+                           - action: keep
+                             source_labels: [__name__]
+                             regex: "(hawk_trao11y_getserviceinstancesdetails_statecode|hawk_trao11y_onnewstatusorcmd_cpu_percent|hawk_trao11y_onnewstatusorcmd_cpu_total|hawk_trao11y_onnewstatusorcmd_mem_usage|hawk_bw5o11y_getprocessdefinitions_aborted|hawk_bw5o11y_getprocessdefinitions_completed|hawk_bw5o11y_getprocessdefinitions_created|hawk_bw5o11y_getprocessdefinitions_totalelapsed|hawk_bw5o11y_getprocessdefinitions_totalexecution)"
+                           # Drop labels that are not required for hawkconsole metrics
+                           - action: labeldrop
+                             regex: "(?i)^(agent_os_name|agent_os_version|agent_host_name|agent_ip|agent_name|component_instance|microagent_display_name|microagent_instance|data|out_of_sync|archive_instance|net_host_name|net_host_port|job|url_scheme|http_scheme|instance)$"
                   processors:
                     memory_limiter:
                       check_interval: 5s
@@ -1232,7 +1253,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.11.0"
+          value: "1.12.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
