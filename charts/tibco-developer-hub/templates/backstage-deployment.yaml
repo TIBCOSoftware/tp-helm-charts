@@ -1,4 +1,4 @@
-# Copyright © 2023. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
   # This file is subject to the license terms contained
   # in the license file that is distributed with this file.
 
@@ -189,12 +189,31 @@ spec:
             successThreshold: 1
             failureThreshold: 1
           env:
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tibco-developer-hub-client-credentials
+                  key: clientId
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tibco-developer-hub-client-credentials
+                  key: clientSecret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tibco-developer-hub-client-credentials
+                  key: clientSecret
+            - name: OIDC_ISSUER
+              value: TCC_IdM
             - name: APP_CONFIG_backend_listen_port
               value: {{ .Values.backstage.containerPorts.backend | quote }}
             - name: DOC_URL
               value: "https://docs.tibco.com/go/platform-cp/{{ .Chart.AppVersion }}/doc/html#cshid=developer_hub_overview"
             - name: CP_URL
               value: {{ $cpHostname }}
+            - name: CP_DOMAIN
+              value: {{ include "tibcohub.cp.domain" . }}
             {{- if .Values.global.cp.cpCertificateSecret }}
             - name: CP_CERTIFICATE_SECRET_PATH
               value: {{ $cpCertificateSecretPath }}
