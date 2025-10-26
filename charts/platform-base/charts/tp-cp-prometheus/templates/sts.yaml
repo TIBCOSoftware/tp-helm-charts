@@ -83,7 +83,7 @@ spec:
               drop:
                 - CAP_NET_RAW
                 - ALL
-          image: {{ include "tp-cp-prometheus.image.registry" .}}{{"/"}}{{ include "tp-cp-prometheus.image.repository" .}}{{"/"}}common-distroless-base-debian-debug:12.12
+          image: {{ include "tp-cp-prometheus.image.registry" .}}{{"/"}}{{ include "tp-cp-prometheus.image.repository" .}}{{"/"}}common-distroless-base-debian-debug:12.11
           imagePullPolicy: "{{ .Values.server.image.pullPolicy }}"      
           command:
             - sh
