@@ -8,7 +8,7 @@ apiVersion: v2
 name: platform-base
 description: TIBCO Platform base chart
 type: application
-version: 1.12.0-alpha.117
+version: 1.12.0-alpha.120
 appVersion: "1.12.0"
 keywords:
   - tibco-platform
@@ -27,7 +27,7 @@ dependencies:
   - name: tp-cp-configuration
     version: "1.12.*"
   - name: tp-cp-recipes
-    version: "1.12.37"
+    version: "1.12.38"
     repository: alias:tibco-platform
     condition: tp-cp-recipes.enabled
   - name: tp-cp-core
@@ -37,7 +37,7 @@ dependencies:
   - name: tp-cp-core-finops
     version: "1.12.*"
   - name: tp-cp-integration
-    version: "1.12.26"
+    version: "1.12.27"
     repository: alias:tibco-platform
     condition: tp-cp-integration.enabled
     tags:
