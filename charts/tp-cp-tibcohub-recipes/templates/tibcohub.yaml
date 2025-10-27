@@ -1,4 +1,4 @@
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -12,15 +12,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.11.0",
-      "minCPVersion": "1.11.0",
+      "capabilityVersion": "1.12.0",
+      "minCPVersion": "1.12.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minRollbackVersion": "1.10.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.7.0",
+        "dp-core-infrastructure": "1.12.0",
         "dp-configure-namespace": "1.7.0"
       }
     }
@@ -37,22 +37,6 @@ data:
             "name": "tibco-developer-hub",
             "description": "NodeJs backend and UI hosting service",
             "monitoringPriority": "essential"
-          },
-          {
-            "name": "oauth2-proxy",
-            "description": "OAuth2 Proxy",
-            "monitoringPriority": "essential"
-          }
-        ],
-        "dependsOn": [
-          {
-            "version": [
-              1,
-              11,
-              0
-            ],
-            "capabilityId": "OAUTH2PROXY",
-            "capabilityType": "INFRA_SIDECAR"
           }
         ],
         "provisioningRoles": [
@@ -89,7 +73,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: "1.11.4"
+        version: "1.12.10"
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -103,11 +87,6 @@ data:
                     baseUrl: ${PUBLIC_URL}
                   backend:
                     baseUrl: ${PUBLIC_URL}
-                  auth:
-                    providers:
-                      oauth2Proxy:
-                        production: {}
-                    enableAuthProviders: [oauth2Proxy]
                 # only if user provides a secrets reference
                 # extraEnvVarsSecrets:
                 #  - ${SECRETS_NAME}
@@ -172,7 +151,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.11.0"
+          value: "1.12.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

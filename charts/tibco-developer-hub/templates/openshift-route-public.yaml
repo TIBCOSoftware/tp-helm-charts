@@ -16,41 +16,14 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
 spec:
   host: {{ .Values.global.cp.resources.ingress.fqdn }}
-  httpHeaders:
-    actions:
-      request:
-      - action:
-          set:
-            value: {{ .Values.ingress.pathPrefix }}
-          type: Set
-        name: X-Forwarded-Prefix
-      response:
-      - action:
-          type: Delete
-        name: x-auth-request-user
-      - action:
-          type: Delete
-        name: x-auth-request-email
-      - action:
-          type: Delete
-        name: x-auth-request-access-token
-      - action:
-          type: Delete
-        name: X-Forwarded-Access-Token
-      - action:
-          type: Delete
-        name: X-Atmosphere-Token
-      - action:
-          type: Delete
-        name: gap-auth
   path: {{ .Values.ingress.pathPrefix }}
   port:
-    targetPort: http
+    targetPort: 7007
   tls:
     termination: edge
   to:
     kind: Service
-    name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
+    name: {{ include "tibcohub.fullname" . }}
     weight: 100
   wildcardPolicy: None
 {{- end }}
