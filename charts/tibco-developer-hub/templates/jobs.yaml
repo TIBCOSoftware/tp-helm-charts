@@ -146,8 +146,6 @@ spec:
               value: {{ .Values.global.cp.instanceId }}
             - name: CP_DOMAIN
               value: {{ include "tibcohub.cp.domain" . }}
-          securityContext:
-            readOnlyRootFilesystem: true
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
       volumes:
