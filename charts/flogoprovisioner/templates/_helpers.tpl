@@ -91,3 +91,6 @@ Integration storage folder pvc name
 {{- define "flogoprovisioner.appinit.image.repository" -}}
   {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
+
+{{/* Secret name created as part of client credentials generation */}}
+{{- define "flogoprovisioner.secrets.oauth2clientcreds"}}tibco-flogo-oauth2-client-credentials{{ end -}}

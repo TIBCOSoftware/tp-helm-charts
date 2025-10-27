@@ -1,0 +1,142 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogoprovisioner.fullname" . }}-oauth2-client-cred-creation-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+  labels:
+    {{- include "flogoprovisioner.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 18000 #cleanup after 5hr
+  template:
+    metadata:
+      name: {{ include "flogoprovisioner.fullname" . }}-oauth2-client-cred-creation
+      labels:
+        {{- include "flogoprovisioner.labels" . | nindent 8 }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      containers:
+        - name: flogoprovisioner-oauth2-client-cred-creation
+          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.infraCPProxy.imageTag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext.infraCPProxy }}
+          securityContext:
+            {{- toYaml .Values.securityContext.infraCPProxy | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.infraCPProxy.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          args:
+            - configure
+            - -i
+            - {{ .Values.global.cp.secrets.iat }}
+            - -o
+            - "https://{{ .Values.global.cp.cpHostname}}"
+            - -s
+            - {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
+            - -g
+            - authorization_code
+            - -p
+            - {{ .Values.publicApi.ingress.config.pathPrefix }}
+            - -d
+            - "https://{{ .Values.publicApi.ingress.config.fqdn }}"
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: INSTANCE_ID
+              value: {{ .Values.global.cp.instanceId }}
+            - name: CP_DOMAIN
+              value: {{ include "flogoprovisioner.cp.domain" . }}
+          volumeMounts:
+            - name: logs
+              mountPath: /tmp/logs
+      volumes:
+        - name: logs
+          emptyDir: {}
+
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogoprovisioner.fullname" . }}-oauth2-client-cred-deletion-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+  labels:
+    {{- include "flogoprovisioner.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 18000  #cleanup after 5hr
+  template:
+    metadata:
+      name: {{ include "flogoprovisioner.fullname" . }}-oauth2-client-cred-deletion
+      labels:
+        {{- include "flogoprovisioner.labels" . | nindent 8 }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      containers:
+        - name: flogoprovisioner-oauth2-client-cred-deletion
+          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.infraCPProxy.imageTag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.securityContext.infraCPProxy }}
+          securityContext:
+            {{- toYaml .Values.securityContext.infraCPProxy | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.infraCPProxy.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          args:
+            - delete
+            - -s
+            - {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: INSTANCE_ID
+              value: {{ .Values.global.cp.instanceId }}
+            - name: CP_DOMAIN
+              value: {{ include "flogoprovisioner.cp.domain" . }}
+          volumeMounts:
+            - name: logs
+              mountPath: /tmp/logs
+      volumes:
+        - name: logs
+          emptyDir: {}

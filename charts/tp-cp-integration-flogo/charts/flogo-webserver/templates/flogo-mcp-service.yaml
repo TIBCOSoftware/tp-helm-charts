@@ -1,0 +1,21 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if .Values.mcpserver.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-flogo-mcpserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flogo-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: flogo-mcpserver
+    port: 8085
+    protocol: TCP
+    targetPort: 8085
+  selector:
+    {{- include "flogo-webserver.shared.labels.selector" . | nindent 4 }}
+{{- end }}

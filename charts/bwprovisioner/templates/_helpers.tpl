@@ -93,3 +93,6 @@ Integration storage folder pvc name
 {{- define "bwprovisioner.appinit.image.repository" -}}
   {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
+
+{{/* Secret name created as part of client credentials generation */}}
+{{- define "bwprovisioner.secrets.oauth2clientcreds"}}tibco-bw-oauth2-client-credentials{{ end -}}

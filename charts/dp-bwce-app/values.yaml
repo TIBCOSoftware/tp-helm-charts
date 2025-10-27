@@ -45,6 +45,7 @@ networkPolicy:
   databaseEgress: enable
   proxyEgress: enable
   userApps: enable
+  clusterEgress: enable
 
 replicaCount: 1
 
@@ -54,7 +55,7 @@ image:
   appInitImageName: "tp-bwce-app-init"
   appInitImageTag: "52"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "4.0.8"
+  fluentBitImageTag: "4.1.0"
   bwceBaseImageName: "tp-bwce-base"
 
 imagePullSecrets: []
@@ -303,3 +304,13 @@ crds: []
 #      name: crd1
 #    spec:
 #      group: example.com
+
+initContainers: []
+#  - name: init-myservice
+#    image: busybox
+#    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+
+sidecars: []
+#  - name: sidecar-myservice
+#    image: busybox
+#    command: ['sh', '-c', 'echo The app is running! && sleep 3600']

@@ -204,6 +204,52 @@ spec:
           - name: config-volume
             mountPath: /fluent-bit/etc/
       {{- end }}
+      {{- if .Values.mcpserver.enabled }}
+      - name: tp-cp-flogo-mcpserver
+        image: {{ include "flogo-webserver.image.registry" . }}{{"/"}}{{ include "flogo-webserver.image.repository" . }}{{"/"}}{{ .Values.mcpserver.image.name }}:{{ .Values.mcpserver.image.tag }}
+        imagePullPolicy: IfNotPresent
+        {{- if $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "flogo-webserver.enableResourceConstraints" . ) "true" }}
+        resources:
+          {{- toYaml $.Values.mcpserver.resources | nindent 10 }}
+        {{- end }}
+        ports: 
+        - containerPort: 8085
+          name: flogo-mcp
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: flogo-mcp
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: flogo-mcp
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+        - name: LOG_LEVEL
+          value: {{ .Values.mcpserver.logLevel }}
+        - name: LOG_FILE_PATH
+          value: "/tmp/logs/tp-cp-flogo-mcpserver.log"
+        - name: FLOGO_CP_HOST
+          value: {{ include "flogo-webserver.service.host-port" . }}
+        - name: CP_HOST
+          value: {{ include "cp-webserver.service.host-port" . }}
+        volumeMounts:
+          - name: logs-share
+            mountPath: /tmp/logs
+      {{- end }}
       volumes:
         {{- if eq (include "flogo-webserver.cp-logging-fluentbit-enabled" .) "true" }}
         - name: config-volume
@@ -219,5 +265,3 @@ spec:
       imagePullSecrets:
         - name: {{ include "flogo-webserver.container-registry.secret" . }}
       {{- end }}
-        
-

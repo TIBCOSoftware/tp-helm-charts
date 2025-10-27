@@ -150,6 +150,22 @@ spec:
                   name: {{ include "flogoprovisioner.o11yservice.configmap" . }}
                   key: otel-recvservice-port
                   optional: true
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
+                  key: clientId
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
+                  key: clientSecret
+            - name: AUTHORIZATION_SERVER_URL
+              value: "https://{{ .Values.global.cp.cpHostname}}"
+            - name: DATAPLANE_HOST
+              value: "{{ .Values.publicApi.ingress.config.fqdn }}"
+            - name: PATH_PREFIX
+              value: {{ .Values.publicApi.ingress.config.pathPrefix }}
           volumeMounts:
             - name: logs-share
               mountPath: /tmp/logs/share
@@ -198,7 +214,7 @@ spec:
         - emptyDir: {}
           name: tmp-workspace
         - emptyDir: {}
-          name: logs-share        
+          name: logs-share
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit-config
           configMap:

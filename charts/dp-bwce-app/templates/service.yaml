@@ -25,7 +25,7 @@ spec:
   {{- range $svcPort := .Values.service.ports }}
   - name: port-{{ $svcPort.port }}
     port: {{ $svcPort.port }}
-    protocol: TCP
+    protocol: {{ default "TCP" $svcPort.protocol }}
     targetPort: {{ $svcPort.targetPort }}
   {{- end }}
   selector:

@@ -113,6 +113,10 @@ bwPluginsJobA:
     tags:
       - 7.8.0.v19-tci-2.0
     default: 7.8.0.v19-tci-2.0
+  tci-bw-plugin-as:
+    tags:
+      - 7.3.2.v3.1-tci-2.0
+    default: 7.3.2.v3.1-tci-2.0
 
 bwPluginsJobB:
   tci-bw-plugin-kafka:
@@ -131,6 +135,14 @@ bwPluginsJobB:
     tags:
       - 1.1.1.v3-tci-2.0
     default: 1.1.1.v3-tci-2.0
+  tci-bw-plugin-pdf:
+    tags:
+      - 1.0.0.v12.3-tci-2.0
+    default: 1.0.0.v12.3-tci-2.0
+  tci-bw-plugin-sharepoint:
+    tags:
+      - 1.1.0.v19-tci-2.0
+    default: 1.1.0.v19-tci-2.0
   
 bwPluginsJobC:
   tci-bw-plugin-restjson:
@@ -197,7 +209,7 @@ buildtypeImages:
 - name: tp-bw5ce-buildtype
   extract_image: true
   path: /var/lib/bw5ce/buildtypes
-  tag: preview-0.1
+  tag: preview-0.2
   target_location: bw5ce/buildtypes
 
 probes:

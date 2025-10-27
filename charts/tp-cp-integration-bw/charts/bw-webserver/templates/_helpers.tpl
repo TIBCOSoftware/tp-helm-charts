@@ -20,6 +20,8 @@ in the license file that is distributed with this file.
 {{/* A fixed short name for the application. Can be different than the chart name */}}
 {{- define "bw-webserver.consts.appName" }}tp-cp-bw-webserver{{ end -}}
 
+{{- define "tp-cp-bw-mcpserver.consts.appName" }}tp-cp-bw-mcpserver{{ end -}}
+
 {{/* A fixed short name for the configmap */}}
 {{- define "bw-webserver.consts.configMapName" }}bw-webserver-configmap{{ end -}}
 

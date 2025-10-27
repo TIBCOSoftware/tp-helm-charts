@@ -14,6 +14,8 @@ global:
       secret: ""
       url: ""
       repository: "tibco-platform-docker-prod"
+    cpCertificateSecret: ""
+    cpHostname: "acme.local.my.cic2.pro"
     environmentType: ""
     enableResourceConstraints: true
     resources:
@@ -25,6 +27,11 @@ global:
         ingressClassName: nginx
         ingressController: nginx
         annotations: {}
+    secrets:
+      # iat : Control Plane Authentication
+      # this is used to generate client id and client secret.
+      # Client Id and secret are used to generate time bound access token
+      iat: ""  # initial access token used to generate client credentials
 
     logging:
       # The fluentbit configuration section.
@@ -37,7 +44,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 4.0.8
+          tag: 4.1.0
         resources:
           requests:
             cpu: 10m
@@ -125,6 +132,12 @@ securityContext:
       drop:
         - ALL
         - CAP_NET_RAW
+  infraCPProxy:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
 
 service:
   type: ClusterIP
@@ -227,3 +240,13 @@ publicApi:
       className: nginx
       pathPrefix: /tibco/flogo
       fqdn: ""
+
+infraCPProxy:
+  imageTag: 280
+  resources:
+    requests:
+      cpu: 50m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi
