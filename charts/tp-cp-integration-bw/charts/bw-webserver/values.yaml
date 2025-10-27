@@ -21,7 +21,7 @@ global:
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "4.0.8"
+      tag: "4.1.0"
     probes:
       livenessProbe:
         failureThreshold: 3
@@ -47,7 +47,7 @@ config:
   HTTP_REQUEST_TIMEOUT: "120000"
   IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
-  BW_WEBSERVER_IMAGE_TAG: "726" # Update this tag to the latest version
+  BW_WEBSERVER_IMAGE_TAG: "816" # Update this tag to the latest version
 
 replicaCount: 1
 
@@ -102,6 +102,21 @@ fluentbit:
     limits:
       cpu: 100m
       memory: 150Mi
+
+# BW MCP Server
+bwmcpserver:
+  enabled: false
+  image:
+    name: tp-bw-mcp-server
+    tag: "43"
+  logLevel: "INFO"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
 
 probes:
   readinessProbe:

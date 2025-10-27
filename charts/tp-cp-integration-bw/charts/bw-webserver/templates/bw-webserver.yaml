@@ -226,6 +226,48 @@ spec:
           - name: config-volume
             mountPath: /fluent-bit/etc/
 {{- end }}
+{{- if .Values.bwmcpserver.enabled }}
+      - name: tp-cp-bw-mcpserver
+        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}{{ .Values.bwmcpserver.image.name }}:{{ .Values.bwmcpserver.image.tag }}
+        imagePullPolicy: IfNotPresent
+        {{- if $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "bw-webserver.enableResourceConstraints" . ) "true" }}
+        resources:
+        {{- toYaml $.Values.bwmcpserver.resources | nindent 10 }}
+        {{- end }}
+        ports: 
+        - containerPort: 8085
+          name: bw-mcp-server
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: bw-mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: bw-mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+        - name: LOG_LEVEL
+          value: {{ .Values.bwmcpserver.logLevel }}
+        - name: LOG_FILE_PATH
+          value: "/tmp/logs/tp-cp-bw-mcpserver.log"
+        volumeMounts:
+          - name: logs-share
+            mountPath: /tmp/logs
+{{- end }}
       volumes:
 {{- if eq (include "bw-webserver.cp-logging-fluentbit-enabled" .) "true" }}
         - name: config-volume

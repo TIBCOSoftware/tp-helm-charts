@@ -43,6 +43,7 @@ spec:
         networking.platform.tibco.com/database-egress: {{ .Values.networkPolicy.databaseEgress | quote }}
         networking.platform.tibco.com/proxy-egress: {{ .Values.networkPolicy.proxyEgress | quote }}
         networking.platform.tibco.com/userApps: {{ .Values.networkPolicy.userApps | quote }}
+        networking.platform.tibco.com/cluster-egress: {{ .Values.networkPolicy.clusterEgress | quote }}
         {{- if .Values.serviceMesh.enabled }}
         sidecar.istio.io/inject: {{ .Values.serviceMesh.enabled | quote }}
         {{- end }}
@@ -196,6 +197,9 @@ spec:
         - mountPath: /fluent-bit/etc/
           name: fluentbit-config
       {{- end }}
+      {{- with .Values.sidecars }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       initContainers:
       - env:
         - name: TIBCO_INTERNAL_APP_TYPE
@@ -220,6 +224,9 @@ spec:
         volumeMounts:
         - mountPath: /app/artifacts
           name: artifacts-share
+      {{- with .Values.initContainers }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       volumes:
       - emptyDir: {}
         name: artifacts-share

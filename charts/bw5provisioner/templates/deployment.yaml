@@ -113,6 +113,22 @@ spec:
               value: {{ include "bw5provisioner.image.registry" .}}{{"/"}}{{ include "bw5provisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
             - name: ACTIVATION_SERVICE_URL
               value: {{ .Values.global.cp.resources.activationServer.url | quote }}
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "bw5provisioner.secrets.oauth2clientcreds" .}}
+                  key: clientId
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "bw5provisioner.secrets.oauth2clientcreds" .}}
+                  key: clientSecret
+            - name: AUTHORIZATION_SERVER_URL
+              value: "https://{{ .Values.global.cp.cpHostname}}"
+            - name: DATAPLANE_HOST
+              value: "{{ .Values.publicApi.ingress.config.fqdn }}"
+            - name: PATH_PREFIX
+              value: "{{ .Values.publicApi.ingress.config.pathPrefix }}"
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:

@@ -29,7 +29,16 @@ data:
     [INPUT]
       Name              tail
       Tag               cp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
-      Path              /var/log/pods/*.log
+      Path              /var/log/pods/flogo-webserver*.log
+      multiline.parser  docker, cri
+      DB                /var/log/pods/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+    [INPUT]
+      Name              tail
+      Tag               tp-cp-flogo-mcpserver
+      Path              /var/log/pods/tp-cp-flogo-mcpserver.log
       multiline.parser  docker, cri
       DB                /var/log/pods/flb_kube.db
       Mem_Buf_Limit     5MB
@@ -39,7 +48,7 @@ data:
   filter.conf: |
     [FILTER]
       Name              record_modifier
-      Match             cp.*
+      Match             *
       Remove_key        stream
       Remove_key        _p
     [FILTER]
@@ -83,19 +92,25 @@ data:
       Remove_prefix     tscparser
     [FILTER]
       Name lua
-      Match cp.*
+      Match *
       Script update_record.lua
       Call update_record
+    [FILTER]
+      Name              parser
+      Match             tp-cp-flogo-mcpserver
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
 
   output.conf: |
     [OUTPUT]
       Name              stdout
-      Match             cp.*
+      Match             *
       Format            json
 
     [OUTPUT]
       Name                 opentelemetry
-      Match                cp.*
+      Match                *
       Host                 {{ include "flogo-webserver.cp-otel-services" . }}
       Port                 4318
       Logs_uri             /v1/logs
@@ -152,6 +167,7 @@ data:
           end
         end
         newLog["msg"] = newMsg
+        newLog["container.name"] = tag
         record["log"] = newLog
       end
       return 2, timestamp, record

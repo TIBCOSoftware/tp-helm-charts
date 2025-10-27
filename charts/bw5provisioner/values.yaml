@@ -10,6 +10,8 @@ global:
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
+    cpCertificateSecret: ""
+    cpHostname: "acme.local.my.cic2.pro"
     containerRegistry:
       secret: ""
       url: ""
@@ -27,6 +29,21 @@ global:
         annotations: {}
       activationServer:
         url: ""
+    secrets:
+      # iat : Control Plane Authentication
+      # this is used to generate client id and client secret.
+      # Client Id and secret are used to generate time bound access token
+      iat: ""  # initial access token used to generate client credentials
+
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpProxy: ""
+      # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      httpsProxy: ""
+      # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
+      noProxy: ""
 
     logging:
       # The fluentbit configuration section.
@@ -39,7 +56,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 4.0.8
+          tag: 4.1.0
         resources:
           requests:
             cpu: 10m
@@ -119,6 +136,12 @@ securityContext:
       drop:
         - ALL
         - CAP_NET_RAW
+  infraCPProxy:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
 
 service:
   type: ClusterIP
@@ -227,3 +250,13 @@ publicApi:
       className: nginx
       pathPrefix: /tibco/bw
       fqdn: ""
+
+infraCPProxy:
+  imageTag: 280
+  resources:
+    requests:
+      cpu: 50m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi

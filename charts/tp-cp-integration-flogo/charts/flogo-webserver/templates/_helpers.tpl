@@ -127,3 +127,9 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- define "flogo-webserver.enableResourceConstraints" -}}
 {{- include "cp-env.get" (dict "key" "CP_ENABLE_RESOURCE_CONSTRAINTS" "default" "false" "required" "false"  "Release" .Release )}}
 {{- end }}
+
+{{- define "tp-cp-flogo-mcpserver.consts.appName" }}tp-cp-flogo-mcpserver{{- end }}
+
+{{- define "flogo-webserver.service.host-port" }}{{ include "flogo-webserver.consts.appName" . }}.{{ .Release.Namespace }}.svc.cluster.local:3002{{- end }}
+
+{{- define "cp-webserver.service.host-port" }}tp-cp-web-server.{{ .Release.Namespace }}.svc.cluster.local:3000{{- end }}

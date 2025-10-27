@@ -23,33 +23,14 @@ spec:
             value: {{ .Values.publicApi.ingress.config.pathPrefix }}
           type: Set
         name: X-Forwarded-Prefix
-      response:
-      - action:
-          type: Delete
-        name: x-auth-request-user
-      - action:
-          type: Delete
-        name: x-auth-request-email
-      - action:
-          type: Delete
-        name: x-auth-request-access-token
-      - action:
-          type: Delete
-        name: X-Forwarded-Access-Token
-      - action:
-          type: Delete
-        name: X-Atmosphere-Token
-      - action:
-          type: Delete
-        name: gap-auth
   path: {{ .Values.publicApi.ingress.config.pathPrefix }}
   port:
-    targetPort: http
+    targetPort: publicapihttp
   tls:
     termination: edge
   to:
     kind: Service
-    name: oauth2-proxy-{{ .Values.global.cp.instanceId }}
+    name: {{ $fullName }}
     weight: 100
   wildcardPolicy: None
 {{- end }}

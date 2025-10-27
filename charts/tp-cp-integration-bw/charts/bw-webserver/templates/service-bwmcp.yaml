@@ -1,0 +1,21 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if .Values.bwmcpserver.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-bw-mcpserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: bw-mcpserver
+    port: 8085
+    protocol: TCP
+    targetPort: 8085
+  selector:
+    {{- include "bw-webserver.shared.labels.selector" . | nindent 4 }}
+{{- end }}
