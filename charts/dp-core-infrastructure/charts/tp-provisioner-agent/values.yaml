@@ -9,11 +9,11 @@
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
   requests:
-    cpu: 200m
-    memory: 256Mi
-  limits:
     cpu: 400m
     memory: 512Mi
+  limits:
+    cpu: 800m
+    memory: 1024Mi
 
 # no of replicas
 replicaCount: "1"
@@ -29,7 +29,7 @@ cacheCleanupInterval: "8h"
 
 image:
   name: infra-provisioner-agent
-  tag: 565
+  tag: 578
   pullPolicy: Always
 
 nodeSelector:
@@ -69,7 +69,7 @@ global:
       noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
 fluentbit:
   image:
-    tag: 4.0.8
+    tag: 4.1.0
   # Resources
   # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
