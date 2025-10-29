@@ -102,6 +102,50 @@ spec:
               subPath: o11y/dashboard
             - name: logs
               mountPath: /tmp/logs
+  {{- if .Values.o11ymcpserver.enabled }}
+        - name: o11y-mcp-server
+          image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.o11ymcpserver.image.name }}:{{ .Values.o11ymcpserver.image.tag }}
+          imagePullPolicy: IfNotPresent
+          {{- if .Values.securityContext }}
+          securityContext:
+           {{- toYaml .Values.securityContext | nindent 12 }}
+         {{- end }}
+          resources:
+            requests:
+              cpu: {{ .Values.o11ymcpserver.resources.requests.cpu }}
+              memory: {{ .Values.o11ymcpserver.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.o11ymcpserver.resources.limits.cpu }}
+              memory: {{ .Values.o11ymcpserver.resources.limits.memory }}
+          ports:
+            - containerPort: 8000
+              name: o11y-mcp-server
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: o11y-mcp-server
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: o11y-mcp-server
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          env:
+            - name: MCP_SIDECAR_MODE
+              value: "true"
+            - name: MCP_DEV_MODE
+              value: "false"
+            - name: PORT
+              value: "8000"
+  {{- end }}
   {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: fluentbit
           image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}

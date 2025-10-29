@@ -1,5 +1,5 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -18,7 +18,7 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 4.0.8
+          tag: 4.1.0
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
@@ -85,3 +85,19 @@ hpa:
 
 # no of replicas
 replicaCount: "1"
+
+
+# CP MCP Server
+cpmcpserver:
+  enabled: false
+  image:
+    name: infra-cp-mcp-server
+    tag: "245-distroless"
+  logLevel: "INFO"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
