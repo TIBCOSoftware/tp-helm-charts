@@ -72,14 +72,19 @@ chmod +x upgrade.sh
 
 ## Environment variables
 
-- `CHART_VERSION` (optional): overrides the default target chart version.
-  - Default is `1.11.0` (or whatever is set in the script).
+- `PLATFORM_BOOTSTRAP_CHART_VERSION` (optional): overrides the default target chart version for platform-bootstrap.
+  - Default is `1.11.0`.
   - Example:
-    - Linux: `export CHART_VERSION="1.11.0-alpha.1" && ./upgrade.sh`
+    - Linux: `export PLATFORM_BOOTSTRAP_CHART_VERSION="1.11.0-alpha.1" && ./upgrade.sh`
+
+- `PLATFORM_BASE_CHART_VERSION` (optional): overrides the default target chart version for platform-base.
+  - Default is `1.11.0`.
+  - Example:
+    - Linux: `export PLATFORM_BASE_CHART_VERSION="1.11.0-alpha.1" && ./upgrade.sh`
 
 Note:
 - Post-upgrade `app_version` is validated against `1.11.0` (without pre-release suffix)
-- Chart name is validated against `-${CHART_VERSION}` (pre-release suffix allowed)
+- Chart names are validated against `-${PLATFORM_BOOTSTRAP_CHART_VERSION}` and `-${PLATFORM_BASE_CHART_VERSION}` respectively (pre-release suffix allowed)
 
 ---
 
@@ -108,8 +113,8 @@ If any check fails, the script prints a clear error and exits.
 ## Outputs
 
 - Values generation mode produces files named (by default):
-  - `platform-base-<CHART_VERSION>.yaml`
-  - `platform-bootstrap-<CHART_VERSION>.yaml`
+  - `platform-base-<PLATFORM_BASE_CHART_VERSION>.yaml`
+  - `platform-bootstrap-<PLATFORM_BOOTSTRAP_CHART_VERSION>.yaml`
 - You can override output filenames during the interactive prompts.
 
 ---
@@ -120,7 +125,7 @@ After a successful upgrade, the script:
 
 - Prints upgraded `app_version` and `chart` string for each selected chart
 - Validates:
-  - `chart` ends with `-${CHART_VERSION}`
+  - `chart` ends with `-${PLATFORM_BOOTSTRAP_CHART_VERSION}` or `-${PLATFORM_BASE_CHART_VERSION}` respectively
   - `app_version` equals `1.11.0`
 - Checks all pods in the target namespace are in `Running/Completed` state and prints a short summary
 
@@ -142,4 +147,4 @@ After a successful upgrade, the script:
 - "release not found": ensure the release exists in the namespace and names are correct
 - "status is 'pending-install' / 'failed'": investigate with `helm history` and `kubectl describe`/`logs`, resolve, then retry
 - "app_version is 'unknown'": the script now reads app version from `helm list -o json`; verify Helm/jq are available and recent
-- Validation fails for pre-release charts: ensure `CHART_VERSION` matches your chart tag (e.g., `1.11.0-alpha.1`); `app_version` remains `1.11.0`
+- Validation fails for pre-release charts: ensure `PLATFORM_BOOTSTRAP_CHART_VERSION` and/or `PLATFORM_BASE_CHART_VERSION` match your chart tags (e.g., `1.11.0-alpha.1`); `app_version` remains `1.11.0`
