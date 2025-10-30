@@ -602,7 +602,7 @@ apm:
 EOF
 ```
 
-Use the following command to verify successful creation of IndexTemplates 
+Use the following command to verify successful creation of index templates
 
 ```bash
 kubectl get -n elastic-system IndexTemplates
@@ -615,7 +615,7 @@ dp-config-es-jaeger-span-index-template      110d
 dp-config-es-user-apps-index-template        110d
 ```
 
-Use the following command to verify successful creation of Indices 
+Use the following command to verify successful creation of indices
 
 ```bash
 kubectl  get -n elastic-system Indices
@@ -628,7 +628,7 @@ jaeger-service-000001   110d
 jaeger-span-000001      110d
 ```
 
-Use the following command to verify successful creation of Indices 
+Use the following command to verify successful creation of index lifecycle policies
 
 ```bash
 kubectl get -n elastic-system IndexLifecyclePolicies
