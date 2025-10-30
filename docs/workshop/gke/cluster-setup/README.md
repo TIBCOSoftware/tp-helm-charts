@@ -24,7 +24,7 @@ Table of Contents
 
 # Data Plane Cluster Workshop
 
-The goal of this document is to provide hands-on experience to create GKE cluster with necessary add-ons. This is a pre-requisite to deploy Data Plane.
+The goal of this document is to provide hands-on experience to create GKE cluster with necessary add-ons. This is a pre-requisite to deploy Data Plane. 
 
 > [!Note]
 > This workshop is NOT meant for production deployment.
@@ -288,7 +288,7 @@ We are using the following services in this workshop:
 
 ### If you want to use different domain for services and user apps [OPTIONAL]
 For this workshop we will use `services.dp1.gcp.example.com` as the domain name. We will use `*.services.dp1.gcp.example.com` as the wildcard domain name for all the DP servcies and capabilities. For user apps use `*.apps.dp1.gcp.example.com` as the wildcard domain name.
-* [Google Cloud DNS Zones](https://cloud.google.com/dns/docs/overview/): to manage DNS. We register `gcp.example.com` in Google Cloud DNS Zones.
+* [Google Cloud DNS Zones](https://cloud.google.com/dns/docs/overview/): to manage DNS. We register `gcp.example.com` in Google Cloud DNS Zones.  
 * [Let's Encrypt](https://cert-manager.io/docs/configuration/acme/dns01/google/): to manage SSL certificate. We will create a wildcard certificate for services `*.services.dp1.gcp.example.com` and for user apps `*.apps.dp1.gcp.example.com`.
 * external-dns: to create DNS record in dns zone for the record set. It will automatically create DNS record for ingress objects (Please udate the external-dns chart by adding the DNS record in domainFilters section).
 
@@ -467,7 +467,7 @@ traefik                     traefik.io/ingress-controller        <none>       2m
 The `traefik` ingress class is the main ingress that DP will use.
 
 ### Install Kong Ingress Controller [OPTIONAL]
-* In this optional step, you can install the Kong Ingress Controller if you want to use it for User App Endpoints, will be using secondary certificate
+* In this optional step, you can install the Kong Ingress Controller if you want to use it for User App Endpoints, will be using secondary certificate 
 
 ```bash
 ## following variable is required to send traces using traefik
@@ -545,36 +545,108 @@ The `kong` ingress class is the ingress that DP will be used by user app endpoin
 
 ```bash
 # install eck-operator
-helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.14.0"
+helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.16.0"
+
+# wait for eck-operator to be installed 
+# verify it by checking the statefulset logs using follwing command
+kubectl logs -n elastic-system sts/elastic-operator
 
 # install dp-config-es
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n elastic-system ${TP_ES_RELEASE_NAME} dp-config-es \
   --labels layer=2 \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "1.2.1" -f - <<EOF
+  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 domain: ${TP_DOMAIN}
 es:
-  version: "8.15.2"
+  version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-es-http
   storage:
-    name: ${TP_DISK_STORAGE_CLASS}
+    name: ${TP_STORAGE_CLASS}
+  # following are the default requests and limits for application container, uncomment and change as required
+  # resources:
+  #   requests:
+  #     cpu: "100m"
+  #     memory: "2Gi"
+  #   limits:
+  #     cpu: "1"
+  #     memory: "2Gi"
 kibana:
-  version: "8.15.2"
+  version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-kb-http
+  # following are the default requests and limits for application container, uncomment and change as required
+  # resources:
+  #   requests:
+  #     cpu: "150m"
+  #     memory: "1Gi"
+  #   limits:
+  #     cpu: "1"
+  #     memory: "2Gi"
 apm:
   enabled: true
-  version: "8.15.2"
+  version: "8.17.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-apm-http
+  # following are the default requests and limits for application container, uncomment and change as required
+  # resources:
+  #   requests:
+  #     cpu: "50m"
+  #     memory: "128Mi"
+  #   limits:
+  #     cpu: "250m"
+  #     memory: "512Mi"
 EOF
 ```
 
-Use this command to get the host URL for Kibana
+Use the following command to verify successful creation of IndexTemplates 
+
+```bash
+kubectl get -n elastic-system IndexTemplates
+```
+Output should be inline with following results:
+```
+NAME                                         AGE
+dp-config-es-jaeger-service-index-template   110d
+dp-config-es-jaeger-span-index-template      110d
+dp-config-es-user-apps-index-template        110d
+```
+
+Use the following command to verify successful creation of Indices 
+
+```bash
+kubectl  get -n elastic-system Indices
+```
+
+Output should be inline with following results:
+```
+NAME                    AGE
+jaeger-service-000001   110d
+jaeger-span-000001      110d
+```
+
+Use the following command to verify successful creation of Indices 
+
+```bash
+kubectl get -n elastic-system IndexLifecyclePolicies
+```
+
+Output should be inline with following results:
+```
+NAME                                             AGE
+dp-config-es-jaeger-index-30d-lifecycle-policy   110d
+dp-config-es-user-index-60d-lifecycle-policy     110d
+```
+
+> [!IMPORTANT]
+> Any failure to create Indices, IndexTemplates, IndexLifecyclePolicies needs to be debugged.
+> The easiest way is to check elastic-operator statefulset logs and if required, unistalling
+> and re-installing dp-config-es chart
+
+Use the following command to get the host URL for Kibana
 ```bash
 kubectl get ingress -n elastic-system dp-config-es-kibana -oyaml | yq eval '.spec.rules[0].host'
 ```

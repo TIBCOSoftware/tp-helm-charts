@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #
 # © 2024 Cloud Software Group, Inc.
