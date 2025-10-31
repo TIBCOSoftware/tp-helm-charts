@@ -293,6 +293,8 @@ spec:
           value: https://$(TSC_DNS_DOMAIN)
         - name: FINOPS
           value: {{ .Values.global.tibco.finops }}
+        - name: CP_MCP_SERVER_ENABLED
+          value: "{{ .Values.cpmcpserver.enabled }}"
         - name: DOC_BASE_URL
           valueFrom:
             configMapKeyRef:
