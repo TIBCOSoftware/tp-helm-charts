@@ -1,15 +1,15 @@
-# TIBCO Control Plane Upgrade Assistant (1.10.0 ➜ 1.11.0)
+# TIBCO Control Plane Upgrade Assistant (1.11.0 ➜ 1.12.0)
 
-This directory contains an interactive Bash script to assist with upgrading the TIBCO Control Plane from version 1.10.0 to 1.11.0.
+This directory contains an interactive Bash script to assist with upgrading the TIBCO Control Plane from version 1.11.0 to 1.12.0.
 
-File: `scripts/1.11.0/upgrade.sh`
+File: `scripts/1.12.0/upgrade.sh`
 
 ---
 
 ## What the script does
 
 - Prompts you interactively to:
-  - Generate 1.11.0 values files from an existing 1.10.0 deployment or from existing values files
+  - Generate 1.12.0 values files from an existing 1.11.0 deployment or from existing values files
   - Perform Helm upgrades for `platform-bootstrap` or `platform-base`
 - Enforces safe prechecks before extracting values or performing upgrades (including early, mode-specific dependency validation)
 - Produces versioned output values files
@@ -22,9 +22,9 @@ File: `scripts/1.11.0/upgrade.sh`
 - Interactive flow with clear prompts and confirmations
 - Two operation modes:
   1) Values generation (from files or from Helm)
-  2) Helm upgrade (uses your 1.11.0-ready values)
+  2) Helm upgrade (uses your 1.12.0-ready values)
 - Strict version gating:
-  - Validates currently deployed app_version is exactly `1.10.0` before values extraction or upgrade
+  - Validates currently deployed app_version is exactly `1.11.0` before values extraction or upgrade
 - Release state awareness:
   - Confirms releases exist in the target namespace
   - Confirms release status is `deployed` (blocks on `pending-install`, `failed`, `pending-rollback`, etc.)
@@ -32,10 +32,10 @@ File: `scripts/1.11.0/upgrade.sh`
   - Uses `helm list -o json` to read `app_version`
   - Uses `helm status -o json` to read release status
 - Retry-aware upgrades:
-  - If a previous attempt reached `app_version` `1.11.0` but the release is in a failed-like state (e.g., `failed`, `pending-install`, `pending-rollback`, `pending-upgrade`, `superseded`), the script prompts to retry the 1.11.0 upgrade.
+  - If a previous attempt reached `app_version` `1.12.0` but the release is in a failed-like state (e.g., `failed`, `pending-install`, `pending-rollback`, `pending-upgrade`, `superseded`), the script prompts to retry the 1.12.0 upgrade.
 - Post-upgrade verification:
-  - Confirms chart name ends with `-${CHART_VERSION}` (e.g., `-1.11.0`)
-  - Confirms upgraded `app_version` is `1.11.0`
+  - Confirms chart name ends with `-${CHART_VERSION}` (e.g., `-1.12.0`)
+  - Confirms upgraded `app_version` is `1.12.0`
   - Reports pod readiness in the target namespace
 - Clear errors for common scenarios (release not found, wrong version, non-deployed status)
 
@@ -63,7 +63,7 @@ chmod +x upgrade.sh
 
 2) Follow the interactive prompts:
 - Choose between:
-  - Generate values files for 1.11.0
+  - Generate values files for 1.12.0
   - Perform Helm upgrade
 - Provide namespace, release names (if different), and values file name as prompted
 - When you choose a Helm-based flow (extraction or upgrade), Helm/jq availability is validated immediately.
@@ -73,17 +73,17 @@ chmod +x upgrade.sh
 ## Environment variables
 
 - `PLATFORM_BOOTSTRAP_CHART_VERSION` (optional): overrides the default target chart version for platform-bootstrap.
-  - Default is `1.11.0`.
+  - Default is `1.12.0`.
   - Example:
-    - Linux: `export PLATFORM_BOOTSTRAP_CHART_VERSION="1.11.0-alpha.1" && ./upgrade.sh`
+    - Linux: `export PLATFORM_BOOTSTRAP_CHART_VERSION="1.12.0-alpha.1" && ./upgrade.sh`
 
 - `PLATFORM_BASE_CHART_VERSION` (optional): overrides the default target chart version for platform-base.
-  - Default is `1.11.0`.
+  - Default is `1.12.0`.
   - Example:
-    - Linux: `export PLATFORM_BASE_CHART_VERSION="1.11.0-alpha.1" && ./upgrade.sh`
+    - Linux: `export PLATFORM_BASE_CHART_VERSION="1.12.0-alpha.1" && ./upgrade.sh`
 
 Note:
-- Post-upgrade `app_version` is validated against `1.11.0` (without pre-release suffix)
+- Post-upgrade `app_version` is validated against `1.12.0` (without pre-release suffix)
 - Chart names are validated against `-${PLATFORM_BOOTSTRAP_CHART_VERSION}` and `-${PLATFORM_BASE_CHART_VERSION}` respectively (pre-release suffix allowed)
 
 ---
@@ -97,14 +97,14 @@ The script performs these checks before proceeding:
 - Release status:
   - Must be `deployed` before values extraction or upgrade
 - Deployed version (pre-upgrade):
-  - `app_version` must be exactly `1.10.0` for both `platform-bootstrap` and `platform-base`
+  - `app_version` must be exactly `1.11.0` for both `platform-bootstrap` and `platform-base`
 - Tools availability:
   - yq is always required
   - Helm and jq are required for Helm extraction/upgrade/validation (enforced as soon as you choose a Helm flow)
 
 Additional behaviors:
-- During values extraction from Helm, the script validates both releases for existence, `deployed` status, and `app_version == 1.10.0` before extracting values.
-- During upgrades, if a release is in a failed-like state but already at `app_version == 1.11.0`, you will be prompted to retry the 1.11.0 upgrade; otherwise, the script blocks and asks you to fix the state (e.g., rollback) first.
+- During values extraction from Helm, the script validates both releases for existence, `deployed` status, and `app_version == 1.11.0` before extracting values.
+- During upgrades, if a release is in a failed-like state but already at `app_version == 1.12.0`, you will be prompted to retry the 1.12.0 upgrade; otherwise, the script blocks and asks you to fix the state (e.g., rollback) first.
 
 If any check fails, the script prints a clear error and exits.
 
@@ -126,7 +126,7 @@ After a successful upgrade, the script:
 - Prints upgraded `app_version` and `chart` string for each selected chart
 - Validates:
   - `chart` ends with `-${PLATFORM_BOOTSTRAP_CHART_VERSION}` or `-${PLATFORM_BASE_CHART_VERSION}` respectively
-  - `app_version` equals `1.11.0`
+  - `app_version` equals `1.12.0`
 - Checks all pods in the target namespace are in `Running/Completed` state and prints a short summary
 
 ---
@@ -135,7 +135,7 @@ After a successful upgrade, the script:
 
 - The script does NOT perform application-level or functional tests.
 - It assumes your values files are correct and only:
-  - Generates 1.11.0 values (no schema transformations for this release)
+  - Generates 1.12.0 values (no schema transformations for this release)
   - Upgrades the charts to the requested `CHART_VERSION`
   - Verifies versions and pod readiness
 - For non-`deployed` release states (e.g., `failed`, `pending-install`, `pending-rollback`), fix the state (e.g., `helm rollback`) before proceeding.
@@ -147,4 +147,4 @@ After a successful upgrade, the script:
 - "release not found": ensure the release exists in the namespace and names are correct
 - "status is 'pending-install' / 'failed'": investigate with `helm history` and `kubectl describe`/`logs`, resolve, then retry
 - "app_version is 'unknown'": the script now reads app version from `helm list -o json`; verify Helm/jq are available and recent
-- Validation fails for pre-release charts: ensure `PLATFORM_BOOTSTRAP_CHART_VERSION` and/or `PLATFORM_BASE_CHART_VERSION` match your chart tags (e.g., `1.11.0-alpha.1`); `app_version` remains `1.11.0`
+- Validation fails for pre-release charts: ensure `PLATFORM_BOOTSTRAP_CHART_VERSION` and/or `PLATFORM_BASE_CHART_VERSION` match your chart tags (e.g., `1.12.0-alpha.1`); `app_version` remains `1.12.0`
