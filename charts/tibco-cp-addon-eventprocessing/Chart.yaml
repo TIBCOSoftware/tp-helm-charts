@@ -5,11 +5,11 @@
 #
 
 apiVersion: v2
-name: platform-addon-eventprocessing
+name: tibco-cp-addon-eventprocessing
 description: TIBCO Platform chart for BE addon
 type: application
-version: 1.11.0
-appVersion: "1.11.0"
+version: 1.12.0
+appVersion: "1.12.0"
 keywords:
   - tibco-platform
   - platform
@@ -17,11 +17,10 @@ keywords:
   - addon
 annotations:
   app.helm.sh/component: control-plane
-  app.helm.sh/name: platform-addon-eventprocessing
+  app.helm.sh/name: tibco-cp-addon-eventprocessing
 dependencies:
   - name: tp-cp-eventprocessing-be
-    version: "1.11.4"
-    repository: alias:tibco-platform
+    version: "1.12.*"
     condition: tp-cp-eventprocessing-be.enabled
     tags:
       - be
