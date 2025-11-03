@@ -3470,6 +3470,87 @@ entries:
       app.helm.sh/name: platform-base
     apiVersion: v2
     appVersion: 1.12.0
+    created: "2025-11-03T10:10:21.631725181Z"
+    dependencies:
+    - condition: tp-cp-infra.enabled
+      name: tp-cp-infra
+      repository: ""
+      version: 1.12.*
+    - condition: tp-cp-o11y.enabled
+      name: tp-cp-o11y
+      repository: ""
+      version: 1.12.*
+    - name: tp-cp-configuration
+      repository: ""
+      version: 1.12.*
+    - condition: tp-cp-recipes.enabled
+      name: tp-cp-recipes
+      repository: alias:tibco-platform
+      version: 1.12.38
+    - name: tp-cp-core
+      repository: ""
+      version: 1.12.*
+    - name: tp-cp-core-ops
+      repository: ""
+      version: 1.12.*
+    - name: tp-cp-core-finops
+      repository: ""
+      version: 1.12.*
+    - condition: tp-cp-integration.enabled
+      name: tp-cp-integration
+      repository: alias:tibco-platform
+      tags:
+      - integration
+      version: 1.12.27
+    - condition: tp-cp-tibcohub-contrib.enabled
+      name: tp-cp-tibcohub-contrib
+      repository: alias:tibco-platform
+      version: 1.12.6
+    - condition: tibco-cp-messaging.enabled
+      name: tibco-cp-messaging
+      repository: alias:tibco-platform
+      version: 1.12.9
+    - condition: tp-cp-hawk.enabled
+      name: tp-cp-hawk
+      repository: alias:tibco-platform
+      version: 1.12.9
+    - condition: tp-cp-hawk-recipes.enabled
+      name: tp-cp-hawk-console-recipes
+      repository: alias:tibco-platform
+      version: 1.12.9
+    - condition: tp-cp-cli.enabled
+      name: tp-cp-cli
+      repository: ""
+      version: 1.2.0-alpha.1
+    - name: tp-cp-alertmanager
+      repository: ""
+      version: 1.11.*
+    - name: tp-cp-prometheus
+      repository: ""
+      version: 1.12.0
+    - name: dp-oauth2proxy-recipes
+      repository: ""
+      version: 1.11.*
+    - condition: tp-cp-auditsafe.enabled
+      name: tp-cp-auditsafe
+      repository: ""
+      version: 1.12.*
+    description: TIBCO Platform base chart
+    digest: e6673189927634132a3d8fe5aa276575a330f32f3305eb9fbf7f4d4c30e9049a
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: platform-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/platform-base-1.12.0/platform-base-1.12.0.tgz
+    version: 1.12.0
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: platform-base
+    apiVersion: v2
+    appVersion: 1.12.0
     created: "2025-10-31T06:47:52.362462109Z"
     dependencies:
     - condition: tp-cp-infra.enabled
@@ -12636,4 +12717,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-10-31T06:47:52.363838788Z"
+generated: "2025-11-03T10:10:21.632649353Z"
