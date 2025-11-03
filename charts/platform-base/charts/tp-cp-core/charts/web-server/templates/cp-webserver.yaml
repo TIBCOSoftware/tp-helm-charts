@@ -32,6 +32,26 @@ spec:
 
 ---
 
+{{- if .Values.cpmcpserver.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-mcp-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: mcp-server
+      port: 8066
+      protocol: TCP
+      targetPort: 8066
+  selector:
+    {{- include "tp-cp-web-server.shared.labels.selector" . | nindent 4 }}
+{{- end }}
+
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -273,6 +293,8 @@ spec:
           value: https://$(TSC_DNS_DOMAIN)
         - name: FINOPS
           value: {{ .Values.global.tibco.finops }}
+        - name: CP_MCP_SERVER_ENABLED
+          value: "{{ .Values.cpmcpserver.enabled }}"
         - name: DOC_BASE_URL
           valueFrom:
             configMapKeyRef:
@@ -332,6 +354,53 @@ spec:
             mountPath: /tmp/logs
           - name: file-watcher
             mountPath: /tmp
+ {{- if .Values.cpmcpserver.enabled }}
+      - name: cp-mcp-server
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.cpmcpserver.image.name }}:{{ .Values.cpmcpserver.image.tag }}
+        imagePullPolicy: IfNotPresent
+         {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+         {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.cpmcpserver.resources.requests.cpu }}
+            memory: {{ .Values.cpmcpserver.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.cpmcpserver.resources.limits.cpu }}
+            memory: {{ .Values.cpmcpserver.resources.limits.memory }}
+        ports:
+          - containerPort: 8066
+            name: mcp-server
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+          - name: HOST
+            value: "localhost:3000"
+          - name: LOG_LEVEL
+            value: {{ .Values.cpmcpserver.logLevel }}
+          - name: PORT
+            value: "8066"
+        volumeMounts:
+          - name: logs
+            mountPath: /tmp/logs
+ {{- end }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -449,6 +518,37 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.hpa.memory }}
+
+
+---
+
+{{- if .Values.cpmcpserver.enabled }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-mcp-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-mcp-server.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+    - path: /cp/mcp
+      internalPath: /
+      port: 8066
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+{{- end }}
+
 ---
 
 apiVersion: cloud.tibco.com/v1

@@ -6,6 +6,8 @@
 
 {{- define "tp-cp-web-server.consts.appName" }}tp-cp-web-server{{ end -}}
 
+{{- define "tp-cp-mcp-server.consts.appName" }}tp-cp-mcp-server{{ end -}}
+
 {{- define "tp-cp-web-server.consts.component" }}cp{{ end -}}
 
 {{- define "tp-cp-web-server.consts.team" }}tp-cp{{ end -}}

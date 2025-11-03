@@ -9,6 +9,8 @@ in the license file that is distributed with this file.
 {{/* A fixed short name for the application. Can be different than the chart name */}}
 {{- define "tp-cp-o11y.consts.appName" }}o11y-service{{ end -}}
 
+{{- define "tp-cp-o11y-mcp-server.consts.appName" }}tp-o11y-mcp-server{{ end -}}
+
 {{- define "tp-cp-o11y.fullname" }}o11y-service{{ end -}}
 
 {{- define "tp-cp-o11y-dnsdomain-configmap" }}tp-cp-core-dnsdomains{{ end -}}
