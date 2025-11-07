@@ -4,11 +4,8 @@ Table of Contents
 * [Table of Contents](#table-of-contents)
 * [TIBCO® Control Plane Cluster Workshop](#tibco-control-plane-aks-workshop)
   * [Export required variables](#export-required-variables)
-  * [Install External DNS](#install-external-dns)
-  * [Install Cluster Issuer, Ingress Controller, Storage classes](#install-cluster-issuer-ingress-controller-storage-classes)
-    * [Install Cluster Issuer](#install-cluster-issuer)
+  * [Install Ingress Controller, Storage classes](#install-ingress-controller-storage-classes)
     * [Install Ingress Controller](#install-ingress-controller)
-      * [Pre-requisites](#pre-requisites)
       * [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
       * [Install Traefik Ingress Controller](#install-traefik-ingress-controller)
       * [Verify Ingress Class Creation](#verify-ingress-class-creation)
@@ -27,7 +24,7 @@ Table of Contents
 
 # TIBCO® Control Plane AKS Workshop
 
-The goal of this workshop is to provide hands-on experience to prepare Microsoft Azure Kubernetes Service cluster to be used as a TIBCO® Control Plane. In order to deploy TIBCO Control Plane, you need to have a Kubernetes cluster with some necessary tools installed. This workshop will guide you to install the necessary tools.
+The goal of this workshop is to provide hands-on experience to prepare a Microsoft Azure Kubernetes Service cluster to be used as a TIBCO® Control Plane. In order to deploy TIBCO Control Plane, you need to have a Kubernetes cluster with some necessary tools installed. This workshop will guide you to install the necessary tools.
 
 > [!IMPORTANT]
 > This workshop is NOT meant for production deployment.
@@ -35,7 +32,7 @@ The goal of this workshop is to provide hands-on experience to prepare Microsoft
 To perform the steps mentioned in this workshop document, it is assumed you already have an AKS cluster created and can connect to it.
 
 > [!Note]
-> To create AKS cluster and connect to it using kubeconfig, please refer 
+> To create an AKS cluster and connect to it using kubeconfig, please refer 
 > [steps for AKS cluster creation](../cluster-setup/README.md#azure-kubernetes-service-cluster-creation)
 
 
@@ -56,7 +53,7 @@ export TP_AZURE_REGION="eastus" # region of resource group
 
 ## Cluster configuration specific variables
 export TP_RESOURCE_GROUP="" # set the resource group name in which all resources will be deployed
-export TP_CLUSTER_NAME="tp-cluster" # name of the cluster to be prvisioned, used for chart deployment
+export TP_CLUSTER_NAME="tp-cluster" # name of the cluster to be provisioned, used for chart deployment
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
 ## Network specific variables
@@ -68,8 +65,8 @@ export TP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts #
 
 ## Domain specific variables
 export TP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of TP_DOMAIN
-export TP_SANDBOX="dp1" # hostname of TP_DOMAIN
-export TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN= "department" # sandbox subdomain to be used
+export TP_SANDBOX="dp1" # subdomain prefix for TP_DOMAIN
+export TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN="department" # sandbox subdomain to be used
 export TP_DOMAIN="${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}.${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}" # domain to be used
 export TP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities, use 'traefik'
 export TP_DNS_RESOURCE_GROUP="" # resource group to be used for record-sets
@@ -79,7 +76,6 @@ export TP_DISK_ENABLED="true" # to enable azure disk storage class
 export TP_DISK_STORAGE_CLASS="azure-disk-sc" # name of azure disk storage class
 export TP_FILE_ENABLED="true" # to enable azure files storage class
 export TP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage class
-export TP_DNS_RESOURCE_GROUP="" # replace with name of resource group containing dns record sets
 
 # Network policy specific variables
 export TP_ENABLE_NETWORK_POLICY="true" # possible values "true", "false"
@@ -90,14 +86,15 @@ export TP_LOGSERVER_INDEX="" # logserver index to push the logs to
 export TP_LOGSERVER_USERNAME=""
 export TP_LOGSERVER_PASSWORD=""
 ```
-> [!IMPORTANT]
-> We are assuming, customer will be using the Azure DNS Service
 
+## Install Ingress Controller, Storage classes
 
-## Install External DNS
-
-Before creating ingress on this AKS cluster, we need to install [external-dns](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns)
-
+In this section, we will install ingress controller and storage class. We have made a helm chart called `dp-config-aks` that encapsulates the installation of ingress controller and storage class.
+It will create the following resources:
+* ingress object which will be able to create Azure load balancer
+* annotation for external-dns to create DNS record for the ingress
+* storage class for Azure Disks
+* storage class for Azure Files
 
 > [!NOTE]
 > In the chart installation commands starting in this section & continued in next sections, you will see labels added
@@ -105,95 +102,10 @@ Before creating ingress on this AKS cluster, we need to install [external-dns](h
 > numbers are added to identify the dependency of chart installations, so that uninstallation can be done in reverse
 > sequence (starting with charts not labelled first).
 
-```bash
-# install external-dns
-helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
-  -n external-dns-system external-dns external-dns \
-  --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
-provider: azure
-sources:
-  - service
-  - ingress
-domainFilters:
-  - ${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}   # must be the sandbox domain as we create DNS zone for this
-extraVolumes: # for azure.json
-- name: azure-config-file
-  secret:
-    secretName: azure-config-file
-extraVolumeMounts:
-- name: azure-config-file
-  mountPath: /etc/kubernetes
-  readOnly: true
-extraArgs:
-- "--ingress-class=${TP_INGRESS_CLASS}"
-- --txt-wildcard-replacement=wildcard # issue for Azure dns zone: https://github.com/kubernetes-sigs/external-dns/issues/2922
-EOF
-```
-
-## Install Cluster Issuer, Ingress Controller, Storage classes
-
-In this section, we will install cluster issuer, ingress controller and storage class. We have made a helm chart called `dp-config-aks` that encapsulates the installation of ingress controller and storage class.
-It will create the following resources:
-* cluster issuer to represent certificate authorities (CAs) that are able to generate signed certificates by honoring certificate signing requests
-* ingress object which will be able to create Azure load balancer
-* annotation for external-dns to create DNS record for the ingress
-* storage class for Azure Disks
-* storage class for Azure Files
-
-### Install Cluster Issuer
-
-```bash
-export TP_CLIENT_ID=$(az aks show --resource-group "${TP_RESOURCE_GROUP}" --name "${TP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
-
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aks-ingress-certificate dp-config-aks \
-  --labels layer=1 \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
-global:
-  dnsSandboxSubdomain: "${TP_SANDBOX}"
-  dnsGlobalTopDomain: "${TP_TOP_LEVEL_DOMAIN}"
-  azureSubscriptionDnsResourceGroup: "${TP_DNS_RESOURCE_GROUP}"
-  azureSubscriptionId: "${TP_SUBSCRIPTION_ID}"
-  azureAwiAsoDnsClientId: "${TP_CLIENT_ID}"
-httpIngress:
-  enabled: false
-  name: main # this is part of cluster issuer name. 
-ingress-nginx:
-  enabled: false
-kong:
-  enabled: false
-EOF
-```
-
 ### Install Ingress Controller
 
 You can choose to install Nginx or Traefik as the ingress controller for routing traffic to Control Plane services using Azure load balancer.
 
-#### Pre-requisites
-In order to make sure that the network traffic is allowed from the ingress-system namespace to the Control Plane namespace pods, we need to label this namespace.
-
-```bash
-kubectl label namespace ingress-system networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
-```
-
-Create a certificate for the ingress controller using the issuer created above
-```bash
-kubectl apply -f - << EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: tp-certificate-main-ingress
-  namespace: ingress-system
-spec:
-  secretName: tp-certificate-main-ingress
-  issuerRef:
-    name: "cic-cert-subscription-scope-production-main"
-    kind: ClusterIssuer
-  dnsNames:
-    - '*.${TP_DOMAIN}'
-EOF
-```
 
 > [!IMPORTANT]
 > If you know the DNS domains for Control Plane in advance, rather than creating certificates for the domain 
@@ -223,7 +135,7 @@ ingress-nginx:
       annotations:
         external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
         service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
-      enableHttp: false # disable http 80 port on service and NLB
+      enableHttp: false # disable http 80 port on service and load balancer
     config:
       # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/configmap.md to know more about the following configuration options
       # to support passing the incoming X-Forwarded-* headers to upstreams
@@ -270,8 +182,8 @@ traefik:
     kubernetesIngress:
       allowExternalNameServices: true
   additionalArguments:
-    - '--entryPoints.websecure.forwardedHeaders.insecure'
-    - '--serversTransport.insecureSkipVerify=true'
+    - '--entryPoints.websecure.forwardedHeaders.insecure' # you can also use trustedIPs instead of insecure to trust the forwarded headers https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
+    - '--serversTransport.insecureSkipVerify=true' # please refer https://doc.traefik.io/traefik/routing/overview/#transport-configuration
     - '--providers.kubernetesingress.ingressendpoint.publishedservice=ingress-system/dp-config-aks-ingress-traefik'
   tlsStore:
     default:
@@ -287,7 +199,6 @@ Use the following command to get the ingress class names.
 ```bash
 $ kubectl get ingressclass
 NAME                                    CONTROLLER                      PARAMETER        AGE
-azure-application-gateway        azure/application-gateway                 <none>        24m
 nginx                            k8s.io/ingress-nginx                      <none>       2m18s
 ```
 
@@ -470,11 +381,11 @@ spec:
 
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| VNET_CIDR             | 10.4.0.0/16 20                                                                 | from AKS recipe                                                                                 |
+| VNET_CIDR             | 10.4.0.0/16                                                                 | Virtual network CIDR from AKS cluster configuration |
 | Ingress class name   |  nginx / traefik                                                                         | used for TIBCO Control Plane                                                 |
 | File storage class    |   azure-files-sc                                                                    | used for TIBCO Control Plane                                                                   |
 | Disk storage class    |   azure-disk-sc                                                                    | used for TIBCO Control Plane                                                                   |
-| Azure Default storage class    | default                                                                      | Not recommended for TIBCO Control Plane                                                                |
+| Azure default storage class    | default                                                                      | Not recommended for TIBCO Control Plane                                                                |
 | Postgres |  postgresql.tibco-ext.svc.cluster.local:5432   | used for TIBCO Control Plane |
 | Postgres database@username:password |  postgres@postgres:postgres   | used for TIBCO Control Plane |
 | Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/control-plane-network-policies.htm) |

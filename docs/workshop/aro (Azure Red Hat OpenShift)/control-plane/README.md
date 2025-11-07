@@ -169,7 +169,7 @@ EOF
 
 ## Install Postgres
 
-In this section, we will install postgres server chart. We have made a helm chart called `on-premises-third-party` that encapsulates the installation of postgres server.
+In this section, we will install postgres server chart which is prerequisite for Control Plane installation. We have made a helm chart called `on-premises-third-party` that encapsulates the installation of postgres server.
 
 You can optionally use any pre-existing postgres installation, but please make sure that the Control Plane pods can communicate with that database.
 
@@ -373,14 +373,14 @@ dig +short test.${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}
 
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| Node CIDR             | 10.0.2.0/23                                                                    | from Worker Node subnet Check [TP_WORKER_SUBNET_CIDR in cluster-setup](../cluster-setup/README.md#export-required-variables)                                      |
-| Service CIDR             | 172.30.0.0/16                                                                    | Run the command az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.serviceCidr -o tsv                                        |
-| Pod CIDR             | 10.128.0.0/14                                                                    |  Run the command az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.podCidr -o tsv                                        |
-| Ingress class name   | openshift-default                                                                            | used for TIBCO Control Plane `my` and `tunnel` ingresses                                               |
-| File storage class    |   azure-files-sc                                                                    | used for TIBCO Control Plane                                                                   |
-| Disk storage class    |   azure-disk-sc                                                                    | used for Postgres                                                                   |
-| Postgres |  postgresql.tibco-ext.svc.cluster.local:5432   | used for TIBCO Control Plane |
-| Postgres database@username:password |  postgres@postgres:postgres   | used for TIBCO Control Plane |
+| Node CIDR | 10.0.2.0/23 | from Worker Node subnet, please check [TP_WORKER_SUBNET_CIDR in cluster-setup](../cluster-setup/README.md#export-required-variables) |
+| Service CIDR | 172.30.0.0/16 | Run the command `az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.serviceCidr -o tsv` |
+| Pod CIDR | 10.128.0.0/14 | Run the command `az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.podCidr -o tsv` |
+| Ingress class name | openshift-default | used for TIBCO Control Plane `my` and `tunnel` ingresses |
+| File storage class | azure-files-sc | used for TIBCO Control Plane |
+| Disk storage class |  azure-disk-sc | used for Postgres |
+| Postgres | postgresql.tibco-ext.svc.cluster.local:5432 | used for TIBCO Control Plane |
+| Postgres database@username:password | postgres@postgres:postgres | used for TIBCO Control Plane |
 | Network Policies Details for Control Plane Namespace | [Control Plane Network Policies Document](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/control-plane-network-policies.htm) |
 
 ## Export additional variables required for chart values

@@ -2,7 +2,7 @@ Table of Contents
 =================
 <!-- TOC -->
 * [Table of Contents](#table-of-contents)
-* [Azure Red Hat OpenShift (ARO) Creation](#azure-kubernetes-service-cluster-creation)
+* [Azure Red Hat OpenShift (ARO) Creation](#azure-red-hat-openshift-aro-cluster-creation)
   * [Introduction](#introduction)
   * [Command Line Tools required](#command-line-tools-required)
   * [Recommended Roles and Permissions](#recommended-roles-and-permissions)
@@ -17,20 +17,21 @@ Table of Contents
     * [Get Credentials](#get-credentials)
     * [Connect Using OpenShift CLI](#connect-using-openshift-cli)
     * [Connect Using OpenShift Console](#connect-using-openshift-console)
+  * [Set Resource Group Permissions Service Principal](#set-resource-group-permissions-service-principal)
   * [Create Security Context Constraints](#create-security-context-constraints)
 * [Next Steps](#next-steps)
 <!-- TOC -->
 
 # Azure Red Hat OpenShift (ARO) Cluster Creation
 
-The goal of this document is to provide hands-on experience to create Microsoft Azure Red Hat OpenShift (ARO) cluster. This is a pre-requisite to deploy TIBCO® Data Plane.
+The goal of this document is to provide hands-on experience to create Microsoft Azure Red Hat OpenShift (ARO) cluster. This is a pre-requisite to deploy TIBCO® Control Plane and/or Data Plane.
 
 > [!Note]
 > This workshop is NOT meant for production deployment.
 
 ## Introduction
 
-In order to deploy the Data Plane, you need to have a ARO cluster and install the necessary tools. This workshop will guide you to create an ARO cluster and install the necessary tools. After completing the steps from this document, you will need to follow separate steps for [Data Plane](../data-plane/) setups.
+In order to deploy the TIBCO® Control Plane and/or Data Plane, you need to have a ARO cluster and install the necessary tools. This workshop will guide you to create an ARO cluster and install the necessary tools. After completing the steps from this document, you will need to follow separate steps for [Data Plane](../data-plane/) setups.
 
 ## Command Line Tools required
 
@@ -45,16 +46,31 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * oc (4.18.17)
 
 For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
-The subsequent steps can be followed from within the container.
+All the CLI commands in this workshop can be executed inside the container created using the docker image.
 
 > [!IMPORTANT]
 > Please use --platform flag while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
 > This can be different based on your [machine OS and hardware architecture](https://docs.docker.com/build/building/multi-platform/)
 
-A sample command on Linux AMD64 is
+Sample command on Linux AMD64 to build the docker image:
 ```bash
 docker buildx build --platform="linux/amd64" --progress=plain -t workshop-cli-tools:latest --load .
 ```
+
+Sample command to run the container:
+```bash
+## To start an interactive shell
+docker run -it --rm workshop-cli-tools:latest /bin/bash
+
+## Mount your working directory with -v $(pwd):/workspace if you need access to local files inside the container.
+
+## All subsequent commands in this workshop can be run from within this container shell.
+```
+
+> [!NOTE]
+> Please make sure that once the interactive shell session is terminated, the environment 
+> variables need to be exported/set again for executing the next set of commands
+
 
 ## Recommended Roles and Permissions
 You will need Contributor and User Access Administrator permissions or Owner permissions, either directly on the virtual network or on the resource group or subscription containing it.
@@ -73,7 +89,7 @@ Please set/adjust the values of the variables as expected.
 > It stands for "TIBCO PLATFORM".
 
 > [!IMPORTANT]
-> We are using AZ CLI commands to to create the cluster.
+> We are using AZ CLI commands to create the cluster.
 > We recommend that you go through the parameters [here](https://learn.microsoft.com/en-us/cli/azure/aro?view=azure-cli-latest#az-aro-create)
 > so that it will be easier for you to set the values for the variables below.
 
@@ -83,6 +99,7 @@ export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv) # subscription id
 export TP_TENANT_ID=$(az account show --query tenantId -o tsv) # tenant id
 export TP_AZURE_REGION="eastus" # region of resource group
 export TP_RESOURCE_GROUP="openshift-azure"
+export TP_FILES_RESOURCE_GROUP="openshift-azure" # use a different resource group, if you are not using the same resource group for storage account
 
 ## Cluster configuration specific variables
 export TP_CLUSTER_NAME="aroCluster"
@@ -194,7 +211,7 @@ This will take approximately 5 minutes to complete.
 
 > [!IMPORTANT]
 > Please make sure that you
-> 1. [exported the required vriables](#export-required-variables) before executing the commands below
+> 1. [exported the required variables](#export-required-variables) before executing the commands below
 > 2. [downloaded Pull Secret](#download-pull-secret) to pass it as an argument for the commands below
 
 Optionally, you can run the following command to [validate the permissions required to create a cluster](https://learn.microsoft.com/en-us/cli/azure/aro?view=azure-cli-latest#az-aro-validate)
@@ -267,7 +284,7 @@ API_SERVER_IP="$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --que
  -n 'api' \
  -a ${API_SERVER_IP}
 
-## Verify record sets for Apps Domain
+## Verify record sets for API Domain
 dig +short api.${TP_CLUSTER_DOMAIN}
 ```
 
@@ -310,6 +327,25 @@ az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --qu
 ```
 Launch the console URL in a browser and log in using the kubeadmin credentials obtained above.
 
+## Set Resource Group Permissions Service Principal
+
+The ARO service principal requires listKeys permission on the Azure storage account resource group. We suggest adding contributor role to the service principal for the resource group to allow to
+1. Create new storage accounts, file shares, and other storage resources as needed
+2. Update storage configurations and settings
+3. Gain full control over storage resources within the specified resource group scope
+
+Without these permissions, the ARO cluster would be unable to create and manage Azure storage resources like file shares needed by the TIBCO® Platform for persistent storage.
+
+Execute the following commands:
+
+```bash
+## Get the Service Principal client id, if not already set
+TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query servicePrincipalProfile.clientId -o tsv)
+
+# Assign Contributor role to the ARO service principal on the storage resource group
+az role assignment create --role Contributor --scope /subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_FILES_RESOURCE_GROUP} --assignee ${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID}
+```
+
 ## Create Security Context Constraints
 
 Security Context Constraints (SCCs) can be used to control permissions for pods. These permissions include actions that a pod can perform and what resources it can access. You can use SCCs to define a set of conditions that a pod must run with to be accepted into the system.
@@ -329,7 +365,7 @@ privileged-genevalogging
 restricted
 restricted-v2
 
-In addition, we propose creating a new SCC which is similar to anyuid but differs for NET_BIND_SERVICE capabilities (CAPS).
+In addition, we propose creating a new SCC which is similar to anyuid but differs for NET_BIND_SERVICE capabilities (CAPS) which allows pods to bind to privileged ports without running as root.
 
 ```bash
 oc apply -f - <<EOF
@@ -365,15 +401,15 @@ seccompProfiles:
 supplementalGroups:
   type: RunAsAny
 users: []
-volumes:
-- configMap
-- csi
-- downwardAPI
+volumes: # to allow pod to mount following volume types
+- configMap 
+- secret
+- projected # combined volume sources
+- downwardAPI # pod/container metadata
 - emptyDir
 - ephemeral
 - persistentVolumeClaim
-- projected
-- secret
+- csi # Container Storage Interface volumes
 EOF
 ```
 
@@ -382,6 +418,8 @@ To verify that the SCC is created, run the following command:
 ```bash
 oc get scc tp-scc
 ```
+
+This SCC essentially provides a balance between flexibility (any UID/GID, standard volume types, port binding) and security (no host access, capability restrictions, mandatory SELinux).
 
 # Next Steps
 For Control Plane, follow the steps from [Control Plane README](../control-plane/README.md)
