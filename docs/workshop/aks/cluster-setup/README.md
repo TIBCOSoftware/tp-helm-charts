@@ -16,6 +16,11 @@ Table of Contents
   * [Generate kubeconfig to connect to AKS cluster](#generate-kubeconfig-to-connect-to-aks-cluster)
 * [Install Third Party Tools](#install-third-party-tools)
   * [Install Cert Manager](#install-cert-manager)
+  * [Install External DNS](#install-external-dns)
+  * [Install Cluster Issuer and Create Default Certificate](#install-cluster-issuer-and-create-default-certificate)
+    * [Install Cluster Issuer](#install-cluster-issuer)
+    * [Create Default Certificate](#create-default-certificate)
+  * [Regarding Ingress Controllers and Storage Classes](#regarding-ingress-controllers-and-storage-classes)
 * [Next Steps](#next-steps)
 <!-- TOC -->
 
@@ -42,16 +47,31 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * helm (v3.18.0)
 
 For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
-The subsequent steps can be followed from within the container.
+All the CLI commands in this workshop can be executed inside the container created using the docker image.
 
 > [!IMPORTANT]
 > Please use --platform while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
 > This can be different based on your [machine OS and hardware architecture](https://docs.docker.com/build/building/multi-platform/)
 
-A sample command on Linux AMD64 is
+Sample command on Linux AMD64 to build the docker image:
 ```bash
 docker buildx build --platform="linux/amd64" --progress=plain -t workshop-cli-tools:latest --load .
 ```
+
+Sample command to run the container:
+```bash
+## To start an interactive shell
+docker run -it --rm workshop-cli-tools:latest /bin/bash
+
+## Mount your working directory with -v $(pwd):/workspace if you need access to local files inside the container.
+
+## All subsequent commands in this workshop can be run from within this container shell.
+```
+
+> [!NOTE]
+> Please make sure that once the interactive shell session is terminated, the environment 
+> variables need to be exported/set again for executing the next set of commands
+
 ## Recommended Roles and Permissions
 The steps are run with a Service Principal sign in.
 The Service Principal has:
@@ -61,7 +81,7 @@ The Service Principal has:
 
 You will need to [create a service principal with these role assignments](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?tabs=bash) with the above roles and permissions.
 
-You can optionally choose run the steps as a Azure Subscription user with above permissions.
+You can optionally choose to run the steps as an Azure Subscription user with above permissions.
 
 > [!NOTE]
 > Please use this user with recommended roles and permissions, to create and access AKS cluster
@@ -76,7 +96,7 @@ Please set/adjust the values of the variables as expected.
 > It stands for "TIBCO PLATFORM".
 
 > [!IMPORTANT]
-> We are using AZ CLI commands to to create the pre-requisistes, create the 
+> We are using AZ CLI commands to create the pre-requisites, create the 
 > cluster and later perform some post script.
 > We recommend that you go through the parameters [here](https://learn.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az-aks-create(aks-preview))
 > so that it will be easier for you to set the values for the variables below.
@@ -90,7 +110,7 @@ export TP_AZURE_REGION="eastus" # region of resource group
 
 ## Cluster configuration specific variables
 export TP_RESOURCE_GROUP="" # set the resource group name in which all resources will be deployed
-export TP_CLUSTER_NAME="tp-cluster" # name of the cluster to be prvisioned, used for chart deployment
+export TP_CLUSTER_NAME="tp-cluster" # name of the cluster to be provisioned, used for chart deployment
 export TP_KUBERNETES_VERSION="1.33" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity" # user assigned identity to be associated with cluster
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
@@ -125,6 +145,11 @@ export TP_TIBCO_HELM_CHART_REPO=https://tibcosoftware.github.io/tp-helm-charts #
 
 ## Domain specific
 export TP_DNS_RESOURCE_GROUP="" # resource group used for record-sets
+export TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN="department" # subdomain prefix for sandbox
+export TP_SANDBOX="dp1" # subdomain prefix for TP_DOMAIN
+export TP_TOP_LEVEL_DOMAIN="azure.example.com" # top level domain of TP_DOMAIN
+export TP_DOMAIN="${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}.${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}" # domain to be used
+export TP_INGRESS_CLASS="nginx" # name of main ingress class used by capabilities, use 'traefik'
 ```
 
 > [!IMPORTANT]
@@ -153,7 +178,7 @@ cd aks/scripts
 ```
 
 > [!IMPORTANT]
-> Please make sure that you [export the required vriables](#export-required-variables) before executing the script. 
+> Please make sure that you [export the required variables](#export-required-variables) before executing the script. 
 
 ```bash
 ./pre-aks-cluster-script.sh
@@ -163,14 +188,14 @@ It will take approximately 5 minutes to complete the configuration.
 ## Create Azure Kubernetes Service (AKS) cluster
 
 ### Enable Preview Features
-Enabling preview features is one time step and can be explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/cli/azure/feature?view=azure-cli-latest#az-feature-register). 
+Enabling preview features is a one-time step and can be done explicitly using the [cli command to register feature](https://learn.microsoft.com/en-us/cli/azure/feature?view=azure-cli-latest#az-feature-register). 
 Otherwise, you might get a prompt to allow to register the feature as part of create cluster script execution, if it is not registered already.
 
 Please register the following preview features for the subscription:
-1. EnableAPIServerVnetIntegrationPreview
-<br>
+
+EnableAPIServerVnetIntegrationPreview
+
 To ensure that the cluster API server endpoint is available publicly and can be accessed over VNet by node, supports flag --enable-apiserver-vnet-integration
-</br>
 
 ```bash
 az feature register --namespace "Microsoft.ContainerService" --name "EnableAPIServerVnetIntegrationPreview"
@@ -182,7 +207,7 @@ You will also need to [add the aks-preview extension for API Server VNet integra
 az extension add --name aks-preview
 ```
 
-s### Create Cluster Script
+### Create Cluster Script
 
 Change the directory to [aks/scripts/](../../aks/scripts/) to proceed with the next steps.
 ```bash
@@ -190,7 +215,7 @@ cd aks/scripts
 ```
 
 > [!IMPORTANT]
-> Please make sure that you [export the required vriables](#export-required-variables) before executing the script 
+> Please make sure that you [export the required variables](#export-required-variables) before executing the script 
 
 Execute the script
 ```bash
@@ -210,7 +235,7 @@ cd aks/scripts
 ```
 
 > [!IMPORTANT]
-> Please make sure that you [export the required vriables](#export-required-variables) before executing the script 
+> Please make sure that you [export the required variables](#export-required-variables) before executing the script 
 
 ```bash
 ./post-aks-cluster-script.sh
@@ -241,7 +266,7 @@ Before we deploy ingress or observability tools on an empty AKS cluster; we need
 
 ## Install Cert Manager
 
-Please use the following commands to install [cert-manager](https://cert-manager.io/docs/installation/helm/)
+Please use the following commands to install [cert-manager](https://cert-manager.io/docs/installation/helm/) to automatically provision, manage, and renew TLS/SSL certificates
 
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
@@ -257,9 +282,114 @@ serviceAccount:
 EOF
 ```
 
+## Install External DNS
+
+> [!IMPORTANT]
+> We are assuming the customer will be using the Azure DNS Service
+
+Before creating ingress on this AKS cluster, we need to install [external-dns](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns) to automatically create and update public DNS records in Azure DNS which point to Kubernetes Ingresses and Services
+
+```bash
+# install external-dns
+helm upgrade --install --wait --timeout 1h --create-namespace  --reuse-values \
+  -n external-dns-system external-dns external-dns \
+  --labels layer=0 \
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
+provider: azure
+sources:
+  - service
+  - ingress
+domainFilters:
+- ${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN} # must be the sandbox domain as we create DNS zone for this
+extraVolumes: # for azure.json
+- name: azure-config-file
+  secret:
+    secretName: azure-config-file
+extraVolumeMounts:
+- name: azure-config-file
+  mountPath: /etc/kubernetes
+  readOnly: true
+extraArgs:
+# only register DNS for these ingress classes
+- "--ingress-class=${TP_INGRESS_CLASS}"
+- --txt-wildcard-replacement=wildcard # issue for Azure dns zone: https://github.com/kubernetes-sigs/external-dns/issues/2922
+EOF
+```
+
+## Install Cluster Issuer and Create Default Certificate
+
+In this section, we will install cluster issuer. We have made a helm chart called `dp-config-aks` that encapsulates the installation of ingress controller and storage class.
+It will create the following resource:
+* cluster issuer to represent certificate authorities (CAs) that are able to generate signed certificates by honoring certificate signing requests
+
+We will also create a default certificate for `TP_DOMAIN`.
+
+### Install Cluster Issuer 
+
+```bash
+export TP_CLIENT_ID=$(az aks show --resource-group "${TP_RESOURCE_GROUP}" --name "${TP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
+
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ingress-system dp-config-aks-ingress-certificate dp-config-aks \
+  --labels layer=1 \
+  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
+global:
+  dnsSandboxSubdomain: "${TP_SANDBOX}"
+  dnsGlobalTopDomain: "${TP_TOP_LEVEL_DOMAIN}"
+  azureSubscriptionDnsResourceGroup: "${TP_DNS_RESOURCE_GROUP}"
+  azureSubscriptionId: "${TP_SUBSCRIPTION_ID}"
+  azureAwiAsoDnsClientId: "${TP_CLIENT_ID}"
+httpIngress:
+  enabled: false
+  name: main # this is part of cluster issuer name. 
+ingress-nginx:
+  enabled: false
+kong:
+  enabled: false
+EOF
+```
+
+In order to make sure that the network traffic is allowed from the ingress-system namespace to the Control Plane and Data Plane namespace pods, we need to label this namespace.
+
+```bash
+# For Control Plane
+kubectl label namespace ingress-system networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
+
+# For Data Plane
+kubectl label namespace ingress-system networking.platform.tibco.com/non-dp-ns=enable --overwrite=true
+```
+
+### Create Default Certificate
+
+The default certificate is mostly used for Data Plane. New certificate/certificates will be required for Control Plane depending on your domains.
+
+Create a certificate using the issuer created [above](#install-cluster-issuer) which can be the default certificate for the ingress controller
+
+```bash
+kubectl apply -f - << EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tp-certificate-main-ingress
+  namespace: ingress-system
+spec:
+  secretName: tp-certificate-main-ingress
+  issuerRef:
+    name: "cic-cert-subscription-scope-production-main"
+    kind: ClusterIssuer
+  dnsNames:
+    - '*.${TP_DOMAIN}'
+EOF
+```
+
+## Regarding Ingress Controllers and Storage Classes
+
+Installation of Ingress Controller and Storage Classes is required for deploying Control Plane as well as Data Plane. Common installations of these resources can be leveraged, if you are planning to host both Control Plane and Data Plane in your kubernetes cluster.
+
+We recommend that you go through the sections
+[Install Ingress Controller and Storage Class in Control Plane](../control-plane/README.md#install-ingress-controller-storage-classes) and [Install Ingress Controllers and Storage Class in Data Plane](../data-plane/README.md#install-ingress-controllers-storage-classes) to derive and determine the configuration required for your setup.
+
 # Next Steps
 For Control Plane, follow the steps from [Control Plane README](../control-plane/README.md)
 
 For Data Plane, follow the steps from [Data Plane README](../data-plane/README.md)
-
-
