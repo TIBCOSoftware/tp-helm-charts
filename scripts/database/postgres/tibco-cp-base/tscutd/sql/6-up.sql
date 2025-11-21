@@ -1,0 +1,104 @@
+-- Database schema changes for 1.3.0-HF4
+
+-- PCP-7749: Add new HELMREPO resource
+-- PCP-7755: Add a flag to mark a Helm Repo Resource Instance as default for a given Subscription (add readOnly flag)
+-- PCP-7821: Add a flag to identify the TIBCO Helm Repo Resource Instance
+-- add alias field to helm repo resource metadata
+INSERT INTO V3_RESOURCES (RESOURCE_ID, NAME, DESCRIPTION, TYPE, RESOURCE_METADATA, RESOURCE_LEVEL, HOST_CLOUD_TYPE)
+values('HELMREPO', 'Custom Helm Repo', 'Custom Helm Repo', 'Custom Helm Repo', '{"default":false,"readOnly":false,"fields":[{"key":"alias","name":"Repository alias","order":1,"regex":"","dataType":"string","required":true,"fieldType":"text","maxLength":"255","value":"test-repo-100"},{"key":"url","name":"Registry URL","order":2,"regex":"","dataType":"string","required":true,"fieldType":"text","maxLength":"255"},{"key":"repo","name":"Repository","order":3,"regex":"","dataType":"string","required":true,"fieldType":"text","maxLength":"255"},{"key":"username","name":"Username","order":4,"regex":"","dataType":"string","required":false,"fieldType":"text","maxLength":"255"},{"key":"password","name":"Password","order":5,"regex":"","dataType":"string","required":false,"fieldType":"password","maxLength":"255"},{"key":"pullLatestCharts","name":"Provision latest patch version","order":6,"regex":"","dataType":"bool","required":true,"fieldType":"text","maxLength":"255"}]}','PLATFORM','{k8s,control-tower}')
+ON CONFLICT DO NOTHING;
+
+--
+--  PCP-7918: Add RESOURCE_INSTANCE_IDS column from V3_DATA_PLANES table in the view V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES
+--
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES CASCADE;
+CREATE MATERIALIZED VIEW V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES
+AS
+SELECT
+    DP.SUBSCRIPTION_ID,
+    DP.DP_ID,
+    DP.NAMESPACES,
+    DP.NAME,
+    DP.DESCRIPTION,
+    DP.HOST_CLOUD_TYPE,
+    DP.RESOURCE_INSTANCE_IDS,
+    DP.DP_CONFIG,
+    DP.STATUS,
+    DP.REGISTERED_REGION,
+    DP.RUNNING_REGION,
+    DP.CREATED_DATE AS CREATED_TIME,
+    DP.MODIFIED_DATE,
+    DP.TAGS,
+    CI.CAPABILITIES,
+    AA.APPS,
+    RI.RESOURCE_INSTANCE_METADATA
+FROM ((
+    V3_DATA_PLANES DP
+        LEFT JOIN (
+        SELECT DP_ID, json_agg(row_to_json((
+            SELECT ColumnName
+            FROM (SELECT CAPABILITY_INSTANCE_ID, CAPABILITY_INSTANCE_NAME, CAPABILITY_INSTANCE_DESCRIPTION, CAPABILITY_ID, DISPLAY_NAME, CR.CAPABILITY_TYPE, CAPABILITY_INSTANCE_METADATA, NAMESPACE, CI.VERSION, STATUS, REGION, TAGS, CI.MODIFIED_TIME)
+                     AS ColumnName (CAPABILITY_INSTANCE_ID, CAPABILITY_INSTANCE_NAME, CAPABILITY_INSTANCE_DESCRIPTION, CAPABILITY_ID, CAPABILITY_NAME, CAPABILITY_TYPE, CAPABILITY_INSTANCE_METADATA, NAMESPACE, VERSION, STATUS, REGION, TAGS, MODIFIED_TIME)
+        ))) CAPABILITIES
+        FROM (V3_CAPABILITY_INSTANCES CI LEFT JOIN V3_CAPABILITY_METADATA CR USING (CAPABILITY_ID, CAPABILITY_TYPE))
+        GROUP BY DP_ID) CI USING (DP_ID)
+        LEFT JOIN (
+        SELECT DP_ID, json_agg(row_to_json((
+            SELECT ColumnName
+            FROM (SELECT APP_ID, APP_NAME, APP_VERSION, CAPABILITY_INSTANCE_ID, CAPABILITY_ID, CAPABILITY_VERSION, STATE, TAGS, A.MODIFIED_TIME)
+                     AS ColumnName (APP_ID, APP_NAME, APP_VERSION, CAPABILITY_INSTANCE_ID, CAPABILITY_ID, CAPABILITY_VERSION, STATE, TAGS, MODIFIED_TIME)
+        ))) APPS
+        FROM V3_APPS A
+        GROUP BY DP_ID) AA USING (DP_ID)
+    ))
+         LEFT JOIN V3_RESOURCE_INSTANCES RI ON RI.SCOPE='DATAPLANE' AND RI.SCOPE_ID=DP.DP_ID AND RI.RESOURCE_ID='SERVICEACCOUNT' AND RESOURCE_LEVEL='INFRA'
+    WITH DATA;
+
+CREATE UNIQUE INDEX VIEW_DATA_PLANE_CAPABILITY_INSTANCE_INDEX ON V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES (DP_ID);
+
+--
+-- PCP-7894: Recreate Materialized view V3_VIEW_USER_ACCOUNT_SUBSCRIPTION_DATA_PLANES for adding START_OF_CONTRACT_TIME and END_OF_CONTRACT_TIME
+--
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_USER_ACCOUNT_SUBSCRIPTION_DATA_PLANES CASCADE;
+CREATE MATERIALIZED VIEW V3_VIEW_USER_ACCOUNT_SUBSCRIPTION_DATA_PLANES
+AS
+SELECT
+    U.EMAIL,
+    U.FIRSTNAME,
+    U.LASTNAME,
+    A.DISPLAY_NAME,
+    A.HOST_PREFIX,
+    A.CREATED_TIME,
+    A.ACCOUNT_SETTINGS -> 'ownerLimit' as owner_limit,
+    A.comment as ACCOUNT_COMMENT,
+    S.SUBSCRIPTION_ID,
+    S.EXTERNAL_SUBSCRIPTION_ID,
+    S.TSC_ACCOUNT_ID,
+    S.SUBSCRIPTION_TYPE,
+    S.START_OF_CONTRACT_TIME,
+    S.END_OF_CONTRACT_TIME,
+    S.STATUS,
+    (SELECT count(*) from v3_data_planes where subscription_id = S.subscription_id) as DP_COUNT,
+    (SELECT coalesce(v2arq.soft_limit, v2r.soft_limit)) as dp_soft_limit,
+    DP.DATA_PLANES
+FROM ((
+    V2_SUBSCRIPTIONS S
+        LEFT JOIN (
+        SELECT SUBSCRIPTION_ID, json_agg(row_to_json((
+            SELECT ColumnName
+            FROM (SELECT DP_ID, NAME, DESCRIPTION, HOST_CLOUD_TYPE, STATUS, REGISTERED_REGION,RUNNING_REGION,CREATED_DATE,MODIFIED_DATE,CREATED_BY,MODIFIED_BY,TAGS,NAMESPACES,RESOURCE_INSTANCE_IDS,DP_CONFIG,EULA)
+                     AS ColumnName (DP_ID, NAME, DESCRIPTION, HOST_CLOUD_TYPE, STATUS,REGISTERED_REGION,RUNNING_REGION,CREATED_DATE,MODIFIED_DATE,CREATED_BY,MODIFIED_BY,TAGS,NAMESPACES,RESOURCE_INSTANCE_IDS,DP_CONFIG,EULA)
+        ))) DATA_PLANES
+        FROM V3_DATA_PLANES
+        GROUP BY SUBSCRIPTION_ID) DP USING (SUBSCRIPTION_ID)
+    ))
+         LEFT JOIN V2_USERS U ON U.USER_ENTITY_ID=S.CREATED_FOR
+         LEFT JOIN V2_ACCOUNTS A ON A.TSC_ACCOUNT_ID = S.TSC_ACCOUNT_ID
+         LEFT JOIN V2_RESOURCES v2r ON v2r.RESOURCE_NAME = 'DATA_PLANE_COUNT'
+         LEFT JOIN V2_ACCOUNTS_RESOURCES_QUOTA v2arq ON v2r.id = v2arq.id AND v2arq.TSC_ACCOUNT_ID = S.TSC_ACCOUNT_ID
+    WITH DATA;
+
+CREATE UNIQUE INDEX V3_VIEW_USER_ACCOUNT_SUBSCRIPTION_DATA_PLANES_INDEX ON V3_VIEW_USER_ACCOUNT_SUBSCRIPTION_DATA_PLANES (SUBSCRIPTION_ID);
+
+-- Update database schema at the end (earlier version is 1.3.0 i.e. 5)
+UPDATE schema_version SET version = 6;

@@ -21,8 +21,10 @@ Table of Contents
     * [Traefik Ingress Controller](#install-traefik-ingress-controller)
   * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
   * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
-  * [Generate and Create session-keys Secret (Required for Router Pods)](#generate-and-create-session-keys-secret-required-for-router-pods)
-  * [Bootstrap Chart values](#bootstrap-chart-values)
+  * [Create prerequisite secrets](#create-prerequisite-secrets)
+    * [Generate and Create session-keys Secret (Required)](#generate-and-create-session-keys-secret-required)
+    * [Generate and Create cporch-encryption-secret (Required)](#generate-and-create-cporch-encryption-secret-required)
+  * [tibco-cp-base Chart values](#tibco-cp-base-chart-values)
   * [Next Steps](#Next-steps)
 * [Clean-up](#clean-up)
 <!-- TOC -->
@@ -537,7 +539,7 @@ traefik   traefik.io/ingress-controller   <none>       7h11m
 
 ## Export additional variables required for chart values
 ```bash
-## Bootstrap and Configuration charts specific details
+## Configuration charts specific details
 export TP_MAIN_INGRESS_CONTROLLER=alb
 export TP_CONTAINER_REGISTRY_URL="csgprduswrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
 export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
@@ -546,8 +548,10 @@ export TP_MY_DOMAIN_CERT_ARN="" # replace with your TP_MY_DOMAIN certificate arn
 export TP_TUNNEL_DOMAIN_CERT_ARN="" # replace with your TP_TUNNEL DOMAIN certificate arn
 ```
 
-## Generate and Create session-keys Secret (Required for Router Pods)
-This secret is a required prerequisite for the platform-bootstrap chart. If this secret is not present in the Control Plane namespace, the router pods will fail to start correctly.
+## Create prerequisite secrets
+
+### Generate and Create session-keys Secret (Required)
+This secret is a required prerequisite for the tibco-cp-base chart. If this secret is not present in the Control Plane namespace, the router pods will fail to start correctly.
 ```bash
 # Generate session keys and export as environment variables
 export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
@@ -559,15 +563,26 @@ kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
   --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
 ```
 
-## Bootstrap Chart values
+### Generate and Create cporch-encryption-secret (Required)
+This secret is a required prerequisite for the tibco-cp-base chart.
+```bash
+# Generate encryption secret
+export CP_ENCRYPTION_SECRET=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c44)
 
-Following values can be stored in a file and passed to the platform-boostrap chart while deploying this chart.
+# Create secret in Control Plane namespace
+kubectl create secret -n ${CP_INSTANCE_ID}-ns generic cporch-encryption-secret \
+  --from-literal=CP_ENCRYPTION_SECRET=${CP_ENCRYPTION_SECRET}
+```
+
+## tibco-cp-base Chart values
+
+Following values can be stored in a file and passed to the tibco-cp-base chart while deploying this chart.
 
 > [!IMPORTANT]
 > These values are for example only.
 
 ```bash
-cat > aws-bootstrap-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_TUNNEL_DOMAIN}, ${TP_MY_DOMAIN}, ${TP_VPC_CIDR}, ${TP_SERVICE_CIDR}, ${TP_STORAGE_CLASS_EFS}, ${TP_INGRESS_CONTROLLER}, ${TP_MY_DOMAIN_CERT_ARN}, ${TP_TUNNEL_DOMAIN_CERT_ARN}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
+cat > aws-tibco-cp-base-values.yaml <(envsubst '${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${CP_INSTANCE_ID}, ${TP_TUNNEL_DOMAIN}, ${TP_MY_DOMAIN}, ${TP_VPC_CIDR}, ${TP_SERVICE_CIDR}, ${TP_STORAGE_CLASS_EFS}, ${TP_INGRESS_CONTROLLER}, ${TP_MY_DOMAIN_CERT_ARN}, ${TP_TUNNEL_DOMAIN_CERT_ARN}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
 hybrid-proxy:
   # uncomment the following section (ports and service values), if you want to use a load balancer service for hybrid-proxy
   # ports:
@@ -625,8 +640,6 @@ hybrid-proxy:
   #           pathType: Prefix
   #           port: 105
 router-operator:
-  ingress:
-    enabled: true
   # SecretNames for environment variables TSC_SESSION_KEY and DOMAIN_SESSION_KEY.
   tscSessionKey:
     secretName: session-keys  # default secret name
@@ -634,6 +647,8 @@ router-operator:
   domainSessionKey:
     secretName: session-keys  # default secret name
     key: DOMAIN_SESSION_KEY
+  ingress:
+    enabled: true
     ingressClassName: "${TP_INGRESS_CONTROLLER}"
     #   # uncomment annotations from following section, as per your requirements
     #   annotations:

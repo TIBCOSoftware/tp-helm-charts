@@ -1,6 +1,6 @@
 # Setting up a Control Tower Data Plane with a Single-Cluster Kubernetes Cluster on MicroK8s
 
-This workshop guides you through setting up a single-cluster Kubernetes cluster on MicroK8s in preparation for provisioning a Control Tower Data Plane on TIBCO Platform. We will create a single MicroK8s cluster on your machine with host storage for persistence and provision Observability backend servers for collecting OpenTelemetry data including Prometheus and ElasticSearch if not already available or configured. It provisions a Nginx ingress controller in preparation for receiving incoming requests from non-Kubernetes workloads such as metrics and traces from BusinessWorks User Apps running outside the Kubernetes cluster. It also also allows you to monitor and manage EMS servers running outside the Kuberbetes cluster.
+This workshop guides you through setting up a single-cluster Kubernetes cluster on MicroK8s in preparation for provisioning a Control Tower Data Plane on TIBCO Platform. We will create a single MicroK8s cluster on your machine with host storage for persistence and provision Observability backend servers for collecting OpenTelemetry data including Prometheus and ElasticSearch if not already available or configured. It provisions an ingress controller (Traefik by default; Nginx as an alternative) in preparation for receiving incoming requests from non-Kubernetes workloads such as metrics and traces from BusinessWorks User Apps running outside the Kubernetes cluster. It also also allows you to monitor and manage EMS servers running outside the Kuberbetes cluster.
 
 ---
 ## Prerequisites for a Control Tower Data Plane on TIBCO Platform
@@ -11,8 +11,12 @@ This workshop guides you through setting up a single-cluster Kubernetes cluster 
    - Memory: 8 GB RAM
    - Storage: 20 GB disk space
    - CPU architecture: x86_64
-- Nginx Ingress Controller 
-   - Inbound OpenTelemetry data and TEA agent leader election
+- kubectl binary (for EC2 VM)
+   - Install using: `sudo snap install kubectl --classic`
+- Ingress Controller ([install steps](#install-ingress-controller))
+   - Traefik (default ingress controller)
+   - Nginx
+   - Used for inbound OpenTelemetry data and TEA agent leader election
 - Host Storage Class
    - Persistence for HawkConsole
 - Observability backend resources for collecting OpenTelemetry data for BusinessWorks applications
@@ -28,7 +32,9 @@ This **`readme`** covers the prerequisites to get you started with a single-clus
 ## Steps
 1. [Installation of MicroK8s](#installation-of-microk8s)
 2. [Setting Up Storage Class](#setting-up-storage-class)
-3. [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
+3. [Install Ingress Controller](#install-ingress-controller)
+   - [Install Traefik Ingress Controller (default)](#install-traefik-ingress-controller)
+   - [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
 4. [Install Prometheus for Metrics](#install-prometheus-for-metrics)
 5. [Install ElasticSearch for Traces](#install-elasticsearch-for-traces)
 6. [Create ElasticSearch Index Template for Traces](#create-elasticsearch-index-template-for-traces)
@@ -122,7 +128,62 @@ For example, you can setup to use NFS for persistence volumes on MicroK8s, refer
 
 ---
 
-## Install Nginx Ingress Controller
+## Install Ingress Controller
+
+The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
+
+The incoming requests include:
+- OpenTelemtry data like traces and metrics from BW5 applications
+- TEA Agent leader election notification for BW6 applications
+
+In the current release, Control Tower Data Plane supports Traefik (default) and Nginx ingress controllers.
+
+> [!IMPORTANT]
+>
+> Choose exactly one ingress controller for your setup. Traefik is recommended as the default for this workshop.
+
+### Install Traefik Ingress Controller
+
+Traefik is the default ingress controller when registering the Bare‑Metal Data Plane (BMDP). If you choose to use Nginx instead, install the Nginx ingress controller and use its ingress class in the subsequent steps.
+
+> [!NOTE]
+>
+> - If you selected the Basic setup of the Control Tower Data Plane, you can download the generated installation script `dpinstall.sh` to install MicroK8s on your system with an option to also install an Ingress Controller while registering the Data Plane. You can skip this section and move on to the section [Install Prometheus for Metrics](#install-prometheus-for-metrics).
+> - If you choose not to install the Ingress Controller during the `dpinstall.sh` run to register the Control Tower Data Plane, you must ensure the ingress class name matches what is configured in the Basic setup configuration wizard. For Traefik the default example class name is `<dpname>-traefik-ingress`.
+
+1. Add the Traefik Helm repository and update:
+
+   ```bash
+   helm repo add traefik https://traefik.github.io/charts
+   helm repo update
+   ```
+
+2. Install the Traefik ingress controller with a fixed class name on its own namespace (exposes a NodePort/ClusterIP with your host IP via externalIPs on bare metal):
+
+   ```bash
+   DATAPLANE_NAME=<dpname>
+   MACHINE_IP=<your-machine-private-ip>
+   INGRESS_NS=ingress
+   INGRESS_CLASS_NAME=${DATAPLANE_NAME}-traefik-ingress
+   helm upgrade --install traefik traefik/traefik --namespace ${INGRESS_NS} --create-namespace --set ingressClass.enabled=true --set ingressClass.name=${INGRESS_CLASS_NAME} --set service.spec.externalIPs[0]=${MACHINE_IP}
+   ```
+
+   - Validate your ingress class
+
+      ```
+      $ kubectl get ingressclass
+      NAME                      CONTROLLER                      PARAMETERS   AGE
+      <dpname>-traefik-ingress   traefik.io/ingress-controller   <none>       26s
+      ```
+
+> [!NOTE]
+>
+> - Please note down the name of the Ingress Controller class name `<dpname>-traefik-ingress` (example above); you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform.
+> - Make sure a host name is assigned to the `MACHINE_IP` or create a DNS record for the IP; you will need the host name to set as the `FQDN` name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform.
+
+---
+
+### Install Nginx Ingress Controller
 
 The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
 
@@ -228,15 +289,19 @@ Alternatively, you can also install Prometheus on another machine that allows yo
       helm upgrade --install prometheus prometheus-community/prometheus --set server.retention=${RETENTION_POLICY} --namespace ${PROM_NS} --create-namespace -f ${SCRAPE_CONFIG_FILE}
       ```
 
-   - [Install Nginx Ingress Controller](#install-nginx-ingress-controller) for exposing metrics query service of target Control Tower Data Plane
-      - Apply ingress [prometheus_ingress.yaml](./prometheus_ingress.yaml) to ensure the `ingressClassName`, `namespace` and `host` are set proper accordingly
-         - The ingress for Prometheus allows allows other Control Tower Data Planes running outside the cluster to query
-         - This may create a public endpoint with no authentication required, depending on your ingress controller and machine network configuration
+   - Install an Ingress Controller for exposing the metrics query service of the target Control Tower Data Plane
+     - For Nginx, use [prometheus_ingress.yaml](./prometheus_ingress.yaml)
+     - For Traefik, use [prometheus_ingress_traefik.yaml](./prometheus_ingress_traefik.yaml)
+     - Ensure `ingressClassName`, `namespace` and `host` placeholders are updated accordingly
+        - The ingress for Prometheus allows other Control Tower Data Planes running outside the cluster to query
+        - This may create a public endpoint with no authentication required, depending on your ingress controller and machine network configuration
 
-         ```bash
-         PROM_INGRESS_FILE=prometheus_ingress.yaml
-         kubectl apply -f ${PROM_INGRESS_FILE}
-         ```
+        ```bash
+        # Choose one manifest matching your ingress controller
+        PROM_INGRESS_FILE=prometheus_ingress.yaml               # Nginx
+        # PROM_INGRESS_FILE=prometheus_ingress_traefik.yaml     # Traefik
+        kubectl apply -f ${PROM_INGRESS_FILE}
+        ```
 
    - Check the connectivity with the following:
 
@@ -301,11 +366,15 @@ If you do not have an existing ElasticSearch server server already installed in 
       helm upgrade --install elasticsearch elastic/elasticsearch --set persistence.enabled=true,replicas=1 --set volumeClaimTemplate.storageClassName=${ES_STORAGE_CLASS},volumeClaimTemplate.resources.requests.storage=${ES_STORAGE_SIZE} -n ${ES_NS} --create-namespace
       ```
 
-   - Apply ingress [elastic_ingress.yaml](./elasticsearch_ingress.yaml) to ensure the `ingressClassName`, `namespace` and `host` are set proper accordingly
-      - The ingress for ElasticSearch allows allows other Control Tower Data Planes running outside the cluster to query
+   - Apply the appropriate ingress manifest to ensure the `ingressClassName`, `namespace` and `host` are set properly
+      - For Nginx, use [elasticsearch_ingress.yaml](./elasticsearch_ingress.yaml)
+      - For Traefik, use [elasticsearch_ingress_traefik.yaml](./elasticsearch_ingress_traefik.yaml)
+      - The ingress for ElasticSearch allows other Control Tower Data Planes running outside the cluster to query
 
       ```bash
-      ES_INGRESS_FILE=elasticsearch_ingress.yaml
+      # Choose one manifest matching your ingress controller
+      ES_INGRESS_FILE=elasticsearch_ingress.yaml                 # Nginx
+      # ES_INGRESS_FILE=elasticsearch_ingress_traefik.yaml       # Traefik
       kubectl apply -f ${ES_INGRESS_FILE}
       ```
    

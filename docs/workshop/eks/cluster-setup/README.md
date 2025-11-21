@@ -43,16 +43,30 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * helm (v3.18.0)
 
 For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
-The subsequent steps can be followed from within the container.
+All the CLI commands in this workshop can be executed inside the container created using the docker image.
 
 > [!IMPORTANT]
 > Please use --platform while building the image with [docker buildx commands](https://docs.docker.com/engine/reference/commandline/buildx_build/).
 > This can be different based on your [machine OS and hardware architecture](https://docs.docker.com/build/building/multi-platform/)
 
-A sample command on Linux AMD64 is
+Sample command on Linux AMD64 to build the docker image:
 ```bash
 docker buildx build --platform="linux/amd64" --progress=plain -t workshop-cli-tools:latest --load .
 ```
+
+Sample command to run the container:
+```bash
+## To start an interactive shell
+docker run -it --rm workshop-cli-tools:latest /bin/bash
+
+## Mount your working directory with -v $(pwd):/workspace if you need access to local files inside the container.
+
+## All subsequent commands in this workshop can be run from within this container shell.
+```
+
+> [!NOTE]
+> Please make sure that once the interactive shell session is terminated, the environment 
+> variables need to be exported/set again for executing the next set of commands
 
 ## Recommended IAM Policies
 It is recommended to have the [Minimum IAM Policies](https://eksctl.io/usage/minimum-iam-policies/) attached to the role which is being used for the cluster creation.

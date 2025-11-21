@@ -122,6 +122,7 @@ export TP_SERVICE_CIDR="10.0.0.0/16" # CIDR for service cluster IPs
 export TP_SERVICE_DNS_IP="10.0.0.10" # IP address assigned to the Kubernetes DNS service
 export TP_AKS_SUBNET_NAME="aks-subnet" # name of AKS subnet resource
 export TP_AKS_SUBNET_CIDR="10.4.0.0/20" # CIDR of the AKS subnet address space
+export TP_ADDON_ENABLE_APPLICATION_GW="false" # true to enable application gateway ingress controller
 export TP_APPLICATION_GW_SUBNET_NAME="appgw-subnet" # name of application gateway subnet
 export TP_APPLICATION_GW_SUBNET_CIDR="10.4.17.0/24" # CIDR of the application gateway subnet address space
 export TP_PUBLIC_IP_NAME="public-ip" # name of public ip resource
@@ -169,7 +170,7 @@ pre-aks-cluster-script will create following Azure resources
 * Subnets for
   * AKS cluster nodegroups
   * AKS cluster API Server
-  * Application gateway
+  * Application gateway (if enabled)
   * NAT gateway
 
 Change the directory to [aks/scripts/](../../aks/scripts/) to proceed with the next steps.
