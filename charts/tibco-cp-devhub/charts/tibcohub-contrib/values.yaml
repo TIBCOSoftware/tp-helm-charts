@@ -2,6 +2,34 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+      customCertSecret: ""
+    enableResourceConstraints: true
+    serviceAccount: ""
+    proxy:
+      http: ""
+      https: ""
+      noproxy: ""
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+image:
+  name: infra-container-image-extractor
+  registry: ""
+  repo: ""
+  tag: 170-distroless
+  pullPolicy: IfNotPresent
+
+podAnnotations: {}
+
 capability:
   name: tibco-hub
 
@@ -11,20 +39,8 @@ source:
 tibcoHub:
   image:
     name: "dx-tibco-hub-cp-contrib"
-    tag: "236"
+    tag: "257"
     pullPolicy: IfNotPresent
-
-containerImageExtractor:
-  image:
-    name: "infra-container-image-extractor"
-    registry: ""
-    repo: ""
-    tag: 170-distroless
-    pullPolicy: IfNotPresent
-
-image:
-  registry: ""
-  repo: ""
 
 target:
   directory: /efs/tibcohub
@@ -53,10 +69,6 @@ securityContext:
       - ALL
       - CAP_NET_RAW
 
-# global values used by the chart. These values gets propagated to sub-charts.
-global:
-  tibco:
-    enableLogging: true
 
 scripts:
   resources:

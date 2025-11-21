@@ -1,0 +1,64 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: uninstall-developer-hub-{{ randAlphaNum 4 |  lower }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "tibcohub-base.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 60
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "tibcohub-base.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      containers:
+      - name: developer-hub-efs-post-delete-job
+        image: {{ include "tibcohub-base.image.registry" .}}{{"/"}}{{ include "tibcohub-base.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/sh"]
+        args: [ "-c", "rm -rf /private/tsc/config/capabilities/platform/tibcohub; rm -rf /private/tsc/contributors/tibcohub" ]
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- with .Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "tibcohub-base.enableResourceConstraints" . ) "true" }}
+        resources:
+          {{- toYaml .Values.scripts.resources | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+          - name: store-vol
+            mountPath: /private/
+      volumes:
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: control-plane-pvc
+{{- if (include "tibcohub-base.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tibcohub-base.container-registry.secret" . }}
+{{- end }}

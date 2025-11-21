@@ -10,30 +10,32 @@ metadata:
   name: capability-contribution-{{ .Values.capability.name }}-{{ randAlphaNum 4 | lower }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app.cloud.tibco.com/created-by: {{ .Values.capability.name }}
-    app.kubernetes.io/name: capability-contribution-{{ .Values.capability.name }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    {{- include "tibcohub-contrib.labels" . | nindent 4 }}
 spec:
-  backoffLimit: 0
+  backoffLimit: 2
   ttlSecondsAfterFinished: 3600 # wait for 1 hour before deleting the pod and job
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        app.kubernetes.io/name: capability-contribution-{{ .Values.capability.name }}
-        {{- include "tp-cp-tibcohub-contrib.networkPolicyLabels" . | nindent 8 }}
+        {{- include "tibcohub-contrib.selectorLabels" . | nindent 8 }}
+        {{- include "tibcohub-contrib.networkPolicyLabels" . | nindent 8 }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
+      # serviceAccountName: {{ include "tibcohub-contrib.service-account-name" . }}
       {{- if .Values.podSecurityContext}}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end}}
       containers:
       - name: container-image-extractor
-        image: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}{{"/"}}{{ include "tp-cp-tibcohub-contrib.image.repository" .}}{{"/"}}{{ .Values.containerImageExtractor.image.name }}:{{ .Values.containerImageExtractor.image.tag}}
-        imagePullPolicy: IfNotPresent
+        image: {{ include "tibcohub-contrib.image.registry" $dot }}{{"/"}}{{ include "tibcohub-contrib.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+        imagePullPolicy: Always
         {{- with $.Values.probes.startupProbe }}
         startupProbe:
           {{- toYaml . | nindent 10 }}
@@ -42,15 +44,15 @@ spec:
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
-        {{- if eq (include "tp-cp-tibcohub-contrib.enableResourceConstraints" $dot ) "true" }}
+        {{- if eq (include "tibcohub-contrib.enableResourceConstraints" $dot ) "true" }}
         resources:
         {{- toYaml $.Values.scripts.resources | nindent 10 }}
         {{- end }}
         env:
         - name: DOCKER_REGISTRY
-          value: {{ include "tp-cp-tibcohub-contrib.image.registry" .}}           # docker registry where source image is present
+          value: {{ include "tibcohub-contrib.image.registry" .}}           # docker registry where source image is present
         - name: SOURCE_DOCKER_IMAGE
-          value: "{{ include "tp-cp-tibcohub-contrib.image.registry" .}}/{{ include "tp-cp-tibcohub-contrib.image.repository" .}}/{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"               # source docker image name
+          value: "{{ include "tibcohub-contrib.image.registry" $dot }}{{"/"}}{{ include "tibcohub-contrib.tibcohub.image.repository" $dot }}{{"/"}}{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}"
         - name: IMAGE_TEMP_DIR
           value: "/tmp/tmp-{{ .Values.capability.name }}" # temporary directory to be used by container-image-extractor for downloading and extracting docker image
         - name: SOURCE_DIRS 
@@ -59,7 +61,21 @@ spec:
           value: {{ .Values.target.directory | quote }}         # directory in CP EFS  
         - name: LOG_LEVEL
           value: debug
-        {{- if (include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
+        - name: CLEAN_UP_TARGET_DIRS
+          value: "true"
+        {{- if (include "tibcohub-contrib.cp-no-proxy" $dot ) }}
+        - name: NO_PROXY
+          value: "{{ include "tibcohub-contrib.cp-no-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "tibcohub-contrib.cp-http-proxy" $dot ) }}
+        - name: HTTP_PROXY
+          value: "{{ include "tibcohub-contrib.cp-http-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "tibcohub-contrib.cp-https-proxy" $dot ) }}
+        - name: HTTPS_PROXY
+          value: "{{ include "tibcohub-contrib.cp-https-proxy" $dot }}"
+        {{- end }}
+        {{- if (include "tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
         - name: SSL_CERT_DIR
           value: "/etc/certs/"
         {{- end }}
@@ -72,35 +88,34 @@ spec:
         - name: kaniko-vol
           mountPath: /kaniko/.docker
 # mount this secret only if private container registry is configured for CP.
-{{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
+{{- if (include "tibcohub-contrib.container-registry.secret" .) }}
         - mountPath: /tibco/containerregistry
           name: container-registry-secret
 {{- end }}
 # mount this secret only if private container registry with custom certs is configured for CP.
-{{- if (include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
+{{- if (include "tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
         - mountPath: /etc/certs
           name: container-registry-custom-cert-secret
           readOnly: true
 {{- end }}
       volumes:
         - name: temp
-          emptyDir:
-            sizeLimit: 500Mi
+          emptyDir: {}
         - name: store-vol
           persistentVolumeClaim:
-            claimName: {{ include "tp-cp-tibcohub-contrib.pvc-name" . }}
+            claimName: {{ include "tibcohub-contrib.pvc-name" . }}
         - emptyDir: {}
           name: kaniko-vol
-{{- if (include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
+{{- if (include "tibcohub-contrib.container-registry.custom-cert-secret" $dot) }}
         - name: container-registry-custom-cert-secret
           secret:
             defaultMode: 420
-            secretName: {{ include "tp-cp-tibcohub-contrib.container-registry.custom-cert-secret" $dot }}
+            secretName: {{ include "tibcohub-contrib.container-registry.custom-cert-secret" $dot }}
 {{- end }}
-{{- if (include "tp-cp-tibcohub-contrib.container-registry.secret" .) }}
+{{- if (include "tibcohub-contrib.container-registry.secret" .) }}
         - name: container-registry-secret
           secret:
-            secretName: {{ include "tp-cp-tibcohub-contrib.container-registry.secret" . }}
+            secretName: {{ include "tibcohub-contrib.container-registry.secret" . }}
       imagePullSecrets:
-        - name: {{ include "tp-cp-tibcohub-contrib.container-registry.secret" . }}
+        - name: {{ include "tibcohub-contrib.container-registry.secret" . }}
 {{- end }}

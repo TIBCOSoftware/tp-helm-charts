@@ -2,27 +2,37 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-capabilities:
-  tibcohub:
-    # if set to true then existing recipe will be overwritten by latest recipe.
-    overwriteRecipe: "true"
-    # set to true for latest version of recipe
-    isLatest: "true"
-    # Timestamp of capability release
-    releaseDate: "2025/10/30"
-    # Either a link to document or the document itself specifying _what was fixed in this release.
-    releaseNotes: "#cshid=new_features"
-    # helm chart and image version for devhubprovisioner, default helm chart version is latest
-    tibco-developer-hub:
-      version: ""
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+      customCertSecret: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+    serviceAccount: ""
+    proxy:
+      httpProxy: ""
+      httpsProxy: ""
+      noProxy: ""
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+# Sub charts
+tibcohub-recipes:
+  enabled: true
+
+tibcohub-contrib:
+  enabled: true
 
 image:
-  name: common-distroless-base-debian-debug
-  registry: ""
-  repo: ""
-  tag: 12
+  name: dx-alpine
+  tag: 3.22
   pullPolicy: IfNotPresent
-
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.
 # The user, group, and filesystem group IDs are all set to 1000.
@@ -55,6 +65,8 @@ scripts:
     limits:
       cpu: 300m
       memory: 300Mi
+
+imagePullSecret:
 
 probes:
   startupProbe: {}
