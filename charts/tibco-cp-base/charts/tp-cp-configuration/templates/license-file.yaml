@@ -1,0 +1,142 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-configuration.name" . }}-dp-license-file
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-configuration.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.13.0",
+      "minCPVersion": "1.13.0",
+      "maxCPVersion": "1.13.0",
+      "releaseDate": {{ .Values.capabilities.licensefile.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.licensefile.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.13.0",
+      "minDPVersion": {
+         "dp-core-infrastructure": "1.12.0",
+         "dp-configure-namespace": "1.12.0"
+      }
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "dp-license-file",
+            "description": "DP License File",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: tp-dp-license-file
+          namespace: ${NAMESPACE}
+          version: {{ .Values.capabilities.licensefile.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                image:
+                  tag: {{ .Values.capabilities.licensefile.tag | quote }}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+      deployInAllDpNamespaces: true
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-cp-configuration.name" . }}-dp-license-file-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-cp-configuration.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-configuration.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: dp-license-file
+        image: {{ include "tp-cp-configuration.image.registry" .}}{{"/"}}{{ include "tp-cp-configuration.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if eq (include "tp-cp-configuration.enableResourceConstraints" . ) "true" }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "licensefile"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/infra"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.13.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.licensefile.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.licensefile.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "tp-cp-configuration.name" . }}-dp-license-file-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "tp-cp-configuration.name" . }}-dp-license-file-volume
+          configMap:
+            name: {{ include "tp-cp-configuration.name" . }}-dp-license-file
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "tp-cp-configuration.name" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-configuration.pvc-name" . }}
+      imagePullSecrets:
+        {{- if (include "tp-cp-configuration.container-registry.secret" .) }}
+        - name: {{ include "tp-cp-configuration.container-registry.secret" . }}
+        {{- end}}

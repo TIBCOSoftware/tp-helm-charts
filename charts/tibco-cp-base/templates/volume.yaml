@@ -1,0 +1,33 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{- with .Values.global.external.storage }}
+{{- if or .storageClassName .volumeName }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ if .pvcName -}}{{ .pvcName }}{{ else -}}{{ include "tibco-cp-base.pvc" $ }}{{- end }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "tibco-cp-base.labels" $ | nindent 4 }}
+spec:
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  {{- if .resources }}
+  resources:
+    requests:
+      storage: {{ .resources.requests.storage }}
+  {{- end }}
+  {{- if .volumeName }}
+  volumeName: {{ .volumeName }}
+  {{- end }}
+  {{- if .storageClassName }}
+  storageClassName: {{ .storageClassName }}
+  {{- end }}
+{{- end }}
+{{- end }}

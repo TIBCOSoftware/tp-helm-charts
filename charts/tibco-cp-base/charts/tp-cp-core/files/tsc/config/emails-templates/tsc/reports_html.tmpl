@@ -1,0 +1,328 @@
+
+{{/* ############################################################################################### */}}
+{{/*                                                                                                 */}}
+{{/*  For new non-sensitive email categories, add entry to ../emailservice/emailservice.json file.   */}}
+{{/*                                                                                                 */}}
+{{/* ############################################################################################### */}}
+
+{{define "email-subjects"}}
+    {{- if eq .category "Welcome"}}{{if .NewUser}}Please activate your TIBCO® Platform {{if .ProductDisplayName}}{{.ProductDisplayName | trimSymbols}}{{end}} {{if .AccountTypeDisplayName}}{{.AccountTypeDisplayName}}{{else}}subscription{{end}}{{else}}Your TIBCO® Platform {{if .ProductDisplayName}}{{.ProductDisplayName | trimSymbols}}{{end}} {{if .AccountTypeDisplayName}}{{.AccountTypeDisplayName}}{{else}}subscription{{end}} has been activated{{end}}
+    {{- else if eq .category "CPASSProvision"}}Your TIBCO® Platform subscription has been activated
+    {{- else if eq .category "CPASSNotifyShipTo"}}Purchase Order for TIBCO® Platform provisioned successfully
+    {{- else if eq .category "InviteUser"}}Invitation to join TIBCO® Platform
+    {{- else if eq .category "RequestSAMLToUser"}}Request to enable Use Corporate Account configuration for {{.Company}}
+    {{- else if eq .category "RequestSAMLToTibco"}}Request to enable Use Corporate Account configuration for {{.Company}}
+    {{- else if eq .category "IdPConfigurationsUpdatedNotificationToUser"}}Corporate Account configuration update request for {{.Company}} completed successfully
+    {{- else if eq .category "EnableTASignIn"}}Sign in with TIBCO Accounts to TIBCO® Platform
+    {{- else if eq .category "ResetPassword"}}TIBCO Platform password reset
+    {{- else if eq .category "AlertsNotification"}}TIBCO® Platform: {{.Severity}}: {{.AlertName | decodeHTMLSafe}} triggered{{- end}}
+{{end}}
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.=w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Avenir Next'; width: 100%;">
+<!--Header of the email-->
+<head>
+    <!-- Other Meta Tags -->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+</head>
+<body style="font-family: 'Avenir Next'; background: #eeeeee;">
+<div style="display:none !important;
+                   visibility:hidden;
+                   mso-hide:all;
+                   font-size:1px;
+                   color:#ffffff;
+                   line-height:1px;
+                   max-height:0px;
+                   max-width:0px;
+                   opacity:0;
+                   overflow:hidden;">
+    Here’s everything you need to get started
+</div>
+<div class="container" style="font-family: 'Avenir Next';  width: 700px; height:auto; display: block; margin: 0 auto; background: #f1f1f1; min-height: 120px; font-style: normal;font-size: 16px;">
+    <div id="TibcoControlPlaneLogo" class="banner-container">
+        <img style="width: 700px; margin-top: 3px; margin-bottom: 8px; max-width: 120px;  height: auto; padding: 25px 0px 0 300px;" src="{{.ImageHostURL}}/cp_logo.png" alt="TIBCO® Software Inc."/>
+    </div>
+
+{{- if eq .category "CPASSProvision"}}
+        <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+            <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+        </div>
+
+        <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+            <br><h1 class="message" style="font-size: 30px; font-weight: 700; text-align: center; line-height: 38px; color: #212121; margin-top: 0px;">Welcome to the TIBCO<sup>&reg;</sup> Platform</h1><br>
+            <span style="padding: 0px 8px 8px 8px;">Hi<a href="#" style="text-decoration:none;color: #212121;">{{if not .NewUser}} {{.FirstName}}{{end}}</a>,</span>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">Welcome to the TIBCO<sup>&reg;</sup> Platform!</p>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">You are now subscribed to TIBCO<sup>&reg;</sup> Platform which enables you to connect to TIBCO workloads in either a Kubernetes or an On-premises data plane of your choice.</p>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">Click on the link below to access your company’s account on TIBCO<sup>&reg;</sup> Control Plane.</p>
+            <div style="display: flex;justify-content: center;margin-top: 20px;"><a href="{{.ActionURL}}"
+                                                                                    class="btn-primary btn-activate"
+                                                                                    style="font-family: 'Avenir Next';
+                           background-color: #1774E5;
+                           border-radius: 3px;
+                           font-size: 16px;
+                           padding: 15px;
+                           white-space: nowrap;
+                           line-height: 1;
+                           letter-spacing: 1px;
+                           margin: 0 auto;
+                           color: #FFFFFF;">Sign in</a></div>
+            <br>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">TIBCO strongly recommends that you add an Admin to your account.</p>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">Please also see the <a style="color: #3e8ddd; text-decoration: none;" href="{{.DocBaseURL}}" target="_blank">product documentation</a> for more information about additional components accessible from GitHub.</p>
+            <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+        </div>
+{{- else if eq .category "Welcome"}}
+            <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+                <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+            </div>
+
+             <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+                <br>
+                <span style="padding: 0px 8px 8px 8px;">Hi<a href="#" style="text-decoration:none;color: #212121;">{{if not .NewUser}} {{.FirstName}}{{end}}</a>,</span>
+                <p style="margin:0;padding: 8px 0px 8px 8px;">Thank you for subscribing to TIBCO<sup>&reg;</sup> Platform{{if .ProductDisplayName}}
+                    {{.ProductDisplayName}}.{{else}}.{{end}} {{if .PlanDisplayName}}You have subscribed to our
+                    {{.PlanDisplayName | trimSymbols}}.{{end}}</p>
+
+                <div style="display: flex;justify-content: center;margin-top: 20px;"><a href="{{.ActionURL}}"
+                                                                                                    class="btn-primary btn-activate"
+                                                                                                    style="font-family: 'Avenir Next';
+                                       background-color: #1774E5;
+                                       border-radius: 3px;
+                                       font-size: 16px;
+                                       padding: 15px;
+                                       white-space: nowrap;
+                                       line-height: 1;
+                                       letter-spacing: 1px;
+                                       margin: 0 auto;
+                                       color: #FFFFFF;">Sign in</a></div>
+            <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+            </div>
+
+{{- else if eq .category "CPASSNotifyShipTo"}}
+        <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+            <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+        </div>
+
+        <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+            <br><h1 class="message" style="font-size: 30px; font-weight: 700; text-align: center; line-height: 38px; color: #212121; margin-top: 0px;">Welcome to the TIBCO<sup>&reg;</sup> Platform</h1><br>
+            <span style="padding: 0px 8px 8px 8px;">Hi<a href="#" style="text-decoration:none;color: #212121;"> Purchaser,
+            <p style="margin:0;padding: 8px 0px 8px 8px;">This is to let you know that your order for the provisioning of TIBCO<sup>&reg;</sup> Platform has been completed successfully.</p>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">An email with instructions on how to access the details has been sent to the owner(s) of the account.</p>
+            <p style="margin:0;padding: 8px 0px 8px 8px;">Please also see the <a style="color: #3e8ddd; text-decoration: none;" href="{{.DocBaseURL}}" target="_blank">product documentation</a> for more information about additional components accessible from GitHub.</p>
+            <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+        </div>
+{{- else if eq .category "InviteUser"}}
+    <div id="logo" class="banner-container" style="text-align: center;width: 650px; height:280px;background: #0E2D65; margin-left: 25px;">
+        <img style="width: 563px; height:266px; text-align: center; padding: 14px 0 0 0;" src="{{.ImageHostURL}}/spaceface.png" alt="TIBCO® Software Inc."/>
+    </div>
+
+    <div class="thanks-message-container" style="line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 10px; background: #ffffff; padding: 10px;">
+        <br><h1 class="message" style="line-height: 38px; font-size: 30px; font-weight: 600; letter-spacing: 0.2px; text-align: center; color: #212121; margin-top: 0px;">You are cleared for takeoff</h1><br></span>
+        <span style="font-weight: 400;padding: 0px 8px 8px 8px; line-height: 14px;">Hi{{if ne .FirstName ""}} {{.FirstName}}{{end}},</span>
+        <br><span style="margin:0;padding: 8px 0px 8px 8px;">Welcome to the TIBCO<sup>&reg;</sup> Platform!
+        <br><br>You have been added to the TIBCO<sup>&reg;</sup> Platform account of
+        <br>{{.OrganizationName}} by {{.InviterName}} ({{.InviterEmail}})
+        <br><br>Click on the link below to access your company’s account on TIBCO<sup>&reg;</sup> Control Plane
+        </span>
+        <div style="display: flex;justify-content: center;margin-top: 20px;"><a href="{{.ActionURL}}"
+                                                                                class="btn-primary btn-activate"
+                                                                                style="font-family: 'Avenir Next';
+                   background-color: #1774E5;
+                   border-radius: 3px;
+                   font-size: 16px;
+                   padding: 15px;
+                   white-space: nowrap;
+                   line-height: 1;
+                   letter-spacing: 1px;
+                   margin: 0 auto;
+                   color: #FFFFFF;">Sign in</a></div>
+
+    <p style="margin:0;padding: 8px 0px 8px 8px;">Please also see the <a style="color: #3e8ddd; text-decoration: none;" href="{{.DocBaseURL}}" target="_blank">product documentation</a> for more information about additional components accessible from GitHub.</p>
+    <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+    </div>
+{{- else if eq .category "RequestSAMLToUser"}}
+    <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+        <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+    </div>
+    <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+        <br/>
+        <p><span style="font-weight: 400;">Hi <a href="#" style="text-decoration:none;color: #666666;">{{.FirstName}}</a>,</span></p>
+        <p><span style="font-weight: 400;">We have received your request for enabling Sign-in with your corporate account for {{.Company}} to {{.LoginURL}} for accessing the TIBCO<sup>&reg;</sup> Control Plane.</span></p>
+        <p><span style="font-weight: 400;">Our Support team will contact you within the next few days to help you configure the connection with your Identity Provider.</span></p>
+        <p><span style="font-weight: 400;">Once this process is completed users from your company {{.Company}} will be allowed to sign-in to {{.LoginURL}} using your company's Identity Provider by clicking the "Your corporate account" button on the Sign-in screen.</span></p>
+        <p><span style="font-weight: 400;">For details, visit the help <a style="color: #3e8ddd; text-decoration: none;" href="{{.DocBaseURL}}#cshid=configuring_single_sign_on" target="_blank">page</a>. To follow up on this request, <a style="color: #3e8ddd; text-decoration: none;" href="https://www.tibco.com/contact-us" target="_blank">contact us</a>.</span></p>
+        <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+    </div>
+{{- else if eq .category "RequestSAMLToTibco"}}
+    <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+        <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+    </div>
+    <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+        <br/>
+        <p align="left"><span style="font-weight: 400;">Hi TIBCO<sup>&reg;</sup> Platform Team,</span></p>
+        <p align="left"><span style="font-weight: 400;">{{.FirstName}} {{.LastName}} is requesting to enable their external identity provider to allow users to sign-in to their TIBCO<sup>&reg;</sup> Platform account using their corporate login credentials.</span></p>
+        <p align="left"><span style="font-weight: 400;">Please share the External IdP Questionnaire with customer to be filled out and create a Service Ticket to track this.</span></p>
+        <p align="left"><span style="font-weight: 400;">Please be aware of the security implications when considering this request. Approving this will allow this user to change how all users from {{.Company}} and accessing {{.LoginURL}} authenticate.</span></p>
+        <p align="left"><span style="font-weight: 400;">Make sure to get consent from authorized representatives from {{.Company}} before approving this change.</span></p>
+        <p align="left"><span style="font-weight: 400;">Please contact the customer as soon as possible to inform them about the status of their request.</span></p>
+        <p align="left"><span align="left" style="font-weight: 400;">
+        First Name: {{.FirstName}}<br/>
+        Last Name: {{.LastName}}<br/>
+        Company: {{.Company}}<br/>
+        Email ID: {{.RequesterUserEmail}}<br/>
+        Subscription Type: {{.SubscriptionType}}<br/>
+        Subscription ID: {{.SubscriptionId}}<br/>
+        Region: {{.Region}}</span>
+        </p>
+        <br/>
+        <p align="left"><span style="font-weight: 400;">Message from {{.FirstName}} {{.LastName}}:</span></p>
+        <p align="center"><span style="font-weight: 400;">&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;&nbsp;&gt;</span></p>
+        {{if .Message}}
+        <p align="left"><span style="font-weight: 400;">{{.Message}}</span></p>
+        {{end}}
+        <p align="center"><span style="font-weight: 400;">&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;&nbsp;&lt;</span></p>
+        <p align="left"><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">{{.FirstName}} {{.LastName}}</span></em></p>
+    </div>
+{{- else if eq .category "IdPConfigurationsUpdatedNotificationToUser"}}
+    <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+        <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+    </div>
+
+    <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+        <p><span style="font-weight: 400;">Hi <a href="#" style="text-decoration:none;color: #666666;">{{.FirstName}}</a>,</span></p>
+        <p><span style="font-weight: 400;">Your request to update the authentication settings for {{.Company}} has been completed successfully.</span></p>
+        <p><span style="font-weight: 400;">Users from your company {{.Company}} should be able to sign in to the url {{.LoginURL}} with your company’s corporate account credentials.</span></p>
+
+        <p><span style="font-weight: 400;">For details, visit the help <a style="color: #3e8ddd; text-decoration: none;" href="{{.DocBaseURL}}#cshid=configuring_single_sign_on" target="_blank">page</a>. To follow up on this request, <a style="color: #3e8ddd; text-decoration: none;" href="https://www.tibco.com/contact-us" target="_blank">contact us</a>.</span></p>
+        <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+    </div>
+{{- else if eq .category "EnableTASignIn"}}
+    <div id="logo" class="banner-container" style="text-align: center;width: 650px; height:280px;background: #0E2D65; margin-left: 25px;">
+        <img style="width: 563px; height:266px; text-align: center; padding: 14px 0 0 0;" src="{{.ImageHostURL}}/spaceface.png" alt="TIBCO® Software Inc."/>
+    </div>
+
+    <div class="thanks-message-container" style="line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 10px; background: #ffffff; padding: 10px;">
+        <br><h1 class="message" style="line-height: 38px; font-size: 30px; font-weight: 600; letter-spacing: 0.2px; text-align: center; color: #212121; margin-top: 0px;">You are cleared for takeoff</h1><br></span>
+        <span style="font-weight: 400;padding: 0px 8px 8px 8px; line-height: 14px;">Hi{{if ne .FirstName ""}} {{.FirstName}}{{end}},</span>
+        <br><span style="margin:0;padding: 8px 0px 8px 8px;">You can now sign in  to the TIBCO<sup>&reg;</sup> Platform account of
+        <br>{{.OrganizationName}} using your TIBCO Account credentials.
+        <br><br>Click on the link below to access your company’s account
+        <br>on TIBCO<sup>&reg;</sup> Control Plane
+        </span>
+        <div style="display: flex;justify-content: center;margin-top: 20px;"><a href="{{.ActionURL}}"
+                                                                                class="btn-primary btn-activate"
+                                                                                style="font-family: 'Avenir Next';
+                   background-color: #1774E5;
+                   border-radius: 3px;
+                   font-size: 16px;
+                   padding: 15px;
+                   white-space: nowrap;
+                   line-height: 1;
+                   letter-spacing: 1px;
+                   margin: 0 auto;
+                   color: #FFFFFF;">Sign in</a></div>
+
+        <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+    </div>
+{{- else if eq .category "ResetPassword"}}
+            <div id="logo" class="banner-container" style="width: 650px; height:280px;background: #1774E5; text-align: center; margin-left: 25px;margin-right: 25px;">
+                <img style="text-align: center;width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+            </div>
+
+             <div class="thanks-message-container" style=" font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+                <br>
+                <span style="padding: 0px 8px 8px 8px;">Hi <a href="#" style="text-decoration:none;color: #212121;">{{if ne .FirstName ""}} {{.FirstName}}{{end}}</a>,</span>
+
+                <p style="margin:0;padding: 8px 0px 8px 8px;">You are receiving this email because we received a request to reset password for your account.</p>
+                <p style="margin:0;padding: 8px 0px 8px 8px;">Click on the button below to reset your password.</p>
+
+                <div style="display: flex;justify-content: center;margin-top: 20px;"><a href="{{.ActionURL}}"
+                                                                                    class="btn-primary btn-activate"
+                                                                                    style="font-family: 'Avenir Next';
+                           background-color: #1774E5;
+                           border-radius: 3px;
+                           font-size: 16px;
+                           padding: 15px;
+                           white-space: nowrap;
+                           line-height: 1;
+                           letter-spacing: 1px;
+                           margin: 0 auto;
+                           color: #FFFFFF;">Reset password</a></div>
+                <br>
+
+                <p style="margin:0;padding: 8px 0px 8px 8px;">This link will only be valid for 30 minutes.</p>
+                <p style="margin:0;padding: 8px 0px 8px 8px;">In case you did not request a password reset, you may ignore this email.</p>
+
+            <p><span style="font-weight: 400;">Thank you,<br/><em><span style="font-weight: 400;">The TIBCO<sup>&reg;</sup> Platform Team</span></em></p>
+            </div>
+{{- else if eq .category "AlertsNotification"}}
+            <div id="logo" class="banner-container" style="width: 650px; height: 280px; background: #1774E5; text-align: center; margin-left: 25px; margin-right: 25px;">
+              <img style="text-align: center; width: 459px; height: auto; margin-top: 21px;" src="{{.ImageHostURL}}/keyhole.png" alt="TIBCO® Software Inc."/>
+            </div>
+
+            <div class="thanks-message-container" style="font-size: 16px; line-height: 1.5; letter-spacing: 0.1px; text-align: center; color: #212121; margin: 25px; margin-top: 0px; background: #ffffff; padding: 10px;">
+              <br>
+
+              <!-- Align "Hi," with Severity -->
+              <div style="padding-left: 160px; text-align: left; color: #212121;">
+                Hi,
+              </div>
+
+              <p style="margin:0; padding: 8px 0px 8px 8px;">
+                An alert has been triggered in your application:
+              </p>
+
+              <!-- Alert Details -->
+              <div style="padding-left: 160px; text-align: left;">
+                <p><span style="font-weight: 400;">Alert Details</span></p>
+                <p><span style="font-weight: 400;">
+                  Severity: {{.Severity}}<br/>
+                  Alert name: {{.AlertName}}<br/>
+                  Alert Description: {{.AlertDescription}}<br/>
+                  Event Type: {{.EventType}}<br/>
+                  Value: {{.Value}}<br/>
+                  Timestamp: {{.Timestamp}}<br/>
+                  Affected DP: {{.AffectedDP}}<br/>
+                  Affected app: {{.AffectedApp}}<br/>
+                  Affected instance: {{.AffectedInstance}}<br/>
+                  Alert message: {{.AlertMessage}}
+                </span></p>
+              </div>
+
+              <br/>
+
+              <!-- Centered section for general message -->
+              <p style="margin: 0; padding: 8px 0px 8px 8px; text-align: center;">
+                You can log into your Control Plane to view more details. <br/>
+                If you have any questions, please contact 
+                <a href="https://support.tibco.com" target="_blank" style="color: inherit; text-decoration: underline;">TIBCO Support</a>.
+              </p>
+
+              <br/>
+
+              <!-- Align "Thank you," with Severity -->
+              <div style="padding-left: 160px; text-align: left;">
+                <span style="font-weight: 400;">
+                  Thank you,<br/>
+                  <em>The TIBCO<sup>&reg;</sup> Platform Team</em>
+                </span>
+              </div>
+
+            </div>
+{{- end}}
+
+    <!--Footer of the email-->
+    <div class="footer" style="margin: 0 0 40px 25px; padding: 20px; padding-top:0;font-size: 13px; position:absolute; width: 559px; height: auto;font-weight: 400;line-height: 14px; text-align: center">
+        <p style="margin:0;padding: 8px 0 8px 8px;">If you have any questions about your account or capabilities,
+            <br>contact <a href="https://www.tibco.com/contact-us"> TIBCO Support</a>{{if .SalesOrderNumber}} and mention your Sales Order number {{.SalesOrderNumber}}{{end}}.</p>
+        <img style="width: 150px; outline: none; text-decoration: none; display: block;  border-width: 0;padding: 0px 0px 0 200px;margin-top: 0;" src="{{.ImageHostURL}}/csg_logo.png" alt="TIBCO® Software Inc."/>
+        <p style="margin:0;padding: 8px 0 8px 8px; text-align: center">ⓒ 2023-2025 Cloud Software Group, Inc. All rights reserved.</p>
+    </div>
+
+</div>
+</body>
+</html>

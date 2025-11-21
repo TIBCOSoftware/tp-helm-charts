@@ -1,0 +1,46 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-dnsdomains
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+data:
+  TSC_DNS_DOMAIN: "*.{{ include "cp-core-configuration.cp-dns-domain" . }}"
+  TSC_ADMIN_DNS_DOMAIN: admin.{{ include "cp-core-configuration.cp-dns-domain" . }}
+  TP_CONTROL_PLANE_NAMESPACE: {{ include "tp-control-plane.consts.namespace" . }}
+  TP_CP_ADMIN_WEB_SERVER_HOST: {{ include "tpcontrol-plane.consts.cpAdminWebServiceName" . }}
+  TP_CP_WEB_SERVER_HOST: {{ include "tpcontrol-plane.consts.cpWebServiceName" . }}
+  TP_CP_ORCH_HOST: {{ include "tpcontrol-plane.consts.cpOrchServiceName" . }}
+  TP_CP_USER_SUB_HOST: {{ include "tpcontrol-plane.consts.cpUserSubServiceName" . }}
+  TP_CP_EMAIL_SERVICE_HOST: {{ include "tpcontrol-plane.consts.cpEmailServiceName" . }}
+  TP_CP_CRON_JOB_HOST: {{ include "tpcontrol-plane.consts.cpCronJobServiceName" . }}
+  TP_CP_IDM_HOST: {{ include "tpcontrol-plane.consts.tpIdmServiceName" . }}
+  TP_CP_IDP_HOST: {{ include "tpcontrol-plane.consts.tpIdpJobServiceName" . }}
+  TP_CP_PERMISSIONS_ENGINE_HOST: {{ include "tpcontrol-plane.consts.tpCpPermissionEngineServiceName" . }}
+  TP_CP_MONITORING_HOST: {{ include "tpcontrol-plane.consts.cpMonitoringServiceName" . }}
+  TP_CP_ALERT_SERVICE_HOST: {{ include "tpcontrol-plane.consts.tpCpAlertServiceName" . }}
+  SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST: {{ include "tpcontrol-plane.consts.provisionerAgentURLFramework" . }}
+  TP_CP_ACME_HOST: acme.{{ include "cp-core-configuration.cp-dns-domain" . }}
+  TP_CP_OCTAN_HOST: octan.{{ include "cp-core-configuration.cp-dns-domain" . }}
+  TP_CP_WILDCARD_DNS_DOMAIN: "*.{{ include "cp-core-configuration.cp-dns-domain" . }}"
+  TP_CP_APP_VERSION: {{ .Chart.AppVersion }}
+  TP_CP_VERSION: {{ .Chart.Version }}
+  REGION: {{ .Values.global.tibco.region }}
+  SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST: {{ include "tpcontrol-plane.consts.computeServiceName" . }}
+  TP_CP_QUERYNODE_HOST: {{ include "tpcontrol-plane.consts.cpQueryNodeServiceName" . }}
+  TP_CP_BW_HOST: {{ include "tpcontrol-plane.consts.tpCpBWServiceName" . }}
+  TP_CP_BW5_HOST: {{ include "tpcontrol-plane.consts.tpCpBW5ServiceName" . }}
+  TP_CP_BW5CE_HOST: {{ include "tpcontrol-plane.consts.tpCpBW5CEServiceName" . }}
+  TP_CP_BW6_HOST: {{ include "tpcontrol-plane.consts.tpCpBW6ServiceName" . }}
+  TP_CP_FLOGO_HOST: {{ include "tpcontrol-plane.consts.tpCpFLOGOServiceName" . }}
+  TP_CP_BE_HOST: {{ include "tpcontrol-plane.consts.tpCpBEServiceName" . }}
+  TP_CP_EMS_HOST: {{ include "tpcontrol-plane.consts.tpCpEMSServiceName" . }}
+  DOC_BASE_URL: {{ include "tpcontrol-plane.consts.docBaseUrl" . }}
+  TP_CP_O11Y_HOST: {{ include "tpcontrol-plane.consts.tpCpO11yServiceName" . }}
+
