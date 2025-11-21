@@ -1,0 +1,40 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.global.cp.resources.ingress.ingressController "traefik" -}}
+{{- $fullName := include "bwadapter.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $fullName }}-public-traefik
+spec:
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ $.Values.service.targetPort }}
+        path: {{ .Values.global.cp.resources.ingress.pathPrefix }}/
+        pathType: Prefix
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-strip-prefix
+spec:
+  stripPrefix:
+    prefixes:
+    - {{ .Values.global.cp.resources.ingress.pathPrefix }}/
+
+{{- end }}

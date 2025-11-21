@@ -1,0 +1,78 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.cleanupJob }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogo-utilities.fullname" . }}-cleanup-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+  labels:
+    {{- include "flogo-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+	  {{- if (include "flogo-utilities.container-registry.secret" . ) }}
+      imagePullSecrets:
+        - name: {{ include "flogo-utilities.container-registry.secret" . }}
+      {{- end }}
+      containers:
+        - name: flogo-utilities-cleanup
+          image: {{ include "flogo-utilities.image.registry" . }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" . }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+            {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              echo "Starting cleanup of Flogo VSCode Extension..."
+              rm -rf /downloads/tools/flogo-vscode-extension
+              echo "Cleanup of Flogo VSCode Extension completed."
+              echo "Starting cleanup of Flogo contributions..."
+              rm -rf /usr/share/nginx/html/flogo-contribution
+              echo "Cleanup of Flogo contributions completed."
+              echo "Starting cleanup of Flogo buildtypes..."
+              rm -rf /usr/share/nginx/html/flogo
+              echo "Cleanup of Flogo buildtypes completed."
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.toolsMountPath }}
+              subPath: {{ $.Values.toolsSubPath }}
+            - name: shared-vol
+              mountPath: {{ $.Values.volumes.plugins.mountPath }}
+              subPath: {{ $.Values.volumes.plugins.subPath }}
+      volumes:
+      - name: shared-vol
+        persistentVolumeClaim:
+          claimName: {{ include "flogo-utilities.pvc-name" . }}
+{{- end }}

@@ -69,13 +69,11 @@ spec:
           {{- end }}
           env:
             {{- range $filename, $content :=  .Values.config }}
-            {{- if $content }}
             - name: {{ $filename }}
               valueFrom:
                 configMapKeyRef:
                   name: {{ $fullName }}-serviceconfig
                   key: {{ $filename }}
-            {{- end }}
             {{- end }}
             - name: DATAPLANE_ID
               value: {{ .Values.global.cp.dataplaneId }}

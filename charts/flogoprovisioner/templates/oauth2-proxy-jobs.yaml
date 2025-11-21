@@ -34,7 +34,7 @@ spec:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
       containers:
         - name: flogoprovisioner-oauth2-client-cred-creation
-          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.infraCPProxy.imageTag }}
+          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.config.INFRA_CP_PROXY_IMAGE_TAG }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.securityContext.infraCPProxy }}
           securityContext:
@@ -109,7 +109,7 @@ spec:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
       containers:
         - name: flogoprovisioner-oauth2-client-cred-deletion
-          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.infraCPProxy.imageTag }}
+          image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.config.INFRA_CP_PROXY_IMAGE_TAG }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.securityContext.infraCPProxy }}
           securityContext:

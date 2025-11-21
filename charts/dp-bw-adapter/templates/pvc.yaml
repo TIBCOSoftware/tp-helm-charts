@@ -1,0 +1,17 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.certs.pvcName }}
+  labels:
+    {{- include "bwadapter.labels" . | nindent 4 }}
+spec:
+  accessModes: 
+    - {{ .Values.certs.pvcAccessMode }}
+  storageClassName: {{ .Values.global.cp.resources.storage.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.certs.pvcStorageSize }}

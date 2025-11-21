@@ -17,6 +17,8 @@ global:
     environmentType: ""
     enableResourceConstraints: true
     resources:
+      storage:
+        storageClassName: ""
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
@@ -83,6 +85,11 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
+certs:
+  pvcName: bwadapter-ssl-certs
+  pvcStorageSize: 1Gi
+  pvcAccessMode: ReadWriteMany
 
 podAnnotations: {}
 
