@@ -1,0 +1,31 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $ext := .Values.global.external -}}
+{{- $log := $ext.logserver -}}
+{{- $audit := $ext.logserver -}}
+{{- $logOK := and $log $log.endpoint $log.username $log.index -}}
+{{- $auditOK := and $audit $audit.endpoint $audit.username $audit.index -}}
+{{- if or $logOK $auditOK }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tibco-cp-base.otel.config" .}}
+  labels:
+    {{- include "tibco-cp-base.labels" . | nindent 4 }}
+data:
+{{- if $logOK }}
+  CP_LOGSERVER_URL: {{ $log.endpoint }}
+  CP_LOGSERVER_USERNAME: {{ $log.username }}
+  CP_LOGSERVER_INDEX: {{ $log.index }}
+{{- end }}
+{{- if $auditOK }}
+  CP_AUDITSERVER_URL: {{ $audit.endpoint }}
+  CP_AUDITSERVER_USERNAME: {{ $audit.username }}
+  CP_AUDITSERVER_INDEX: {{.Values.global.external.auditserver.index }}
+{{- end }}
+{{- end }}

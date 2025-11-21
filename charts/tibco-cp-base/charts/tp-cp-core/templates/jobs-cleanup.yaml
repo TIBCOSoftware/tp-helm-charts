@@ -1,0 +1,409 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{/* Cleanup RBAC resources - needed for both DB cleanup and self-signed cert cleanup jobs */}}
+{{- if or (and .Values.global.tibco.manageDbSchema (eq .Values.global.tibco.is_replica_region false)) (eq .Values.global.tibco.self_hosted_deployment true) }}
+
+{{- if empty .Values.global.tibco.serviceAccount }}
+{{/* Dedicated ServiceAccount for cleanup jobs */}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-sa
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+{{- end }}
+
+---
+{{/* Dedicated Role for cleanup jobs */}}
+{{- if .Values.global.tibco.rbac.infra }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-role
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "delete"]
+{{- end }}
+
+---
+{{/* Dedicated RoleBinding for cleanup jobs */}}
+{{- if .Values.global.tibco.rbac.infra }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-rb
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-role
+subjects:
+- kind: ServiceAccount
+  name: {{ include "tp-cp-core.cleanup.serviceAccountName" . }}
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+{{- end }}
+
+---
+{{/* Post-delete hook version of container registry secret for cleanup jobs */}}
+{{- if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "tp-cp-core.cleanup.containerRegistrySecret" . }}
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: {{ template "tp-cp-core.imageCredential" . }}
+{{- end }}
+
+---
+{{/* Post-delete hook network policy for cleanup jobs - kubernetes-api access */}}
+{{- if .Values.global.tibco.createNetworkPolicy }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-kubernetes-api
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/kubernetes-api: enable
+  policyTypes:
+  - Egress
+  - Ingress
+  egress:
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-apiserver
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.nodeCIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.serviceCIDR }}
+    {{- if ne .Values.global.external.clusterInfo.nodeCIDR .Values.global.external.clusterInfo.podCIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.podCIDR }}
+    {{- end }}
+    {{- if and .Values.global.tibco.networkPolicy.kubeApiServer.CIDR .Values.global.tibco.networkPolicy.kubeApiServer.port }}
+    - ipBlock:
+        cidr: {{ .Values.global.tibco.networkPolicy.kubeApiServer.CIDR }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: {{ .Values.global.tibco.networkPolicy.kubeApiServer.port | default 6443 }}
+  ingress:
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-apiserver
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.nodeCIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.serviceCIDR }}
+    {{- if ne .Values.global.external.clusterInfo.nodeCIDR .Values.global.external.clusterInfo.podCIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.podCIDR }}
+    {{- end }}
+    {{- if .Values.global.tibco.networkPolicy.kubeApiServer.CIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.tibco.networkPolicy.kubeApiServer.CIDR }}
+    {{- end }}
+{{- end }}
+
+---
+{{/* network policies for only db cleanup job */}}
+{{- if and .Values.global.tibco.manageDbSchema (eq .Values.global.tibco.is_replica_region false) }}
+
+{{/* Post-delete hook network policy for cleanup jobs - cluster-egress access */}}
+{{- if and .Values.global.tibco.createNetworkPolicy .Values.global.tibco.networkPolicy.createClusterScopePolicies }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-cluster-egress
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/cluster-egress: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.nodeCIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.serviceCIDR }}
+    {{- if ne .Values.global.external.clusterInfo.nodeCIDR .Values.global.external.clusterInfo.podCIDR }}
+    - ipBlock:
+        cidr: {{ .Values.global.external.clusterInfo.podCIDR }}
+    {{- end }}
+{{- end }}
+
+---
+{{/* Post-delete hook network policy for cleanup jobs - internet-egress access */}}
+{{- if and .Values.global.tibco.createNetworkPolicy .Values.global.tibco.networkPolicy.createInternetScopePolicies }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-internet-egress
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/internet-egress: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - {{ .Values.global.external.clusterInfo.nodeCIDR }}
+        - {{ .Values.global.external.clusterInfo.serviceCIDR }}
+        {{- if ne .Values.global.external.clusterInfo.nodeCIDR .Values.global.external.clusterInfo.podCIDR }}
+        - {{ .Values.global.external.clusterInfo.podCIDR }}
+        {{- end }}
+{{- end }}
+
+---
+{{/* Post-delete hook network policy for cleanup jobs - database-egress access */}}
+{{- if and .Values.global.tibco.createNetworkPolicy .Values.global.tibco.networkPolicy.database.CIDR .Values.global.tibco.networkPolicy.database.port }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-database-egress
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/database-egress: enable
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - protocol: TCP
+      port: {{ .Values.global.tibco.networkPolicy.database.port }}
+    to:
+    - ipBlock:
+        cidr: {{ .Values.global.tibco.networkPolicy.database.CIDR }}
+{{- end }}
+{{- end }}
+
+{{- end }}
+---
+
+{{- if eq .Values.global.tibco.is_replica_region false }}
+{{- if .Values.global.tibco.manageDbSchema }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-{{ randAlphaNum 4 | lower }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600 # Remove the job 1 hour after completion
+  template:
+    metadata:
+      name: {{ include "tp-control-plane.consts.appName" . }}-cleanup
+      labels:
+        {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tp-cp-core.cleanup.serviceAccountName" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "tp-cp-core.cleanup.containerRegistrySecret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-core.cleanup.containerRegistrySecret" . }}
+      {{- end }}
+      containers:
+      - name: tsc-cleanup
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
+        {{- end }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PREFIX
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+        - name: PGHOST
+          value: {{ .Values.global.external.db_host }}
+        - name: PGPORT
+          value: {{ .Values.global.external.db_port | quote }}
+        - name: MASTER_PGDATABASE
+          value: {{ .Values.global.external.db_name }}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ .Values.global.tibco.region }}
+        - name: DELETE_DB_ON_UNINSTALL
+          value: {{ .Values.cp.deleteDBOnUninstall | quote }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/tsc/scripts/postgres/tibco-cp-base
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: TSC_CONFIG_LOCATION
+          value: /opt/tibco/tsc/config
+        - name: TSC_CERTIFICATES_LOCATION
+          value: /opt/tibco/tsc/certificates
+        - name: TSC_VOLUME_LOCATION
+          value: /private/tsc
+{{- if and (and .Values.global.external.db_password .Values.global.external.db_username ) .Values.global.external.db_secret_name }}
+        - name: MASTER_PGUSER
+          value: {{ .Values.global.external.db_username }}
+        - name: MASTER_PGPASSWORD
+          value: {{ .Values.global.external.db_password }}
+{{- else if .Values.global.external.db_secret_name }}
+        - name: MASTER_PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.external.db_secret_name }}
+              key: USERNAME
+        - name: MASTER_PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.external.db_secret_name }}
+              key: PASSWORD
+{{- end }}
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - "/opt/tibco/tsc/scripts/postgres-helper.bash delete"
+
+{{- end }}
+{{- end }}
+
+---
+
+{{- if eq .Values.global.tibco.self_hosted_deployment true }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-self-signed-cert-{{ randAlphaNum 4 | lower }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+    description: "Job to delete self-signed certificates and secrets for IdM and IdP services in self-hosted deployment."
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600 # Remove the job 1 hour after completion
+  template:
+    metadata:
+      name: {{ include "tp-control-plane.consts.appName" . }}-uninstall-self-signed-cert
+      labels:
+        {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tp-cp-core.cleanup.serviceAccountName" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "tp-cp-core.cleanup.containerRegistrySecret" .) }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-core.cleanup.containerRegistrySecret" . }}
+      {{- end }}
+      containers:
+      - name: tsc-setup
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
+        {{- end }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - |
+{{ .Files.Get "files/tsc/scripts/certs/uninstall-self-signed-cert.sh" | indent 10 }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

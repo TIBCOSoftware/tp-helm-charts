@@ -1,0 +1,27 @@
+apiVersion: v2
+appVersion: 1.13.0
+dependencies:
+- condition: web-server.enabled
+  name: web-server
+  version: 1.13.*
+- condition: orchestrator.enabled
+  name: orchestrator
+  version: 1.13.*
+- condition: user-subscriptions.enabled
+  name: user-subscriptions
+  version: 1.13.*
+- condition: cronjobs.enabled
+  name: cronjobs
+  version: 1.13.*
+- condition: identity-management.enabled
+  name: identity-management
+  version: 1.13.*
+- condition: identity-provider.enabled
+  name: identity-provider
+  version: 1.13.*
+- condition: pengine.enabled
+  name: pengine
+  version: 1.13.*
+description: A Helm chart for -- tp-cp-core
+name: tp-cp-core
+version: 1.13.5

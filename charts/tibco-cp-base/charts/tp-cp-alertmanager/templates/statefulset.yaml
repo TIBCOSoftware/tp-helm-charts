@@ -1,0 +1,257 @@
+{{/*
+Copyright 2025 Alert Manager Community Charts
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/}}
+
+{{- $svcClusterPort := .Values.service.clusterPort }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "tp-cp-alertmanager.consts.appName" . }}
+  labels:
+    {{- include "alertmanager.labels" . | nindent 4 }}
+  {{- with .Values.statefulSet.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "alertmanager.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "alertmanager.fullname" . }}-headless
+  template:
+    metadata:
+      labels:
+        {{- include "alertmanager.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if not .Values.configmapReload.enabled }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      imagePullSecrets:
+        - name: {{ include "tp-cp-alertmanager.container-registry.secret" . }}
+      serviceAccountName: {{ include "alertmanager.serviceAccountName" . }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.schedulerName }}
+      schedulerName: {{ . }}
+      {{- end }}
+      {{- if or .Values.podAntiAffinity .Values.affinity }}
+      affinity:
+      {{- end }}
+        {{- with .Values.affinity }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if eq .Values.podAntiAffinity "hard" }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.podAntiAffinityTopologyKey }}
+              labelSelector:
+                matchExpressions:
+                  - {key: app.kubernetes.io/name, operator: In, values: [{{ include "alertmanager.name" . }}]}
+        {{- else if eq .Values.podAntiAffinity "soft" }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: {{ .Values.podAntiAffinityTopologyKey }}
+                labelSelector:
+                  matchExpressions:
+                    - {key: app.kubernetes.io/name, operator: In, values: [{{ include "alertmanager.name" . }}]}
+        {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: copy-default-configuration
+          image: {{ include "tp-cp-alertmanager.image.registry" .}}{{"/"}}{{ include "tp-cp-alertmanager.image.repository" .}}{{"/"}}{{ .Values.initContainer.name }}:{{ .Values.initContainer.tag}}
+        {{- if .Values.securityContext }}
+          securityContext:
+          {{- toYaml .Values.initContainerSecurityContext | nindent 12 }}
+        {{- end }}
+          command: [ 'sh', '-c' , 'cp -n /alertmanager/default/alertmanager.yml /etc/alertmanager/alertmanager.yml']
+          {{- if .Values.global.tibco.enableResourceConstraints }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+            limits:
+              cpu: 30m
+              memory: 40Mi
+          {{- end }}
+          volumeMounts:
+            - mountPath: /alertmanager/default
+              name: alertmanager-config-volume
+            - name: config
+              mountPath: /etc/alertmanager
+              readOnly: false
+              subPath: alertmanager/config
+      containers:
+        - name: {{ include "tp-cp-alertmanager.consts.appName" . }}-server
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "tp-cp-alertmanager.image.registry" .}}{{"/"}}{{ include "tp-cp-alertmanager.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            {{- if .Values.extraEnv }}
+            {{- toYaml .Values.extraEnv | nindent 12 }}
+            {{- end }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            - --storage.path=/alertmanager
+            {{- if not (hasKey .Values.extraArgs "config.file") }}
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            {{- end }}
+            {{- if or (gt (int .Values.replicaCount) 1) (.Values.additionalPeers) }}
+            - --cluster.advertise-address=[$(POD_IP)]:{{ $svcClusterPort }}
+            - --cluster.listen-address=0.0.0.0:{{ $svcClusterPort }}
+            {{- end }}
+            {{- if gt (int .Values.replicaCount) 1}}
+            {{- $fullName := include "alertmanager.fullname" . }}
+            {{- range $i := until (int .Values.replicaCount) }}
+            - --cluster.peer={{ $fullName }}-{{ $i }}.{{ $fullName }}-headless:{{ $svcClusterPort }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.additionalPeers }}
+            {{- range $item := .Values.additionalPeers }}
+            - --cluster.peer={{ $item }}
+            {{- end }}
+            {{- end }}
+            {{- range $key, $value := .Values.extraArgs }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            {{- if .Values.baseURL }}
+            - --web.external-url={{ .Values.baseURL }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 9093
+              protocol: TCP
+            {{- if or (gt (int .Values.replicaCount) 1) (.Values.additionalPeers) }}
+            - name: clusterpeer-tcp
+              containerPort: {{ $svcClusterPort }}
+              protocol: TCP
+            - name: clusterpeer-udp
+              containerPort: {{ $svcClusterPort }}
+              protocol: UDP
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+              readOnly: false
+              subPath: alertmanager/config
+            {{- range .Values.extraSecretMounts }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              subPath: {{ .subPath }}
+              readOnly: {{ .readOnly }}
+            {{- end }}
+            - name: config
+              mountPath: /alertmanager
+              readOnly: false
+              subPath: alertmanager/data
+            {{- if .Values.extraVolumeMounts }}
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-alertmanager.pvc-name" . }}
+        - name: alertmanager-config-volume
+          configMap:
+            name: {{ include "alertmanager.fullname" . }}
+            defaultMode: 0777
+        {{- range .Values.extraSecretMounts }}
+        - name: {{ .name }}
+          secret:
+            secretName: {{ .secretName }}
+            {{- with .optional }}
+            optional: {{ . }}
+            {{- end }}
+        {{- end }}
+        {{- if .Values.extraVolumes }}
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}
+      {{- if .Values.extraPodConfigs }}
+      {{- toYaml .Values.extraPodConfigs | nindent 6 }}
+      {{- end }}
+  {{/*{{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+      {{- if .Values.persistence.storageClass }}
+      {{- if (eq "-" .Values.persistence.storageClass) }}
+        storageClassName: ""
+      {{- else }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+      {{- end }}
+      {{- end }}
+  {{- else }}
+        - name: storage
+          emptyDir: {}
+  {{- end }}*/}}
