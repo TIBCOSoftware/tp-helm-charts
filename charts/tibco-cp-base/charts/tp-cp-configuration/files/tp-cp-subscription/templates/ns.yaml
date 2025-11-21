@@ -1,0 +1,20 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- if not .Values.global.tibco.useSingleNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "tp-cp-subscription.consts.namespace" . }}
+  labels:
+    tibcoresourceset.cloud.tibco.com/releaseName: {{ .Release.Name }}
+    tibcoresourceset.cloud.tibco.com/releaseNamespace: {{ .Release.Namespace }}
+    {{- include "tp-cp-subscription.shared.labels.standard" . | nindent 4 }}
+    app.cloud.tibco.com/content: control-plane-subscription
+    namespace: {{ include "tp-cp-subscription.consts.namespace" . }}
+    platform.tibco.com/controlplane-instance-id: {{ .Values.global.tibco.controlPlaneInstanceId }}
+
+{{- end }}

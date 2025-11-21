@@ -1,0 +1,448 @@
+#
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+#
+{{- if .Values.tibcoRouter.create }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-auditsafe-web-server.consts.appName" . }}
+  labels:
+    {{- include "tp-cp-auditsafe-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-auditsafe-web-server.consts.appName" . }}
+  endpoints:
+    # TAS WebServer health
+    - path: /tas/webserver/health
+      internalPath: /tas/v1/webserver/dashboard/health
+      port: {{ .Values.service.port }}
+      protocol: http
+      #pingable: true
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: true
+          allowXFrameOptions: false
+          enableRedirects: false
+    # TAS Webserver Index Archiving
+    - path: /tas/webserver/es_index
+      internalPath: /tas/v1/webserver/es_index
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+    # TAS Webserver download transactionfile
+    - path: /tas/webserver/tas/download/transactionfile
+      internalPath: /tas/v1/webserver/tas/download/transactionfile
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+    # TAS Webserver Query History
+    - path: /tas/webserver/queryHistory
+      internalPath: /tas/v1/webserver/queryHistory
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+    # TAS Webserver Query History for Demo
+    - path: /tas/webserver/demo/queryHistory
+      internalPath: /tas/v1/webserver/queryHistory/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+    # TAS Webserver Column Config for Demo
+    - path: /tas/webserver/demo/columnConfiguration
+      internalPath: /tas/v1/webserver/columnConfiguration/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+    # TAS Webserver Column Configuration for Demo
+    - path: /tas/webserver/demo/columnConfigs
+      internalPath: /tas/v1/webserver/columnConfigs/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+    # TAS Webserver Column Configuration
+    - path: /tas/webserver/columnConfigs
+      internalPath: /tas/v1/webserver/columnConfigs
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Filters
+    - path: /tas/webserver/filters
+      internalPath: /tas/v1/webserver/filters
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Swagger Token
+    - path: /tas/webserver/swaggerToken
+      internalPath: /tas/v1/webserver/swaggerToken
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver User Info
+    - path: /tas/webserver/users
+      internalPath: /tas/v1/webserver/users
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Search History
+    - path: /tas/webserver/searchHistory
+      internalPath: /tas/v1/webserver/searchHistory
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Settings
+    - path: /tas/webserver/settings
+      internalPath: /tas/v1/webserver/settings
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver States
+    - path: /tas/webserver/states
+      internalPath: /tas/v1/webserver/states
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver States demo
+    - path: /tas/webserver/demo/states
+      internalPath: /tas/v1/webserver/states/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Statuses
+    - path: /tas/webserver/statuses
+      internalPath: /tas/v1/webserver/statuses
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Statuses email
+    - path: /tas/webserver/statuses/email
+      internalPath: /tas/v1/webserver/statuses/email
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Statuses demo
+    - path: /tas/webserver/demo/statuses
+      internalPath: /tas/v1/webserver/statuses/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver AutoComplete
+    - path: /tas/webserver/autoComplete
+      internalPath: /tas/v1/webserver/autoComplete
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Transactions
+    - path: /tas/webserver/transactions
+      internalPath: /tas/v1/webserver/transactions
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Transactions Demo
+    - path: /tas/webserver/demo/transactions
+      internalPath: /tas/v1/webserver/transactions/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver AutoComplete Demo
+    - path: /tas/webserver/demo/autoComplete
+      internalPath: /tas/v1/webserver/autoComplete/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Filters Demo
+    - path: /tas/webserver/demo/filters
+      internalPath: /tas/v1/webserver/filters/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver BlockChain Healthy
+    - path: /tas/webserver/blockchain
+      internalPath: /tas/v1/webserver/blockchain
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Show Config Dialog
+    - path: /tas/webserver/configDialog
+      internalPath: /tas/v1/webserver/configDialog
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Column Config
+    - path: /tas/webserver/columnConfiguration
+      internalPath: /tas/v1/webserver/columnConfiguration
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver Capacity Usage
+    - path: /tas/webserver/capacityUsage
+      internalPath: /tas/v1/webserver/capacityUsage
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver BarChart
+    - path: /tas/webserver/barChart
+      internalPath: /tas/v1/webserver/barChart
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver BarChart Demo
+    - path: /tas/webserver/demo/barChart
+      internalPath: /tas/v1/webserver/barChart/demo
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver ui
+    - path: /tas
+      internalPath: /tas
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS WebServer Welcome
+    - path: /tas/home
+      internalPath: /tas/home
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+    # TAS Webserver retention
+    - path: /tas/webserver/retention
+      internalPath: /tas/v1/webserver/retention
+      port: {{ .Values.service.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          fqdn: ${TSC_DNS_DOMAIN},${TSC_ADMIN_DNS_DOMAIN}
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: true
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+    - name: TSC_ADMIN_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-cp-auditsafe-web-server-dnsdomain-configmap" . }}
+          key: TSC_ADMIN_DNS_DOMAIN
+{{- end }}

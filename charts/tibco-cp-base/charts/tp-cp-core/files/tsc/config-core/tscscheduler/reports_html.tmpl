@@ -1,0 +1,553 @@
+{{define "email-subjects"}}
+    {{- if eq .ReportCategory "PO_EXPIRED"}} PO Expired Subscription Cron Job Report
+    {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_EXPIRED"}} TIBCO, TRIAL, CC, PARTNER_NFR, PO and CPASS Expired Subscription Cron Job Report
+    {{- else if eq .ReportCategory "PO_GRACE_PERIOD_HANDLED"}} PO Grace Period Handling Cron Job Report
+    {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_GRACE_PERIOD_HANDLED"}} TIBCO, TRIAL, AMP, CC, PARTNER_NFR, PO and CPASS Grace Period Handling Cron Job Report
+    {{- else if eq .ReportCategory "UPCOMING_EXPIRY"}} TSC Upcoming Expiry Email Cron Job Report
+    {{- else if eq .ReportCategory "CC_DETAILS"}} TSC Credit Card Purchase Subscription(s) Report
+    {{- else if eq .ReportCategory "UPCOMING_CC_RENEWAL"}} TSC Upcoming CC Renewal Email Cron Job Report
+    {{- else if eq .ReportCategory "AWSMP_FAILED"}} Error report AWS Marketplace Subscriptions
+    {{- else if eq .ReportCategory "AMP_SANITY"}} Sanity report for Azure Marketplace Subscriptions
+    {{- else if eq .ReportCategory "COLLECT_CC_PAYMENTS"}} Error report Collect CC Payments
+    {{- else if eq .ReportCategory "EXPIRE_CC_SUBS"}} Error report Cancel Expire CC Payment Issue Subscriptions
+    {{- else if eq .ReportCategory "FETCHING_DETAILS_ERROR"}} Error summary while fetching details in case of {{.CronJobType}} Cron Job
+    {{- else if eq .ReportCategory "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST"}} Delete Non-approved External IdP Requests Cron Job Report
+    {{- else if eq .ReportCategory "DPL_PROCESS_RAW_SUBSCRIPTIONS"}} Auto Provision Raw Subscriptions Cron Job Report
+    {{- else if eq .ReportCategory "DPL_NOTIFY_LEGAL"}} Notify Legal of DPL failed users Cron Job Report
+    {{- else if eq .ReportCategory "DPL_PROCESS_NOTIFIED_USERS"}} Process DPL notified users Cron Job Report
+    {{- else if eq .ReportCategory "CLEANUP"}} Cleanup Job Report
+    {{- else if eq .ReportCategory "IDM_NOTIFY_CERTIFICATE_EXPIRY"}} Upcoming Certificates Expiry Notification Job Report
+    {{- else if eq .ReportCategory "GDPR_PURGE_HISTORY"}} GDPR Purge History Job Report
+    {{- else if eq .ReportCategory "NOTIFY_IT_ENDPOINT_INACTIVE"}} IT endpoint is not active
+    {{- else if eq .ReportCategory "PROVISION_INFRA_CAPABILITIES"}} Provision Infra Capabilities
+    {{- end}}
+{{end}}
+
+<html>
+<head>
+    <style>
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        td, th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+<br>
+
+
+{{- if (or .SubscriptionDetails .FailedAWSMPJobDetail .AMPJobDetail .CollectCCPaymentJobDetail .CancelExpireCCSubsJobDetail .DeleteNonApprovedExternalIdpRequestsJobDetail .DplProcessRawSubscriptionJobDetail .DplNotifyLegalJobDetail .DplProcessNotifiedUsersJobDetail .DplRawUserCleanUpDetail .DplRawSubscriptionCleanUpDetail .IdmNotifyCertificateExpiryJobDetail .CIndexAuditTableCleanupDetails .GDPRPurgeHistoryDetails .EndPointHealthStatusDetails .ProvisionInfraCapabilitiesJobDetail)}}
+<h2>
+    {{- if eq .ReportCategory "PO_EXPIRED"}} [TIBCO Platform] PO Expired Subscription(s) Details
+    {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_EXPIRED"}} [TIBCO Platform] TIBCO, TRIAL, CC, PARTNER_NFR, PO and CPASS Expired Subscription(s) Details
+    {{- else if eq .ReportCategory "PO_GRACE_PERIOD_HANDLED"}} [TIBCO Platform] PO Grace Period Handled Subscription(s) Details
+    {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_GRACE_PERIOD_HANDLED"}} [TIBCO Platform] TIBCO, TRIAL, AMP, CC, PARTNER_NFR, PO, CPASS Grace Period Handled Subscription(s) Details
+    {{- else if eq .ReportCategory "UPCOMING_EXPIRY"}} [TIBCO Platform] TSC Upcoming Expiry Subscription(s) Details
+    {{- else if eq .ReportCategory "CC_DETAILS"}} [TIBCO Platform] TSC Credit Card Purchase Subscription(s) Details
+    {{- else if eq .ReportCategory "UPCOMING_CC_RENEWAL"}} [TIBCO Platform] TSC Upcoming Renewal CC Subscription(s) Details
+    {{- else if eq .ReportCategory "AWSMP_FAILED"}} [TIBCO Platform] Error report AWS Marketplace Subscriptions
+    {{- else if eq .ReportCategory "AMP_SANITY"}} [TIBCO Platform] Sanity report for Azure Marketplace Subscriptions
+    {{- else if eq .ReportCategory "COLLECT_CC_PAYMENTS"}} [TIBCO Platform] Credit card payment issues report
+    {{- else if eq .ReportCategory "EXPIRE_CC_SUBS"}} [TIBCO Platform] Cancel/Expire CC Payment Issue Subscriptions report
+    {{- else if eq .ReportCategory "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST"}} [TIBCO Platform] Delete Non-approved External IdP Requests Cron Job Details
+    {{- else if eq .ReportCategory "DPL_PROCESS_RAW_SUBSCRIPTIONS"}} [TIBCO Platform] Auto Provision Raw Subscriptions Cron Job Details
+    {{- else if eq .ReportCategory "DPL_NOTIFY_LEGAL"}} [TIBCO Platform] Notify Legal of DPL failed users Cron Job Details
+    {{- else if eq .ReportCategory "DPL_PROCESS_NOTIFIED_USERS"}} [TIBCO Platform] Process DPL notified users Cron Job Details
+    {{- else if eq .ReportCategory "CLEANUP"}} [TIBCO Platform] Cleanup Job Report Details
+    {{- else if eq .ReportCategory "IDM_NOTIFY_CERTIFICATE_EXPIRY"}} [TIBCO Platform] Upcoming Certificates Expiry Notification Job Report Details <br><h3 style="color:red">The deadline by which the certificate(s) should be updated is firm and fatal.</h3>
+    {{- else if eq .ReportCategory "GDPR_PURGE_HISTORY"}} [TIBCO Platform] GDPR Purge History Job Report Details
+    {{- else if eq .ReportCategory "NOTIFY_IT_ENDPOINT_INACTIVE"}} [TIBCO Platform] IT endpoint is not active Details
+    {{- else if eq .ReportCategory "FETCHING_DETAILS_ERROR"}} [TIBCO Platform] Error summary while fetching details in case of {{.CronJobType}} Cron Job Details
+    {{- else if eq .ReportCategory "PROVISION_INFRA_CAPABILITIES"}} [TIBCO Platform] Provision Infra Capabilities Cron Job Details
+    {{- end}}
+</h2>
+<p>TIBCO Cloud DNS domain which generated this report is: {{.TscDnsDomain}}</p>
+<br>
+<table>
+
+    {{if eq .ReportCategory "PO_EXPIRED" "TIB_TRIAL_CC_NFR_PO_CPASS_EXPIRED" "PO_GRACE_PERIOD_HANDLED" "TIB_TRIAL_CC_NFR_PO_CPASS_GRACE_PERIOD_HANDLED"}}
+            <tr>
+                <th>Sr No.</th>
+                <th>TSC Account Id</th>
+                <th>TSC Subscription Id</th>
+                <th>External Account Id</th>
+                <th>External Subscription Id</th>
+                <th>Subscription Type</th>
+                <th>Tenant Id</th>
+                <th>Plan Id</th>
+                <th>Buy Time</th>
+                <th>Expiry Time</th>
+                <th>Cronjob Task Status</th>
+                <th>Owner Details</th>
+            </tr>
+            {{range $index, $val := .SubscriptionDetails}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.TscAccountId}}</td>
+                    <td>{{.TscSubscriptionId}}</td>
+                    <td>{{.ExternalAccountId}}</td>
+                    <td>{{.ExternalSubscriptionId}}</td>
+                    <td>{{.SubscriptionType}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.PlanId}}</td>
+                    <td>{{formatTime .BuyTime}}</td>
+                    <td>{{formatTime .ExpiryTime}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{.OwnersDetails}}</td>
+                <tr>
+            {{end}}
+    {{else if eq .ReportCategory "UPCOMING_EXPIRY"}}
+            <tr>
+                <th>Sr No.</th>
+                <th>TSC Account Id</th>
+                <th>TSC Subscription Id</th>
+                <th>Subscription Type</th>
+                <th>Tenant Id</th>
+                <th>Plan Id</th>
+                <th>Buy Time</th>
+                <th>Expiry Time</th>
+                <th>Region</th>
+                <th>Cronjob Task Status</th>
+                <th>Owner Details</th>
+            </tr>
+            {{range $index, $val := .SubscriptionDetails}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.TscAccountId}}</td>
+                    <td>{{.TscSubscriptionId}}</td>
+                    <td>{{.SubscriptionType}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.PlanId}}</td>
+                    <td>{{formatTime .BuyTime}}</td>
+                    <td>{{formatTime .ExpiryTime}}</td>
+                    <td>{{.Region}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{.OwnersDetails}}</td>
+                <tr>
+            {{end}}
+    {{else if eq .ReportCategory "CC_DETAILS"}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>TSC Account Id</th>
+                <th>TSC Subscription Id</th>
+                <th>TSC Subscription Status</th>
+                <th>Zuora Subscription Key</th>
+                <th>Tenant Id</th>
+                <th>Plan Id</th>
+                <th>Buy Time</th>
+                <th>Region</th>
+                <th>Owner Details</th>
+            </tr>
+            {{range $index, $val := .SubscriptionDetails}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.TscAccountId}}</td>
+                    <td>{{.TscSubscriptionId}}</td>
+                    <td>{{.TscSubscriptionStatus}}</td>
+                    <td>{{.ZuoraSubscriptionKey}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.PlanId}}</td>
+                    <td>{{formatTime .BuyTime}}</td>
+                    <td>{{.Region}}</td>
+                    <td>{{.OwnersDetails}}</td>
+                </tr>
+            {{end}}
+    {{else if eq .ReportCategory "UPCOMING_CC_RENEWAL"}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>TSC Account Id</th>
+                <th>TSC Subscription Id</th>
+                <th>Tenant Id</th>
+                <th>Plan Id</th>
+                <th>Buy Time</th>
+                <th>Renewal Date</th>
+                <th>Region</th>
+                <th>Cronjob Task Status</th>
+                <th>Owner Details</th>
+            </tr>
+            {{range $index, $val := .SubscriptionDetails}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.TscAccountId}}</td>
+                    <td>{{.TscSubscriptionId}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.PlanId}}</td>
+                    <td>{{formatTime .BuyTime}}</td>
+                    <td>{{.RenewalDate}}</td>
+                    <td>{{.Region}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{.OwnersDetails}}</td>
+                </tr>
+            {{end}}
+    {{else if eq .ReportCategory "AWSMP_FAILED"}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Owner</th>
+                <th>TSC Account Id</th>
+                <th>External Account Id (AWS Customer Identifier)</th>
+                <th>TSC Subscription Id</th>
+                <th>Tenant Id</th>
+                <th>Plan Id</th>
+                <th>Error Details</th>
+            </tr>
+            {{range $index, $val := .FailedAWSMPJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.Email}}</td>
+                    <td>{{.AccountId}}</td>
+                    <td>{{.ExternalAccountId}}</td>
+                    <td>{{.SubscriptionId}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.PlanId}}</td>
+                    <td>{{.ErrorDetails}}</td>
+                </tr>
+            {{end}}
+    {{else if eq .ReportCategory "AMP_SANITY"}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>TSC Account Id</th>
+                <th>External Account Id (AMP Subscription Id)</th>
+                <th>TSC Subscription Id</th>
+                <th>Tenant Id</th>
+                <th>Plan Id</th>
+                <th>AMP Status</th>
+                <th>TSC Status</th>
+                <th>Details</th>
+            </tr>
+            {{range $index, $val := .AMPJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.AccountId}}</td>
+                    <td>{{.ExternalSubId}}</td>
+                    <td>{{.SubscriptionId}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.PlanId}}</td>
+                    <td>{{.AMPStatus}}</td>
+                    <td>{{.TSCStatus}}</td>
+                    <td>{{.ExtraDetails}}</td>
+                </tr>
+            {{end}}
+    {{else if eq .ReportCategory "COLLECT_CC_PAYMENTS"}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Owner</th>
+                <th>TSC Account Id</th>
+                <th>External Account Id (Zuora Account Id)</th>
+                <th>TSC Subscription Id</th>
+                <th>Error Details</th>
+            </tr>
+            {{range $index, $val := .CollectCCPaymentJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.Emails}}</td>
+                    <td>{{.AccountId}}</td>
+                    <td>{{.ExternalAccountId}}</td>
+                    <td>{{.SubscriptionId}}</td>
+                    <td>{{.ErrorDetails}}</td>
+                </tr>
+            {{end}}
+    {{else if eq .ReportCategory "EXPIRE_CC_SUBS"}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Owner</th>
+                <th>TSC Account Id</th>
+                <th>Error Details</th>
+            </tr>
+            {{range $index, $val := .CancelExpireCCSubsJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.Emails}}</td>
+                    <td>{{.AccountId}}</td>
+                    <td>{{.ErrorDetails}}</td>
+                </tr>
+            {{end}}
+    {{else if eq .ReportCategory "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST"}}
+        {{if .DeleteNonApprovedExternalIdpRequestsJobDetail}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>TSC Account Id</th>
+                <th>Domain Name</th>
+                <th>Status</th>
+                <th>Type</th>
+                <th>Cronjob Task Status</th>
+                <th>LastModifiedTime</th>
+                <th>Requester User Information</th>
+            </tr>
+            {{range $index, $val := .DeleteNonApprovedExternalIdpRequestsJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.AccountId}}</td>
+                    <td>{{.DomainName}}</td>
+                    <td>{{.Status}}</td>
+                    <td>{{.Type}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{formatTime .LastModifiedTime}}</td>
+                    <td>{{$val.RequesterUserInfo.FirstName}} {{ $val.RequesterUserInfo.LastName}} <br/> {{$val.RequesterUserInfo.Email}}</td>
+                </tr>
+            {{end}}
+        {{else}} Nothing to report.
+        {{end}}
+    {{else if eq .ReportCategory "DPL_PROCESS_RAW_SUBSCRIPTIONS"}}
+        {{if .DplProcessRawSubscriptionJobDetail}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Raw Subscription Id</th>
+                <th>Email</th>
+                <th>Tenant Id</th>
+                <th>Subscription Type</th>
+                <th>Region</th>
+                <th>Status</th>
+                <th>Subscription Id</th>
+                <th>TSC Account Id</th>
+            </tr>
+            {{range $index, $val := .DplProcessRawSubscriptionJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.Id}}</td>
+                    <td>{{.Email}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.SubscriptionType}}</td>
+                    <td>{{.Region}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{.SubscriptionId}}</td>
+                    <td>{{.AccountId}}</td>
+                </tr>
+            {{end}}
+         {{end}}
+    {{else if eq .ReportCategory "PROVISION_INFRA_CAPABILITIES"}}
+        {{if .ProvisionInfraCapabilitiesJobDetail}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Subscription Id</th>
+                <th>Dataplane Id</th>
+                <th>Capability Id</th>
+                <th>Status</th>
+                <th>Error Message</th>
+            </tr>
+            {{range $index, $val := .ProvisionInfraCapabilitiesJobDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.SubscriptionId}}</td>
+                    <td>{{.DataplaneId}}</td>
+                    <td>{{.CapabilityId}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{.ErrorMessage}}</td>
+                </tr>
+            {{end}}
+         {{end}}
+    {{else if eq .ReportCategory "DPL_NOTIFY_LEGAL"}}
+         {{if .DplNotifyLegalJobDetail}}
+                <tr>
+                    <th>Sr.No.</th>
+                    <th>Raw Subscription Id</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Tenant Id</th>
+                    <th>Subscription Type</th>
+                    <th>Region</th>
+                    <th>Status</th>
+                </tr>
+                {{range $index, $val := .DplNotifyLegalJobDetail}}
+                    <tr>
+                        <td>{{inc $index}}</td>
+                        <td>{{.Id}}</td>
+                        <td>{{.FirstName}} {{.LastName}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.TenantId}}</td>
+                        <td>{{.SubscriptionType}}</td>
+                        <td>{{.Region}}</td>
+                        {{template "cronjob-task-status" .}}
+                    </tr>
+                {{end}}
+        {{end}}
+    {{else if eq .ReportCategory "DPL_PROCESS_NOTIFIED_USERS"}}
+            {{if .DplProcessNotifiedUsersJobDetail}}
+                <tr>
+                    <th>Sr.No.</th>
+                    <th>User Id</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                </tr>
+                {{range $index, $val := .DplProcessNotifiedUsersJobDetail}}
+                    <tr>
+                        <td>{{inc $index}}</td>
+                        <td>{{if .Id}} {{.Id}} {{else}} {{.UserEntityID}} {{end}}</td>
+                        <td>{{.FirstName}} {{.LastName}}</td>
+                        <td>{{.Email}}</td>
+                        {{template "cronjob-task-status" .}}
+                    </tr>
+                {{end}}
+            {{end}}
+    {{else if eq .ReportCategory "CLEANUP"}}
+        {{if .DplRawSubscriptionCleanUpDetail}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Raw Subscription Id</th>
+                <th>Email</th>
+                <th>Tenant Id</th>
+                <th>Subscription Type</th>
+                <th>Region</th>
+                <th>IaaS Vendor</th>
+                <th>Record Category</th>
+                <th>Record Status</th>
+                <th>Created By</th>
+                <th>Created Time</th>
+                <th>Modified By</th>
+                <th>Last Modified Time</th>
+                <th>Job Status</th>
+                <th>Subscription Id</th>
+                <th>TSC Account Id</th>
+            </tr>
+            {{range $index, $val := .DplRawSubscriptionCleanUpDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.Id}}</td>
+                    <td>{{.Email}}</td>
+                    <td>{{.TenantId}}</td>
+                    <td>{{.SubscriptionType}}</td>
+                    <td>{{.Region}}</td>
+                    <td>{{.IaaSVendor}}</td>
+                    <td>{{.Category}}</td>
+                    <td>{{.Status}}</td>
+                    <td>{{.CreatedBy}}</td>
+                    <td>{{formatTime .CreatedTime}}</td>
+                    <td>{{.ModifiedBy}}</td>
+                    <td>{{formatTime .ModifiedTime}}</td>
+                    {{template "cronjob-task-status" .}}
+                    <td>{{.SubscriptionId}}</td>
+                    <td>{{.AccountId}}</td>
+                </tr>
+            {{end}}
+        {{end}}
+        {{if .DplRawUserCleanUpDetail}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>Raw User Id</th>
+                <th>Email</th>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Record Status</th>
+                <th>Created By</th>
+                <th>Created Time</th>
+                <th>Modified By</th>
+                <th>Last Modified Time</th>
+                <th>Job Status</th>
+            </tr>
+            {{range $index, $val := .DplRawUserCleanUpDetail}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.Id}}</td>
+                    <td>{{.Email}}</td>
+                    <td>{{.FirstName}}</td>
+                    <td>{{.LastName}}</td>
+                    <td>{{.Status}}</td>
+                    <td>{{.CreatedBy}}</td>
+                    <td>{{formatTime .CreatedTime}}</td>
+                    <td>{{.ModifiedBy}}</td>
+                    <td>{{formatTime .ModifiedTime}}</td>
+                    {{template "cronjob-task-status" .}}
+                </tr>
+            {{end}}
+        {{end}}
+        {{if .CIndexAuditTableCleanupDetails}}
+            <tr>
+                <th>Table Name</th>
+                <th>Record Status Value</th>
+                <th>Days Since Created</th>
+                <th>Deleted Records Count</th>
+            </tr>
+            <tr>
+                <td>{{.CIndexAuditTableCleanupDetails.TableName}}</td>
+                <td>{{.CIndexAuditTableCleanupDetails.RecordStatus}}</td>
+                <td>{{.CIndexAuditTableCleanupDetails.DaysSinceCreated}} or more</td>
+                <td>{{.CIndexAuditTableCleanupDetails.DeletedRowsCount}}</td>
+            </tr>
+        {{end}}
+        {{else if eq .ReportCategory "IDM_NOTIFY_CERTIFICATE_EXPIRY"}}
+         {{if .IdmNotifyCertificateExpiryJobDetail}}
+                <tr>
+                    <th>Tenant Id</th>
+                    <th>Certificate Expiry Details</th>
+                </tr>
+                {{range $tenant, $details := $.IdmNotifyCertificateExpiryJobDetail}}
+                    <tr>
+                        <td>{{$tenant}}</td>
+                        <td>{{$details}}</td>
+                    </tr>
+                {{end}}
+        {{end}}
+    {{else if eq .ReportCategory "NOTIFY_IT_ENDPOINT_INACTIVE"}}
+        <tr>
+            <th>Sr.No.</th>
+            <th>EndPoint URL</th>
+            <th>Failure Count</th>
+            <th>Error Details</th>
+            <th>Error Time</th>
+        </tr>
+        <tr>
+            <td>1</td>
+            <td>{{.EndPointPath}}</td>
+            <td>{{$.EndPointHealthStatusDetails.FailureCnt}}</td>
+            <td>{{.ErrorDetails}}</td>
+            <td>{{formatTime $.EndPointHealthStatusDetails.TimeStamp}}</td>
+        </tr>
+    {{else if eq .ReportCategory "GDPR_PURGE_HISTORY"}}
+        {{if .GDPRPurgeHistoryDetails}}
+            <tr>
+                <th>Sr.No.</th>
+                <th>History</th>
+                <th>Time since archived</th>
+                <th>Deleted Rows Count</th>
+            </tr>
+            {{range $index, $val := .GDPRPurgeHistoryDetails}}
+                <tr>
+                    <td>{{inc $index}}</td>
+                    <td>{{.TableName}}</td>
+                    <td>{{.TimeSinceArchived}}</td>
+                    <td>{{.DeletedRowsCount}}</td>
+                </tr>
+            {{end}}
+        {{end}}
+    {{end}}
+
+</table>
+
+
+    {{- if not (or .CollectCCPaymentJobDetail .CancelExpireCCSubsJobDetail)}}
+        <br><br><br>
+        Please check the CP Cron Jobs Service pod logs for this report<br>
+        Note: In case of errors, please see the attached log files.
+    {{end}}
+
+{{- else}}
+    {{if eq .ReportCategory "AWSMP_FAILED" "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST" "CLEANUP" "GDPR_PURGE_HISTORY"}}
+    <h2><b>Nothing to report</b></h2>
+    {{else if .ErrorCase}}
+    <h2><b>Refer to the logs</b></h2>
+    {{else if .ErrorMsg}}
+    <h2><b>{{.ErrorMsg}}</b></h2>
+    {{else}}
+    <h2><b>No subscriptions found</b></h2>
+    {{end}}
+    <p>TIBCO Cloud DNS domain which generated this report is: {{.TscDnsDomain}}</p>
+{{end}}
+
+</body>
+</html>
+
+{{define "cronjob-task-status"}}
+    {{if eq .CronjobTaskStatus "Completed" "Subscription Provisioned Successfully" "Email Sent Successfully" "Notified Legal Successfully" "Delete Success"}}
+        <td> <p style="color:green"> <b>{{.CronjobTaskStatus}}</b> </p> </td>
+    {{else if eq .CronjobTaskStatus "Skipped"}}
+        <td> <p style="color:orange"> <b>{{.CronjobTaskStatus}}</b> </p> </td>
+    {{else}}
+        <td> <p style="color:red"> <b>{{.CronjobTaskStatus}}</b> </p> </td>
+    {{end}}
+{{end}}

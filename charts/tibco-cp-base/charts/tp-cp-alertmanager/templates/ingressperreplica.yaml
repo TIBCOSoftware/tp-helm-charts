@@ -1,0 +1,72 @@
+{{/*
+Copyright 2025 Alert Manager Community Charts
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/}}
+
+{{- if and .Values.servicePerReplica.enabled .Values.ingressPerReplica.enabled }}
+{{- $pathType := .Values.ingressPerReplica.pathType  }}
+{{- $count := .Values.replicaCount | int -}}
+{{- $servicePort := .Values.service.port -}}
+{{- $ingressValues := .Values.ingressPerReplica -}}
+{{- $fullName := include "alertmanager.fullname" . }}
+apiVersion: v1
+kind: List
+metadata:
+  name: {{ $fullName }}-ingressperreplica
+  namespace: {{ include "alertmanager.namespace" . }}
+items:
+{{- range $i, $e := until $count }}
+  - kind: Ingress
+    apiVersion: {{ include "alertmanager.ingress.apiVersion" $ }}
+    metadata:
+      name: {{ $fullName }}-{{ $i }}
+      namespace: {{ include "alertmanager.namespace" $ }}
+      labels:
+      {{- include "alertmanager.labels" $ | nindent 8 }}
+      {{- if $ingressValues.labels }}
+{{ toYaml $ingressValues.labels | indent 8 }}
+      {{- end }}
+      {{- if $ingressValues.annotations }}
+      annotations:
+{{ toYaml $ingressValues.annotations | indent 8 }}
+      {{- end }}
+    spec:
+      {{- if $ingressValues.className }}
+      ingressClassName: {{ $ingressValues.className }}
+      {{- end }}
+      rules:
+        - host: {{ $ingressValues.hostPrefix }}-{{ $i }}.{{ $ingressValues.hostDomain }}
+          http:
+            paths:
+      {{- range $p := $ingressValues.paths }}
+              - path: {{ tpl $p $ }}
+                pathType: {{ $pathType }}
+                backend:
+                  service:
+                    name: {{ $fullName }}-{{ $i }}
+                    port:
+                      name: http
+      {{- end -}}
+      {{- if or $ingressValues.tlsSecretName $ingressValues.tlsSecretPerReplica.enabled }}
+      tls:
+        - hosts:
+            - {{ $ingressValues.hostPrefix }}-{{ $i }}.{{ $ingressValues.hostDomain }}
+          {{- if $ingressValues.tlsSecretPerReplica.enabled }}
+          secretName: {{ $ingressValues.tlsSecretPerReplica.prefix }}-{{ $i }}
+          {{- else }}
+          secretName: {{ $ingressValues.tlsSecretName }}
+          {{- end }}
+      {{- end }}
+{{- end -}}
+{{- end -}}

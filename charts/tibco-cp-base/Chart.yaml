@@ -1,0 +1,57 @@
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v2
+name: tibco-cp-base
+description: TIBCO Platform base chart
+type: application
+version: 1.13.0-alpha.94
+appVersion: "1.13.0"
+keywords:
+  - tibco-platform
+  - platform
+  - base
+annotations:
+  app.helm.sh/component: control-plane
+  app.helm.sh/name: tibco-cp-base
+dependencies:
+  - name: tp-cp-infra
+    version: "1.13.*"
+    condition: tp-cp-infra.enabled
+  - name: hybrid-proxy
+    version: "1.13.*"
+    condition: hybrid-proxy.enabled
+  - name: resource-set-operator
+    version: "1.13.*"
+    condition: resource-set-operator.enabled
+  - name: router-operator
+    version: "1.13.*"
+    condition: router-operator.enabled
+  - name: otel-collector
+    version: "0.116.*"
+    condition: otel-collector.enabled
+  - name: tp-cp-o11y
+    version: "1.13.*"
+    condition: tp-cp-o11y.enabled
+  - name: tp-cp-configuration
+    version: "1.13.*"
+  - name: tp-cp-core
+    version: "1.13.*"
+  - name: tp-cp-core-finops
+    version: "1.13.*"
+  - name: tp-cp-integration-common
+    version: "1.13.*"
+    condition: tp-cp-integration-common.enabled
+  - name: tp-cp-cli
+    version: "1.4.*"
+    condition: tp-cp-cli.enabled
+  - name: tp-cp-alertmanager
+    version: "1.13.*"
+  - name: tp-cp-prometheus
+    version: "1.13.1"
+  - name: tp-cp-auditsafe
+    version: "1.13.*"
+    condition: tp-cp-auditsafe.enabled

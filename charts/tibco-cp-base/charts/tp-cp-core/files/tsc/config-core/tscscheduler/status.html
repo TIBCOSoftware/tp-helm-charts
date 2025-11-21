@@ -1,0 +1,66 @@
+<html>
+<!--meta http-equiv="refresh" content="3"-->
+<head>
+	<style>
+body {
+	margin: 30px 0 0 0;
+  font-size: 11px;
+  font-family: sans-serif;
+  color: #345;
+
+}
+h1 {
+	font-size: 24px;
+	text-align: center;
+	padding: 10 0 30px;
+}
+table {
+	/*max-width: 80%;*/
+	margin: 0 auto;
+  border-collapse: collapse;
+  border: none;
+}
+table td, table th {
+	min-width: 25px;
+	width: auto;
+  padding: 15px 20px;
+  border: none;
+}
+
+
+table tr:nth-child(odd) {
+  background-color: #f0f0f0;
+}
+table tr:nth-child(1) {
+  background-color: #345;
+  color: white;
+}
+th {
+  text-align: left;
+}
+	</style>
+	<table>
+		<tr>
+			<th>
+				<div id="clockbox-heading">Current Server Time : {{.ServerTime}}</div>
+			</th>
+		</tr>
+	</table>
+</head>
+
+<body>
+<h1>TSC Scheduler Service - Jobs Status Report</h1>
+<table>
+	<tr><th>ID</th><th>Name</th><th>Status</th><th>Last run</th><th>Next run</th><th>Latency</th></tr>
+	{{range .StatusPage}}
+		<tr>
+			<td>{{.Id}}</td>
+			<td>{{.JobRunner.Name}}</td>
+			<td>{{.JobRunner.Status}}</td>
+			<td>{{if not .Prev.IsZero}}{{.Prev.Format "Mon, 02 Jan 2006 15:04:05 -0700"}}{{end}}</td>
+			<td>{{if not .Next.IsZero}}{{.Next.Format "Mon, 02 Jan 2006 15:04:05 -0700"}}{{end}}</td>
+			<td>{{.JobRunner.Latency}}</td>
+		</tr>
+	{{end}}
+</table>
+</body>

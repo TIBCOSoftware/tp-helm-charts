@@ -1,0 +1,99 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+capability:
+  name: tibco-platform-cli
+
+source:
+  directory: /app
+
+debug:
+  image:
+    name: common-distroless-base-debian-debug
+    tag: 12.12
+
+cpCliCard: true
+scripts:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 75Mi
+    limits:
+      cpu: 100m
+      memory: 150Mi
+
+podAnnotations: {}
+
+nameOverride: ""
+
+toolsMountPath: /downloads/tools
+toolsSubPath: tsc/tools
+
+tpcli:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 700Mi
+    limits:
+      cpu: "1"
+      memory: 1024Mi
+
+containerImageExtractor:
+  image:
+    name: "infra-container-image-extractor"
+    registry: ""
+    repo: ""
+    tag: 170-distroless
+    pullPolicy: IfNotPresent
+
+# Pod Security Context configuration
+# This configuration ensures that the pod is run with non-root privileges for enhanced security.
+# The user, group, and filesystem group IDs are all set to 1000.
+# The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+# The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# global values used by the chart. These values gets propagated to sub-charts.
+global:
+  tibco:
+    enableLogging: true
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: "tibco-platform-docker-prod"
+      certificateSecret: ""  # secret name containing the custom certificates
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+probes:
+  startupProbe: {}
+  # enable startup probe only if security policy is blocking you from deployment, otherwise its not recommended to use it
+  #  exec:
+  #    command:
+  #    - touch
+  #    - /tmp/healthy
+  #  initialDelaySeconds: 5
+  #  periodSeconds: 5
+  #  failureThreshold: 5
+  #  successThreshold: 1
+  #  timeoutSeconds: 5

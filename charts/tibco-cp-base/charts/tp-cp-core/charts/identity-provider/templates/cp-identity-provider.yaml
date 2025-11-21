@@ -1,0 +1,451 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-identity-provider.consts.appName" . }}
+  namespace: {{ include "tp-cp-identity-provider.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-identity-provider.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 7893
+    protocol: TCP
+    targetPort: 7893
+  - name: monitor
+    port: 9893
+    protocol: TCP
+    targetPort: 9893
+  - name: crewjam
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    {{- include "tp-cp-identity-provider.shared.labels.selector" . | nindent 4 }}
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-identity-provider.consts.appName" . }}
+  namespace: {{ include "tp-cp-identity-provider.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-identity-provider.shared.labels.standard" . | nindent 4 }}
+spec:
+{{- if .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-identity-provider.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-identity-provider.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+{{- if (include "cp-core-configuration.enableLogging" .)}}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+          {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      terminationGracePeriodSeconds: 15
+      initContainers:
+      - name: check-pod-dependencies
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
+        {{- if .Values.global.containerSecurityContext }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
+        env:
+          - name: TP_CP_IDM_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_IDM_HOST
+      - name: check-sql-schema-version
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: DB_PREFIX
+            value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+          - name: PGHOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-cp-identity-provider.consts.cp-db-configuration" . }}
+                key: DBHost
+          - name: PGPORT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-cp-identity-provider.consts.cp-db-configuration" . }}
+                key: DBPort
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: defaultidp-postgres-credential
+                key: PGPASSWORD
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            /opt/tibco/tsc/scripts/postgres-helper.bash check-schema-version defaultidp
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: tp-cp-identity-provider
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.identityProvider }}:{{ include "identity-provider.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.tpcpidpservice.resources.requests.cpu }}
+            memory: {{ .Values.tpcpidpservice.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.tpcpidpservice.resources.limits.cpu }}
+            memory: {{ .Values.tpcpidpservice.resources.limits.memory }}
+        ports:
+        - containerPort: 8000
+          name: crewjam
+        - containerPort: 7893
+          name: server
+        - containerPort: 9893
+          name: monitor
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /ping
+            port: 9893
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /ping
+            port: 9893
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: TP_CP_IDENTITY_PROVIDER_PRIVATE_KEY_LOCATION
+          value: /etc/idp/certs/idp.p12
+        - name: TP_CP_SERVICE_PROVIDER_PUBLIC_CERTIFICATE
+          value: /etc/idp/certs/idm.pem
+        - name: TP_CP_IDENTITY_PROVIDER_LOGIN_PAGE_HTML_LOCATION
+          value: /tmp/private/tsc/config/default-idp/resources/html-files/login.html
+        - name: TP_CP_IDENTITY_PROVIDER_KEYSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: identity-provider-key-store-password
+              key: IDENTITY_PROVIDER_KEY_STORE_PASSWORD
+        - name: DEFAULTIDP_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_ADMIN_DNS_DOMAIN
+        - name: TSC_ADMIN_DNS_DOMAIN_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_ADMIN_DNS_DOMAIN
+        - name: TP_CP_EMAIL_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMAIL_SERVICE_HOST
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{include "tp-cp-identity-provider.consts.cp-db-configuration" . }}
+              key: DBHost
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{include "tp-cp-identity-provider.consts.cp-db-configuration" . }}
+              key: DBPort
+        - name: POSTGRES_ENDPOINT_URL
+          value: "$(PGHOST):$(PGPORT)"
+        - name: POSTGRES_USERNAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_defaultidpuser
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: defaultidp-postgres-credential
+              key: PGPASSWORD
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_defaultidpdb
+        - name: POSTGRES_DATABASE_DRIVER
+          value: postgres
+        - name: POSTGRES_DATABASE_SSL_ROOT_CERT_FILE_LOCATION
+          {{- if eq .Values.global.external.db_ssl_mode "disable" }}
+          value: ""
+          {{- else }}
+          value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+          {{- end }}
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+{{- if ne .Values.global.external.db_ssl_mode "disable" }}
+        - name: db-ssl-cert-vol
+          mountPath: /private/tsc/certificates
+          readOnly: true
+{{- end }}
+        - name: logs
+          mountPath: /tmp/logs
+        - name: idp-certs
+          mountPath: /etc/idp/certs/idp.p12
+          subPath: idp.p12
+          readOnly: true
+        - name: idp-certs
+          mountPath: /etc/idp/certs/idm.pem
+          subPath: idm.pem
+          readOnly: true
+        - name: idp-config
+          mountPath: /tmp/private/tsc/config/default-idp/resources/html-files/login.html
+          subPath: login.html
+          readOnly: true
+{{- if (include "cp-core-configuration.enableLogging" .)}}
+      - name: fluentbit
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tp-cp-identity-provider
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .)}}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-identity-provider.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: logs
+          emptyDir: {}
+{{- if ne .Values.global.external.db_ssl_mode "disable" }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+{{- end }}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+        - name: idp-certs
+          secret:
+            secretName: identity-provider-key-store-password
+            items:
+              - key: idp.p12
+                path: idp.p12
+              - key: idm.pem
+                path: idm.pem
+        - name: idp-config
+          configMap:
+            name: cp-core-idp-config
+            items:
+              - key: files__tsc__config__default-idp__resources__html-files__login.html
+                path: login.html
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tp-cp-identity-provider.consts.appName" . }}
+  namespace: {{ include "tp-cp-identity-provider.consts.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tp-cp-identity-provider.consts.appName" . }}
+  minReplicas: {{ .Values.replicaCount | default 1 }}
+  maxReplicas: {{ add 2 (.Values.replicaCount | default 1) }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.hpa.cpu }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.hpa.memory }}
+
+---
+
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-identity-provider.consts.appName" . }}
+  namespace: {{ include "tp-cp-identity-provider.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-identity-provider.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-identity-provider.consts.appName" . }}
+  env:
+    - name: DEFAULTIDP_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_ADMIN_DNS_DOMAIN
+  endpoints:
+    - path: /idp/v1/reset-password
+      internalPath: /idp/v1/reset-password
+      port: 7893
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /sso
+      internalPath: /sso
+      port: 8000
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /login
+      internalPath: /sso
+      port: 8000
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /ping/not_exposed
+      internalPath: /ping
+      port: 9893
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /idp/v1/forgot-password-token
+      internalPath: /v1/forgot-password-token
+      port: 7893
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
+    - path: /idp/v1/forgot-password
+      internalPath: /v1/forgot-password
+      port: 7893
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: ${DEFAULTIDP_DNS_DOMAIN}
+          enableRedirects: true
