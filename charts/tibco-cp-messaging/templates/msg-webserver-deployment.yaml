@@ -10,7 +10,7 @@ metadata:
   name: tp-cp-msg-webserver
   namespace: "{{ .Release.Namespace }}"
   labels:
-    tib-msgdp-mm-version: "1.12.0-0"
+    tib-msgdp-mm-version: "1.13.0-0"
 spec:
   replicas: 1
   selector:
@@ -135,6 +135,8 @@ spec:
           value: "{{ $webserverParams.cp.SUBSCRIPTION_SINGLE_NAMESPACE }}"
         - name: SYSTEM_WHO
           value: "{{ $webserverParams.cp.SYSTEM_WHO }}"
+        - name: TIBCO_GEMS_LOG_LEVEL
+          value: "{{ .Values.webserver.loglevel }}"
       volumes:
       {{ include "msg.pv.vol.def" $webserverParams.webserver.boot | nindent 6 }}
       - name: tmp-vol

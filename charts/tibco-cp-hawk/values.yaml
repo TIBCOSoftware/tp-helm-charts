@@ -8,6 +8,7 @@ global:
   enableLogging: true
   tibco:
     is_replica_region: false
+    manageDbSchema: true
   cp:
     enableResourceConstraints: true
     data:
@@ -58,6 +59,14 @@ global:
             - CAP_NET_RAW
             - ALL
 #
+
+# Add to customize hawkconsole recipe
+# recipeOverride:
+#   HAWKCONSOLE:
+#     hawkconsole:
+#       javaOptions: "-Xms1g -Xmx4g"
+
+
 # Resource values for production like setup
 hawkinfrajobs:
   resources:
@@ -86,7 +95,7 @@ images:
       name: hawk-scripts
       pullPolicy: IfNotPresent
       # tag: 185
-      tag: "1.12.0.9"
+      tag: "1.13.0.15"
 #
 hawk:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
@@ -97,29 +106,17 @@ hawk:
 tp-cp-hawk-infra-querynode:
   enabled: true
 
-###### Hawkconsole recipes Additional values settings
-capabilities:
-  hawkConsole:
-    # if set to true then existing recipe will be overwritten by latest recipe.
-    overwriteRecipe: "false"
-    # set to true for latest version of recipe
-    isLatest: "true"
-    # Helm chart version for hawk-console, default is latest
-    version: "1.12.9"
-    # tag: "32"
-    tag: "1.12.0.9"
-    # Timestamp of capability release
-    releaseDate: "2025/02/26"
-    # Either a link to document or the document itself specifying _what was fixed in this release.
-    releaseNotes: "Enhancements, Bug fixes, etc."
-
 image:
-  # hawk-console-recipes-job
-  name: common-distroless-base-debian-debug
-  registry: ""
-  repo: ""
-  tag: 12.11
-  pullPolicy: IfNotPresent
+  hawkRecipeDelete:
+    name: "msg-ubu-k8bash"
+    tag: "24.04.0-12"
+    pullPolicy: IfNotPresent
+  hawkRecipeCreate:
+    name: "msg-ubu-k8bash"
+    tag: "24.04.0-12"
+    registry: ""
+    repo: ""
+    pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
 # This configuration ensures that the pod is run with non-root privileges for enhanced security.

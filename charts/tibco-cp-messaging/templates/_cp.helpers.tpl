@@ -80,7 +80,7 @@ cp:
   pullSecret: "tibco-container-registry-credentials"
   pullPolicy: Always
   imageName: "msg-cp-ui-contrib"
-  imageTag: "1.12.0-13"
+  imageTag: "1.13.0-14"
   enableResourceConstraints: true
     {{ if hasKey .Values.cp "enableSecurityContext" }}
   enableSecurityContext: {{ .Values.cp.enableSecurityContext }}

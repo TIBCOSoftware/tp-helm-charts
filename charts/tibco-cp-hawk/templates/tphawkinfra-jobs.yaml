@@ -3,6 +3,7 @@
 # in the license file that is distributed with this file.
 {{- $resourceSuffix := randAlphaNum 4 | lower -}}
 {{- if eq .Values.global.tibco.is_replica_region false }}
+{{- if .Values.global.tibco.manageDbSchema }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,6 +17,9 @@ metadata:
     {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
 spec:
   backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  #72hr limit -  activeDeadlineSeconds: 259200
+  ttlSecondsAfterFinished: 7200
   template:
     metadata:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-setup-{{ $resourceSuffix }}
@@ -133,6 +137,9 @@ metadata:
     {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
 spec:
   backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  #72hr limit -  activeDeadlineSeconds: 259200
+  ttlSecondsAfterFinished: 7200
   template:
     metadata:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-upgrade-{{ $resourceSuffix }}
@@ -249,6 +256,9 @@ metadata:
     {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
 spec:
   backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  #72hr limit -  activeDeadlineSeconds: 259200
+  ttlSecondsAfterFinished: 7200
   template:
     metadata:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-cleanup-{{ $resourceSuffix }}
@@ -365,6 +375,9 @@ metadata:
     {{- include "tp-hawk-infra.shared.labels.standard" . | nindent 4 }}
 spec:
   backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  #72hr limit -  activeDeadlineSeconds: 259200
+  ttlSecondsAfterFinished: 7200
   template:
     metadata:
       name: {{ include "tp-hawk-infra.consts.appName" . }}-rollback-{{ $resourceSuffix }}
@@ -463,5 +476,5 @@ spec:
         - name: tmpfs-1
           emptyDir: {}
 
-
+{{- end }}
 {{- end }}

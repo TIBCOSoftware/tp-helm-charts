@@ -5,7 +5,7 @@
 #
 
 export MY_POD_NAME="${MY_POD_NAME:-$(hostname)}"
-outfile=${1:-toolset.wd.yaml}
+outfile=${1:-gateway.wd.yaml}
 cat - <<EOF > $outfile
 services:
   - name: main
@@ -27,14 +27,13 @@ services:
         num: 50
         debugfile: ${EMS_RESTD_DIR}/register-debug.log
         rotateonfirststart: true
-  - name: tibrvmon
+  - name: gateway-refresh
     config:
-      cmd: bash /logs/boot/start-tibrvmon.sh
-      cwd: /logs/tibrvmon
+      cmd: bash /logs/boot/gateway-refresh.sh
+      cwd: /logs/jwks
       log:
         size: 10
-        num: 5
-        # debugfile: ${EMS_RESTD_DIR}/register-debug.log
+        num: 10
         rotateonfirststart: true
   - name: pod-stats
     config:
@@ -45,11 +44,4 @@ services:
         num: 50
         debugfile: /logs/pod-stats/pod-mon.csv
         rotateonfirststart: true
-  - name: jwks-refresh
-    config:
-      cmd: bash /logs/boot/jwks-refresh.sh
-      cwd: /logs/jwks
-      log:
-        size: 10
-        num: 10
 EOF

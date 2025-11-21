@@ -13,6 +13,7 @@ realmPort="${FTL_REALM_PORT-9013}"
 emsTcpPort="${EMS_TCP_PORT:-9011}"
 emsSslPort="${EMS_SSL_PORT:-9012}"
 EMS_FTL_SPIN="${EMS_FTL_SPIN:-disabled}"
+EMS_MAX_MEMORY=${EMS_MAX_MEMORY:-4GB}
 subData="/data"
 pstoreData="/data"
 
@@ -151,7 +152,7 @@ cat - <<EOF > $outfile
     "large_destination_memory":"3200MB",
     "max_client_msg_size":"2MB",
     "max_connections":"3000",
-    "max_msg_memory":"8GB",
+    "max_msg_memory":"$EMS_MAX_MEMORY",
     "max_stat_memory":"64MB",
     "msg_swapping":true,
     "network_thread_count":3,

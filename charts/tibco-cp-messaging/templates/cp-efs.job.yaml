@@ -55,7 +55,7 @@ spec:
                 # bash < /boot/copy-ui-to-cp.sh
                 args:
                 - >
-                  bash < /boot/extract-recipe-packages.sh
+                  bash < /boot/extract-recipe-packages.sh ; sleep ${JOB_POST_SLEEP:-50}
                 image: "{{ $recipesParams.cp.imageFullName }}"
                 imagePullPolicy: {{ $recipesParams.cp.pullPolicy }}
                 {{ include "msg.cp.security.container" $recipesParams | nindent 16 }}
@@ -91,4 +91,15 @@ metadata:
   labels:
 data:
 {{ (.Files.Glob "recipes/*").AsConfig | indent 2 }}
+{{- if .Values.recipeOverride }}
+  recipeOverrides: |
+  {{- if .Values.recipeOverride.MSGCORE }}
+    infra/msgcore/1.13.0/recipe.yaml:
+      {{ toYaml .Values.recipeOverride.MSGCORE | nindent 6 }}
+  {{- end }}
+  {{- if .Values.recipeOverride.EMS }}
+    platform/ems/1.13.0/recipe.yaml:
+      {{ toYaml .Values.recipeOverride.EMS | nindent 6 }}
+  {{- end }}
+{{- end }}
 ...

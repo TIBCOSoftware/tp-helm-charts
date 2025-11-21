@@ -136,6 +136,8 @@ spec:
                 value: "http://localhost:{{ $params.msggw.ports.restdPort | default 9014 }}"
               - name: MY_DATAPLANE
                 value: "{{ $params.dp.name }}"
+              - name: IS_BMDP
+                value: "n"
               - name: DP_USE_HAWK
                 value: "no"
               - name: DP_CLOUDTYPE
@@ -158,7 +160,7 @@ spec:
               - name: TCM_WATCHDOG_LOG_FILE
                 value: /logs/watchdog.log
               - name: TCM_WATCHDOG_CONFIG
-                value: "/logs/boot/toolset.wd.yaml"
+                value: "/logs/boot/gateway.wd.yaml"
               - name: TCM_WD_PORT
                 value: "{{ $params.msggw.ports.watchdogPort }}"
               - name: TCM_WATCHDOG_HOSTPORT

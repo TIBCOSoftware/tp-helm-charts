@@ -27,6 +27,51 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- end }}
+      {{- if eq .Values.global.tibco.manageDbSchema false }}
+      initContainers:
+        - name: check-sql-schema-version
+          image: {{ include "tp-hawk-infra-querynode.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-querynode.image.repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+          {{- if .Values.global.containerSecurityContext.querynode }}
+          securityContext:
+            {{- toYaml .Values.global.containerSecurityContext.querynode | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_PREFIX
+              value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: MasterWriterHost
+                  {{- else }}
+                  key: DBHost
+                  {{- end }}
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.cp.data.CP_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rtmon-postgres-credential
+                  key: PGPASSWORD
+            - name: PSQL_SCRIPTS_LOCATION
+              value: /opt/tibco/tsc/scripts/postgres/tibco-cp-hawk
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              /opt/tibco/tsc/scripts/postgres-helper.bash check-schema-version rtmon
+      {{- end }}
       {{- if (include "tp-hawk-infra-querynode.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "tp-hawk-infra-querynode.container-registry.secret" . }}

@@ -64,7 +64,7 @@ function waitForStableRequest {
     last=$(wc -l < "$restartRequest")
     now=0
     for try in $(seq 5) ; do
-        sleep 1
+        sleep 3
         now=$(wc -l < "$restartRequest")
         if [ "$now" -eq "$last" ] ; then
             break
@@ -82,6 +82,11 @@ function restartRestd {
   restdPid="$(ps -C tibemsrestd -o pid= | tr -d ' ' )"
   rm -f $restartRequest
   kill -TERM "$restdPid"
+  # Also restart logger if running
+  log "#+: INFO:  restarting emslog if running."
+  loggerPid="$(ps -C emslog -o pid= | tr -d ' ' )"
+  [ -n "$loggerPid" ] && kill -TERM "$loggerPid"
+  # Wait for tibemsrestd running
   for try in $(seq 60) ; do 
     restdSendCmd /health GET >/dev/null 2>&1 && break
     log "waiting for tibemsrestd to restart..."
@@ -90,7 +95,7 @@ function restartRestd {
   restdSendCmd /health GET >/dev/null 2>&1 || log "tibemsrestd failed to restart, support required."
   # Allow time for processing before next possible restart
   log "waiting for tibemsrestd to stabilize..."
-  sleep 5 
+  sleep 1 
   log "open for business ..."
   return
 }
@@ -115,6 +120,7 @@ function getJWKS {
     tail -1 curl.out
 }
 
+mkdir -p "$(dirname "$jwksFile")"
 function saveJWKS {
     # Use atomic file update, only update if changed.
     jwks="$1"
@@ -176,6 +182,7 @@ done
 emsList=/logs/ems-list.out
 > $emsList
 function refreshEms {
+    # Refresh K8DP EMS Registration information
     kubectl get sts -l=app.kubernetes.io/name=ems | egrep -v NAME | cut -d' ' -f1 | sort > $emsList.tmp
     if ! diff -q $emsList $emsList.tmp > $emsList.diff 2>&1 ; then
         # Update the registration
@@ -201,7 +208,9 @@ do
         saveJWKS "$jwks"
     fi
 
-    if [ 0 -eq $(( $iter % $freqK8EmsWatch )) ] ; then
+    if [ "$IS_BMDP" != "y" ] ; then
+      if [ 0 -eq $(( $iter % $freqK8EmsWatch )) ] ; then
+        # K8s REFRESH
         refreshEms
         # TODO: 1.7.0 compatibility
         # TODO: MSGDP-1291: Remove after 1.9.0 GA, when legacy repairs are no longer needed
@@ -209,6 +218,7 @@ do
             repairEmsSecrets
             repairEmsIter=$((repairEmsIter - 1))
         fi
+      fi
     fi
 
     if [ 0 -eq $(( $iter % $freqTibemsrestdWatch )) ] ; then
