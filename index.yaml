@@ -6013,6 +6013,25 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.13.0-alpha.26/tibco-cp-bw-1.13.0-alpha.26.tgz
     version: 1.13.0-alpha.26
+  tibco-cp-devhub:
+  - apiVersion: v2
+    appVersion: 1.13.0
+    created: "2025-11-21T13:16:55.215648171Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.13.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.13.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: 08facd8b3f4c3db3e12e41629d48adf88d4e8cd48a3c57eef72e25a7c3f81099
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.13.0/tibco-cp-devhub-1.13.0.tgz
+    version: 1.13.0
   tibco-cp-flogo:
   - apiVersion: v2
     appVersion: 1.13.0
@@ -6115,6 +6134,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-messaging-1.11.15/tibco-cp-messaging-1.11.15.tgz
     version: 1.11.15
   tibco-developer-hub:
+  - apiVersion: v2
+    appVersion: 1.13.0
+    created: "2025-11-21T13:16:55.485940633Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: 7d1a3be5618ab4a97558c62b98dd3cac87de9a5368443f0b06a90d1c191888ab
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.13.5/tibco-developer-hub-1.13.5.tgz
+    version: 1.13.5
   - apiVersion: v2
     appVersion: 1.12.0
     created: "2025-10-27T11:38:28.409191222Z"
@@ -12923,4 +12962,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-11-21T11:11:52.239396579Z"
+generated: "2025-11-21T13:16:55.486718795Z"
