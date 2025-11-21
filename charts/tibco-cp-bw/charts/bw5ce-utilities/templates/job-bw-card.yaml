@@ -1,0 +1,84 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.bw5CardJob }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bw5ce-utilities.fullname" . }}-bw5-card-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw5ce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bw5ce-utilities.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bw5ce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bw-card
+          image: {{ include "bw5ce-utilities.image.registry" .}}{{"/"}}{{ include "bw5ce-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              basePath="/downloads/tools/bw5-installer/"
+              mkdir -p $basePath
+              cd /downloads/tools/bw5-installer
+
+              # Generate download json file for UI
+              finalStr=$finalStr"["
+                  finalStr=$finalStr"   {"
+                  finalStr=$finalStr"   \"Name\": \"TIBCO BusinessWorks ™ 5\","
+                  finalStr=$finalStr"   \"Description\": \"The TIBCO ActiveMatrix BusinessWorks integration platform enables companies to rapidly integrate systems and automate business processes. TIBCO ActiveMatrix BusinessWorks supports your integration project throughout the project lifecycle. It includes a common graphical user interface for adapter configuration, process design, and deployment.\","
+                  finalStr=$finalStr"   \"LearnMoreLink\": \"https://docs.tibco.com/products/tibco-activematrix-businessworks\","
+                  finalStr=$finalStr"   \"RedirectLink\": \"https://www.tibco.com/downloads/10001\","
+                  finalStr=$finalStr"   \"BuildDate\":\"$(date "+%Y-%m-%dT%H:%M:%S%Z")\""
+                  finalStr=$finalStr"   }"
+              finalStr=$finalStr"]"
+
+              echo $finalStr > bw5_installer_download.json
+              cat bw5_installer_download.json
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.toolsMountPath }}
+              subPath: {{ $.Values.toolsSubPath }}
+            - name: tmp-vol
+              mountPath: /tmp
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: {{ include "bw5ce-utilities.pvc-name" . }}
+        - emptyDir: {}
+          name: tmp-vol
+{{- if (include "bw5ce-utilities.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "bw5ce-utilities.container-registry.secret" . }}
+{{- end }}
+{{- end }}

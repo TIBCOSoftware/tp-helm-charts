@@ -11,6 +11,8 @@ dpConfig:
   capabilityDefaultNamespace: ""
   helmRepoAlias: ""
   activationServiceUrl: ""
+  licenseMountPath: ""
+  licenseSecretName: ""
 
 appConfig:
   appId: ""
@@ -60,6 +62,7 @@ workload: "deployment"
 # for future use, workload can be "statufulset", "deployment", etc
 
 serviceAccountName: ""
+terminationGracePeriodSeconds: 30
 
 deploymentAnnotations: {}
 
@@ -136,6 +139,7 @@ bwapp:
     periodSeconds: 5
     successThreshold: 1
     timeoutSeconds: 5
+  lifecycle: {}
 
 fluentBit:
   enabled: true
@@ -166,6 +170,10 @@ fluentBit:
     periodSeconds: 10
     successThreshold: 1
     timeoutSeconds: 5
+  lifecycle:
+    preStop:
+      sleep:
+        seconds: 10
 
 appInit:
   securityContext:

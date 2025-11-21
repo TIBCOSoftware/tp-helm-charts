@@ -1,0 +1,154 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bw-recipes.appName" . }}-bw-adapter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": {{ .Chart.AppVersion | quote }},
+      "minCPVersion": "1.13.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.bwadapter.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.bwadapter.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.4.0",
+      "minDPVersion": {
+        "dp-core-infrastructure": "1.7.0",
+        "dp-configure-namespace": "1.7.0"
+      }
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "dp-bw-adapter",
+            "description": "BW Adapter Service",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": [
+          {
+            "type": "Ingress Controller",
+            "required": true,
+            "resourceId": "INGRESS",
+            "resourceType": "PLATFORM"
+          }
+        ]
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: dp-bw-adapter
+          namespace: ${NAMESPACE}
+          version: "1.13.3"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  bwadapter:
+                    image:
+                      tag: 57
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bw-recipes.appName" . }}-bw-adapter-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw-recipes.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "bw-recipes.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: bwadapter
+        image: {{ include "bw-recipes.image.registry" .}}{{"/"}}{{ include "bw-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .Values.securityContext }}
+        securityContext:
+        {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+        {{- toYaml .Values.scripts.resources | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "bwadapter"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/infra"
+        - name: RECIPE_RELEASE_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.bwadapter.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.bwadapter.isLatest | quote }}          
+        volumeMounts:
+        - name: {{ include "bw-recipes.appName" .  }}-bw-adapter-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        - name: tmp-vol
+          mountPath: /tmp
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "bw-recipes.appName" . }}-bw-adapter-volume
+          configMap:
+            name: {{ include "bw-recipes.appName" . }}-bw-adapter
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "bw-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "bw-recipes.pvc-name" . }}
+        - emptyDir: {}
+          name: tmp-vol
+{{- if (include "bw-recipes.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "bw-recipes.container-registry.secret" . }}
+{{- end }}

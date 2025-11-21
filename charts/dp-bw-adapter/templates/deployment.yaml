@@ -95,6 +95,8 @@ spec:
               mountPath: /tmp/bw-adapter/workspace
             - name: logs-share
               mountPath: /tmp/logs/share
+            - name: {{ .Values.certs.pvcName }}
+              mountPath: /etc/ssl/certs
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
           image: {{ include "bwadapter.image.registry" .}}{{"/"}}{{ include "bwadapter.integration.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
@@ -139,6 +141,9 @@ spec:
           name: tmp-workspace
         - name: logs-share
           emptyDir: {}
+        - name: {{ .Values.certs.pvcName }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.certs.pvcName }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit-config
           configMap:
