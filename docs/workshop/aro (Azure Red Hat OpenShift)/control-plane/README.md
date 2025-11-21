@@ -15,8 +15,10 @@ Table of Contents
     * [Certificate and Secret for TUNNEL Domain](#certificate-and-secret-for-tunnel-domain)
   * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
   * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
-  * [Generate and Create session-keys Secret (Required for Router Pods)](#generate-and-create-session-keys-secret-required-for-router-pods)
-  * [Bootstrap Chart values](#bootstrap-chart-values)
+  * [Create prerequisite secrets](#create-prerequisite-secrets)
+    * [Generate and Create session-keys Secret (Required)](#generate-and-create-session-keys-secret-required)
+    * [Generate and Create cporch-encryption-secret (Required)](#generate-and-create-cporch-encryption-secret-required)
+  * [tibco-cp-base Chart values](#tibco-cp-base-chart-values)
   * [Next Steps](#next-steps)
 * [Clean-up](#clean-up)
 <!-- TOC -->
@@ -385,15 +387,17 @@ dig +short test.${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}
 
 ## Export additional variables required for chart values
 ```bash
-## Bootstrap and Configuration charts specific details
+## Configuration charts specific details
 export TP_CONTAINER_REGISTRY_URL="csgprduswrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
 export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
 export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
 export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-prod" # replace with your container registry repository
 ```
 
-## Generate and Create session-keys Secret (Required for Router Pods)
-This secret is a required prerequisite for the platform-bootstrap chart. If this secret is not present in the Control Plane namespace, the router pods will fail to start correctly.
+## Create prerequisite secrets
+
+### Generate and Create session-keys Secret (Required)
+This secret is a required prerequisite for the tibco-cp-base chart. If this secret is not present in the Control Plane namespace, the router pods will fail to start correctly.
 ```bash
 # Generate session keys and export as environment variables
 export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
@@ -405,15 +409,26 @@ kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
   --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
 ```
 
-## Bootstrap Chart values
+### Generate and Create cporch-encryption-secret (Required)
+This secret is a required prerequisite for the tibco-cp-base chart.
+```bash
+# Generate encryption secret
+export CP_ENCRYPTION_SECRET=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c44)
 
-The following values can be stored in a file and passed to the platform-boostrap chart while deploying this chart.
+# Create secret in Control Plane namespace
+kubectl create secret -n ${CP_INSTANCE_ID}-ns generic cporch-encryption-secret \
+  --from-literal=CP_ENCRYPTION_SECRET=${CP_ENCRYPTION_SECRET}
+```
+
+## tibco-cp-base Chart values
+
+The following values can be stored in a file and passed to the tibco-cp-base chart while deploying this chart.
 
 > [!IMPORTANT]
 > These values are for example only.
 
 ```bash
-cat > aro-bootstrap-values.yaml <(envsubst '${TP_INGRESS_CLASS}, ${CP_TUNNEL_DNS_DOMAIN}, ${CP_MY_DNS_DOMAIN}, ${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${TP_CONTAINER_REGISTRY_REPOSITORY}, ${CP_INSTANCE_ID}, ${TP_NODE_CIDR}, ${TP_POD_CIDR}, ${TP_SERVICE_CIDR}, ${TP_FILE_STORAGE_CLASS}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
+cat > aro-tibco-cp-base-values.yaml <(envsubst '${TP_INGRESS_CLASS}, ${CP_TUNNEL_DNS_DOMAIN}, ${CP_MY_DNS_DOMAIN}, ${TP_ENABLE_NETWORK_POLICY}, ${TP_CONTAINER_REGISTRY_URL}, ${TP_CONTAINER_REGISTRY_USER}, ${TP_CONTAINER_REGISTRY_PASSWORD}, ${TP_CONTAINER_REGISTRY_REPOSITORY}, ${CP_INSTANCE_ID}, ${TP_NODE_CIDR}, ${TP_POD_CIDR}, ${TP_SERVICE_CIDR}, ${TP_FILE_STORAGE_CLASS}, ${TP_LOGSERVER_ENDPOINT}, ${TP_LOGSERVER_INDEX}, ${TP_LOGSERVER_USERNAME}, ${TP_LOGSERVER_PASSWORD}'  << 'EOF'
 hybrid-proxy:
   enabled: true
   ingress:

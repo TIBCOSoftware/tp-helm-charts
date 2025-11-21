@@ -107,9 +107,9 @@ helm install vcluster-hostpath-mapper vcluster-hpm \
 ### Prerequisites
 Make sure that the CP vCluster is running and you are connected to it.
    - Execute ``` vcluster connect ${TP_CP_VCLUSTER_NAME} ``` to connect to your vCluster context.
-Before installing Platform Bootstrap Chart we need to install [cert-manager](https://cert-manager.io/docs/installation/helm/#installing-cert-manager) (required by router, resource-set operator, hybrid-proxy) & [k8s metrics-server chart](https://github.com/kubernetes-sigs/metrics-server?tab=readme-ov-file#installation) in the virtual cluster.
+Before installing tibco-cp-base Chart we need to install [cert-manager](https://cert-manager.io/docs/installation/helm/#installing-cert-manager) (required by router, resource-set operator, hybrid-proxy) & [k8s metrics-server chart](https://github.com/kubernetes-sigs/metrics-server?tab=readme-ov-file#installation) in the virtual cluster.
 
-To install TIBCO® Control Plane in this vCluster, refer to the steps outlined in the [EKS Deployment Guide](../eks/control-plane/README.md), and proceed with the installation of the Platform Bootstrap and Platform Base charts as described.
+To install TIBCO® Control Plane in this vCluster, refer to the steps outlined in the [EKS Deployment Guide](../eks/control-plane/README.md), and proceed with the installation of the tibco-cp-base chart as described.
 
 ---
 ## Steps to install DP in vCluster

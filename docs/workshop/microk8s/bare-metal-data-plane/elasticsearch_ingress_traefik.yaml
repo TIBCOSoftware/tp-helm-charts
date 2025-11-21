@@ -1,0 +1,42 @@
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: es-insecure-transport
+  namespace: elastic
+spec:
+  serverName: elasticsearch-master
+  insecureSkipVerify: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: elasticsearch-strip-prefix
+  namespace: elastic
+spec:
+  stripPrefix:
+    prefixes:
+      - /o11y/traces-server
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik-elastic
+  namespace: elastic
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: elastic-elasticsearch-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: es-insecure-transport@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: %%REPLACE_WITH_YOUR_INGRESS_CLASS_NAME%%
+  rules:
+  - host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+    http:
+      paths:
+      - path: /o11y/traces-server
+        pathType: Prefix
+        backend:
+          service:
+            name: elasticsearch-master
+            port:
+              number: 9200
