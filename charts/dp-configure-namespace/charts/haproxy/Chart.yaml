@@ -1,16 +1,18 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 
 annotations:
-  artifacthub.io/changes: |
-    - Use Ingress Controller 3.0.1 version for base image
-    - Limit template spec name to 15 characters (#247)
+  artifacthub.io/changes: |-
+    - Use Ingress Controller 3.1.14 version for base image
+    - Fix crdjob helm hook annotation (#313)
+    - Add helm hook annotations to crdjob (#312)
+    - Make initContainers templateable (#311)
 apiVersion: v2
-appVersion: 3.1.11
+appVersion: 3.1.14
 description: A Helm chart for HAProxy Kubernetes Ingress Controller
 home: https://github.com/haproxytech/helm-charts/tree/main/kubernetes-ingress
 icon: https://raw.githubusercontent.com/haproxytech/helm-charts/main/kubernetes-ingress/chart-icon.png
@@ -25,4 +27,4 @@ name: haproxy
 sources:
 - https://github.com/haproxytech/kubernetes-ingress
 type: application
-version: 1.44.5
+version: 1.46.0

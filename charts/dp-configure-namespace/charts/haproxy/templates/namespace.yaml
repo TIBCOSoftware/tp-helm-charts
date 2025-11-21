@@ -1,5 +1,5 @@
 {{/*
-Copyright 2019 HAProxy Technologies LLC
+Copyright 2022 HAProxy Technologies LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-{{- if and .Values.rbac.create .Values.podSecurityPolicy.enabled -}}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+{{- if .Values.namespace.create -}}
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: {{ include "kubernetes-ingress.fullname" . }}
-  namespace: {{ include "kubernetes-ingress.namespace" . }}
+  name: {{ include "kubernetes-ingress.namespace" . }}
   labels:
     {{- include "kubernetes-ingress.labels" . | nindent 4 }}
-rules:
-- apiGroups: 
-  - "policy"
-  resources:
-  - podsecuritypolicies
-  verbs:
-  - use
-  resourceNames:
-  - {{ include "kubernetes-ingress.fullname" . }}
+  annotations:
+    "helm.sh/hook": "pre-install"
+    "helm.sh/hook-weight": "-1"
 {{- end -}}

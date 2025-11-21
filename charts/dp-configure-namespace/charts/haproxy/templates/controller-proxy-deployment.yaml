@@ -1,5 +1,5 @@
 {{/*
-Copyright 2019 HAProxy Technologies LLC
+Copyright 2024 HAProxy Technologies LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,29 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-{{- if eq .Values.controller.kind "Deployment" }}
+{{- if and (eq .Values.controller.sync.mode "fetch") (eq .Values.controller.sync.fetchParams.source "proxy") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kubernetes-ingress.fullname" . }}
+  name: {{ include "kubernetes-ingress.serviceProxyName" . }}
   namespace: {{ include "kubernetes-ingress.namespace" . }}
   {{- with .Values.controller.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
-    {{- include "kubernetes-ingress.labels" . | nindent 4 }}
+    {{- include "kubernetes-ingress.serviceProxyLabels" . | nindent 4 }}
     {{- if .Values.controller.extraLabels }}
-{{ tpl (toYaml .Values.controller.extraLabels) . | indent 4 }}
+{{ toYaml .Values.controller.extraLabels | indent 4 }}
     {{- end }}
 spec:
   {{- if and (not .Values.controller.autoscaling.enabled) (not .Values.controller.keda.enabled) }}
-  replicas: {{ .Values.controller.replicaCount }}
+  replicas: {{ .Values.controller.sync.proxyParams.replicaCount }}
   {{- end }}
   minReadySeconds: {{ .Values.controller.minReadySeconds }}
   selector:
     matchLabels:
-      {{- include "kubernetes-ingress.selectorLabels" . | nindent 6 }}
+      {{- include "kubernetes-ingress.serviceProxySelectorLabels" . | nindent 6 }}
   {{- with .Values.controller.strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
@@ -44,9 +44,9 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "kubernetes-ingress.selectorLabels" . | nindent 8 }}
+        {{- include "kubernetes-ingress.serviceProxySelectorLabels" . | nindent 8 }}
         {{- if .Values.controller.podLabels }}
-{{ tpl (toYaml .Values.controller.podLabels) . | indent 8 }}
+{{ toYaml .Values.controller.podLabels | indent 8 }}
         {{- end }}
       {{- if .Values.controller.podAnnotations }}
       annotations:
@@ -72,9 +72,9 @@ spec:
 {{- if .Values.controller.imageCredentials.registry }}
       imagePullSecrets:
       - name: {{ include "kubernetes-ingress.fullname" . }}
-{{- else if ( tpl .Values.controller.existingImagePullSecret . ) }}
+{{- else if .Values.controller.existingImagePullSecret }}
       imagePullSecrets:
-      - name: {{ tpl .Values.controller.existingImagePullSecret . }}
+      - name: {{ .Values.controller.existingImagePullSecret }}
 {{- end }}
 {{- if .Values.controller.priorityClassName }}
       priorityClassName: {{ .Values.controller.priorityClassName }}
@@ -95,7 +95,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ include "kubernetes-ingress.name" . }}-{{ .Values.controller.name }}
-          image: "{{ include "kubernetes-ingress.image.registry" . }}/{{ include "kubernetes-ingress.image.repository" . }}/{{ .Values.controller.image.repository }}:{{ tpl .Values.controller.image.tag . }}"
+          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
           args:
 {{- if .Values.controller.defaultTLSSecret.enabled -}}
@@ -113,7 +113,7 @@ spec:
           - --quic-announce-port={{ .Values.controller.service.ports.https }}
 {{- end }}
 {{- if .Values.controller.ingressClass }}
-          - --ingress.class={{ tpl .Values.controller.ingressClass . }}
+          - --ingress.class={{ .Values.controller.ingressClass }}
 {{- end }}
 {{- if and .Values.controller.kubernetesGateway.enabled .Values.controller.kubernetesGateway.gatewayControllerName }}
           - --gateway-controller-name={{ .Values.controller.kubernetesGateway.gatewayControllerName }}
@@ -128,19 +128,14 @@ spec:
           - --prometheus
           - --pprof
 {{- end }}
-{{- if eq .Values.controller.sync.mode "fetch" }}
-  {{- if .Values.controller.sync.fetchParams.period }}
-          - --proxy-k8s-fetch-period={{ .Values.controller.sync.fetchParams.period }}
-  {{- end }}
-  {{- if eq .Values.controller.sync.fetchParams.source "k8s" }}
+          - --proxy-server-mode
           - --k8s-api-sync-type=k8s
-  {{- else if eq .Values.controller.sync.fetchParams.source "proxy" }}
-          - --k8s-api-sync-type=proxy
           - --proxy-svc-label-selector={{ .Values.controller.sync.proxyParams.proxySvcLabelSelector }}
-  {{- end }}
+{{- if .Values.controller.sync.fetchParams.period }}
+          - --proxy-k8s-fetch-period={{ .Values.controller.sync.fetchParams.period }}
 {{- end }}
 {{- range .Values.controller.extraArgs }}
-          - {{ tpl . $ }}
+          - {{ . }}
 {{- end }}
           {{- if .Values.controller.unprivileged }}
           securityContext:
@@ -148,7 +143,6 @@ spec:
             runAsUser:  1000
             runAsGroup: 1000
             allowPrivilegeEscalation: {{ .Values.controller.allowPrivilegeEscalation }}
-            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -212,14 +206,8 @@ spec:
           {{- if .Values.controller.extraEnvs -}}
           {{- toYaml .Values.controller.extraEnvs | nindent 10 }}
           {{- end }}
-          {{- with .Values.controller.extraEnvFrom }}
-          envFrom:
-            {{- toYaml . | trim | nindent 12 }}
-          {{- end }}
-          {{- if .Values.global.tibco.enableResourceConstraints }}
           resources:
             {{- toYaml .Values.controller.resources | nindent 12 }}
-          {{- end }}
           {{- if .Values.controller.lifecycle }}
           lifecycle:
             {{- if eq "string" (printf "%T" .Values.controller.lifecycle) }}
