@@ -24,6 +24,9 @@ f{{/*
 
 {{- define "tp-hawk-infra-querynode.consts.hawkDbPrefix" }}{{ include "tp-hawk-infra-querynode.cp-instance-id" . | replace "-" "_" }}_{{ end -}}
 
+{{/* CP Core scripts build number */}}
+{{- define "cp-core-scripts.buildNumber" }}8933{{ end -}}
+
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-hawk-infra-querynode.image.repository" -}}
 {{- $hawkCP := include "hawk.cp.global" ( toJson . | fromJson ) | fromYaml -}}

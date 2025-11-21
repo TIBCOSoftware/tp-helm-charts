@@ -143,6 +143,8 @@ spec:
                 value: "$(MY_POD_NAME).{{ $stsname }}.{{ .Release.Namespace }}.svc"
               - name: ALLOWED_HOSTNAMES
                 value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}"
+              - name: IS_BMDP
+                value: "y"
               - name: ACCEPT_EUA
                 value: "y"
               - name: EMS_REG_DEBUG
@@ -153,7 +155,7 @@ spec:
               - name: TCM_WATCHDOG_LOG_FILE
                 value: /logs/watchdog.log
               - name: TCM_WATCHDOG_CONFIG
-                value: "/logs/boot/toolset.wd.yaml"
+                value: "/logs/boot/gateway.wd.yaml"
               - name: TCM_WD_PORT
                 value: "{{ $params.msggw.ports.watchdogPort }}"
               - name: TCM_WATCHDOG_HOSTPORT

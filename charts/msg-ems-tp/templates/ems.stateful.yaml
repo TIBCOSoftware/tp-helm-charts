@@ -61,14 +61,15 @@ spec:
                 {{ include "msg.dp.labels" . | indent 16 }}
                 {{ include "msg.dp.net.all" . | indent 16}}
                 {{ include "ems.std.labels" $emsParams | indent 16 }}
+                {{ include "ems.prom.o11y.labels" $emsParams | indent 16 }}
                 tib-msg-stsname: "{{ $stsname }}"
                 tib-msg-stsrole: "standby"
                 name: ems
                 app: msg-ems-ftl
-                "sidecar.istio.io/inject": "{{ $emsParams.ems.istioEnable }}"
             name: ems
             annotations:
               cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+              {{ include "ems.prom.annotations" $emsParams | indent 14 }}
         spec:
             {{- if ne "none" $emsParams.dp.pullSecret }}
             imagePullSecrets:
@@ -154,9 +155,8 @@ spec:
               volumeMounts:
               - mountPath: /boot
                 name: scripts-vol
-              - mountPath: /boot-activation/license-file.bin
+              - mountPath: /boot-activation
                 name: activation-vol
-                subPath: license-file.bin
               - mountPath: /boot-certs
                 name: certs-vol
               - mountPath: /data 
@@ -253,6 +253,8 @@ spec:
                 value: "{{ $emsParams.ems.ports.httpPort }}"
               - name: EMS_FTL_SPIN
                 value: "{{ $emsParams.ems.ftl_spin }}"
+              - name: EMS_MAX_MEMORY
+                value: "{{ $emsParams.ems.maxMsgMemory }}"
               - name: EMS_SERVICE
                 value: "{{ $emsParams.ems.stsname }}"
               - name: MY_GROUPNAME

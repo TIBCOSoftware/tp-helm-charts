@@ -133,6 +133,8 @@ spec:
                 {{ end }}
                 - name: EMS_INIT_JSON
                   value: "/data/boot/tibemsd-ftl.json"
+                - name: EMS_MAX_MEMORY
+                  value: "{{ $emsParams.ems.maxMsgMemory }}"
                 - name: EMS_HTTP_PORT
                   value: "{{ $emsParams.ems.ports.httpPort }}"
                 - name: FTL_REALM_URL

@@ -37,6 +37,7 @@ need.msg.ems.params
 {{- $cpuReq := "0.3" -}}
 {{- $cpuLim := "3" -}}
 {{- $memReq := "1Gi" -}}
+{{- $maxMsgMemory := "3GB" -}}
 {{- $memLim := "4Gi" -}}
 {{- $stores := ternary "ftl" .Values.ems.stores ( not .Values.ems.stores ) -}}
 {{- $allowNodeSkew := "yes" -}}
@@ -58,6 +59,7 @@ need.msg.ems.params
     {{- $cpuReq = "1.0" -}}
     {{- $cpuLim = "5" -}}
     {{- $memReq = "2Gi" -}}
+    {{- $maxMsgMemory = "6GB" -}}
     {{- $memLim = "8Gi" -}}
   {{- else if eq $sizing "large" -}}
     {{- $msgStorageSize = "50Gi" -}}
@@ -65,6 +67,7 @@ need.msg.ems.params
     {{- $cpuReq = "2" -}}
     {{- $cpuLim = "8" -}}
     {{- $memReq = "8Gi" -}}
+    {{- $maxMsgMemory = "16GB" -}}
     {{- $memLim = "20Gi" -}}
   {{- else if eq $sizing "xlarge" -}}
     {{- $msgStorageSize = "100Gi" -}}
@@ -72,6 +75,7 @@ need.msg.ems.params
     {{- $cpuReq = "4" -}}
     {{- $cpuLim = "16" -}}
     {{- $memReq = "16Gi" -}}
+    {{- $maxMsgMemory = "26GB" -}}
     {{- $memLim = "30Gi" -}}
   {{- else if ne $sizing "small" -}}
     {{- $sizeError := printf "Config error, size of %s not supported. " $sizing -}}
@@ -120,6 +124,7 @@ ems:
   pvcShareSize: {{ $pvcShareSize }}
   activationSecret: "{{ .Values.ems.activationSecret | default "cp-license-file-secret" }}"
   activationSecretKey: "{{ .Values.ems.activationSecretKey | default "license-file.bin" }}"
+  maxMsgMemory: "{{ $maxMsgMemory }}"
   msgData: 
     volName: ems-data
     storageType: {{ $msgStorageType }}
@@ -224,7 +229,7 @@ note: expects a $emsParams as its argument
 {{- define "ems.std.labels" }}
 release: "{{ .dp.release }}"
 tib-dp-app: msg-ems-ftl
-tib-msgdp-mm-version: "1.12.0-0"
+tib-msgdp-mm-version: "1.13.0-0"
 tib-msg-group-name: "{{ .ems.name }}"
 tib-msg-ems-name: "{{ .ems.name }}"
 tib-msg-ems-sizing: "{{ .ems.sizing }}"
@@ -236,4 +241,24 @@ platform.tibco.com/app.resources.requests.cpu: {{ if and .ems.resources .ems.res
 platform.tibco.com/app.resources.requests.memory: {{ if and .ems.resources .ems.resources.requests -}}  {{ .ems.resources.requests.memory | default "128Mi" | quote }} {{- else -}} "128Mi" {{- end }}
 platform.tibco.com/app.resources.limits.cpu: {{ if and .ems.resources .ems.resources.limits -}}  {{ .ems.resources.limits.cpu | default "3" | quote }} {{- else -}} "3" {{- end }}
 platform.tibco.com/app.resources.limits.memory: {{ if and .ems.resources .ems.resources.limits -}} {{ .ems.resources.limits.memory | default "4Gi" | quote }} {{- else -}} "4Gi" {{- end }}
+{{- end }}
+
+{{/*
+ems.prom.annotations 
+*/}}
+{{- define "ems.prom.annotations" }}
+prometheus.io/scrape: "true"
+prometheus.io/port: "{{ .ems.ports.httpPort }}"
+prometheus.io/scheme: "http"
+prometheus.io/path: /metrics
+prometheus.io/insecure_skip_verify: "true"
+{{- end }}
+
+{{/*
+ems.prom.o11y.labels 
+*/}}
+{{- define "ems.prom.o11y.labels" }}
+platform.tibco.com/scrape_o11y: "true"
+prometheus.io/scrape: "true"
+prometheus.io/port: "{{ .ems.ports.httpPort }}"
 {{- end }}

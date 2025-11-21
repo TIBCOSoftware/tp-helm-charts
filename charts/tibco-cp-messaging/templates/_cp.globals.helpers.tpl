@@ -32,7 +32,7 @@ cp:
   pullSecret: {{ dig "Values" "global" "tibco" "containerRegistry" "imagePullSecretName" "" . }}
   registry: {{ dig "Values" "global" "tibco" "containerRegistry" "url" "" . }}
   repository: {{ dig "Values" "global" "tibco" "containerRegistry" "repository" "" . }}
-  CP_VOLUME_CLAIM: {{ dig "Values" "global" "external" "storage" "pvcName" "" . }}
+  CP_VOLUME_CLAIM: {{ dig "Values" "global" "external" "storage" "pvcName" "" . | default "control-plane-pvc" }}
   SYSTEM_WHO: {{ dig "Values" "global" "tibco" "controlPlaneInstanceId" "" . }}
   DNS_DOMAIN: {{ dig "Values" "global" "external" "dnsDomain" "" . }}
   LOGGING_FLUENTBIT_ENABLED: {{ dig "Values" "global" "tibco" "logging" "fluentbit" "enabled" "" . }}

@@ -86,6 +86,123 @@ EOF
   echo >&2 "#+: Registration spec created: $outfile"
 }
 
+function emsRestd2Registration {
+  export emsRestdConfigFile="${1:?"ems restd config required."}"
+  export outfile="$2"
+  export groupName="$(echo $(basename $emsRestdConfigFile) | cut -d. -f2 )"
+  export capabilityId="$(echo $(basename $emsRestdConfigFile) | cut -d. -f3 )"
+  if [ -z "$outfile" ] ; then
+    outfile="ems.$groupName.$capabilityId.registration.yaml"
+  fi
+  export clientUrl="$( cat  $emsRestdConfigFile | yq '.[0].servers[].url' | paste -s -d',' )"
+  export monitorUrl="$( cat  $emsRestdConfigFile | yq '.[0].servers[].monitor_url' | paste -s -d',' )"
+  clientCert=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.client_certificate' )
+  clientKey=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.client_private_key' )
+  clientPKpass=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.client_private_key_password' )
+  monCert=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].monitor_tls.client_certificate' )
+  monKey=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].monitor_tls.client_private_key' )
+  monPKpass=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].monitor_tls.client_private_key_password' )
+  for k in clientCert clientKey clientPKpass monCert monKey monPKpass ; do
+    [ ${!k} == "null" ] && export $k=""
+  done
+  echo >&2 "#+: EMS = $capabilityId, $groupName"
+  cat - <<EOF > $outfile
+- groupName: $groupName
+  groupType: ems
+  clientUrl: $clientUrl
+  monitorUrl: $monitorUrl
+  dataplaneId: $MY_DATAPLANE
+  resourceInstanceId: $capabilityId
+  registrationUser: env:DP_ADMIN_USER
+  registrationPass: env:DP_ADMIN_PASSWORD
+  clientMtls:
+    certificate: $clientCert
+    privateKey: $clientKey
+    pkPassword: $clientPKpass
+    trusted:
+  monitorMtls:
+    certificate: $monCert
+    privateKey: $monKey
+    pkPassword: $monPKpass
+    trusted:
+
+EOF
+  echo >&2 "#+: Registration spec created: $outfile"
+}
+
+function emsLoggerHeader {
+  export outfile="$1"
+  if [ -z "$outfile" ] ; then
+    outfile="dp.$MY_DATAPLANE.logger.yaml"
+  fi
+  cat - <<EOF > $outfile
+groups:
+- name: gems-$MY_DATAPLANE
+  destination:
+    file:
+      path: /logs/emslogger/emslogger.log
+      flush:
+        seconds: 20
+    format: json
+  servers:
+EOF
+  echo >&2 "#+: Logger spec headder created: $outfile"
+}
+ 
+function emsRestd2logger {
+  export emsRestdConfigFile="${1:?"ems restd config required."}"
+  export outfile="$2"
+  export groupName="$(echo $(basename $emsRestdConfigFile) | cut -d. -f2 )"
+  export capabilityId="$(echo $(basename $emsRestdConfigFile) | cut -d. -f3 )"
+  if [ -z "$outfile" ] ; then
+    outfile="dp.$MY_DATAPLANE.logger.yaml"
+  fi
+  export DP_ADMIN_USER="${DP_ADMIN_USER:-$EMS_ADMIN_USER}"
+  export DP_ADMIN_PASSWORD="${DP_ADMIN_PASSWORD:-$EMS_ADMIN_PASSWORD}"
+  export clientUrl="$( cat  $emsRestdConfigFile | yq '.[0].servers[].url' | paste -s -d',' )"
+  export monitorUrl="$( cat  $emsRestdConfigFile | yq '.[0].servers[].monitor_url' | paste -s -d',' )"
+  clientVhost=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.verify_hostname' )
+  clientCert=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.client_certificate' )
+  clientKey=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.client_private_key' )
+  clientPKpass=$(cat  $emsRestdConfigFile | yq '.[0].servers[0].tls.client_private_key_password' )
+  for k in clientVhost clientCert clientKey clientPKpass  ; do
+    [ ${!k} == "null" ] && export $k=""
+  done
+  if [ -n "$clientVhost" ] ; then
+    export EMS_SSL="
+        ssl:
+          verify_hostname: false
+          verify_certificate: false
+          identity: $clientCert
+          private_key: $clientKey
+          password: $clientPKpass
+  "
+  fi
+  echo >&2 "#+: EMS = $capabilityId, $groupName, $clientVhost"
+  instNum=0
+  for inst in $(echo "$clientUrl" | tr ',' ' ' ) ; do
+    echo >&2 "   instance: $inst"
+    cat - <<EOF >> $outfile
+      # $groupName, $capabilityId
+      - url: $inst
+        username: $DP_ADMIN_USER
+        password: $DP_ADMIN_PASSWORD
+        delay_seconds: 5
+        durable: gems.logger.$capabilityId
+        $EMS_SSL
+        labels:
+          - name: app_id
+            value: $capabilityId
+          - name: groupName
+            value: $groupName
+          - name: server_name
+            value: $groupName-$instNum
+EOF
+    instNum=$((instNum+1))
+  done
+  echo >&2 "#+: Logger spec $groupName added: $outfile"
+}
+
 function parseServerSpec {
   #caller:  parseCmdOptions "$@"
   echo >&2 "#+: parseServerSpec: regSpec=$regSpec"
@@ -192,7 +309,7 @@ function parseServerUrls {
 
 function mtlsConfig {
   export certDir="/data/hawk/emscerts"
-  # # FIXME: if TLS and not MTLS ...
+  # # DEBUG: if TLS and not MTLS ...
   #         tls:
   #           verify_hostname: false
   #           verify_certificate: false
@@ -435,8 +552,13 @@ function setupTibemsAdmin {
   usage="setupTibemsAdmin <riid|name> -- Set params for tibemsadmin"
   groupId=${1:?"$usage"}
   export EMS_RESTD_DIR=${EMS_RESTD_DIR:-/logs/restd-api}
-  restdYaml=$(ls "${EMS_RESTD_DIR}/ems."*"${groupId}"*.restd.yaml)
-  export certDir="/data/hawk/emscerts"
+  restdYaml=$(ls "${EMS_RESTD_DIR}/ems"*".${groupId}."*restd.yaml )
+  # BMDP only for now ... K8DP path is different
+  if [ "$IS_BMDP" == y ] ; then
+    export certDir="/data/hawk/emscerts"
+  else
+    export certDir="/data/certs"
+  fi
   export EMS_HOME="${EMS_HOME:-/opt/tibco/ems/current-version}"
   export TIBEMSADMIN=${TIBEMSADMIN:-$EMS_HOME/bin/tibemsadmin}
   urlList="$(cat $restdYaml | grep ' url: ' | cut -d: -f2-)"
@@ -448,11 +570,13 @@ function setupTibemsAdmin {
   export clientPass="$(cat $restdYaml | grep client_private_key_password: | head -1 | cut -d: -f2 | tr -d ' ')"
   export activeUrl=
   for url in $urlList ; do
-    emsState="$(runTibemsAdmin "$url" "show state" 2>/dev/null | grep -i " State:" | cut -d: -f2 | tr -d ' ' )"
+    rawState="$(runTibemsAdmin "$url" "show state" 2>&1 )"
+    # echo >&2 "#+DEBUG: $url -- $rawState"
+    emsState="$(echo "$rawState" | grep -i " State:" | cut -d: -f2 | tr -d ' ' )"
+    echo >&2 "#+: $url -- $emsState"
     [ "$emsState" == "active" ] && activeUrl="$url"
-    # runTibemsAdmin "$url" "show state"
   done
-  echo >&2 "activeUrl=$activeUrl"
+  echo "$activeUrl"
 }
 
 function runTibemsAdmin {
@@ -464,8 +588,10 @@ function runTibemsAdmin {
   export EMS_HOME="${EMS_HOME:-/opt/tibco/ems/current-version}"
   export TIBEMSADMIN=${TIBEMSADMIN:-$EMS_HOME/bin/tibemsadmin}
   export cliDir="${cliDir:-.}"
-  regUser=${regUser:-$EMS_ADMIN_USER}
-  regPass=${regPass:-$EMS_ADMIN_PASSWORD}
+  if [ -z "$regUser" ] ; then
+    regUser=$EMS_ADMIN_USER
+    regPass=$EMS_ADMIN_PASSWORD
+  fi
   scheme="$(echo "$url" | cut -d: -f1)"
   port="$(echo "$url" | cut -d: -f3)"
   host="$(echo "$url" | cut -d: -f2 | cut -c3- )"
@@ -495,17 +621,18 @@ function runTibemsAdmin {
     fi
   fi
   if [ -n "$tibcmd" ] ; then
-    echo "$tibcmd" > $cliDir/cmd
+    echo "$tibcmd" > $cliDir/cmd.$$
     adminOpts+=(-script)
-    adminOpts+=("$cliDir/cmd")
+    adminOpts+=("$cliDir/cmd.$$")
   fi
   $TIBEMSADMIN "${adminOpts[@]}"
+  [ -n "$tibcmd" ] && rm -f $cliDir/cmd.$$
 }
 
 function mainCliEmsAdmin {
   usage="mainCliEmsAdmin <riid|name> -- Open a tibemsadmin terminal"
   groupId=${1:-"$MSG_CLI_RIID"}
-  setupTibemsAdmin "$groupId"
+  activeUrl=$(setupTibemsAdmin "$groupId")
   runTibemsAdmin "$activeUrl"
 }
 
@@ -736,85 +863,93 @@ function restartRestd {
   done
   restdSendCmd /health GET >/dev/null 2>&1 || checkingErrors+=("tibemsrestd failed to restart, support required.")
 }
-function enableGemsAdmin {
-  log "    : Enable DP-admin in msg-gems-admin group"
-  echo >&2 "#+: enable Gems Administration via msg-gems-admin group"
-  restdConnect
 
-  # --- ADD EMS USER
-  data=$(cat - <<EOF
-    {
-      "name": "$EMS_ADMIN_USER",
-      "description": "Dataplane local administration user",
-      "password": "$EMS_ADMIN_PASSWORD"
-    }
-EOF
-)
-  resp=$(restdSendCmd "/users" "POST" "$data")
-
-  # --- ADD demo USER
-  data=$(cat - <<EOF
-    {
-      "name": "demo",
-      "description": "Dataplane local administration user",
-      "password": "demo123"
-    }
-EOF
-)
-  resp=$(restdSendCmd "/users" "POST" "$data")
-
-  # --- Reset Password (just in case)
-  data=$(cat - <<EOF
-    {
-      "description": "Dataplane local administration user+",
-      "password": "$EMS_ADMIN_PASSWORD"
-    }
-EOF
-)
-  resp=$(restdSendCmd "/users/$EMS_ADMIN_USER" "POST" "$data")
-
-  # --- ADD GROUP
-  data=$(cat - <<EOF
-    {
-      "description": "Gems dashboard admin group",
-      "name": "msg-gems-admin"
-    }
-EOF
-)
-  resp=$(restdSendCmd "/groups" "POST" "$data")
-
-  # --- ENABLE ADMIN GROUP
-  data=$(cat - <<EOF
-    {
-    "grant": [{
-        "principal": {
-            "name": "msg-gems-admin",
-            "type": "GROUP"
-        },
-        "resource": {
-            "type": "ADMIN",
-            "permissions": ["ALL"]
-        }
-    }]
-    }
-EOF
-)
-  resp=$(restdSendCmd "/acls" "POST" "$data")
-
-  # --- ADD GROUP USER -  POST /groups/msg-gems-admin/users?...
-  data=$(cat - <<EOF
-    {
-      "add_users": ["$EMS_ADMIN_USER"]
-    }
-EOF
-)
-  resp=$(restdSendCmd "/groups/msg-gems-admin/users" "POST" "$data")
-
-  # --- GET /groups/msg-gems-admin/users?...
-  resp=$(restdSendCmd "/groups/msg-gems-admin/users" "GET" "$data")
-
-  # --- DISCONNECT
-  resp=$(restdDisconnect)
+function enableLogMonitoring {
+  [ -n "$1" ] && export groupName="$1"
+  echo >&2 "    : Enable $groupName for DP-admin in msg-gems-admin group"
+  log "    : Enable $groupName for DP-admin in msg-gems-admin group"
+  mkdir -p /logs/done
+  rm -rf /logs/done/cmd.*
+  url=$(setupTibemsAdmin "$groupName" )
+  echo >&2 "#+: Active EMS URL: $url"
+  [ -z "$url" ] && { echo >&2 "ERROR: No active EMS server found"; return 1; }
+  # Check for existing durable subscription
+  export EMS_RESTD_DIR=${EMS_RESTD_DIR:-/logs/restd-api}
+  restdYaml=$(ls "${EMS_RESTD_DIR}/ems"*".${groupName}."*restd.yaml )
+  export capabilityId="$(cat $restdYaml | egrep "[-] id=" | head -1 | cut -d= -f2 | tr -d ' ')"
+  checkDurable=$( runTibemsAdmin "$url" "show durables"  2>&1 )
+  if egrep -q "gems.logger.$capabilityId" <<< "$checkDurable" ; then
+    echo >&2 "#+: Durable subscription gems.logger.$capabilityId already exists"
+    return 0
+  fi
+  #
+  outfile="cmd.out.$RANDOM"
+  infile="cmd.in.$RANDOM"
+  > $infile
+  > $outfile
+  cat - <<! >> "$infile"
+  create topic \$sys.monitor.server.trace
+  create durable \$sys.monitor.server.trace gems.logger.$capabilityId
+  grant topic \$sys.monitor.server.trace group=msg-gems-admin subscribe,durable
+  show topic \$sys.monitor.server.trace
+!
+  cat "$infile" | while read line ; do 
+    echo "#+: =============================" 
+    echo "#+: $line" 
+    runTibemsAdmin "$url" "$line"  2>&1
+  done | sed -e "s;$DP_ADMIN_PASSWORD;xxxxxx;g" >> "$outfile"
+  # DEBUG:
+  cat >&2 "$outfile"
+  mv "$infile" "$outfile" /logs/done/
+  return 0
+}
+function enableGemsViaTibemsadmin {
+  [ -n "$1" ] && export groupName="$1"
+  echo >&2 "    : Enable $groupName for DP-admin in msg-gems-admin group"
+  log "    : Enable $groupName for DP-admin in msg-gems-admin group"
+  mkdir -p /logs/done
+  rm -rf /logs/done/cmd.*
+  url=$(setupTibemsAdmin "$groupName" )
+  echo >&2 "#+: Active EMS URL: $url"
+  [ -z "$url" ] && { echo >&2 "ERROR: No active EMS server found"; return 1; }
+  export EMS_RESTD_DIR=${EMS_RESTD_DIR:-/logs/restd-api}
+  restdYaml=$(ls "${EMS_RESTD_DIR}/ems"*".${groupName}."*restd.yaml )
+  export capabilityId="$(cat $restdYaml | egrep "[-] id=" | head -1 | cut -d= -f2 | tr -d ' ')"
+  outfile="cmd.out.$RANDOM"
+  infile="cmd.in.$RANDOM"
+  > $infile
+  > $outfile
+  cat - <<! >> "$infile"
+  create user $DP_ADMIN_USER Gems-admin-user
+  set password $DP_ADMIN_USER $DP_ADMIN_PASSWORD
+  create group msg-gems-admin Gems-admin-group
+  add member msg-gems-admin $DP_ADMIN_USER
+  grant admin group=msg-gems-admin all
+  show members msg-gems-admin
+  create topic \$sys.monitor.server.trace
+  create durable \$sys.monitor.server.trace gems.logger.$capabilityId
+  grant topic \$sys.monitor.server.trace group=msg-gems-admin subscribe,durable
+  show topic \$sys.monitor.server.trace
+!
+  if [ -n "$DP_VIEW_USER" ] ; then
+    cat - <<! >> "$infile"
+    create user $DP_VIEW_USER Gems-admin-user
+    set password $DP_VIEW_USER $DP_VIEW_PASSWORD
+    create group msg-gems-viewer Gems-read-only-group
+    add member msg-gems-viewer $DP_VIEW_USER
+    grant admin group=msg-gems-viewer view-all
+    grant topic \$sys.monitor.server.trace group=msg-gems-viewer subscribe,durable
+    show members msg-gems-viewer
+!
+  fi
+  cat "$infile" | while read line ; do 
+    echo "#+: =============================" 
+    echo "#+: $line" 
+    runTibemsAdmin "$url" "$line"  2>&1
+  done | sed -e "s;$DP_ADMIN_PASSWORD;xxxxxx;g" >> "$outfile"
+  # DEBUG:
+  cat >&2 "$outfile"
+  mv "$infile" "$outfile" /logs/done/
   return 0
 }
 
@@ -1063,7 +1198,7 @@ function k8RegisterEms {
   requestRestdRestart
   waitForConnect
   [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
-  enableGemsAdmin
+  enableGemsViaTibemsadmin
   [ $? -ne 0 ] && echo >&2 "ERROR:  Error during EMS Gems configuration" && return 1
   log "    :$groupName: Registration complete"
   return ${#checkingErrors[@]}
@@ -1073,18 +1208,22 @@ function mainRegisterEms {
   # Register an EMS group via JSON payload file
   mainRestdEmsConfig "$@"
   [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found in configuration" && return 1
-  # restartRestd
-  requestRestdRestart
-  waitForConnect
-  [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
-  enableGemsAdmin
+  enableGemsViaTibemsadmin
   [ $? -ne 0 ] && echo >&2 "ERROR:  Error during EMS Gems configuration" && return 1
   if [ yes = "$useHawk" ] ; then
     hawkMsgHealthEndpoint
     enableHawkScraping
     [ $? -ne 0 ] && echo >&2 "ERROR:  Hawk config failed." && return 1
   fi
+  # restartRestd
+  requestRestdRestart
+  # waitForConnect
+  [ $? -ne 0 ] && echo >&2 "ERROR:  Errors found on restart" && return 1
   log "    :$groupName: Registration complete"
+  # DEBUG: FIXME: PCP-15368
+  # sleep 54
+  # sleep 70
+  # log "    :$groupName: Sleep Done."
   return ${#checkingErrors[@]}
 }
 

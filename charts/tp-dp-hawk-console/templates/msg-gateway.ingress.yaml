@@ -41,6 +41,7 @@ metadata:
   name: "{{ $basename }}-api"
   namespace: {{ .Release.Namespace }}
   annotations:
+    haproxy.org/timeout-server: 90s
     ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ct/toolset/(.*) /\1'
   labels:
     {{- include "msg-gateway.std.labels" $params | nindent 4 }}

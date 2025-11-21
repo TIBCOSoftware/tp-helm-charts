@@ -1,0 +1,104 @@
+#
+# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+  {{- $jobname := printf "%s-uninstall-%s" .Release.Name (include "tp-cp-hawk-console-recipes.resourceSuffix" .) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $jobname }}"
+  labels:
+    name: "{{ $jobname }}"
+    app.kubernetes.io/name: hawkconsole-cp-uninstall
+    app.kubernetes.io/component: hawk
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "5"
+spec:
+  backoffLimit: 0
+  #4hr limit -  activeDeadlineSeconds: 14400
+  #72hr limit -  activeDeadlineSeconds: 259200
+  ttlSecondsAfterFinished: 7200
+  template:
+    metadata:
+      name: "{{ $jobname }}"
+      namespace: "{{ .Release.Namespace }}"
+      labels:
+        name: "{{ $jobname }}"
+        app.kubernetes.io/name: hawkconsole-cp-uninstall
+        app.kubernetes.io/component: hawk
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      imagePullSecrets:
+        {{- if (include "tp-cp-hawk-console-recipes.container-registry.secret" .) }}
+        - name: {{ include "tp-cp-hawk-console-recipes.container-registry.secret" . }}
+        {{- end }}
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
+      volumes:
+        - name: efs-vol
+          persistentVolumeClaim:
+            claimName: {{ include "tp-cp-hawk-console-recipes.pvc-name" . }}
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 12 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 10
+      containers:
+        -   name: "hawkconsole-cp-uninstall"
+            command: ['bash', '-c']
+            args:
+              - |
+                # Cleanup old hook jobs
+                echo "Cleaning up old hook jobs"
+                kubectl get jobs -l=app.kubernetes.io/name=hawkconsole-cp-uninstall | egrep "Complete|Failed|Error" | while read x o ; do
+                  echo "Deleting job $x"
+                  kubectl delete job $x
+                done
+                kubectl get pods -l=app.kubernetes.io/name=hawkconsole-cp-uninstall | egrep "Complete|Failed|Error" | while read x o ; do
+                  echo "Deleting pod $x"
+                  kubectl delete pbd $x
+                done
+                #----
+                kubectl get jobs -l=app.kubernetes.io/name=tp-hawk-infra | egrep "Complete|Failed|Error" | while read x o ; do
+                   echo "Deleting job $x"
+                   kubectl delete job $x
+                done
+                # -- Do uninstall
+                pushd "$TARGET_PATH"
+                CAPS="infra/hawkconsole"
+                echo "--- Before Uninstall ---"
+                find $CAPS -type f -ls 
+                for capdir in $CAPS ; do 
+                  if [ -d "${capdir}" ]; then
+                    echo "Uninstalling ${capdir} capabilities";
+                    mv "${capdir}" "${capdir}.old" ;
+                  else
+                    echo "No ${capdir} capabilities found to uninstall";
+                  fi
+                done
+                echo --- After ---
+                ls -lh infra 
+                exit 0
+
+            image: {{ include "tp-cp-hawk-console-recipes.image.registry" .}}{{"/"}}{{ include "tp-cp-hawk-console-recipes.image.repository" .}}{{"/"}}{{ .Values.image.hawkRecipeDelete.name }}:{{ .Values.image.hawkRecipeDelete.tag}}
+            imagePullPolicy: {{ .Values.image.hawkRecipeDelete.pullPolicy }}
+          {{- if .Values.global.containerSecurityContext.hawkinfrajobs }}
+            securityContext:
+              {{- toYaml .Values.global.containerSecurityContext.hawkinfrajobs | nindent 18 }}
+          {{- end }}
+            volumeMounts:
+              - mountPath: /private/tsc
+                name: efs-vol
+                subPath: tsc
+            env:
+              - name: TARGET_PATH
+                value: "/private/tsc/config/capabilities"
+              - name: ROLLME
+                # REQUIRE NEW JOB TO START
+                value: {{ include "tp-cp-hawk-console-recipes.resourceSuffix" . }}

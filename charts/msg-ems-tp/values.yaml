@@ -4,10 +4,15 @@
 # in the license file that is distributed with this file.
 #
 
+# Keep until o11y updates for demo installs
+keepPromServices: true
+
 # DO NOT SET .global.cp VALUES, these keys are controlled by the Control Plane
 # and will be overridden by the Control Plane.
 global:
   cp:
+    containerRegistry:
+    serviceaccount:
     dataplaneId:
     instanceId:
     enableClusterScopedPerm: true
@@ -31,8 +36,6 @@ ems:
   stores: ftl
   sizing: small
   use: dev
-  # .ems.activationUrl will be ignored once CP Activation server support is available
-  activationUrl: "https://tib-activate:7070"
   # CAUTION: Current chart does not support overriding internal ports
   ports:
     httpPort: 9010
