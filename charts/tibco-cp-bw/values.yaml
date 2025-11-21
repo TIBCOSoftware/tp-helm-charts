@@ -1,0 +1,58 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+      customCertSecret: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+    useSingleNamespace: true
+    serviceAccount: ""
+    # The fluentbit configuration section.
+    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
+    # Privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          tag: 4.1.0
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+    proxy:
+      httpProxy: ""
+      httpsProxy: ""
+      noProxy: ""
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+# Sub charts
+bw-recipes:
+  enabled: true
+
+bw-webserver:
+  enabled: true
+
+bwce-utilities:
+  enabled: true
+
+bw5ce-utilities:
+  enabled: true

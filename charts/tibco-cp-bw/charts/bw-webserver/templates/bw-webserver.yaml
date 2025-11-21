@@ -1,0 +1,287 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# TP iApp BW WebServer Deployment definition;
+# this defines the resources for the pod, liveness and readiness probes
+# along with the environment variables required by the microservice
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bw-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bw-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bw-webserver.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "bw-webserver.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/cluster-egress: enable
+{{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "bw-webserver.service-account-name" . }}
+      {{- if $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "bw-webserver.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "bw-webserver.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: tp-iapp-bw-server
+        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}tp-bw-webserver:{{ $.Values.config.BW_WEBSERVER_IMAGE_TAG }}
+        imagePullPolicy: IfNotPresent
+        {{- if $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+        {{- toYaml $.Values.bwwebserver.resources | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: 3000
+          name: bwce
+        - containerPort: 3001
+          name: bw5
+        - containerPort: 3002
+          name: bw6
+        - containerPort: 3003
+          name: bw5ce
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.probes.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        env:
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
+        - name: SYSTEM_WHO
+          value: {{ include "bw-webserver.cp-instance-id" . }}
+        - name: TP_CP_QUERYNODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: CP_INSTANCE_ID
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "bw-webserver.cp-env-configmap" . }}
+              key: CP_INSTANCE_ID
+        - name: TP_CP_WEB_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_WEB_SERVER_HOST
+        - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+        - name: DOC_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: DOC_BASE_URL
+              optional: true
+        - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "bw-webserver.cp-env-configmap" . }}
+              key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: HTTP_REQUEST_TIMEOUT
+          value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
+        - name: IDLE_TIME_SECONDS
+          value: {{ .Values.config.IDLE_TIME_SECONDS | quote }}
+        - name: WEB_SERVER_LOG_ENABLED
+          value: {{ .Values.config.WEB_SERVER_LOG_ENABLED | quote }}
+        - name: TSC_CONFIG_LOCATION
+          value: {{ .Values.volumes.bwwebserver.mountPath }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+        - name: DEPLOYMENT_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        volumeMounts:
+          - name: store-vol
+            mountPath: {{ .Values.volumes.bwwebserver.mountPath }}
+            subPath: {{ .Values.volumes.bwwebserver.subPath }}
+          - name: logs-share
+            mountPath: /tmp/webserver-logs
+{{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+        {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- with .Values.global.tibco.logging.fluentbit.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+        {{- toYaml .Values.global.tibco.logging.fluentbit.resources | nindent 10 }}
+        {{- end }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tp-iapp-bw-server
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs-share
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+{{- if .Values.bwmcpserver.enabled }}
+      - name: tp-cp-bw-mcpserver
+        image: {{ include "bw-webserver.image.registry" . }}{{"/"}}{{ include "bw-webserver.bwce.image.repository" . }}{{"/"}}{{ .Values.bwmcpserver.image.name }}:{{ .Values.bwmcpserver.image.tag }}
+        imagePullPolicy: IfNotPresent
+        {{- if $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+        {{- toYaml $.Values.bwmcpserver.resources | nindent 10 }}
+        {{- end }}
+        ports: 
+        - containerPort: 8085
+          name: bw-mcp-server
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: bw-mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: bw-mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+        - name: LOG_LEVEL
+          value: {{ .Values.bwmcpserver.logLevel }}
+        - name: LOG_FILE_PATH
+          value: "/tmp/logs/tp-cp-bw-mcpserver.log"
+        volumeMounts:
+          - name: logs-share
+            mountPath: /tmp/logs
+{{- end }}
+      volumes:
+{{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+        - name: config-volume
+          configMap:
+            name: {{ include "bw-webserver.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "bw-webserver.pvc-name" . }}
+        - name: logs-share
+          emptyDir: {}
+{{- if (include "bw-webserver.container-registry.secret" .) }}            
+      imagePullSecrets:
+        - name: {{ include "bw-webserver.container-registry.secret" . }}
+{{- end }}
+

@@ -1,0 +1,19 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v2
+name: tibco-cp-flogo
+version: 1.13.0-alpha.17
+appVersion: 1.13.0
+description: TIBCO Controlplane chart for FLOGO Capability
+dependencies:
+  - name: flogo-recipes
+    version: "1.13.*"
+    condition: flogo-recipes.enabled
+  - name: flogo-webserver
+    version: "1.13.*"
+    condition: flogo-webserver.enabled
+  - name: flogo-utilities
+    version: "1.13.*"
+    condition: flogo-utilities.enabled

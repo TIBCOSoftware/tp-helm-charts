@@ -12,7 +12,5 @@ metadata:
   name: {{ include "bw5provisioner.fullname" . }}-serviceconfig
 data:
   {{- range $filename, $content :=  .Values.config }}
-  {{- if $content }}
-  {{ $filename }}: {{ tpl $content $ | quote }}
-  {{- end }}
+  {{ $filename }}: {{ $content | quote }}
   {{- end }}
