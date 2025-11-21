@@ -5,10 +5,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "tp-cp-tibcohub-recipes.consts.appName" . }}-script
+  name: {{ include "tibcohub-recipes.consts.appName" . }}-script
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "tp-cp-tibcohub-recipes.labels" . | nindent 4 }}
+    {{- include "tibcohub-recipes.labels" . | nindent 4 }}
 data:
   run.sh: |
     #!/busybox/sh
