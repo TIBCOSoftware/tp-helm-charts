@@ -11,15 +11,17 @@ usage="
 $cmd -- Periodically refresh JWKS from CP
 "
 
-# TODO: Add stale ops-shell cli subdir cleanup to JWKS refresh script
+# TODO: Add stale ops-shell cli subdir cleanup to Gateway refresh script
 
-# 5 seconds per iteration, 720 => hourly
-sampleWait="${JWKS_REFRESH_INTERVAL:-720}"
-jwksFile="${JWKS_FILE:-/logs/jwks/jwks.json}"
-## more portable, but no milliseconds:  
-## fmtTime="+%y%m%dT%H:%M:%S"
-## Ubuntu preferred: 
 fmtTime="--rfc-3339=ns"
+jwksFile="${JWKS_FILE:-/logs/jwks/jwks.json}"
+freqJwks="${JWKS_REFRESH_INTERVAL:-3600}"
+freqTibemsrestdWatch=1
+freqK8EmsWatch=30
+export iter=0
+export repairEmsIter=0
+# sampleWait="${JWKS_REFRESH_INTERVAL:-720}"
+
 
 # Set signal traps
 function log
@@ -62,7 +64,7 @@ function waitForStableRequest {
     last=$(wc -l < "$restartRequest")
     now=0
     for try in $(seq 5) ; do
-        sleep 1
+        sleep 3
         now=$(wc -l < "$restartRequest")
         if [ "$now" -eq "$last" ] ; then
             break
@@ -80,6 +82,11 @@ function restartRestd {
   restdPid="$(ps -C tibemsrestd -o pid= | tr -d ' ' )"
   rm -f $restartRequest
   kill -TERM "$restdPid"
+  # Also restart logger if running
+  log "#+: INFO:  restarting emslog if running."
+  loggerPid="$(ps -C emslog -o pid= | tr -d ' ' )"
+  [ -n "$loggerPid" ] && kill -TERM "$loggerPid"
+  # Wait for tibemsrestd running
   for try in $(seq 60) ; do 
     restdSendCmd /health GET >/dev/null 2>&1 && break
     log "waiting for tibemsrestd to restart..."
@@ -88,7 +95,7 @@ function restartRestd {
   restdSendCmd /health GET >/dev/null 2>&1 || log "tibemsrestd failed to restart, support required."
   # Allow time for processing before next possible restart
   log "waiting for tibemsrestd to stabilize..."
-  sleep 5 
+  sleep 1 
   log "open for business ..."
   return
 }
@@ -113,6 +120,7 @@ function getJWKS {
     tail -1 curl.out
 }
 
+mkdir -p "$(dirname "$jwksFile")"
 function saveJWKS {
     # Use atomic file update, only update if changed.
     jwks="$1"
@@ -142,16 +150,80 @@ function saveJWKS {
     fi
 }
 
+# TODO: MSGDP-1291: Remove after 1.9.0 GA, when legacy repairs are no longer needed
+function repairEmsSecret {
+    x=${1:?Secret name required}
+    dpb64Pass=$(echo -n "$DP_ADMIN_PASSWORD" | base64 -w 0)
+    dpPostData="$(printf '{"name":"%s","description":"user-update","password":"%s"}' $DP_ADMIN_USER $DP_ADMIN_PASSWORD )"
+    dpAddGroup="$(printf '{"add_users":["%s"]}' $DP_ADMIN_USER )"
+    dpK8patch=$(printf '{"data":{"EMS_ADMIN_PASSWORD":"%s"}}' "$dpb64Pass" )
+    echo >&2 "Updating legacy EMS admin secret: $x"
+    groupName=${x/-tibadmin/} 
+    emsServer="tcp://$groupName-emsactive:9011"
+    emsAdmin="http://$groupName-emsactive:9014"
+    # Update EMS password
+    /boot/emsadmin-curl.sh -u 'admin' -p '' -s $emsAdmin -a /users/$DP_ADMIN_USER -X POST \
+        --data "$dpPostData"
+    /boot/emsadmin-curl.sh -u 'admin' -p '' -s $emsAdmin  --data "$dpAddGroup" \
+        -X POST -a "/groups/msg-gems-admin/users" 
+    # Patch legacy EMS secret
+    echo "#+: " kubectl patch secret/$x --type=merge -p='"$dpK8patch"'
+    kubectl patch secret/$x --type=merge -p="$dpK8patch"
+}
+
+function repairEmsSecrets {
+echo "Checking for legacy EMS admin secrets ... "
+kubectl get -o wide secrets | egrep '[-]tibadmin\>' | egrep -v tp-msg-gateway-tibadmin | while read x o ; do 
+    repairEmsSecret $x
+done
+}
+
+# Add EMS Registration watcher support
+emsList=/logs/ems-list.out
+> $emsList
+function refreshEms {
+    # Refresh K8DP EMS Registration information
+    kubectl get sts -l=app.kubernetes.io/name=ems | egrep -v NAME | cut -d' ' -f1 | sort > $emsList.tmp
+    if ! diff -q $emsList $emsList.tmp > $emsList.diff 2>&1 ; then
+        # Update the registration
+        newEms=$(cat $emsList.diff | egrep '^> ' | cut -d' ' -f2- )
+        deletedEms=$(cat $emsList.diff | egrep '^< ' | cut -d' ' -f2- )
+        log "#+: EMS list changed, new: $newEms, deleted: $deletedEms"
+        /logs/boot/ems-registration.sh mainK8RegisterEms
+        mv $emsList.tmp $emsList
+        # TODO: MSGDP-1291: Remove after 1.9.0 GA, when legacy repairs are no longer needed
+        export repairEmsIter=3
+    fi
+
+}
+
 echo "# ===== $cmd ====="
 echo "#+: Watching for tibemsrestd restart requests..."
 while true
 do
-    jwks="$(getJWKS)"
-    saveJWKS "$jwks"
 
-    # Do not delay pod restarts!
-    for x in $(seq $sampleWait) ; do 
-        sleep 1
-        [ -f "$restartRequest" ] && restartRestd
-    done
+    if [ 0 -eq $(( $iter % $freqJwks )) ] ; then
+        echo >&2 "#+: Refreshing JWKS from CP"
+        jwks="$(getJWKS)"
+        saveJWKS "$jwks"
+    fi
+
+    if [ "$IS_BMDP" != "y" ] ; then
+      if [ 0 -eq $(( $iter % $freqK8EmsWatch )) ] ; then
+        # K8s REFRESH
+        refreshEms
+        # TODO: 1.7.0 compatibility
+        # TODO: MSGDP-1291: Remove after 1.9.0 GA, when legacy repairs are no longer needed
+        if [ 0 -lt  $repairEmsIter ] ; then
+            repairEmsSecrets
+            repairEmsIter=$((repairEmsIter - 1))
+        fi
+      fi
+    fi
+
+    if [ 0 -eq $(( $iter % $freqTibemsrestdWatch )) ] ; then
+        [ -f "$restartRequest" ] && echo >&2 "#+: Restart Request detected." && restartRestd
+    fi
+    sleep 1
+    iter=$((iter + 1))
 done

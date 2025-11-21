@@ -64,7 +64,7 @@ CP_DNS_DOMAIN: {{ dig "Values" "global" "external" "dnsDomain" "local" . }}
 CP_INSTANCE_ID: {{ dig "Values" "global" "tibco" "controlPlaneInstanceId" "cp1" . }}
 CP_OTEL_SERVICE: {{ printf "otel-services.%s.svc.cluster.local" .Release.Namespace | quote }}
 CP_PROVIDER: {{ "local" }}
-CP_PVC_NAME: {{ dig "Values" "global" "external" "storage" "pvcName" "control-plane-pvc" . }}
+CP_PVC_NAME: {{ dig "Values" "global" "external" "storage" "pvcName" "control-plane-pvc" . | default "control-plane-pvc" }}
 CP_SERVICE_ACCOUNT_NAME: {{ dig "Values" "global" "tibco" "serviceAccount" "control-plane-sa" . }}
 CP_SUBSCRIPTION_SINGLE_NAMESPACE: {{ .Values.global.tibco.useSingleNamespace | default "true" |  quote }}
 {{- end -}}
@@ -124,3 +124,5 @@ CP_SUBSCRIPTION_SINGLE_NAMESPACE: {{ .Values.global.tibco.useSingleNamespace | d
 {{- $hawkCP := include "hawk.cp.global" ( toJson . | fromJson ) | fromYaml -}}
   {{- printf "%s" $hawkCP.CP_OTEL_SERVICE -}}
 {{- end }}
+
+{{- define "tp-hawk-infra.randomSuffix" -}}{{ .Values.randomSuffix | default (randAlphaNum 4 | lower ) }}{{- end }}

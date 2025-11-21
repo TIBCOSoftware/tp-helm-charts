@@ -38,116 +38,116 @@ cat - <<EOF > $outfile
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level EMERG
-    Set log.level ERROR
+    Condition Key_Value_Equals log.log_level EMERG
+    Set log.log_level ERROR
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level emerg
-    Set log.level ERROR
+    Condition Key_Value_Equals log.log_level emerg
+    Set log.log_level ERROR
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level alert
-    Set log.level ALERT
+    Condition Key_Value_Equals log.log_level alert
+    Set log.log_level ALERT
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level CRIT
-    Set log.level ERROR
+    Condition Key_Value_Equals log.log_level CRIT
+    Set log.log_level ERROR
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level crit
-    Set log.level ERROR
+    Condition Key_Value_Equals log.log_level crit
+    Set log.log_level ERROR
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level seve
-    Set log.level ERROR
+    Condition Key_Value_Equals log.log_level seve
+    Set log.log_level ERROR
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level error
-    Set log.level ERROR
+    Condition Key_Value_Equals log.log_level error
+    Set log.log_level ERROR
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level WARNING
-    Set log.level WARN
+    Condition Key_Value_Equals log.log_level WARNING
+    Set log.log_level WARN
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level warn
-    Set log.level WARN
+    Condition Key_Value_Equals log.log_level warn
+    Set log.log_level WARN
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level notice
-    Set log.level NOTICE
+    Condition Key_Value_Equals log.log_level notice
+    Set log.log_level NOTICE
 
 # [FILTER]
 #     Name modify
 #     Match *
-#     Condition Key_Value_Equals log.level NOTICE
-#     Set log.level INFO
+#     Condition Key_Value_Equals log.log_level NOTICE
+#     Set log.log_level INFO
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level info
-    Set log.level INFO
+    Condition Key_Value_Equals log.log_level info
+    Set log.log_level INFO
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level debug
-    Set log.level DEBUG
+    Condition Key_Value_Equals log.log_level debug
+    Set log.log_level DEBUG
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level VERBOSE
-    Set log.level DEBUG
+    Condition Key_Value_Equals log.log_level VERBOSE
+    Set log.log_level DEBUG
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level verb
-    Set log.level DEBUG
+    Condition Key_Value_Equals log.log_level verb
+    Set log.log_level DEBUG
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level dbg1
-    Set log.level DEBUG
+    Condition Key_Value_Equals log.log_level dbg1
+    Set log.log_level DEBUG
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level dbg2
-    Set log.level DEBUG
+    Condition Key_Value_Equals log.log_level dbg2
+    Set log.log_level DEBUG
 
 [FILTER]
     Name modify
     Match *
-    Condition Key_Value_Equals log.level dbg3
-    Set log.level DEBUG
+    Condition Key_Value_Equals log.log_level dbg3
+    Set log.log_level DEBUG
 
 # rewrite the tag for debug and verbose logs so we can re-route them (nowhere)
 [FILTER]
     Name rewrite_tag
     Match dp.routable
-    Rule log.level /DEBUG/ dp.non_routable false
+    Rule log.log_level /DEBUG/ dp.non_routable false
 
 [FILTER]
     Name nest

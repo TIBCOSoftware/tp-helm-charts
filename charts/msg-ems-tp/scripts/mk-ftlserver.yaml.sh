@@ -34,6 +34,7 @@ servers:
         -listens: ${EMS_LISTEN_URLS}
         -health_check_listen: http://0.0.0.0:${EMS_HTTP_PORT}
         -store: "$podData/emsdata"
+        -standby_only:
         -config_wait:
     - realm:
         data: "$podData/realm"
@@ -58,7 +59,6 @@ servers:
         -listens: ${EMS_LISTEN_URLS}
         -health_check_listen: http://0.0.0.0:${EMS_HTTP_PORT}
         -store: "$podData/emsdata"
-        -standby_only:
         -config_wait:
     - realm:
         data: "$podData/realm"
