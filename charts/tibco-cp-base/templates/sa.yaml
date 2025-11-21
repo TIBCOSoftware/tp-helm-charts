@@ -1,0 +1,16 @@
+#
+# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+
+{{- if empty .Values.global.tibco.serviceAccount }}
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: {{ include "tibco-cp-base.serviceAccount" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tibco-cp-base.labels" . | nindent 4 }}
+{{- end -}}

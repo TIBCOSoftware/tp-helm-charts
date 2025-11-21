@@ -1,0 +1,70 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+global:
+  allInternalTenantsDnsDomains: ${TSC_ADMIN_DNS_DOMAIN}, ${TSC_DNS_DOMAIN}
+  psqlMaxOpenConnections: "100"
+  INTERNAL_NGINXAGENT_ELB_DNS: "10.245.1.2"
+  psqlMaxIdleConnections: "100"
+  mandatoryInfraCapabilityLists: "{'k8s':['MONITORINGAGENT', 'CPPROXY', 'O11Y'],'control-tower':['MONITORINGAGENT', 'CPPROXY', 'O11Y', 'HAWKCONSOLE', 'BWADAPTER']}"
+  
+########################################  IDM common vars  #############################################
+identity-management:
+  cookieName: "tsc"
+  corsAllowOrigins: "http://localhost, https://localhost, capacitor://localhost, vscode://tibco.flogo https://vscode.dev" # localhost is for native apps, ex. Spotfire's; capacitor for mobile apps; vscode is for Flogo vscode extension.
+  tibcoaccountKeystoreKeyAlias: "cic_cloud"
+
+##########################    CP-ORCH env variables , these will be overrided in prod    ############################
+
+orchestrator:
+  dpNameMaxLength: "32"
+  dataplaneCheckStatusTimeoutInSeconds: "30s"
+  enableBannedEmailDomainsCheck: "false"
+  enableTibcoTrials: "true"
+  psqlConnectionMaxLifeTime: "3600"
+  psqlMaxOpenConnections: "100"
+  psqlMaxIdleConnections: "100"
+  enableArn: "true"
+
+####################################     CP WEB server env variables      ##############################################
+web-server:
+  customContentSecurityPolicyHeader: "default-src 'self';
+                                     connect-src 'self' https://221-bcq-142.mktoresp.com/ https://app.pendo.io/ https://cdn.bizible.com/ https://cdn.pendo.io/ https://www.google.com/ https://analytics.google.com/ https://www.google-analytics.com/ https://www.googletagmanager.com/ https://*.googleapis.com/ https://www.gstatic.com/ https://cdn.linkedin.oribi.io/ https://munchkin.marketo.net/ https://stats.g.doubleclick.net/;
+                                     font-src 'self' data: https://fonts.gstatic.com/;
+                                     frame-src 'self' https://www.google.com/ https://*.tcie.pro/;
+                                     img-src 'self' data: https://app.pendo.io/ https://cdn.bizible.com/ https://cdn.bizibly.com/ https://cdn.pendo.io/ https://www.google.com/ https://www.google-analytics.com/;
+                                     object-src 'none';
+                                     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.bizible.com/ https://cdn.pendo.io/ https://www.google.com/ https://www.google-analytics.com/ https://www.googletagmanager.com/ https://www.gstatic.com/ https://cdn.linkedin.oribi.io/ https://munchkin.marketo.net/ https://pendo-io-static.storage.googleapis.com/;
+                                     style-src 'self' 'unsafe-inline' https://*.googleapis.com/;
+                                     base-uri 'self';
+                                     sandbox allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-top-navigation;
+                                     form-action 'self' https://*.cloud.tibco.com/ https://*.tibco.com/ https://*.cic2.pro/ https://*.tcie.pro/ https://*.mashspud.com/ https://*.mashery.com/ https://*.scribesoft.com/ https://*.scribeqa.net/ https://*.salesforce.com/; 
+                                     frame-ancestors 'self'"
+####################################    CP_USER_SUBSCRIPTION_COMMON_VARS       ######################################################
+
+user-subscriptions:
+  appNameMaxLength: "63"
+  psqlMaxOpenConnections: "100"
+  psqlMaxIdleConnections: "100"
+  psqlConnectionMaxLifeTime: "3600"
+
+####################################      CP cronjobs env variables     #################################################
+cronjobs:
+  psqlConnectionMaxLifeTime: "3600"
+  timeToScheduleJobsAt: "0 00 04 * * *"
+  scheduleFrequencyForProvisionInfraCapabilitiesJob: "@every 1m"
+
+##############################################################################################
+
+
+#################################### TP CP Permissions Engine env variables ############################################
+
+pengine:
+  psqlMaxOpenConnections: "100"
+  psqlMaxIdleConnections: "100"
+  psqlConnectionMaxLifeTime: "3600"
+  notificationPayloadThresholdSizeInBytes: "8000"
+
+########################################################################################################################

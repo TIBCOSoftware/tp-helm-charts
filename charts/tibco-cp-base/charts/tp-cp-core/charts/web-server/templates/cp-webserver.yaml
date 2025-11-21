@@ -1,0 +1,1121 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $env := (.Values.global.external.environment | lower) }}
+{{- $jwksEnv := $env }}
+{{- if eq $env "vagrant" }}
+  {{- $jwksEnv = "qa" }}
+{{- end }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: server
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  - name: admin-server
+    port: 3001
+    protocol: TCP
+    targetPort: 3001
+  - name: health-port
+    port: 4000
+    protocol: TCP
+    targetPort: 4000
+  selector:
+    {{- include "tp-cp-web-server.shared.labels.selector" . | nindent 4 }}
+
+---
+
+{{- if .Values.cpmcpserver.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-mcp-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: mcp-server
+      port: 8066
+      protocol: TCP
+      targetPort: 8066
+  selector:
+    {{- include "tp-cp-web-server.shared.labels.selector" . | nindent 4 }}
+{{- end }}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+{{- if .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "tp-cp-web-server.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 8 }}
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+    {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+    {{- end }}
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      initContainers:
+      - name: check-pod-dependencies
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
+        {{- if .Values.global.containerSecurityContext }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
+        env:
+          - name: TP_CP_IDM_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_IDM_HOST
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: cpwebserver
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.webserver }}:{{ include "web-server.generated.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.cpwebserver.resources.requests.cpu }}
+            memory: {{ .Values.cpwebserver.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.cpwebserver.resources.limits.cpu }}
+            memory: {{ .Values.cpwebserver.resources.limits.memory }}
+        ports:
+        - containerPort: 3000
+          name: server
+        - containerPort: 3001
+          name: admin-server
+        - containerPort: 4000
+          name: health-port
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/ready"
+            port: health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 1
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: "/healthz"
+            port: health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+        - name: TP_CP_PERMISSIONS_ENGINE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: TP_CP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_VERSION
+        - name: TP_CP_APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_APP_VERSION
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+        - name: TP_CP_EMAIL_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMAIL_SERVICE_HOST
+        - name: TP_CP_CRON_JOB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_CRON_JOB_HOST
+        - name: TP_CP_IDM_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDM_HOST
+        - name: TP_CP_IDP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDP_HOST
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
+        - name: TP_CP_QUERYNODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
+        - name: TP_CP_BW_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW_HOST
+        - name: TP_CP_BW5CE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW5CE_HOST
+        - name: TP_CP_BW5_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW5_HOST
+        - name: TP_CP_BW6_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW6_HOST
+        - name: TP_CP_FLOGO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_FLOGO_HOST
+        - name: TP_CP_BE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BE_HOST
+        - name: TP_CP_EMS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_EMS_HOST
+        - name: SYSTEM_WHO
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}
+        - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: TSC_ADMIN_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_ADMIN_DNS_DOMAIN
+        - name: TP_CP_WILDCARD_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_WILDCARD_DNS_DOMAIN
+        - name: HTTP_REQUEST_TIMEOUT
+          value: {{ include "tp-cp-web-server.consts.http.request.timeout" . | quote }}
+        - name: IDLE_TIME_SECONDS
+          value: {{ include "tp-cp-web-server.consts.idle.time.seconds" . | quote }}
+        - name: CUSTOM_SCHEME_URLS
+          value: {{ include "tp-cp-web-server.consts.custom.scheme.urls" . }}
+        - name: WEB_SERVER_LOG_ENABLED
+          value: {{ include "tp-cp-web-server.consts.web.server.log.enabled" . | quote }}
+        - name: REDIRECTION_TIME
+          value: {{ include "tp-cp-web-server.consts.redirection.time" . | quote }}
+        - name: TSC_DOMAIN
+          value: https://$(TSC_DNS_DOMAIN)
+        - name: FINOPS
+          value: {{ .Values.global.tibco.finops }}
+        - name: CP_MCP_SERVER_ENABLED
+          value: "{{ .Values.cpmcpserver.enabled }}"
+        - name: DOC_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: DOC_BASE_URL
+        - name: ADMIN_DOMAIN
+          value: https://$(TSC_ADMIN_DNS_DOMAIN)
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: DISABLE_CONFIGURATION_REFRESH
+          value: {{ include "tp-cp-web-server.consts.disable.configuration.refresh" . | quote }}
+        - name: CLOUDOPS_PORT
+          value: {{ include "tp-cp-web-server.consts.cloudops.port" . | quote }}
+        - name: ADMIN_UI_LOGS_SERVICES
+          value: {{ include "tp-cp-web-server.consts.admin.ui.logs.services" . }}
+        - name: CONFIG_FILES_TO_NOTIFY_IDM_ON_UPLOAD
+          value: {{ include "tp-cp-web-server.consts.config.files.to.notify.idm.on.upload" . }}
+        - name: TSC_CONFIG_LOCATION
+          value: /tmp/private/tsc
+        - name: TP_CONTRIBUTORS_LOCATION
+          value: /private/tsc
+        - name: MSG_DP_CONFIG_ENABLED
+          value: {{ .Values.global.tibco.msg_dp_config_enabled | quote }}
+        - name: CP_HELM_REPO
+          value: {{ .Values.global.external.helmRepo }}
+        - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
+          value: {{ include "cp-core-configuration.container-registry-image-pull-secret-name" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_USERNAME
+          value: {{ include "cp-core-configuration.cp-container-registry-username" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_PASSWORD
+          value: {{ include "cp-core-configuration.cp-container-registry-password" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_REPO
+          value: {{ include "cp-core-configuration.image-repository" . | quote }}
+        - name: CP_CONTAINER_REGISTRY_URL
+          value: {{ include "cp-core-configuration.container-registry" . | quote }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (.Values.global.external.environment | lower) }}
+        - name: AUDITSAFE_ENABLED
+          value: "true"
+        - name: DEPLOYMENT_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        volumeMounts:
+          - name: cp-core-config
+            mountPath: /tmp/private/tsc/config
+            readOnly: true
+          - name: store-vol
+            mountPath: /private/tsc
+            subPath: tsc
+          - name: store-vol
+            mountPath: /downloads/tools
+            subPath: tsc/tools
+          - name: logs
+            mountPath: /tmp/logs
+          - name: file-watcher
+            mountPath: /tmp
+          - name: store-vol
+            mountPath: /private/tsc/config
+            subPath: tsc/config
+ {{- if .Values.cpmcpserver.enabled }}
+      - name: cp-mcp-server
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.cpmcpserver.image.name }}:{{ .Values.cpmcpserver.image.tag }}
+        imagePullPolicy: IfNotPresent
+         {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+         {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.cpmcpserver.resources.requests.cpu }}
+            memory: {{ .Values.cpmcpserver.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.cpmcpserver.resources.limits.cpu }}
+            memory: {{ .Values.cpmcpserver.resources.limits.memory }}
+        ports:
+          - containerPort: 8066
+            name: mcp-server
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: mcp-server
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+          - name: HOST
+            value: "localhost:3000"
+          - name: LOG_LEVEL
+            value: {{ .Values.cpmcpserver.logLevel }}
+          - name: PORT
+            value: "8066"
+        volumeMounts:
+          - name: logs
+            mountPath: /tmp/logs
+ {{- end }}
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      - name: fluentbit
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/health
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 1
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: cpwebserver
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-web-server.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: file-watcher
+          emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
+        - name: cp-core-config
+          configMap:
+            name: cp-core-config
+            items:
+              - key: files__tsc__config__tscwebserver__tscwebserver.json
+                path: tscwebserver/tscwebserver.json
+              - key: files__tsc__config__common__tsc-config.json
+                path: common/tsc-config.json
+              - key: files__tsc__config__tscwebserver__{{ (.Values.global.external.environment | lower) }}__common.json
+                path: tscwebserver/{{ (.Values.global.external.environment | lower) }}/common.json
+              - key: files__tsc__config__tscorch__tscorch.json
+                path: tscorch/tscorch.json
+              - key: files__tsc__config__jwks__{{ $jwksEnv }}__jwks.json
+                path: jwks.json
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tp-cp-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tp-cp-web-server.consts.appName" . }}
+  minReplicas: {{ .Values.replicaCount | default 1 }}
+  maxReplicas: {{ add 2 (.Values.replicaCount | default 1) }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.cpu }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.memory }}
+
+
+---
+
+{{- if .Values.cpmcpserver.enabled }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-mcp-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-mcp-server.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+    - path: /cp/mcp
+      internalPath: /
+      port: 8066
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+{{- end }}
+
+---
+
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-web-server.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-web-server.consts.appName" . }}
+  env:
+  - name: TSC_DNS_DOMAIN
+    valueFrom:
+      configMapKeyRef:
+        name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+        key: TSC_DNS_DOMAIN
+  - name: TSC_ADMIN_DNS_DOMAIN
+    valueFrom:
+      configMapKeyRef:
+        name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+        key: TSC_ADMIN_DNS_DOMAIN
+  endpoints:
+  - path: /
+    internalPath: /
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: "${TSC_DNS_DOMAIN}"
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: true
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+  - path: /cp/invites
+    internalPath: /cp/invites
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure_login
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        LOGIN_PATH: /cp/login
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: true
+  - path: /cp/web-ui-content
+    internalPath: /web-ui-content
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/monitoring-web-ui-content
+    internalPath: /monitoring-web-ui-content
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/web-ui-content/ct/dpinstall.sh
+    internalPath: /web-ui-content/ct/dpinstall.sh
+    port: 3000
+    protocol: http
+    proxies:
+    - allowClientCache: false
+      allowXFrameOptions: false
+      config: secure
+      enableRedirects: false
+      fqdn: ${TSC_DNS_DOMAIN}
+      listener: virtual
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+  - path: /cp/consent
+    internalPath: /cp/consent
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure_login
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /tsc/eula
+    internalPath: /tsc/eula
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: true
+  - path: /cp/eula
+    internalPath: /cp/eula
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: true
+  - path: /cp/navigation-tabs
+    internalPath: /navigation-tabs
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/app-header
+    internalPath: /app-header
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/widgets
+    internalPath: /widgets
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/root-config-content
+    internalPath: /root-config-content
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: true
+  - path: /cp/sm-ui-content
+    internalPath: /sm-ui-content
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/apim-ui-content
+    internalPath: /apim-ui-content
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
+  - path: /cp/error/([^/]+)
+    internalPath: /error/$1
+    protocol: http
+    port: 3000
+    proxies:
+    - listener: virtual
+      fqdn: "${TSC_DNS_DOMAIN}"
+      config: empty
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: true
+  - path: /cp/v1
+    internalPath: /tp-cp-ws/v1
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /tp-cp-ws/v1
+    internalPath: /tp-cp-ws/v1
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /cp/public/v1
+    internalPath: /tp-cp-ws/public/v1
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: empty
+      fqdn: "${TSC_DNS_DOMAIN}"
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /cp/api/v1
+    internalPath: /tp-cp-cli-ws/v1
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /jsoneditor-icons.svg
+    internalPath: /web-ui-content/jsoneditor-icons.svg
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /fontawesome([^/]+)
+    internalPath: /widgets/app-logs/fontawesome$1
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /primeicons([^/]+)
+    internalPath: /widgets/app-logs/primeicons$1
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      allowClientCache: true
+      allowXFrameOptions: false
+      enableRedirects: false
+  - path: /$
+    internalPath: /
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure_login
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        configVariables:
+          LOGIN_PATH: /admin/login
+          TENANT_ID: ADMIN
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin
+    internalPath: /
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure_login
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        configVariables:
+          LOGIN_PATH: /admin/login
+          TENANT_ID: ADMIN
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/login
+    internalPath: /admin/login
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/reset-password
+    internalPath: /admin/reset-password
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/forgot-password
+    internalPath: /admin/forgot-password
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/web-ui-content
+    internalPath: /web-ui-content
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/navigation-tabs
+    internalPath: /navigation-tabs
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: true
+        allowXFrameOptions: false
+        enableRedirects: true
+  - path: /admin/web-ui-content/assets/img/email
+    internalPath: /admin/web-ui-content/assets/img/email
+    port: 3001
+    protocol: http
+    proxies:
+      - config: empty
+        enableRedirects: true
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        listener: virtual
+        methods:
+          - GET
+  - path: /admin/root-config-content
+    internalPath: /root-config-content
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: "${TSC_ADMIN_DNS_DOMAIN}"
+        methods:
+          - GET
+        configVariables:
+          TENANT_ID: "TSC"
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        enableRedirects: true
+        allowClientCache: true
+        allowXFrameOptions: true
+  - path: /admin/v1
+    internalPath: /admin/v1
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /admin/public/v1
+    internalPath: /admin/public/v1
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: empty
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /admin/v1/whoami
+    internalPath: /admin/v1/whoami
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        configVariables:
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /api/v1/paid-subscriptions
+    internalPath: /api/v1/paid-subscriptions
+    protocol: http
+    port: 3001
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+        methods:
+          - POST
+          - PUT

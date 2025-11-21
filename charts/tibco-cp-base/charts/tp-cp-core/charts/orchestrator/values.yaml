@@ -1,0 +1,124 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Global section will apply to this chart and all of its subcharts.
+global:
+  external:
+    helmRepo: "https://tibcosoftware.github.io/tp-helm-charts"
+    cronJobReportsEmailAlias: ""
+    platformEmailNotificationCcAddresses: ""
+    environment: ""
+    cpEncryptionSecretName: "cporch-encryption-secret"
+    cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
+    emailServer:
+      ses:
+        arn: ""
+      smtp:
+        server: ""
+        port: "25"
+        username: ""
+        password: ""
+        # Name of an optional secret containing one or more certificates to trust when doing TLS connection with SMTP server using a custom certificate, i.e. not issued by a well-known CA.
+        # The certificate's SubjectAlternativeName must match server's name. Both PEM and DER formats are accepted.
+        customCertsSecretName: ""
+        # Set to true, t, or 1 to skip verification of server's TLS certificate.
+        # This INSECURE setting leaves you exposed to active main-in-the-middle attacks but you're still protected from a passive attacker inspecting traffic.
+        # Use it especially if cert's SubjectAlternativeName doesn't match server's name.
+        insecureSkipVerifyTls: "false"
+      sendgrid:
+        apiKey: ""
+      graph:
+        # Secret should contain all configuration details as either key-value pairs or as a single key containing configuration as a JSON map.
+        # Expected keys: tenant_id, client_id, client_secret (alternative to private_key), private_key (alternative to client_secret), x509_cert (required if private_key provided).
+        clientDetailsSecretName: "client-details-secret"
+        # skipSentFolder: set to true, t, or 1 for even non-sensitive emails to skip the Sent folder.
+        skipSentFolder: "false"
+    storage:
+      pvcName: "control-plane-pvc"
+  tibco:
+    image_name:
+      orchestrator: ""
+    image_repo_path: ""
+    db_ssl_root_cert_secretname: "db-ssl-root-cert"
+    db_ssl_root_cert_filename: "db_ssl_root.cert"
+    is_replica_region: false
+    helm:
+      url: "https://tibcosoftware.github.io"
+      repo: "tp-helm-charts"
+      username: ""
+      password: ""
+      pullLatestCharts: false
+      certificateSecretName: ""
+    logging:
+      fluentbit:
+        image:
+          name: "common-fluentbit"
+          tag: 4.1.0
+    check_dependencies:
+      distroless_debian:
+        name: "common-distroless-base-debian-debug"
+        tag: 12.12
+      
+
+  # Pod Security Context configuration
+  # This configuration ensures that the pod is run with non-root privileges for enhanced security.
+  # The user, group, and filesystem group IDs are all set to 1000.
+  # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
+  # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+  # The sysctls configuration allows the platform hybrid proxy to bind to low ports (below 1024) as a non-root user.
+  # This is achieved by setting the 'net.ipv4.ip_unprivileged_port_start' sysctl to 0.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "Always"
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    # It specifies that privilege escalation is not allowed for security reasons.
+    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+        drop:
+          - ALL
+          - CAP_NET_RAW
+
+# Resource values for production like setup
+cporchservice:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1024Mi"
+fluentbit:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "100Mi"
+    limits:
+      cpu: "100m"
+      memory: "150Mi"
+checkPodDependencies:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"
+
+# HPA
+hpa:
+  cpu: 70
+  memory: 70
+
+# no of replicas
+# replicaCount: "1"  # Commented out - HPA manages replicas dynamically
