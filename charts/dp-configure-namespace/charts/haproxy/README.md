@@ -31,7 +31,7 @@ Get the latest [Helm release](https://github.com/helm/helm#install).
 
 ### Adding Helm chart repo
 
-Once you have Helm installed, add the repo as follows:
+Once you have Helm installed, add the haproxytech Chart Repository as follows:
 
 ```console
 helm repo add haproxytech https://haproxytech.github.io/helm-charts
@@ -39,9 +39,11 @@ helm repo add haproxytech https://haproxytech.github.io/helm-charts
 helm repo update
 ```
 
+Alternatively if you want to proceed with just OCI-based repository, skip this step and follow the installation with OCI.
+
 ## Installing the chart
 
-To install the chart with Helm v3 as _my-release_ deployment:
+To install the chart with Helm v3 as _my-release_ deployment from Chat Repository:
 
 ```console
 helm install my-release haproxytech/kubernetes-ingress
@@ -54,7 +56,11 @@ helm install haproxytech/kubernetes-ingress \
   --name my-release
 ```
 
-By default Helm chart will install several [custom resource definitions](https://github.com/haproxytech/helm-charts/tree/main/kubernetes-ingress/crds) in the cluster if they are missing.
+Alternatively also have OCI-based repository available for simplified access:
+
+```console
+helm install oci://ghcr.io/haproxytech/helm-charts/kubernetes-ingress --version 1.44.1
+```
 
 ### Installing with unique name
 
@@ -196,6 +202,22 @@ helm install my-ingress haproxytech/kubernetes-ingress \
   --set controller.serviceMonitor.enabled=true
 ```
 
+### Installing the PodMonitor
+
+As an alternative to a `ServiceMonitor` you can use a `PodMonitor`, which targets the pods directly instead of using a service.
+If you're using the [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator), you can automatically install the `PodMonitor` definition in order to automate the scraping options according to your needs.
+
+```console
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+
+helm install my-ingress haproxytech/kubernetes-ingress \
+  --set controller.podMonitor.enabled=true
+```
+
 ### Installing with Kubernetes Event-driven Autoscaling (KEDA)
 
 [KEDA](https://keda.sh/docs/2.3/concepts/scaling-deployments/) is an improved scaling solution built on top of HPA which allows autoscaling criteria based on information from any event source including Prometheus metrics collected from HAProxy native Prometheus Exporter.
@@ -246,7 +268,23 @@ helm install keda kedacore/keda --namespace keda
 helm install mytest haproxytech/kubernetes-ingress -f mykeda.yaml
 ```
 
-## Installing on Azure Managed Kubernetes Service (AKS)
+### Installing on Amazon Elastic Kubernetes Service (EKS)
+
+By default AWS LB does not support mixed protocols (TCP and UDP) on the same port yet, resulting in the following error on deploy:
+
+```
+Error syncing load balancer: failed to ensure load balancer: mixed protocol is not supported for LoadBalancer
+```
+
+This issue can be easily fixed by disabling QUIC support (requires `udp/443` listener) with the following:
+
+```console
+helm install my-ingress haproxytech/kubernetes-ingress \
+  --set controller.service.type=LoadBalancer \
+  --set controller.service.enablePorts.quic=false
+```
+
+### Installing on Azure Managed Kubernetes Service (AKS)
 
 By default Azure LB sends probe to `/` and expects HTTP status codes of 200-399 to consider Pod healthy, which means probes end up on default HTTP backend returning HTTP 404 status code. Since v1.20 AKS service annotation `service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path` can be used to override health probe behaviour and we recommend using the following annotation on AKS to target `/healthz` endpoint for health probes:
 

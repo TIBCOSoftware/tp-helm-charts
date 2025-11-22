@@ -27,6 +27,8 @@ spec:
         networking.platform.tibco.com/prometheus: enable
         networking.platform.tibco.com/logServer-egress: enable
         networking.platform.tibco.com/internet-egress: enable
+      annotations:
+        o11y-service.platform.tibco.com/auditsafe-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.logIndex }}
     spec:
       terminationGracePeriodSeconds: 30
       imagePullSecrets:

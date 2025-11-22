@@ -129,6 +129,10 @@ global:
                   logIndex: ""
                   endpoint: ""
                   username: ""
+                openSearch:
+                  logIndex: ""
+                  endpoint: ""
+                  username: ""
             exporterSecondary:
               userApps:
                 enabled: false
@@ -161,6 +165,10 @@ global:
                   logIndex: somevalue
                   endpoint: somevalue
                   username: somevalue
+                openSearch:
+                  logIndex: somevalue
+                  endpoint: somevalue
+                  username: somevalue
           secret:
             exporter:
               userApps:
@@ -185,6 +193,9 @@ global:
                 elasticSearch:
                   password: somevalue
                   headers: {}
+                openSearch:
+                  password: somevalue
+                  headers: {}
             proxy:
               userApps:
                 elasticSearch:
@@ -197,6 +208,9 @@ global:
                 elasticSearch:
                   headers: {}
                   password: somevalue
+                openSearch:
+                  password: somevalue
+                  headers: {}
         metricsServer:
           config:
             exporter:
@@ -464,7 +478,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 3308
+      tag: 3405
     job:
       image:
         tag: 24

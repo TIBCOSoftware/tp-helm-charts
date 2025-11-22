@@ -21,11 +21,7 @@ metadata:
   name: cpdpproxy
   namespace: {{ include "kubernetes-ingress.namespace" . }}
   labels:
-    app.kubernetes.io/name: {{ include "kubernetes-ingress.name" . }}
-    helm.sh/chart: {{ include "kubernetes-ingress.chart" . }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    {{- include "kubernetes-ingress.labels" . | nindent 4 }}
 {{- if .Values.controller.service.labels }}
 {{ toYaml .Values.controller.service.labels | indent 4 }}
 {{- end }}
@@ -88,13 +84,13 @@ spec:
       nodePort: {{ .Values.controller.service.nodePorts.stat }}
     {{- end }}
   {{- end }}
-  {{- if .Values.controller.service.enablePorts.prometheus }}
-    - name: prometheus
-      port: {{ .Values.controller.service.ports.prometheus }}
+  {{- if .Values.controller.service.enablePorts.admin }}
+    - name: admin
+      port: {{ .Values.controller.service.ports.admin }}
       protocol: TCP
-      targetPort: {{ .Values.controller.service.targetPorts.prometheus }}
-    {{- if .Values.controller.service.nodePorts.prometheus }}
-      nodePort: {{ .Values.controller.service.nodePorts.prometheus }}
+      targetPort: {{ .Values.controller.service.targetPorts.admin }}
+    {{- if .Values.controller.service.nodePorts.admin }}
+      nodePort: {{ .Values.controller.service.nodePorts.admin }}
     {{- end }}
   {{- end }}
   {{- range .Values.controller.service.tcpPorts }}
@@ -107,8 +103,7 @@ spec:
     {{- end }}
   {{- end }}
   selector:
-    app.kubernetes.io/name: {{ include "kubernetes-ingress.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "kubernetes-ingress.selectorLabels" . | nindent 4 }}
   {{- if .Values.controller.service.sessionAffinity }}
   sessionAffinity: {{ .Values.controller.service.sessionAffinity }}
   {{- end }}

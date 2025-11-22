@@ -1,5 +1,5 @@
 {{/*
-Copyright 2019 HAProxy Technologies LLC
+Copyright 2024 HAProxy Technologies LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,25 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-{{- if .Values.controller.PodDisruptionBudget.enable }}
-{{- if or (.Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget") (semverCompare ">=1.21.0-0" .Capabilities.KubeVersion.Version) }}
-apiVersion: policy/v1
-{{- else }}
-apiVersion: policy/v1beta1
-{{- end }}
-kind: PodDisruptionBudget
+{{- if and (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") .Values.controller.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
 metadata:
-  name: {{ include "kubernetes-ingress.fullname" . }}
+  name: {{ include "kubernetes-ingress.podMonitorName" . }}
   namespace: {{ include "kubernetes-ingress.namespace" . }}
   labels:
     {{- include "kubernetes-ingress.labels" . | nindent 4 }}
+    {{- if .Values.controller.podMonitor.extraLabels }}
+    {{ toYaml .Values.controller.podMonitor.extraLabels | nindent 4 }}
+    {{- end }}
 spec:
-  {{- if .Values.controller.PodDisruptionBudget.maxUnavailable }}
-  maxUnavailable: {{ .Values.controller.PodDisruptionBudget.maxUnavailable }}
-  {{- end }}
-  {{- if .Values.controller.PodDisruptionBudget.minAvailable }}
-  minAvailable: {{ .Values.controller.PodDisruptionBudget.minAvailable }}
-  {{- end }}
+  podMetricsEndpoints:
+    {{ .Values.controller.podMonitor.endpoints | toYaml | nindent 4 }}
+  namespaceSelector:
+    matchNames:
+    - {{ include "kubernetes-ingress.namespace" . }}
   selector:
     matchLabels:
       {{- include "kubernetes-ingress.selectorLabels" . | nindent 6 }}

@@ -30,7 +30,7 @@ podSecurityPolicy:
 ## Enable RBAC Authorization
 ## ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 rbac:
-  create: true
+  create: false
 
 ## Create namespace
 ## https://kubernetes.io/docs/tasks/administer-cluster/namespaces-walkthrough/
@@ -40,7 +40,7 @@ namespace:
 ## Configure Service Account
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 serviceAccount:
-  create: true
+  create: false
   name:
   automountServiceAccountToken: true
 
@@ -121,6 +121,7 @@ controller:
     http: 8080
     https: 8443
     stat: 1024
+    admin: 6060
 
   ## Controller Container liveness/readiness probe configuration
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
@@ -184,6 +185,11 @@ controller:
   ## Additional labels to add to the deployment or daemonset metadata
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   extraLabels: {}
+  #  key: value
+
+  ## Additional annotations to add to the deployment or daemonset metadata
+  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  annotations: {}
   #  key: value
 
   ## Additional labels to add to the pod container metadata
@@ -260,6 +266,10 @@ controller:
     pollingInterval: 30
     cooldownPeriod: 300
     restoreToOriginalReplicaCount: false
+    # fallback:
+    #   failureThreshold: 3
+    #   replicas: 6
+    #   behavior: static
     scaledObject:
       annotations: {}
     horizontalPodAutoscalerConfig: {}
@@ -380,7 +390,7 @@ controller:
   service:
     enabled: true     # set to false when controller.kind is 'DaemonSet' and controller.daemonset.useHostPorts is true
 
-    type: NodePort   # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
+    type: NodePort    # can be 'ClusterIP', 'NodePort' or 'LoadBalancer'
 
     ## Service annotations
     ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -401,7 +411,7 @@ controller:
     #  http: 31080
     #  https: 31443
     #  stat: 31024
-    #  prometheus: 36060
+    #  admin: 31060
 
     ## Service ports to use for http, https and stat
     ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
@@ -409,7 +419,7 @@ controller:
       http: 80
       https: 443
       stat: 1024
-      prometheus: 6060
+      admin: 6060
 
     ## The controller service ports for http, https and stat can be disabled by
     ## setting below to false - this could be useful when only deploying haproxy
@@ -420,7 +430,7 @@ controller:
       https: true
       quic: true
       stat: true
-      prometheus: true
+      admin: true
 
     ## Target port mappings for http, https and stat
     ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
@@ -429,7 +439,7 @@ controller:
       https: https
       quic: quic
       stat: stat
-      prometheus: prometheus
+      admin: admin
 
     ## Additional tcp ports to expose
     ## This is especially useful for TCP services:
@@ -543,7 +553,7 @@ controller:
 
   ## Additional volumeMounts to the controller main container
   extraVolumeMounts:
-  ## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
+    ## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
    - name: etc-haproxy
      mountPath: /etc/haproxy
    - name: var-state-haproxy
@@ -551,7 +561,7 @@ controller:
 
   ## Additional volumes to the controller pod
   extraVolumes:
-  ## Example empty volumes when using securityContext->readOnlyRootFilesystem
+    ## Example empty volumes when using securityContext->readOnlyRootFilesystem
    - name: etc-haproxy
      emptyDir: {}
    - name: var-state-haproxy
@@ -619,8 +629,6 @@ controller:
 crdjob:
   ## Additional annotations to add to the pod container metadata
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  ## All annotations from the controller (if set) are added to the pod metadata
-  ## If the annotation key is set for both controller and crdjob, the crdjob annotation will be used
   podAnnotations: {}
   # key: value
 
