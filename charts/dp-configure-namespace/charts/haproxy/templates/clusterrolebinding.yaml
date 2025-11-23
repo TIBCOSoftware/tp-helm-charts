@@ -14,21 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-{{- if and .Values.rbac.create .Values.podSecurityPolicy.enabled -}}
+{{- if .Values.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRoleBinding
 metadata:
   name: {{ include "kubernetes-ingress.fullname" . }}
-  namespace: {{ include "kubernetes-ingress.namespace" . }}
   labels:
     {{- include "kubernetes-ingress.labels" . | nindent 4 }}
-rules:
-- apiGroups: 
-  - "policy"
-  resources:
-  - podsecuritypolicies
-  verbs:
-  - use
-  resourceNames:
-  - {{ include "kubernetes-ingress.fullname" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubernetes-ingress.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "kubernetes-ingress.serviceAccountName" . }}
+  namespace: {{ include "kubernetes-ingress.namespace" . }}
 {{- end -}}
+
