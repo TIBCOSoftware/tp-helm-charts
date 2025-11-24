@@ -1,0 +1,107 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- if eq .Values.global.tibco.is_replica_region false }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-control-plane-ops.consts.appName" . }}-create-admin-user-{{ randAlphaNum 4 | lower }}
+  namespace: {{ include "tp-control-plane-ops.consts.namespace" . }}
+  labels:
+    app.cloud.tibco.com/created-by: tp-cp
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 14400
+  template:
+    metadata:
+      name: tp-control-plane-create-admin-user
+      labels:
+        app.cloud.tibco.com/created-by: tp-cp
+        egress.networking.cloud.tibco.com/router-intercom: enable
+        app.kubernetes.io/name: {{ include "tp-control-plane-ops.consts.appName" . }}-create-admin-user
+    spec:
+      {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      {{- end }}      
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      initContainers:
+      - name: check-pod-dependencies
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
+      {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
+        resources:
+        {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
+        securityContext:
+        {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
+      {{- end }}
+        {{- if eq .Values.global.tibco.self_hosted_deployment true }}
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-provider to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDP_HOST:9893/ping" 2>&1 | grep "HTTP/"); done' ]
+        {{- else }}
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for identity-management to be running; sleep 1; wget_result=$(wget --spider -S "http://$TP_CP_IDM_HOST:9831/v1/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
+        {{- end }}
+        env:
+          - name: TP_CP_IDM_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_IDM_HOST
+          - name: TP_CP_IDP_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_IDP_HOST
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      - name: tp-control-plane-create-admin-user
+        {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
+        {{- end }}        
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: TSC_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_DNS_DOMAIN
+        - name: EMAIL_ID
+          value: {{ .Values.global.external.admin.email }}
+        - name: FIRSTNAME
+          value: {{ .Values.global.external.admin.firstname }}
+        - name: LASTNAME
+          value: {{ .Values.global.external.admin.lastname }}
+        - name: EXTERNAL_ACCOUNT_ID
+          value: {{ .Values.global.external.admin.customerID }}
+        - name: EXTERNAL_SUBSCRIPTION_ID
+          value: {{ .Values.global.external.admin.customerID }}
+        command:
+          - "/bin/sh"
+          - "-ec"
+          - |
+            set -o nounset
+            set -o errexit
+            region=${REGION}
+            echo "Provisioning the Admin Subscription for ${EMAIL_ID}.."
+            curl -sS -XPOST -H 'x-atmosphere-for-user: ProvisioningUser' -H "Content-type: application/json" -H "Host: ${TSC_DNS_DOMAIN}" -H "x-real-ip: 0.0.0.0" -H "X-Initial-Admin-User: true" -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"admin","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' 'http://'${TP_CP_ORCH_HOST}:8833'/v1/tibco-subscriptions'
+            echo "Subscription for ${EMAIL_ID} provisioned successfully."
+
+
+{{- end }}
