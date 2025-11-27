@@ -17,8 +17,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.25.10-b319"
-  flogoBaseImageTag: "2.25.10-b319"
+  flogoBuildTypeTag: "2.25.10-b329"
+  flogoBaseImageTag: "2.25.10-b329"
   customFQImage: ""
   tags: ""
   connectors: ""
@@ -84,8 +84,8 @@ podSecurityContext:
 flogoapp:
   securityContext:
     allowPrivilegeEscalation: false
+    # To enable readOnlyRootFilesystem, the app build must use the flogo version (buildtype tag) 2.25.11-b336 or higher.
     readOnlyRootFilesystem: false
-    # enabling readOnlyRootFilesystem may cause issues with supplements where files are copied in system folder example - /etc/krb5.conf
     capabilities:
       drop:
       - ALL

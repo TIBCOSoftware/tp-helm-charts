@@ -1,0 +1,187 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.bwPluginsExtractJobG }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bwce-utilities.fullname" $dot }}-plugins-extract-job-g-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bwce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
+        {{- include "bwce-utilities.networkPolicyLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bwce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      {{- range $name, $plugin := .Values.bwPluginsJobG }}
+        {{- range $tag := $plugin.deleteTags }}
+        - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-delete
+          image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              path={{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag }}
+              rm -rf "${path}"
+              echo "Deleted contribution from location: $path"
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.volumes.plugins.mountPath }}
+              subPath: {{ $.Values.volumes.plugins.subPath }}
+            - name: tmp-vol
+              mountPath: /tmp
+        {{- end }}
+        {{- range $tag := $plugin.tags }}
+        - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-img-extract
+          image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
+          imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+          {{- toYaml $.Values.plugins.resources | nindent 12 }}
+          {{- end }}
+          env:
+          - name: SOURCE_REGISTRY
+            value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.plugins.image.repository" $dot }}"
+          - name: SOURCE_DOCKER_IMAGE
+            value: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.plugins.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $tag }}"
+          - name: IMAGE_TEMP_DIR
+            value: "/tmp/{{ $name }}-{{ $tag }}/"
+          - name: SOURCE_DIRS
+            value: "/opt/tibco/bw-contribution/,/opt/tibco/bw-mp-icon/"
+          - name: TARGET_DIRS
+            value: "{{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag }},{{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag }}/{{ $name  | replace "tci-bw-plugin-" "" }}"
+          - name: LOG_LEVEL
+            value: debug
+          - name: IS_AWS
+            value: "true"
+          {{- if (include "bwce-utilities.cp-no-proxy" $dot ) }}
+          - name: NO_PROXY
+            value: "{{ include "bwce-utilities.cp-no-proxy" $dot }}"
+          {{- end }}
+          {{- if (include "bwce-utilities.cp-http-proxy" $dot ) }}
+          - name: HTTP_PROXY
+            value: "{{ include "bwce-utilities.cp-http-proxy" $dot }}"
+          {{- end }}
+          {{- if (include "bwce-utilities.cp-https-proxy" $dot ) }}
+          - name: HTTPS_PROXY
+            value: "{{ include "bwce-utilities.cp-https-proxy" $dot }}"
+          {{- end }}
+          {{- if (include "bwce-utilities.container-registry.custom-cert-secret" $dot) }}
+          - name: SSL_CERT_DIR
+            value: "/etc/certs/"
+          {{- end }}
+          volumeMounts:
+          - mountPath: {{ $.Values.volumes.plugins.mountPath }}
+            name: shared-vol
+            subPath: {{ $.Values.volumes.plugins.subPath }}
+          - name: tmp-vol
+            mountPath: /tmp
+          - name: kaniko-vol
+            mountPath: /kaniko/.docker
+# mount this secret only if private container registry is configured for CP.
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+          - mountPath: /tibco/containerregistry
+            name: container-registry-secret
+{{- end }}
+# mount this secret only if private container registry with custom certs is configured for CP.
+{{- if (include "bwce-utilities.container-registry.custom-cert-secret" $dot) }}
+          - mountPath: /etc/certs
+            name: container-registry-custom-cert-secret
+            readOnly: true
+{{- end }}
+        - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-default
+          image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              tag={{ $plugin.default }}
+              pluginName={{ $name }}
+              echo "tag:"$tag
+              echo "pluginName:"$pluginName
+              echo {{ $.Values.volumes.plugins.mountPath }}
+              path={{ $.Values.volumes.plugins.mountPath }}/bw-contribution/$pluginName/default.ver
+              mkdir -p "${path%/*}" && touch "$path"
+              echo $tag > $path
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.volumes.plugins.mountPath }}
+              subPath: {{ $.Values.volumes.plugins.subPath }}
+            - name: tmp-vol
+              mountPath: /tmp
+        {{- end }}
+      {{- end }}
+      volumes:
+      - name: shared-vol
+        persistentVolumeClaim:
+          claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+      - emptyDir: {}
+        name: tmp-vol
+      - emptyDir: {}
+        name: kaniko-vol
+{{- if (include "bwce-utilities.container-registry.custom-cert-secret" $dot) }}
+      - name: container-registry-custom-cert-secret
+        secret:
+          defaultMode: 420
+          secretName: {{ include "bwce-utilities.container-registry.custom-cert-secret" $dot }}
+{{- end }}
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+      - name: container-registry-secret
+        secret:
+          secretName: {{ include "bwce-utilities.container-registry.secret" $dot }}
+      imagePullSecrets:
+        - name: {{ include "bwce-utilities.container-registry.secret" $dot }}                      
+{{- end }}
+{{- end }}

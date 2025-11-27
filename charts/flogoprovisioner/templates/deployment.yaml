@@ -70,13 +70,11 @@ spec:
           {{- end }}
           env:
             {{- range $filename, $content :=  .Values.config }}
-            {{- if $content }}
             - name: {{ $filename }}
               valueFrom:
                 configMapKeyRef:
                   name: {{ $fullName }}-serviceconfig
                   key: {{ $filename }}
-            {{- end }}
             {{- end }}
             {{- with .Values.global.cp.proxy }}
             {{- if .httpProxy }}

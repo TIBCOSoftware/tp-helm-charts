@@ -1,0 +1,67 @@
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.cleanupJob }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogo-recipes.appName" . }}-cleanup-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flogo-recipes.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "flogo-recipes.labels" . | nindent 8 }}
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if (include "flogo-recipes.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "flogo-recipes.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: flogo-recipes-cleanup
+        image: {{ include "flogo-recipes.image.registry" .}}{{"/"}}{{ include "flogo-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+          {{- toYaml .Values.scripts.resources | nindent 10 }}
+        {{- end }}       
+        volumeMounts:
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        command:
+          - "sh"
+          - "-c"
+          - |
+            echo "Starting cleanup of FLOGO recipes..."
+            rm -rf /private/tsc/config/capabilities/platform/flogo
+            echo "Cleanup of FLOGO recipes completed."
+      restartPolicy: Never
+      volumes:
+      - name: store-vol
+        persistentVolumeClaim:
+          claimName: {{ include "flogo-recipes.pvc-name" . }}
+{{- end }}

@@ -242,6 +242,8 @@ config:
   BWCE_APP_HELMCHART_NAME: "dp-bwce-app"
   BWCE_APP_HELMCHART_VERSION: "1.4.2"
   PROVISIONER_AGENT_SERVICE_PORT: "80"
+  ENABLE_NON_TOKENIZED_PROPS: "true"
+  INFRA_CP_PROXY_IMAGE_TAG: "280"
 
 autoDiscovery:
   enabled: false
@@ -261,7 +263,6 @@ publicApi:
       fqdn: ""
 
 infraCPProxy:
-  imageTag: 280
   resources:
     requests:
       cpu: 50m
