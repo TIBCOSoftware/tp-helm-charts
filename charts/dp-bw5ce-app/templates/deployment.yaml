@@ -58,6 +58,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.hostAliases }}
       hostAliases:
         {{- toYaml . | nindent 8 }}
@@ -126,6 +127,10 @@ spec:
           {{- toYaml .Values.bwapp.readinessProbe | nindent 10 }}
         resources:
           {{- toYaml .Values.bwapp.resources | nindent 10 }}
+        {{- with .Values.bwapp.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         name: bwapp
         ports:
         {{- range $svcPort := .Values.service.ports }}
@@ -148,6 +153,11 @@ spec:
           name: resources-addons-jars
         - mountPath: /resources/addons/certs
           name: resources-addons-certs
+        {{- end }}
+        {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
+        - mountPath: {{ .Values.dpConfig.licenseMountPath }}
+          name: license-volume
+          readOnly: true
         {{- end }}
         {{- with .Values.bwapp.volumeMounts }}
         {{- toYaml . | nindent 8 }}
@@ -182,6 +192,10 @@ spec:
         image: {{ .Values.image.repository }}{{ .Values.image.fluentBitImageName }}:{{ .Values.image.fluentBitImageTag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: fluent-bit
+        {{- with .Values.fluentBit.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         ports:
         - containerPort: 2020
           protocol: TCP
@@ -239,6 +253,11 @@ spec:
         name: resources-addons-plugins
       - emptyDir: {}
         name: resources-addons-certs
+      {{- end }}
+      {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
+      - name: license-volume
+        secret:
+          secretName: {{ .Values.dpConfig.licenseSecretName }}
       {{- end }}
       - emptyDir: {}
         name: logs-share
