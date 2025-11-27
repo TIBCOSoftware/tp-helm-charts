@@ -1,0 +1,97 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cp-core-config
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+data:
+{{- $env := .Values.global.external.environment | lower }}
+{{- if .Values.global.tibco.self_hosted_deployment }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/**/*.json" }}
+  {{- if not (contains "jwks" $path) }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/tscwebserver/**/*.json" }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/emails-templates/tsc/reports_html.tmpl" }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/tscscheduler/reports_html.tmpl" }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/tscscheduler/status.html" }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/pengine/resources/model.conf" }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config-core/pengine/resources/policy.csv" }}
+  {{ $path | replace "/" "__" | replace "config-core" "config" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- $jwksEnv := $env }}
+  {{- if or (eq $env "vagrant") (eq $env "staging") }}
+    {{- $jwksEnv = "qa" }}
+  {{- end }}
+  {{- $jwksPath := printf "files/tsc/config-core/jwks/%s/jwks.json" $jwksEnv }}
+  {{- if .Files.Get $jwksPath }}
+  {{- $jwksKey := regexReplaceAll "/" $jwksPath "__" | replace "config-core" "config" }}
+  {{ $jwksKey }}: |
+{{ .Files.Get $jwksPath | toString | indent 4 }}
+  {{- end }}
+{{- else }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/**/*.json" }}
+  {{- if not (contains "jwks" $path) }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/tscwebserver/**/*.json" }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/emails-templates/tsc/reports_html.tmpl" }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/tscscheduler/reports_html.tmpl" }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/tscscheduler/status.html" }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/pengine/resources/model.conf" }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- range $path, $file := .Files.Glob "files/tsc/config/pengine/resources/policy.csv" }}
+  {{ $path | replace "/" "__" }}: |
+{{ $file | toString | indent 4 }}
+  {{- end }}
+  {{- $jwksEnv := $env }}
+  {{- if or (eq $env "vagrant") (eq $env "staging") }}
+    {{- $jwksEnv = "qa" }}
+  {{- end }}
+  {{- $jwksPath := printf "files/tsc/config/jwks/%s/jwks.json" $jwksEnv }}
+  {{- if .Files.Get $jwksPath }}
+  {{- $jwksKey := regexReplaceAll "/" $jwksPath "__" }}
+  {{ $jwksKey }}: |
+{{ .Files.Get $jwksPath | toString | indent 4 }}
+  {{- end }}
+{{- end }}

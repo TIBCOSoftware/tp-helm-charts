@@ -1,0 +1,18 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cp-core-scripts-config
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+data:
+# Load the scripts for security-cert job
+{{- range $path, $file := .Files.Glob "files/tsc/scripts/certs/*" }}
+    {{ $path | replace "/" "__" }}: |-
+{{ toString $file | nindent 6 }}
+{{- end }}

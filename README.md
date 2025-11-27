@@ -19,7 +19,7 @@ Most of the Helm charts in this repository will be installed by the TIBCO® Cont
 There are some charts that can help customers set up cluster ingress, storage class, observability stack, etc. Customers can install these charts manually.
 
 ### Prerequisites
-1. [x] Helm **v3 > 3.12.0** [installed](https://helm.sh/docs/using_helm/#installing-helm): `helm version`
+1. [x] Helm **v3 > 3.14.0** [installed](https://helm.sh/docs/using_helm/#installing-helm): `helm version`
 2. [x] Chart repository: `helm repo add tibco-platform https://tibcosoftware.github.io/tp-helm-charts`
 
 ### Deploy Data Plane components
