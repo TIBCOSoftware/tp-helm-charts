@@ -6372,6 +6372,24 @@ entries:
     version: 1.13.0-alpha.26
   tibco-cp-devhub:
   - apiVersion: v2
+    appVersion: 1.14.0
+    created: "2025-12-22T08:39:24.410140944Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.14.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.14.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: dfbf15f34153cbb3a3586ebf43a07e6f1169dc0ac78fd715e469b6397469cb61
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.14.0-alpha.6/tibco-cp-devhub-1.14.0-alpha.6.tgz
+    version: 1.14.0-alpha.6
+  - apiVersion: v2
     appVersion: 1.13.0
     created: "2025-11-27T08:36:03.554817127Z"
     dependencies:
@@ -6591,6 +6609,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-messaging-1.11.15/tibco-cp-messaging-1.11.15.tgz
     version: 1.11.15
   tibco-developer-hub:
+  - apiVersion: v2
+    appVersion: 1.14.0
+    created: "2025-12-22T08:39:24.571694774Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: 4aaf214b85fdb1b572b7ab3bf13800c68b75cbe1820528109e841b9e49827145
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.14.5/tibco-developer-hub-1.14.5.tgz
+    version: 1.14.5
   - apiVersion: v2
     appVersion: 1.13.0
     created: "2025-11-21T13:16:55.485940633Z"
@@ -13463,4 +13501,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2025-12-22T07:31:03.197982176Z"
+generated: "2025-12-22T08:39:24.573232048Z"
