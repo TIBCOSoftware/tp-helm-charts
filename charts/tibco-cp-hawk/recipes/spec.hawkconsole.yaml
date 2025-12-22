@@ -8,10 +8,22 @@ files:
   infra/hawkconsole/versions.json: |
     [
       {
-        "capabilityVersion": "1.13.0",
+        "capabilityVersion": "1.14.0",
         "minCPVersion": "1.5.0",
         "maxCPVersion": "",
         "releaseDate": "2025/02/26",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.4.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.4.0",
+          "dp-configure-namespace": "1.4.0"
+        }
+      },
+      {
+        "capabilityVersion": "1.13.0",
+        "minCPVersion": "1.5.0",
+        "maxCPVersion": "",
+        "releaseDate": "2025/11/27",
         "releaseNotes": "Enhancements, Bug fixes, etc.",
         "minVersionRequiredForUpgrade": "1.4.0",
         "minDPVersion": {
@@ -80,6 +92,71 @@ files:
         }
       }
     ]
+  infra/hawkconsole/1.14.0/recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: tp-dp-hawk-console
+          namespace: ${NAMESPACE}
+          version: "1.14.4"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                hawkconsole:
+                  readinessFailureThreshold: 10
+                  readinessInitialDelaySeconds: 12
+                  readinessPeriodSeconds: 15
+                  readinessTimeoutSeconds: 10
+                  livenessFailureThreshold: 10
+                  livenessInitialDelaySeconds: 15
+                  livenessPeriodSeconds: 15
+                  livenessTimeoutSeconds: 10
+                  javaOptions: "-Xms1g -Xmx3g"
+                  subscription:
+                    interval:
+                      bw5: 60000
+                      be: 60000
+                      sys: 60000
+                      o11y: 60000
+                  fileupload:
+                    fileSizeLimit: 30MB
+                    requestSizeLimit: 32MB
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 1024Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 3072Mi                
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+    
+  infra/hawkconsole/1.14.0/package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-dp-hawk-console",
+            "description": "Hawk Console Service",
+            "monitoringPriority": "essential"
+          },
+          {
+            "name": "tp-msg-gateway",
+            "description": "Messaging CT Gateway Services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }
   infra/hawkconsole/1.13.0/recipe.yaml: |
     recipe:
       helmCharts:
