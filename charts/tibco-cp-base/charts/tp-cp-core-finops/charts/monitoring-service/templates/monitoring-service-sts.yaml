@@ -410,7 +410,7 @@ spec:
     scaleUp:
       stabilizationWindowSeconds: 60   # More responsive scale up
   minReplicas: {{ .Values.replicaCount | default 1 }}
-  maxReplicas: {{ .Values.replicaCount | default 1 }}
+  maxReplicas: {{ add 2 (.Values.replicaCount | default 1) }}
   metrics:
     - type: Resource
       resource:
