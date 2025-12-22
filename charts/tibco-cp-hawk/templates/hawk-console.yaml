@@ -16,7 +16,7 @@ data:
 {{- if .Values.recipeOverride }}
   {{- if .Values.recipeOverride.HAWKCONSOLE }}
   recipeOverrides: |
-    infra/hawkconsole/1.13.0/recipe.yaml:
+    infra/hawkconsole/1.14.0/recipe.yaml:
       {{ toYaml .Values.recipeOverride.HAWKCONSOLE | nindent 6 }}
   {{- end }}
 {{- end }}
