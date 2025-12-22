@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.13.0",
-      "minCPVersion": "1.13.0",
+      "capabilityVersion": {{ .Chart.AppVersion | quote }},
+      "minCPVersion": "1.14.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
@@ -65,7 +65,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.13.4"
+          version: "1.14.3"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -79,11 +79,11 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   flogoprovisioner:
                     image:
-                      tag: 738-platform-1.13.0
+                      tag: 784-platform-1.14.0
                 config:
-                  APP_INIT_IMAGE_TAG: "50"
-                  APP_HELMCHART_VERSION: "1.13.3"
-                  INFRA_CP_PROXY_IMAGE_TAG: "285"
+                  APP_INIT_IMAGE_TAG: "51"
+                  APP_HELMCHART_VERSION: "1.14.3"
+                  INFRA_CP_PROXY_IMAGE_TAG: "291"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
