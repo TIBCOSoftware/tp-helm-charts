@@ -81,8 +81,13 @@ spec:
           value: {{ .Values.appConfig.originalAppName | quote }}
         - name: BW_PROJECT_VERSION
           value: {{ .Values.appConfig.appVersion | quote }}
+        {{- if or (eq .Values.appConfig.bw5ceBuildTypeTag "preview-0.1") (eq .Values.appConfig.bw5ceBuildTypeTag "preview-0.2") (eq .Values.appConfig.bw5ceBuildTypeTag "preview-0.3") }}
         - name: BW_ACTIVATION_SERVICE_URL
           value: {{ .Values.dpConfig.activationServiceUrl | quote }}
+        {{- else }}
+        - name: TIB_ACTIVATION
+          value: {{ .Values.dpConfig.activationServiceUrl | quote }}
+        {{- end }}
         {{- if .Values.otel.enabled }}
         - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
           value: http://otel-userapp-traces.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317

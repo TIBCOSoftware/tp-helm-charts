@@ -115,6 +115,11 @@ spec:
         - name: tmp
           mountPath: /tmp
         {{- end }}
+        {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
+        - mountPath: {{ .Values.dpConfig.licenseMountPath }}
+          name: license-volume
+          readOnly: true
+        {{- end }}
         {{- with .Values.flogoapp.volumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -148,6 +153,14 @@ spec:
           value: {{ .Values.appConfig.flogoHttpServicePort | quote }}
         - name: FLOGO_APP_METRICS
           value: {{ .Values.appConfig.flogoAppMetrics | quote }}
+        {{- if .Values.dpConfig.licenseSecretPath }}
+        - name: TIB_ACTIVATION
+          value: {{ .Values.dpConfig.licenseSecretPath }}
+        {{- end }}
+        {{- if .Values.dpConfig.activationServiceUrl }}
+        - name: TIB_ACTIVATION
+          value: {{ .Values.dpConfig.activationServiceUrl }}
+        {{- end }}
         {{- if .Values.otel.traces.enabled }}
         - name: FLOGO_OTEL_TRACE_OTLP_ENDPOINT
           value: otel-userapp-traces.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:4317
@@ -244,6 +257,11 @@ spec:
       {{- end }}
       - name: logs-share
         emptyDir: {}
+      {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
+      - name: license-volume
+        secret:
+          secretName: {{ .Values.dpConfig.licenseSecretName }}
+      {{- end }}
       {{- if .Values.fluentBit.enabled }}
       - name: fluentbit-config
         configMap:
