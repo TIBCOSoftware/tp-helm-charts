@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS v3_notification_jobs (
     event        VARCHAR(255) NOT NULL,
     operation    VARCHAR(16)  NOT NULL,
     processed_at TIMESTAMP    NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (job_id, region)
+    PRIMARY KEY (region, job_id)
     );
 delete from v3_notification_jobs;
 
