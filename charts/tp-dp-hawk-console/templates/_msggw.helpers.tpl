@@ -144,7 +144,7 @@ msg.gateway.mon.labels $params - Generate CP monitoring labels
 */}}
 {{- define "msg.gateway.mon.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.13.0.15"
+tib-dp-msgbuild: "1.14.0.4"
 tib-dp-chart: {{ .dp.chart }}
 platform.tibco.com/app-type: "msg-gateway"
 platform.tibco.com/scrape_finops: "true"
@@ -181,7 +181,7 @@ app.cloud.tibco.com/tenant-name: messaging
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"
 tib-dp-app: msg-gateway
-tib-msgdp-mm-version: "1.13.0-0"
+tib-msgdp-mm-version: "1.14.0-0"
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: tp-hawk-console
