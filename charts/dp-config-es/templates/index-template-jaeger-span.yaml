@@ -21,7 +21,10 @@ spec:
       "index_patterns": ["*jaeger-span-*"],
       "template": {
         "aliases": {
-          "jaeger-span-read": {}
+          "jaeger-span-read": {},
+          "jaeger-span-write": {
+            "is_write_index": true
+          }
         },
         "settings": {
           "index.number_of_shards": 6,
@@ -30,7 +33,7 @@ spec:
           "index.requests.cache.enable": true,
           "lifecycle": {
             "name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy",
-            "rollover_alias": "*jaeger-span-write"
+            "rollover_alias": "jaeger-span-write"
           }
         },
         "mappings": {

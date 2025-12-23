@@ -18,6 +18,5 @@ aggregationRule:
   - matchLabels:
       platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
       platform.tibco.com/aggregate-to-cluster-role: "{{ include "dp-configure-namespace.dataPlaneId" . }}"
-rules: []
 {{- end }}
 {{- end }}
