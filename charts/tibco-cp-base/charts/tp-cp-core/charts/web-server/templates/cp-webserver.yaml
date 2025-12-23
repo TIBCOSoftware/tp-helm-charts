@@ -6,7 +6,7 @@
 
 {{- $env := (.Values.global.external.environment | lower) }}
 {{- $jwksEnv := $env }}
-{{- if eq $env "vagrant" }}
+{{- if or (eq $env "vagrant") (eq $env "staging") }}
   {{- $jwksEnv = "qa" }}
 {{- end }}
 
