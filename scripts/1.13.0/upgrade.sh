@@ -284,8 +284,8 @@ interactive_helm_upgrade() {
     [[ -n "${input_base}" ]] && PLATFORM_BASE_RELEASE_NAME="${input_base}"
     
     # Get Helm repository name
-    read -p "Enter Helm repository name (default: tp-helm-charts): " TP_HELM_REPO_NAME
-    [[ -z "${TP_HELM_REPO_NAME}" ]] && TP_HELM_REPO_NAME="tp-helm-charts"
+    read -p "Enter Helm repository name (default: tibco-platform): " TP_HELM_REPO_NAME
+    [[ -z "${TP_HELM_REPO_NAME}" ]] && TP_HELM_REPO_NAME="tibco-platform"
     
     print_success "Helm upgrade configuration complete"
     
@@ -940,7 +940,7 @@ main() {
         print_info "  - tibco-cp-base (merged): ${PLATFORM_OUTPUT_MERGED_FILE}"
         echo ""
         print_info "Use this file to upgrade your release to tibco-cp-base 1.13.0:"
-        print_info "  helm upgrade <release-name> tp-helm-charts/tibco-cp-base \\"
+        print_info "  helm upgrade <release-name> tibco-platform/tibco-cp-base \\"
         print_info "    --version ${CHART_VERSION} \\"
         print_info "    --values ${PLATFORM_OUTPUT_MERGED_FILE} \\"
         print_info "    --take-ownership \\"
