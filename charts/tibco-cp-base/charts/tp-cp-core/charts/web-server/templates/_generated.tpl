@@ -1,2 +1,2 @@
-{{- define "web-server.generated.buildNumber" }}7507{{end -}}
-{{- define "web-server.generated.buildTimestamp" }}11-14-25_06.24.43_PM{{end -}}
+{{- define "web-server.generated.buildNumber" }}7832{{end -}}
+{{- define "web-server.generated.buildTimestamp" }}12-12-25_10.45.00_AM{{end -}}

@@ -7,9 +7,7 @@
 
 ## CONTEXT
 
-settingsConfigmap:
-  - key: "LOG_LEVEL"
-    value: "info"
+logLevel: "info"
 
 dpMetadata:
   dpConfigureNamespaceChartName: "dp-configure-namespace"
@@ -66,11 +64,11 @@ hpa:
 image:
   infra-compute-services:
     name: infra-compute-services
-    tag: 668-distroless
+    tag: 676-distroless
     pullPolicy: IfNotPresent
   infra-alerts-services:
     name: infra-alerts-service
-    tag: 160-distroless
+    tag: 176-distroless
     pullPolicy: IfNotPresent
 
 # no of replicas

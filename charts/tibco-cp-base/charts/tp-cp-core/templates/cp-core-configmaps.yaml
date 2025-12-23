@@ -44,7 +44,7 @@ data:
 {{ $file | toString | indent 4 }}
   {{- end }}
   {{- $jwksEnv := $env }}
-  {{- if or (eq $env "vagrant") (eq $env "staging") }}
+  {{- if eq $env "vagrant" }}
     {{- $jwksEnv = "qa" }}
   {{- end }}
   {{- $jwksPath := printf "files/tsc/config-core/jwks/%s/jwks.json" $jwksEnv }}
@@ -85,7 +85,7 @@ data:
 {{ $file | toString | indent 4 }}
   {{- end }}
   {{- $jwksEnv := $env }}
-  {{- if or (eq $env "vagrant") (eq $env "staging") }}
+  {{- if eq $env "vagrant" }}
     {{- $jwksEnv = "qa" }}
   {{- end }}
   {{- $jwksPath := printf "files/tsc/config/jwks/%s/jwks.json" $jwksEnv }}

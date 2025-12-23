@@ -6,7 +6,7 @@
 
 {{- $env := (.Values.global.external.environment | lower) }}
 {{- $jwksEnv := $env }}
-{{- if or (eq $env "vagrant") (eq $env "staging") }}
+{{- if eq $env "vagrant" }}
   {{- $jwksEnv = "qa" }}
 {{- end }}
 
@@ -260,6 +260,26 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_EMS_HOST
+        - name: TP_CP_MCP_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MCP_SERVER_HOST
+        - name: TP_CP_BW_MCP_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BW_MCP_SERVER_HOST
+        - name: TP_CP_FLOGO_MCP_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_FLOGO_MCP_SERVER_HOST
+        - name: TP_O11Y_MCP_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_O11Y_MCP_SERVER_HOST
         - name: SYSTEM_WHO
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
