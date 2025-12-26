@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": {{ .Chart.AppVersion | quote }},
-      "minCPVersion": "1.13.0",
+      "capabilityVersion": "1.14.0",
+      "minCPVersion": "1.14.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
@@ -75,7 +75,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.13.4"
+          version: "1.14.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -89,12 +89,12 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 828
+                      tag: 849
                 config:
-                  APP_INIT_IMAGE_TAG: "52"
-                  BWCE_APP_HELMCHART_VERSION: "1.13.4"
+                  APP_INIT_IMAGE_TAG: "60"
+                  BWCE_APP_HELMCHART_VERSION: "1.14.4"
                   ENABLE_NON_TOKENIZED_PROPS: ${ENABLE_NON_TOKENIZED_PROPS}
-                  INFRA_CP_PROXY_IMAGE_TAG: "285"
+                  INFRA_CP_PROXY_IMAGE_TAG: "291"
                 autoDiscovery:
                   enabled: ${ENABLE_APP_DISCOVERY}
                   config:
@@ -113,7 +113,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.13.1"
+          version: "1.14.1"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -123,7 +123,7 @@ data:
                 global:
                   bwcemon:
                     image:
-                      tag: 6.12.0
+                      tag: 6.12.0-HF1
           flags:
             install: true
             createNamespace: false
@@ -176,7 +176,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: {{ .Chart.AppVersion | quote }}
+          value: "1.14.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

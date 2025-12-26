@@ -178,10 +178,7 @@ fluentBit:
     periodSeconds: 10
     successThreshold: 1
     timeoutSeconds: 5
-  lifecycle:
-    preStop:
-      sleep:
-        seconds: 10
+  lifecycle: {}
 
 appInit:
   securityContext:
@@ -251,7 +248,9 @@ autoscaling:
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
-  behavior: {}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
   customMetrics: []
 
 # enable or disable the resources volume mounts. these are required for readOnlyRootFilesystem security context, default is true

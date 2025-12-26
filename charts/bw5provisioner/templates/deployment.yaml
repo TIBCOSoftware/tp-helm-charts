@@ -22,10 +22,11 @@ spec:
     type: RollingUpdate
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
+        checksum/config: {{ include (print $.Template.BasePath "/serviceconfigmap.yaml") . | sha256sum }}
       labels:
         {{- include "bw5provisioner.selectorLabels" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable

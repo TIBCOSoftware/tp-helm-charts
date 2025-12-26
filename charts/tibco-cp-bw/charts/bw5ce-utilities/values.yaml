@@ -158,8 +158,8 @@ bwPluginsJobA:
 bwPluginsJobB:
   tci-bw-plugin-kafka:
     tags:
-      - 5.0.1.v10-tci-2.0
-    default: 5.0.1.v10-tci-2.0
+      - 5.0.1.v13.1-tci-2.0
+    default: 5.0.1.v13.1-tci-2.0
   tci-bw-plugin-salesforce:
     tags:
       - 2.6.0.v18-tci-2.0
@@ -202,6 +202,10 @@ bwPluginsJobC:
     tags:
       - 1.0.0.v15.2-tci-2.0
     default: 1.0.0.v15.2-tci-2.0
+  tci-bw-plugin-mi:
+    tags:
+      - 1.4.0.v11.2-tci-2.0
+    default: 1.4.0.v11.2-tci-2.0
 
 bwAdaptersExtractJob:
   tci-bw-adapter-adfiles:
@@ -247,7 +251,7 @@ buildtypeImages:
 - name: tp-bw5ce-buildtype
   extract_image: true
   path: /var/lib/bw5ce/buildtypes
-  tag: preview-0.3
+  tag: preview-0.4
   target_location: bw5ce/buildtypes
 
 probes:
