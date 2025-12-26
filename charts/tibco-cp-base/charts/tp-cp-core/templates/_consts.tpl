@@ -24,6 +24,10 @@
 {{- define "tpcontrol-plane.consts.cpMonitoringServiceName" }}tp-cp-monitoring-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpAlertServiceName" }}alerts-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpO11yServiceName" }}o11y-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpMcpServerServiceName" }}tp-cp-mcp-server.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpBwMcpServerServiceName" }}tp-cp-bw-mcpserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpFlogoMcpServerServiceName" }}tp-cp-flogo-mcpserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpO11yMcpServerServiceName" }}tp-o11y-mcp-server.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.provisionerAgentURLFramework" -}}
     {{- if (include "cp-core-configuration.isSingleNamespace" .) }}
         {{- "dp-%s." }}{{ .Release.Namespace }}{{ ".svc.cluster.local" -}}
@@ -40,7 +44,7 @@
 {{- define "tpcontrol-plane.consts.tpCpFLOGOServiceName" }}tp-cp-flogo-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpEMSServiceName" }}msg-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.13.0/doc/html{{ end -}}
+{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.14.0/doc/html{{ end -}}
 
 {{- define "cp-core-configuration.service-account-name" }}
 {{- if empty .Values.global.tibco.serviceAccount -}}

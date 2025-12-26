@@ -14,6 +14,10 @@ metadata:
   labels:
     {{- include "tibco-cp-base.labels" . | nindent 4 }}
 rules:
+# required by alerts-service
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "create", "update", "delete", "patch"]
 # required by compute-services
 - apiGroups: ["cloud.tibco.com"]
   resources: ["tibcoresourcesets"]

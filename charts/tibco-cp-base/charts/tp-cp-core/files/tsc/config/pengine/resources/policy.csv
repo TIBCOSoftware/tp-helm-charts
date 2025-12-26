@@ -12,12 +12,13 @@
 ################################################################################
 # Console Permissions
 ################################################################################
-p, SRE, ADMIN, ADMIN, *, "Admin", {'details': ['Manage Subscriptions (Provision; Update; Delete; View)'; 'Manage Console Users (Add; Remove)'; 'Manage User Permissions (Assign; Update)'; 'and Manage Single Sign On (Configure; Update; View; Delete)']; 'assign':['SRE';'VIEWER';'PM';'PROVISIONER';'OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, SRE, ADMIN, ADMIN, *, "Admin", {'details': ['Manage Subscriptions (Provision; Update; Delete; View)'; 'Manage Console Users (Add; Remove)'; 'Manage User Permissions (Assign; Update)'; 'Manage Teams Permissions (Assign; Update)'; 'and Manage Single Sign On (Configure; Update; View; Delete)']; 'assign':['SRE';'VIEWER';'PM';'PROVISIONER';'OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
 
 p, VIEWER, ADMIN, ADMIN, subscriptions:GET, "Viewer", {'details': ['View subscription(s); user(s); permission(s); data plane(s); and IdP details'];'sortKey':2}
 p, VIEWER, ADMIN, ADMIN, users:GET, "Viewer", {'details': ['View subscription(s); user(s); permission(s); data plane(s); and IdP details'];'sortKey':2}
 p, VIEWER, ADMIN, ADMIN, idps:GET, "Viewer", {'details': ['View subscription(s); user(s); permission(s); data plane(s); and IdP details'];'sortKey':2}
 p, VIEWER, ADMIN, ADMIN, dataplanes:GET, "Viewer", {'details': ['View subscription(s); user(s); permission(s); data plane(s); and IdP details'];'sortKey':2}
+p, VIEWER, ADMIN, ADMIN, teams:GET, "Viewer", {'details': ['View subscription(s); user(s); permission(s); data plane(s); and IdP details'];'sortKey':2}
 
 p, PROVISIONER, ADMIN, ADMIN, subscriptions:POST, "Provisioner", {'details': ['Provision and view Subscriptions'];'sortKey':3}
 p, PROVISIONER, ADMIN, ADMIN, subscriptions:GET, "Provisioner", {'details': ['Provision and view Subscriptions'];'sortKey':3}
@@ -31,22 +32,27 @@ p, PM, ADMIN, ADMIN, finances:GET, "Product Manager", {'details': ['View Subscri
 # Control Plane Permissions
 ################################################################################
 
-p, OWNER, CP, CP, users, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
-p, OWNER, CP, CP, tags:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
-p, OWNER, CP, CP, assignees:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, OWNER, CP, CP, users, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, OWNER, CP, CP, tags:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, OWNER, CP, CP, assignees:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, OWNER, CP, CP, teams, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+
 
 p, IDP_MANAGER, CP, CP, idps, "IdP Manager", {'details': ['Configure Single Sign On for the enterprise.'];'sortKey':2}
 p, IDP_MANAGER, CP, CP, tags:GET, "IdP Manager", {'details': ['Configure Single Sign On for the enterprise.'];'sortKey':2}
+p, IDP_MANAGER, CP, CP, teams:GET, "IdP Manager", {'details': ['Configure Single Sign On for the enterprise.'];'sortKey':2}
 
-p, TEAM_ADMIN, CP, CP, users, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
-p, TEAM_ADMIN, CP, CP, tags:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
-p, TEAM_ADMIN, CP, CP, assignees:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, users, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, tags:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, assignees:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, teams, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
 
 p, PLATFORM_OPS, DP, CP, dataplanes:POST, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
 p, PLATFORM_OPS, DP, CP, dataplanes:DELETE, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
 p, PLATFORM_OPS, DP, CP, dataplanes:GET, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
 p, PLATFORM_OPS, DP, CP, dataplanes:PUT, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
 p, PLATFORM_OPS, DP, CP, tags:GET, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
+p, PLATFORM_OPS, DP, CP, teams:GET, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
 
 p, DEV_OPS, DP, CP, dataplanes:GET, "Capability Manager", {'details': ['Provision or de-provision a Capability.'];'sortKey':5}
 p, DEV_OPS, DP, CP, capabilities:POST, "Capability Manager", {'details': ['Provision or de-provision a Capability.'];'sortKey':5}
@@ -54,29 +60,34 @@ p, DEV_OPS, DP, CP, capabilities:PUT, "Capability Manager", {'details': ['Provis
 p, DEV_OPS, DP, CP, capabilities:DELETE, "Capability Manager", {'details': ['Provision or de-provision a Capability.'];'sortKey':5}
 p, DEV_OPS, DP, CP, capabilities:GET, "Capability Manager", {'details': ['Provision or de-provision a Capability.'];'sortKey':5}
 p, DEV_OPS, DP, CP, tags:GET, "Capability Manager", {'details': ['Provision or de-provision a Capability.'];'sortKey':5}
+p, DEV_OPS, DP, CP, teams:GET, "Capability Manager", {'details': ['Provision or de-provision a Capability.'];'sortKey':5}
 
 p, CAPABILITY_ADMIN, DP, CP, dataplanes:GET, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6}
 p, CAPABILITY_ADMIN, DP, CP, capabilities:GET, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6}
 p, CAPABILITY_ADMIN, DP, CP, applications, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6}
 p, CAPABILITY_ADMIN, DP, CP, tags, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6}
+p, CAPABILITY_ADMIN, DP, CP, teams:GET, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6}
 
 p, CAPABILITY_USER, DP, CP, dataplanes:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7}
 p, CAPABILITY_USER, DP, CP, capabilities:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7}
 p, CAPABILITY_USER, DP, CP, applications:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7}
 p, CAPABILITY_USER, DP, CP, tags:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7}
+p, CAPABILITY_USER, DP, CP, teams:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7}
 
 p, BROWSE_ASSIGNMENTS, CP, CP, assignees:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':8}
 p, BROWSE_ASSIGNMENTS, CP, CP, tags:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':8}
+p, BROWSE_ASSIGNMENTS, CP, CP, teams:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':8}
 
 p, FIN_OPS, DP, CP, finances:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':9}
 p, FIN_OPS, DP, CP, tags:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':9}
+p, FIN_OPS, DP, CP, teams:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':9}
 
 
 
-####################################################################################################################################################################################
+#######################################################################################################################################
 #                                                                                                                                                                                  #
 #                                                                                                                                                                                  #
 #   Above policy_definitions are added from Goolge Doc: https://docs.google.com/document/d/1zUkDMxIDw7PLO7dAS_DAY3Oq4jsm1swQ_Ab_gbnG2I8 as of 10th July 2023                       #                                                                                                                                                                                  #
 #                                                                                                                                                                                  #
 #                                                                                                                                                                                  #
-#####################################################################################################################################################################################
+#######################################################################################################################################
