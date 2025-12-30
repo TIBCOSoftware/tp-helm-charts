@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": {{ .Chart.AppVersion | quote }},
-      "minCPVersion": "1.13.0",
+      "capabilityVersion": "1.14.0",
+      "minCPVersion": "1.14.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bw5ce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bw5ce.releaseNotes | quote }},
@@ -64,7 +64,7 @@ data:
       helmCharts:
         - name: bw5provisioner
           namespace: ${NAMESPACE}
-          version: "1.13.4"
+          version: "1.14.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -78,11 +78,11 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bw5provisioner:
                     image:
-                      tag: 114
+                      tag: 129
                 config:
-                  APP_INIT_IMAGE_TAG: "52"
-                  BW5CE_APP_HELMCHART_VERSION: "1.13.3"
-                  INFRA_CP_PROXY_IMAGE_TAG: "285"
+                  APP_INIT_IMAGE_TAG: "60"
+                  BW5CE_APP_HELMCHART_VERSION: "1.14.4"
+                  INFRA_CP_PROXY_IMAGE_TAG: "291"
                 publicApi:
                   ingress:
                     controllerName: ${INGRESS_CONTROLLER_NAME}
@@ -142,7 +142,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: {{ .Chart.AppVersion | quote }}
+          value: "1.14.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
