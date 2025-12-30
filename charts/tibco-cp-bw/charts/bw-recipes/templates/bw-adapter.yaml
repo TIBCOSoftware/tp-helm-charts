@@ -12,7 +12,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": {{ .Chart.AppVersion | quote }},
+      "capabilityVersion": "1.13.0",
       "minCPVersion": "1.13.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwadapter.releaseDate | quote }},
@@ -115,7 +115,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: {{ .Chart.AppVersion | quote }}
+          value: "1.13.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
