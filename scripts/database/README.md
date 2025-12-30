@@ -43,7 +43,7 @@ The `postgres-helper.bash` script is a unified database management tool that wor
 
 ### PostgreSQL Requirements
 
-- **PostgreSQL Version**: 9.6 or higher
+- **PostgreSQL Version**: 14 or higher
 - **Master User Privileges**: The `MASTER_PGUSER` must have privileges to:
   - Create databases and users
   - Grant privileges on databases
