@@ -244,7 +244,7 @@ spec:
         - name: TIBCO_INTERNAL_HEAP_DUMP_PATH
           value: /mnt/heapdumps
         - name: IDENTITY_MANAGEMENT_OPTS
-          value: -DrootLogLevel=DEBUG
+          value: -DrootLogLevel=DEBUG -Djava.io.tmpdir=/tmp/files
         - name: IDENTITY_MANAGEMENT_JWT_KEYSTORE_URL
           value: /etc/idm/certs/jwt.p12
         - name: IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD
@@ -407,6 +407,8 @@ spec:
           mountPath: /tmp/private/tsc/config/idm/reloadable.conf
           subPath: reloadable.conf
           readOnly: true
+        - name: temp-files
+          mountPath: /tmp/files
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
         image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
@@ -490,6 +492,8 @@ spec:
             name: {{ include "tp-identity-management.consts.appName" . }}-fluentbit-config
 {{- end }}
         - name: logs
+          emptyDir: {}
+        - name: temp-files
           emptyDir: {}
 {{- if ne .Values.global.external.db_ssl_mode "disable" }}
         - name: db-ssl-cert-vol
@@ -851,6 +855,47 @@ spec:
         SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
         SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
       enableRedirects: true
+  - path: /idm/v1/login-ldap
+    internalPath: /v1/login-ldap
+    port: 7831
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: acscallback
+      fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
+      methods:
+      - POST
+      enableRedirects: true
+  - path: /idm/v1/LDAPConfigs/test
+    internalPath: /v1/LDAPConfigs/test
+    port: 7831
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+  - path: /idm/v1/LDAPConfigs/users
+    internalPath: /v1/LDAPConfigs/users
+    port: 7831
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+  - path: /idm/v1/LDAPConfigs/groups
+    internalPath: /v1/LDAPConfigs/groups
+    port: 7831
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
   - path: /idm/logout$
     internalPath: /logout
     port: 7831
