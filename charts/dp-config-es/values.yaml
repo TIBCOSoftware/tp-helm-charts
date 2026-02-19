@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -41,7 +41,21 @@ es:
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+      haproxy.org/server-ssl: "true"
+      haproxy.org/ssl-verify: "false"
       konghq.com/https-redirect-status-code: "302"
+  httpRoute:
+    enabled: false
+    gatewayName: dp-config-gateway
+    gatewayNamespace: ""
+    host: elastic
+    service: dp-config-es-es-http
+    annotations: {}
+  route:
+    enabled: false
+    host: elastic
+    service: dp-config-es-es-http
+    annotations: {}
   resources:
     requests:
       cpu: "100m"
@@ -63,7 +77,21 @@ kibana:
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+      haproxy.org/server-ssl: "true"
+      haproxy.org/ssl-verify: "false"
       konghq.com/https-redirect-status-code: "302"
+  httpRoute:
+    enabled: false
+    gatewayName: dp-config-gateway
+    gatewayNamespace: ""
+    host: kibana
+    service: dp-config-es-kb-http
+    annotations: {}
+  route:
+    enabled: false
+    host: kibana
+    service: dp-config-es-kb-http
+    annotations: {}
   resources:
     requests:
       cpu: "150m"
@@ -85,7 +113,21 @@ apm:
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       nginx.ingress.kubernetes.io/proxy-ssl-verify: 'false'
+      haproxy.org/server-ssl: "true"
+      haproxy.org/ssl-verify: "false"
       konghq.com/https-redirect-status-code: "302"
+  httpRoute:
+    enabled: false
+    gatewayName: dp-config-gateway
+    gatewayNamespace: ""
+    host: apm
+    service: dp-config-es-apm-http
+    annotations: {}
+  route:
+    enabled: false
+    host: apm
+    service: dp-config-es-apm-http
+    annotations: {}
   resources:
     requests:
       cpu: "50m"

@@ -68,6 +68,14 @@ Create chart name and version as used by the chart label.
   {{- include "cluster-env.get" (dict "key" "NET_PUBLIC_SUBNETS" "Release" .Release) | trimSuffix "\n" }}
 {{- end -}}
 
+{{- define "claims.net-private-route-tables" -}}
+  {{- include "cluster-env.get" (dict "key" "NET_PRIVATE_ROUTE_TABLES" "Release" .Release) | trimSuffix "\n" }}
+{{- end -}}
+
+{{- define "claims.net-public-route-tables" -}}
+  {{- include "cluster-env.get" (dict "key" "NET_PUBLIC_ROUTE_TABLES" "Release" .Release) | trimSuffix "\n" }}
+{{- end -}}
+
 {{- define "claims.oidc-issuer-hostpath" -}}
   {{- include "cluster-env.get" (dict "key" "OIDC_ISSUER_HOSTPATH" "Release" .Release) }}
 {{- end -}}

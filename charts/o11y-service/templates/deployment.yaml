@@ -23,6 +23,7 @@ spec:
       creationTimestamp: null
       labels:
         {{- include "o11y-service.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/kubernetes-api: enable
         networking.platform.tibco.com/prometheus: enable
         networking.platform.tibco.com/logServer-egress: enable
@@ -68,6 +69,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: SUBSCRIPTION_ID
               value: {{ .Values.global.cp.subscriptionId }}
+            - name: CP_DOMAIN
+              value: {{ include "o11y-service.cp.domain" . }}
 {{- if and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") }}
             - name: O11y
               value: "o11yV3"

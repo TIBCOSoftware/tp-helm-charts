@@ -14,6 +14,9 @@ global:
       SYSTEM_WHO: "local"
       SYSTEM_DOCKER_REGISTRY: ""
   cp:
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
     dataplaneId: dp-dp1
     instanceId: defaultinstid
     namespace: tp-dp-dp1
@@ -40,7 +43,7 @@ global:
       fluentbit:
         enabled: true
         image:
-          tag: 4.1.0
+          tag: 4.2.2
         resources:
           requests:
             cpu: 10m
@@ -56,7 +59,7 @@ global:
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       name: infra-artifactmanager
-      tag: 145
+      tag: 147
 
 replicaCount: 1
 

@@ -6,8 +6,8 @@
 
 apiVersion: v2
 name: dp-config-aks
-version: "1.6.0"
-appVersion: "1.6.0"
+version: "1.15.0"
+appVersion: "1.15.0"
 description: A Helm chart to configure TIBCO Dataplane on AZURE
 type: application
 dependencies:
@@ -23,6 +23,26 @@ dependencies:
     version: 2.33.3
     repository: https://charts.konghq.com
     condition: kong.enabled
+  # nginx-gateway-fabric chart
+  - name: nginx-gateway-fabric
+    version: 2.3.0
+    repository: oci://ghcr.io/nginx/charts
+    condition: nginx-gateway-fabric.enabled
+  # haproxy ingress controller chart
+  - name: kubernetes-ingress
+    version: 1.47.3
+    repository: https://haproxytech.github.io/helm-charts
+    condition: haproxy.enabled
+  # istio-base chart, to be installed in istio-system namespace
+  - name: base
+    version: 1.28.2
+    repository: https://istio-release.storage.googleapis.com/charts
+    condition: istio-base.enabled
+  # istiod chart, to be installed in istio-system namespace
+  - name: istiod
+    version: 1.28.2
+    repository: https://istio-release.storage.googleapis.com/charts
+    condition: istiod.enabled
 annotations:
   artifacthub.io/changes: |
     - kind: changed

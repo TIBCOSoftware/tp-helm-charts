@@ -24,6 +24,37 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
 ---
 {{- end }}
+{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: bm-openshift-route-logs
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    haproxy.router.openshift.io/rewrite-target: /v1/logs
+spec:
+  {{- if .Values.global.cp.resources.ingress.fqdn }}
+  host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+  {{- end }}
+  path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  {{- end }}
+  to:
+    kind: Service
+    name: otel-userapp-logs
+    weight: 100
+  port:
+    targetPort: 4318
+  wildcardPolicy: None
+---
+{{- else }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -80,7 +111,7 @@ spec:
                 name: otel-userapp-logs
                 port:
                   number: 4318
-
+{{- end }}
 ---
 
 {{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
@@ -101,6 +132,37 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
 ---
 {{- end }}
+{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: bm-openshift-route-traces
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    haproxy.router.openshift.io/rewrite-target: /v1/traces
+spec:
+  {{- if .Values.global.cp.resources.ingress.fqdn }}
+  host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+  {{- end }}
+  path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  {{- end }}
+  to:
+    kind: Service
+    name: otel-userapp-traces
+    weight: 100
+  port:
+    targetPort: 4318
+  wildcardPolicy: None
+---
+{{- else }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -157,7 +219,7 @@ spec:
                 name: otel-userapp-traces
                 port:
                   number: 4318
-
+{{- end }}
 ---
 
 {{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
@@ -178,6 +240,37 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
 ---
 {{- end }}
+{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: bm-openshift-route-metrics
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    haproxy.router.openshift.io/rewrite-target: /v1/metrics
+spec:
+  {{- if .Values.global.cp.resources.ingress.fqdn }}
+  host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+  {{- end }}
+  path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  {{- end }}
+  to:
+    kind: Service
+    name: otel-userapp-metrics
+    weight: 100
+  port:
+    targetPort: 4318
+  wildcardPolicy: None
+---
+{{- else }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -234,7 +327,7 @@ spec:
                 name: otel-userapp-metrics
                 port:
                   number: 4318
-
+{{- end }}
 ---
 
 {{- if and .Values.global.cp.dataplane.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
@@ -255,6 +348,37 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
 ---
 {{- end }}
+{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: bm-openshift-route-metrics-export
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    haproxy.router.openshift.io/rewrite-target: /metrics
+spec:
+  {{- if .Values.global.cp.resources.ingress.fqdn }}
+  host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+  {{- end }}
+  path: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics
+  {{- if .Values.global.cp.dataplane.ingress.tls }}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  {{- end }}
+  to:
+    kind: Service
+    name: otel-userapp-metrics
+    weight: 100
+  port:
+    targetPort: 4319
+  wildcardPolicy: None
+---
+{{- else }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -311,5 +435,5 @@ spec:
                 name: otel-userapp-metrics
                 port:
                   number: 4319
-
+{{- end }}
 {{- end -}}

@@ -1,0 +1,55 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.kibana.httpRoute.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ .Release.Name }}-kibana-tls
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.kibana.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ .Release.Name }}-kb-http
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: kb-ca-cert
+    # This must match the SAN in the Kibana certificate
+    hostname: {{ .Release.Name }}-kb-http.{{ .Release.Namespace }}.svc
+---
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-kibana
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.kibana.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    - name: {{ .Values.kibana.httpRoute.gatewayName }}
+      namespace: {{ .Values.kibana.httpRoute.gatewayNamespace | default .Release.Namespace }}
+  hostnames:
+    - {{ .Values.kibana.httpRoute.host }}.{{ .Values.domain }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Values.kibana.httpRoute.service }}
+          port: 5601
+{{- end -}}

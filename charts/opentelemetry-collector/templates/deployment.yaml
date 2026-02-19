@@ -40,7 +40,9 @@ spec:
     metadata:
       annotations:
         rollId: {{ randAlphaNum 5 | quote }}
+        {{- if .Values.enableConfigChecksumAnnotation }}
         {{- include "opentelemetry-collector.configTemplateChecksumAnnotation" . | nindent 8 }}
+        {{- end }}
         {{- include "opentelemetry-collector.podAnnotations" . | nindent 8 }}
       labels:
         {{- include "opentelemetry-collector.selectorLabels" . | nindent 8 }}
@@ -53,6 +55,9 @@ spec:
       {{- with .Values.dnsConfig }}
       dnsConfig:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.schedulerName }}
+      schedulerName: {{ . }}
       {{- end }}
       {{- $podValues := deepCopy .Values }}
       {{- $podData := dict "Values" $podValues "configmapSuffix" "" "isAgent" false }}

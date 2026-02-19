@@ -1,0 +1,26 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.apm.route.enabled -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Release.Name }}-apm
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.apm.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ .Values.apm.route.host }}.{{ .Values.domain }}
+  to:
+    kind: Service
+    name: {{ .Values.apm.route.service }}
+  tls:
+    termination: passthrough
+    insecureEdgeTerminationPolicy: Redirect
+{{- end -}}

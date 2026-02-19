@@ -98,10 +98,14 @@ spec:
           value: {{ .noProxy | quote }}
         {{- end }}          
         {{- end }}
+      {{- if .Values.global.tibco.cpCertificateSecret }}
+        - name: SSL_CERT_DIR
+          value: /etc/ssl/certs/cp-certs
+      {{- end }}
         volumeMounts:
       {{- if .Values.global.tibco.cpCertificateSecret }}
         - name: cp-certs
-          mountPath: /etc/ssl/certs/
+          mountPath: /etc/ssl/certs/cp-certs
       {{- end }}
         - name: config-dir
           mountPath: /etc/config

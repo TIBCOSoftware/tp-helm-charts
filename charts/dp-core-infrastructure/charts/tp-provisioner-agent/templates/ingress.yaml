@@ -10,7 +10,7 @@ metadata:
 spec:
   ingressClassName: tibco-dp-{{ .Values.global.tibco.dataPlaneId}}
   rules:
-  - host: "dp-{{ .Values.global.tibco.dataPlaneId }}.platform.local" # only allow host dp-dpId or host header dp-dpId. The caller is expected from Control plane.
+  - host: {{ tpl .Values.global.dpUrl.host . }}
     http:
       paths:
       - pathType: Prefix

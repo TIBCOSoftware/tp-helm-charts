@@ -1,0 +1,55 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.apm.httpRoute.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ .Release.Name }}-apm-tls
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.apm.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ .Release.Name }}-apm-http
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: apm-ca-cert
+    # This must match the SAN in the APM certificate
+    hostname: {{ .Release.Name }}-apm-http.{{ .Release.Namespace }}.svc
+---
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-apm
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.apm.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    - name: {{ .Values.apm.httpRoute.gatewayName }}
+      namespace: {{ .Values.apm.httpRoute.gatewayNamespace | default .Release.Namespace }}
+  hostnames:
+    - {{ .Values.apm.httpRoute.host }}.{{ .Values.domain }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Values.apm.httpRoute.service }}
+          port: 8200
+{{- end -}}

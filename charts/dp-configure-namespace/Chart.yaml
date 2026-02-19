@@ -5,8 +5,8 @@ apiVersion: v2
 name: dp-configure-namespace
 description: A Helm chart for creating service account, cluster-role, cluster-role-binding, role-binding & network-policies
 type: application
-version: 1.14.1
-appVersion: "1.14.0"
+version: 1.15.4
+appVersion: "1.15.0"
 dependencies:
 - condition: config.enabled
   name: config
@@ -15,4 +15,4 @@ dependencies:
 - condition: haproxy.enabled
   name: haproxy
   repository: ""
-  version: 1.46.0
+  version: 1.46.2
