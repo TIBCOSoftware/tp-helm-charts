@@ -1,0 +1,22 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: openshift-prometheus
+  namespace: prometheus
+  annotations:
+    # Strip /o11y/metrics-server prefix and rewrite to root /
+    haproxy.router.openshift.io/rewrite-target: /
+spec:
+  host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+  path: /o11y/metrics-server
+  tls:
+    # Edge termination - TLS is terminated at the router, HTTP to backend
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: prometheus-server
+    weight: 100
+  port:
+    targetPort: 80
+  wildcardPolicy: None
