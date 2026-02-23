@@ -1,0 +1,21 @@
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v2
+name: dp-config-opensearch
+version: "1.16.0"
+appVersion: "1.16.0"
+description: Helm chart to configure OpenSearch cluster and OpenSearch Dashboards
+type: application
+dependencies:
+  - name: opensearch
+    version: 3.4.0
+    repository: https://opensearch-project.github.io/helm-charts/
+    condition: opensearch.enabled
+  - name: opensearch-dashboards
+    version: 3.4.0
+    repository: https://opensearch-project.github.io/helm-charts/
+    condition: opensearch-dashboards.enabled

@@ -1,0 +1,19 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{- if and .Values.opensearch.enabled .Values.opensearchIngress.ingress.enabled }}
+{{- if eq .Values.opensearchIngress.ingress.ingressClassName "traefik" }}
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: {{ .Release.Name }}-opensearch-transport
+  namespace: {{ .Release.Namespace }}
+spec:
+  insecureSkipVerify: true
+{{- end }}
+{{- end }}

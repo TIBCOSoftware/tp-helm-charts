@@ -1,0 +1,83 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.index.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-create-ism-policy
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "4"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-ism-policy
+          image: curlimages/curl:latest
+          env:
+            {{- range .Values.opensearch.extraEnvs }}
+            {{- if eq .name "OPENSEARCH_INITIAL_ADMIN_PASSWORD" }}
+            - name: OPENSEARCH_PASSWORD
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+            - name: OPENSEARCH_HOST
+              value: "https://{{ .Values.opensearch.clusterName }}-master:9200"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for OpenSearch to be ready
+              until curl -sk -u "admin:${OPENSEARCH_PASSWORD}" ${OPENSEARCH_HOST}/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
+                echo "Waiting for OpenSearch cluster to be ready..."
+                sleep 10
+              done
+              
+              # Create ISM policy for user-apps (60 day retention)
+              curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -X PUT "${OPENSEARCH_HOST}/_plugins/_ism/policies/user-apps-60d-policy" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "policy": {
+                    "description": "User apps index lifecycle policy - 60 days retention",
+                    "default_state": "hot",
+                    "states": [
+                      {
+                        "name": "hot",
+                        "actions": [],
+                        "transitions": [
+                          {
+                            "state_name": "delete",
+                            "conditions": {
+                              "min_index_age": "60d"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "name": "delete",
+                        "actions": [
+                          {
+                            "delete": {}
+                          }
+                        ],
+                        "transitions": []
+                      }
+                    ],
+                    "ism_template": {
+                      "index_patterns": {{ .Values.index.patterns.userApps | toJson }},
+                      "priority": 100
+                    }
+                  }
+                }'
+              
+              echo "ISM policy created successfully"
+{{- end -}}

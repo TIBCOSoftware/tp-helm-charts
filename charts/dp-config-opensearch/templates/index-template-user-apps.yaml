@@ -1,0 +1,171 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.index.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-create-index-template
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-index-template
+          image: curlimages/curl:latest
+          env:
+            {{- range .Values.opensearch.extraEnvs }}
+            {{- if eq .name "OPENSEARCH_INITIAL_ADMIN_PASSWORD" }}
+            - name: OPENSEARCH_PASSWORD
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+            - name: OPENSEARCH_HOST
+              value: "https://{{ .Values.opensearch.clusterName }}-master:9200"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for OpenSearch to be ready
+              until curl -sk -u "admin:${OPENSEARCH_PASSWORD}" ${OPENSEARCH_HOST}/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
+                echo "Waiting for OpenSearch cluster to be ready..."
+                sleep 10
+              done
+              
+              # Create index template for user-apps
+              curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -X PUT "${OPENSEARCH_HOST}/_index_template/user-apps-template" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "index_patterns": {{ .Values.index.patterns.userApps | toJson }},
+                  "template": {
+                    "settings": {
+                      "number_of_shards": 1,
+                      "number_of_replicas": 0,
+                      "refresh_interval": "5s",
+                      "index": {
+                        "codec": "best_compression"
+                      }
+                    },
+                    "mappings": {
+                      "properties": {
+                        "@timestamp": {
+                          "type": "date"
+                        },
+                        "Body": {
+                          "properties": {
+                            "log_time": {
+                              "type": "date"
+                            },
+                            "log_level": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "message": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "Resource": {
+                          "properties": {
+                            "app_id": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "app_type": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "dataplane_id": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "workload_type": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "app_tags": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "pod_namespace": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "pod_name": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "pod_uid": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }'
+              
+              echo "Index template created successfully"
+{{- end -}}

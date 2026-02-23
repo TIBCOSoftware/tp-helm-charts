@@ -1,0 +1,32 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.dashboardsIngress.ingress.enabled -}}
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-dashboards
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.dashboardsIngress.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.dashboardsIngress.ingress.ingressClassName }}
+  rules:
+    - host: {{ .Values.dashboardsIngress.ingress.host }}.{{ .Values.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-opensearch-dashboards
+                port:
+                  number: 5601
+{{- end -}}

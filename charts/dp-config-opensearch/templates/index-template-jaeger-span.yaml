@@ -1,0 +1,214 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.index.jaeger.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-create-jaeger-span-template
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "4"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-jaeger-span-template
+          image: curlimages/curl:latest
+          env:
+            {{- range .Values.opensearch.extraEnvs }}
+            {{- if eq .name "OPENSEARCH_INITIAL_ADMIN_PASSWORD" }}
+            - name: OPENSEARCH_PASSWORD
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+            - name: OPENSEARCH_HOST
+              value: "https://{{ .Values.opensearch.clusterName }}-master:9200"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for OpenSearch to be ready
+              until curl -sk -u "admin:${OPENSEARCH_PASSWORD}" ${OPENSEARCH_HOST}/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
+                echo "Waiting for OpenSearch cluster to be ready..."
+                sleep 10
+              done
+              
+              # Create index template for jaeger-span
+              curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -X PUT "${OPENSEARCH_HOST}/_index_template/jaeger-span-template" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "index_patterns": ["jaeger-span-*"],
+                  "priority": 3,
+                  "template": {
+                    "settings": {
+                      "number_of_shards": {{ .Values.index.jaeger.shards | default 6 }},
+                      "number_of_replicas": {{ .Values.index.jaeger.replicas | default 1 }},
+                      "index.mapping.nested_fields.limit": 50,
+                      "index.requests.cache.enable": true,
+                      "plugins.index_state_management.rollover_alias": "jaeger-span-write"
+                    },
+                    "aliases": {
+                      "jaeger-span-read": {}
+                    },
+                    "mappings": {
+                      "dynamic_templates": [
+                        {
+                          "span_tags_map": {
+                            "path_match": "tag.*",
+                            "mapping": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
+                        },
+                        {
+                          "process_tags_map": {
+                            "path_match": "process.tag.*",
+                            "mapping": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
+                        }
+                      ],
+                      "properties": {
+                        "traceID": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        },
+                        "parentSpanID": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        },
+                        "spanID": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        },
+                        "operationName": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        },
+                        "startTime": {
+                          "type": "long"
+                        },
+                        "startTimeMillis": {
+                          "type": "date",
+                          "format": "epoch_millis"
+                        },
+                        "duration": {
+                          "type": "long"
+                        },
+                        "flags": {
+                          "type": "integer"
+                        },
+                        "logs": {
+                          "type": "nested",
+                          "dynamic": false,
+                          "properties": {
+                            "timestamp": {
+                              "type": "long"
+                            },
+                            "fields": {
+                              "type": "nested",
+                              "dynamic": false,
+                              "properties": {
+                                "key": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                },
+                                "value": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                },
+                                "tagType": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "process": {
+                          "properties": {
+                            "serviceName": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            },
+                            "tag": {
+                              "type": "object"
+                            },
+                            "tags": {
+                              "type": "nested",
+                              "dynamic": false,
+                              "properties": {
+                                "key": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                },
+                                "value": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                },
+                                "tagType": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "references": {
+                          "type": "nested",
+                          "dynamic": false,
+                          "properties": {
+                            "refType": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            },
+                            "traceID": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            },
+                            "spanID": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
+                        },
+                        "tag": {
+                          "type": "object"
+                        },
+                        "tags": {
+                          "type": "nested",
+                          "dynamic": false,
+                          "properties": {
+                            "key": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            },
+                            "value": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            },
+                            "tagType": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }'
+              
+              echo "Jaeger span index template created successfully"
+{{- end -}}
