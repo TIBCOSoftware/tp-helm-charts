@@ -1,0 +1,55 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.es.httpRoute.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ .Release.Name }}-es-tls
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.es.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ .Release.Name }}-es-http
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: es-ca-cert
+    # This must match the SAN in the ES certificate
+    hostname: {{ .Release.Name }}-es-http.{{ .Release.Namespace }}.svc
+---
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-elastic
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.es.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    - name: {{ .Values.es.httpRoute.gatewayName }}
+      namespace: {{ .Values.es.httpRoute.gatewayNamespace | default .Release.Namespace }}
+  hostnames:
+    - {{ .Values.es.httpRoute.host }}.{{ .Values.domain }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Values.es.httpRoute.service }}
+          port: 9200
+{{- end -}}

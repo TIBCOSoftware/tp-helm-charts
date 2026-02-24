@@ -9,6 +9,9 @@
 
 global:
   cp:
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
     dataplaneId: dp-dp1
     instanceId: defaultinstid
     subscriptionId: sub-id1
@@ -459,7 +462,7 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 4.1.0
+          tag: 4.2.2
         resources:
           requests:
             cpu: 10m
@@ -478,10 +481,10 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 3502
+      tag: 3758
     job:
       image:
-        tag: 24
+        tag: 9153
 
 
 replicaCount: 1

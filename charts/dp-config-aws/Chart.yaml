@@ -4,8 +4,8 @@
 
 apiVersion: v2
 name: dp-config-aws
-version: "1.10.1"
-appVersion: "1.10.0"
+version: "1.15.5"
+appVersion: "1.15.0"
 description: Helm chart to configure pre-requisites on AWS
 type: application
 dependencies:
@@ -21,13 +21,33 @@ dependencies:
     version: 2.33.3
     repository: https://charts.konghq.com
     condition: kong.enabled
+  # nginx-gateway-fabric chart
+  - name: nginx-gateway-fabric
+    version: 2.3.0
+    repository: oci://ghcr.io/nginx/charts
+    condition: nginx-gateway-fabric.enabled
+  # haproxy ingress controller chart
+  - name: kubernetes-ingress
+    version: 1.47.3
+    repository: https://haproxytech.github.io/helm-charts
+    condition: haproxy.enabled
+  # istio-base chart, to be installed in istio-system namespace
+  - name: base
+    version: 1.28.2
+    repository: https://istio-release.storage.googleapis.com/charts
+    condition: istio-base.enabled
+  # istiod chart, to be installed in istio-system namespace
+  - name: istiod
+    version: 1.28.2
+    repository: https://istio-release.storage.googleapis.com/charts
+    condition: istiod.enabled
   # crossplane charts
   - name: crossplane
     version: v1.13.2
     repository: https://charts.crossplane.io/stable
     condition: crossplane.enabled
   - name: crossplane-components
-    version: "1.10.0"
+    version: "1.15.4"
     repository: file://charts/crossplane-components
     condition: crossplane-components.enabled
 annotations:

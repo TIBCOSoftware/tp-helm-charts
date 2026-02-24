@@ -132,6 +132,37 @@ kong:
     tls:
       enabled: false
 
+nginx-gateway-fabric:
+  # chart values: https://github.com/nginxinc/nginx-gateway-fabric/blob/main/charts/nginx-gateway-fabric/values.yaml
+  enabled: false
+  nginxGateway:
+    gatewayClassName: nginx
+    gatewayControllerName: gateway.nginx.org/nginx-gateway-controller
+    config:
+      logging:
+        level: info
+  nginx:
+    service:
+      type: LoadBalancer
+      annotations: []
+
+haproxy:
+  # chart values: https://github.com/haproxytech/helm-charts/blob/main/kubernetes-ingress/values.yaml
+  enabled: false
+  controller:
+    service:  # for external-dns
+      type: ClusterIP
+    nodeSelector:
+      kubernetes.io/os: linux
+
+# Istio charts
+# istio-base chart, to be installed in istio-system namespace
+istio-base:
+  enabled: false
+# istiod chart, to be installed in istio-system namespace
+istiod:
+  enabled: false
+
 # reference: https://docs.crossplane.io/latest/software/install/
 # this is used for deploying crossplane chart
 crossplane:
@@ -194,6 +225,46 @@ crossplane-components:
     # commonTags:
     #   cluster-name: ""
     #   owner: ""
+    s3:
+      # To create S3 claim set create to true
+      create: false
+      # Secret name in the same release namespace where the s3_id and s3_arn will be stored
+      connectionDetailsSecret: ""
+      # To create VPC endpoints for S3 set create to true. This will create gateway endpoints for route tables and interface endpoints for subnets
+      endpoints:
+        create: true
+      # A subset of parameters from https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-s3-bucket.html are supported
+      # Mandatory configuration parameters for S3
+      mandatoryConfigurationParameters:
+        bucketName: ""
+      # Additional configuration parameters for S3
+      # additionalConfigurationParameters:
+      #   versioning: "Enabled"  # Enabled | Suspended
+      #  # encryption:
+      #  #   enabled: true
+      #  #   sseAlgorithm: "AES256"  # AES256 | aws:kms
+      #  #   kmsMasterKeyId: ""  # Required if sseAlgorithm is aws:kms
+      #   lifecycleConfiguration:
+      #     rules:
+      #       - id: "langfuse_lifecycle"
+      #         status: "Enabled"
+      #         filter:
+      #           prefix: ""
+      #         transitions:
+      #           - days: 90
+      #             storageClass: "STANDARD_IA"
+      #           - days: 180
+      #             storageClass: "GLACIER"
+      #   publicAccessBlock:
+      #     blockPublicAcls: true
+      #     blockPublicPolicy: true
+      #     ignorePublicAcls: true
+      #     restrictPublicBuckets: true
+      # Resource-specific tags
+      # resourceTags:
+      #   resource-name: s3
+      #   cost-center: control-plane
+
     efs:
       # To create EFS claim set create to true
       create: false

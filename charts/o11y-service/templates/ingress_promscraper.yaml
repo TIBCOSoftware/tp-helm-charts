@@ -4,6 +4,7 @@
 # in the license file that is distributed with this file.
 #
 {{ if .Values.ingress.enabled -}}
+{{- $dot := . }}
 {{- $fullName := include "o11y-service.fullname" . -}}
 {{- $releaseName := .Release.Name -}}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
@@ -51,7 +52,7 @@ spec:
     - host: {{ .host | quote }}
       http:
     {{- else }}
-    - host: dp-{{ $.Values.global.cp.dataplaneId }}.platform.local
+    - host: {{ tpl $.Values.global.cp.dpUrl.host $dot }}
       http:
     {{- end }}
         paths:

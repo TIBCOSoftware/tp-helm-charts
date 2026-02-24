@@ -19,6 +19,9 @@ global:
       url: ""
       repository: "tibco-platform-docker-prod"
 
+    hybridConnectivity:
+      enabled: true
+
     enableResourceConstraints: true
     cpCertificateSecret: ""
     helmRepo:
@@ -26,6 +29,10 @@ global:
   logging:
     fluentbit:
       enabled: true
+
+  dpUrl:
+    host: "dp-{{ .Values.global.tibco.dataPlaneId }}.platform.local"
+    port: 443
 
   # proxy configuration for the outward traffic from cp proxy
   # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
@@ -35,7 +42,6 @@ global:
     noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
 
 tp-tibtunnel:
-  enabled: true
   connect:
     debug: false  # Enable debug logging
     payload: false  # Display payload data in the debug logs. Requires flag 'debug'. WARNING: Payload might contain sensitive data!

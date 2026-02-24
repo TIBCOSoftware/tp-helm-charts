@@ -1,0 +1,193 @@
+{{/*
+Copyright © 2026. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: composites3bucket.s3.platform.tibco.com
+  labels:
+    provider: provider-aws-s3
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: s3.platform.tibco.com/v1alpha1
+    kind: CompositeS3Bucket
+  patchSets:
+    - name: TagsParameter
+      patches:
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+          type: FromCompositeFieldPath
+    - name: RegionParameter
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+          type: FromCompositeFieldPath
+    - name: VpcIdParameter
+      patches:
+        - fromFieldPath: spec.parameters.vpcId
+          toFieldPath: spec.forProvider.vpcId
+          type: FromCompositeFieldPath
+  resources:
+    - name: s3-bucket
+      base:
+        apiVersion: s3.aws.crossplane.io/v1beta1
+        kind: Bucket
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            locationConstraint: ""
+            # serverSideEncryptionConfiguration:
+            #   rules:
+            #     - applyServerSideEncryptionByDefault:
+            #         sseAlgorithm: AES256
+            objectOwnership: BucketOwnerEnforced
+            versioningConfiguration:
+              status: ""
+            publicAccessBlockConfiguration:
+              blockPublicAcls: true
+              blockPublicPolicy: true
+              ignorePublicAcls: true
+              restrictPublicBuckets: true
+            tagging:
+              tagSet: []
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.labels['bucket-name']"
+        - fromFieldPath: "spec.parameters.acl"
+          toFieldPath: "spec.forProvider.acl"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.locationConstraint"
+        - fromFieldPath: "spec.parameters.versioning"
+          toFieldPath: "spec.forProvider.versioningConfiguration.status"
+        # - fromFieldPath: "spec.parameters.encryption.sseAlgorithm"
+        #   toFieldPath: "spec.forProvider.serverSideEncryptionConfiguration.rules[0].applyServerSideEncryptionByDefault.sseAlgorithm"
+        #   policy:
+        #     fromFieldPath: Optional
+        # - fromFieldPath: "spec.parameters.encryption.kmsMasterKeyId"
+        #   toFieldPath: "spec.forProvider.serverSideEncryptionConfiguration.rules[0].applyServerSideEncryptionByDefault.kmsMasterKeyId"
+        #   policy:
+        #     fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.blockPublicAcls"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.blockPublicAcls"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.blockPublicPolicy"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.blockPublicPolicy"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.ignorePublicAcls"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.ignorePublicAcls"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.restrictPublicBuckets"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.restrictPublicBuckets"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.lifecycleConfiguration"
+          toFieldPath: "spec.forProvider.lifecycleConfiguration"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.tags"
+          toFieldPath: "spec.forProvider.tagging.tagSet"
+          policy:
+            fromFieldPath: Optional
+    - name: securitygroup
+      base:
+        apiVersion: ec2.aws.crossplane.io/v1beta1
+        kind: SecurityGroup
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            region: "us-west-2"
+            vpcId: ""
+            groupName: "cp-s3-endpoints-sg"
+            description: "Security group for S3 endpoints"
+            ingress:
+              - fromPort: 443
+                toPort: 443
+                ipProtocol: tcp
+                ipRanges:
+                  - cidrIp: ""
+            tags: []
+      patches:
+        - patchSetName: RegionParameter
+          type: PatchSet
+        - patchSetName: TagsParameter
+          type: PatchSet
+        - fromFieldPath: "spec.parameters.prefix"
+          toFieldPath: "spec.forProvider.groupName"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-s3-endpoints-sg"
+        - fromFieldPath: "spec.parameters.vpcId"
+          toFieldPath: "spec.forProvider.vpcId"
+        - fromFieldPath: "spec.parameters.nodeCIDR"
+          toFieldPath: "spec.forProvider.ingress[0].ipRanges[0].cidrIp"
+    - name: sts-interface-endpoint
+      base:
+        apiVersion: ec2.aws.crossplane.io/v1alpha1
+        kind: VPCEndpoint
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            vpcEndpointType: Interface
+            securityGroupIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: RegionParameter
+        - type: PatchSet
+          patchSetName: VpcIdParameter
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.serviceName
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "com.amazonaws.%s.sts"
+        - fromFieldPath: spec.parameters.privateDNSEnabled
+          toFieldPath: spec.forProvider.privateDNSEnabled
+        - fromFieldPath: spec.parameters.subnetIds
+          toFieldPath: spec.forProvider.subnetIds
+          policy:
+            fromFieldPath: Required
+    - name: s3-gateway-endpoint
+      base:
+        apiVersion: ec2.aws.crossplane.io/v1alpha1
+        kind: VPCEndpoint
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            vpcEndpointType: Gateway
+      patches:
+        - type: PatchSet
+          patchSetName: RegionParameter
+        - type: PatchSet
+          patchSetName: VpcIdParameter
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.serviceName
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "com.amazonaws.%s.s3"
+        - fromFieldPath: spec.parameters.routeTableIds
+          toFieldPath: spec.forProvider.routeTableIds
+          policy:
+            fromFieldPath: Required

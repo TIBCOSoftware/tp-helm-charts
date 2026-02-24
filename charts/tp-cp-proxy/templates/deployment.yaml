@@ -56,6 +56,10 @@ spec:
             value: {{ .Values.global.cp.dataplaneId }}
           - name: NAMESPACE
             value: {{ .Release.Namespace }}
+          {{- if .Values.global.cp.cpCertificateSecret }}
+          - name: SSL_CERT_DIR
+            value: /etc/ssl/certs/cp-certs
+          {{- end }}
           {{- with .Values.global.cp.proxy }}
           {{- if .httpProxy }}
           - name: http_proxy
@@ -89,7 +93,7 @@ spec:
         volumeMounts:
         {{- if .Values.global.cp.cpCertificateSecret }}
           - name: cp-certs
-            mountPath: /etc/ssl/certs/
+            mountPath: /etc/ssl/certs/cp-certs
         {{- end }}
           - name: logs
             mountPath: /tmp/logs
