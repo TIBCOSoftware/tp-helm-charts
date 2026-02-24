@@ -6424,6 +6424,79 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tibco-cp-base
     apiVersion: v2
+    appVersion: 1.15.0
+    created: "2026-02-24T14:48:30.192312821Z"
+    dependencies:
+    - condition: tp-cp-infra.enabled
+      name: tp-cp-infra
+      repository: ""
+      version: 1.15.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.15.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.15.*
+    - condition: router-operator.enabled
+      name: router-operator
+      repository: ""
+      version: 1.15.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: 0.116.*
+    - condition: tp-cp-o11y.enabled
+      name: tp-cp-o11y
+      repository: ""
+      version: 1.15.*
+    - name: tp-cp-configuration
+      repository: ""
+      version: 1.15.*
+    - name: tp-cp-core
+      repository: ""
+      version: 1.15.*
+    - name: tp-cp-core-finops
+      repository: ""
+      version: 1.15.*
+    - condition: tp-cp-integration-common.enabled
+      name: tp-cp-integration-common
+      repository: ""
+      version: 1.13.*
+    - condition: tp-cp-cli.enabled
+      name: tp-cp-cli
+      repository: ""
+      version: 1.6.*
+    - name: tp-cp-alertmanager
+      repository: ""
+      version: 1.15.*
+    - name: tp-cp-prometheus
+      repository: ""
+      version: 1.15.*
+    - condition: tp-cp-auditsafe.enabled
+      name: tp-cp-auditsafe
+      repository: ""
+      version: 1.15.*
+    - condition: tp-dp-proxy.enabled
+      name: tp-dp-proxy
+      repository: ""
+      version: 1.15.*
+    description: TIBCO Platform base chart
+    digest: 31ebcadf694a6fd1b8a750b8f2c56d18b9b329025b83975067851ed7c8373040
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: tibco-cp-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.15.0-alpha.132/tibco-cp-base-1.15.0-alpha.132.tgz
+    version: 1.15.0-alpha.132
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tibco-cp-base
+    apiVersion: v2
     appVersion: 1.14.0
     created: "2025-12-30T09:35:20.604973601Z"
     dependencies:
@@ -14116,4 +14189,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2026-02-24T12:40:21.723617376Z"
+generated: "2026-02-24T14:48:30.193055512Z"
