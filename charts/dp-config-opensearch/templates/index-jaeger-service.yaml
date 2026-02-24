@@ -1,0 +1,67 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.index.jaeger.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-create-jaeger-service-index
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-jaeger-service-index
+          image: curlimages/curl:latest
+          env:
+            {{- range .Values.opensearch.extraEnvs }}
+            {{- if eq .name "OPENSEARCH_INITIAL_ADMIN_PASSWORD" }}
+            - name: OPENSEARCH_PASSWORD
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+            - name: OPENSEARCH_HOST
+              value: "https://{{ .Values.opensearch.clusterName }}-master:9200"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for OpenSearch to be ready
+              until curl -sk -u "admin:${OPENSEARCH_PASSWORD}" ${OPENSEARCH_HOST}/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
+                echo "Waiting for OpenSearch cluster to be ready..."
+                sleep 10
+              done
+              
+              # Check if index already exists
+              if curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -o /dev/null -w "%{http_code}" "${OPENSEARCH_HOST}/jaeger-service-000001" | grep -q "200"; then
+                echo "Index jaeger-service-000001 already exists, skipping creation"
+                exit 0
+              fi
+              
+              # Create initial jaeger-service index with write alias
+              curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -X PUT "${OPENSEARCH_HOST}/jaeger-service-000001" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "aliases": {
+                    "jaeger-service-write": {
+                      "is_write_index": true
+                    }
+                  },
+                  "settings": {
+                    "number_of_shards": {{ .Values.index.jaeger.shards | default 3 }},
+                    "number_of_replicas": {{ .Values.index.jaeger.replicas | default 1 }}
+                  }
+                }'
+              
+              echo "Jaeger service initial index created successfully"
+{{- end -}}

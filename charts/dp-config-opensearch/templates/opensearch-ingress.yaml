@@ -1,0 +1,40 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.opensearchIngress.ingress.enabled -}}
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-opensearch
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- if eq .Values.opensearchIngress.ingress.ingressClassName "traefik" }}
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/service.serverstransport: {{ .Release.Name }}-opensearch-transport@kubernetescrd
+    {{- end }}
+    {{- with .Values.opensearchIngress.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.opensearchIngress.ingress.ingressClassName }}
+  rules:
+    - host: {{ .Values.opensearchIngress.ingress.host }}.{{ .Values.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.opensearch.clusterName }}-master
+                port:
+                  number: 9200
+  tls:
+  - hosts:
+    - {{ .Values.opensearchIngress.ingress.host }}.{{ .Values.domain }}
+{{- end -}}

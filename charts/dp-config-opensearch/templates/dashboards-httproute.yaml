@@ -1,0 +1,32 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.dashboardsIngress.httpRoute.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-dashboards
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.dashboardsIngress.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    - name: {{ .Values.dashboardsIngress.httpRoute.gatewayName }}
+      namespace: {{ .Values.dashboardsIngress.httpRoute.gatewayNamespace | default .Release.Namespace }}
+  hostnames:
+    - {{ .Values.dashboardsIngress.httpRoute.host }}.{{ .Values.domain }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-opensearch-dashboards
+          port: 5601
+{{- end -}}

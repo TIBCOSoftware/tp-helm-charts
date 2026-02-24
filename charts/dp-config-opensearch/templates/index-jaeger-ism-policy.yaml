@@ -1,0 +1,110 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+{{ if .Values.index.jaeger.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-create-jaeger-ism-policy
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-jaeger-ism-policy
+          image: curlimages/curl:latest
+          env:
+            {{- range .Values.opensearch.extraEnvs }}
+            {{- if eq .name "OPENSEARCH_INITIAL_ADMIN_PASSWORD" }}
+            - name: OPENSEARCH_PASSWORD
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+            - name: OPENSEARCH_HOST
+              value: "https://{{ .Values.opensearch.clusterName }}-master:9200"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for OpenSearch to be ready
+              until curl -sk -u "admin:${OPENSEARCH_PASSWORD}" ${OPENSEARCH_HOST}/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
+                echo "Waiting for OpenSearch cluster to be ready..."
+                sleep 10
+              done
+              
+              # Create ISM policy for Jaeger indices (30 day retention with rollover)
+              curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -X PUT "${OPENSEARCH_HOST}/_plugins/_ism/policies/jaeger-30d-policy" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "policy": {
+                    "description": "Jaeger index lifecycle policy - 30 days retention with rollover",
+                    "default_state": "hot",
+                    "states": [
+                      {
+                        "name": "hot",
+                        "actions": [
+                          {
+                            "rollover": {
+                              "min_size": "2gb",
+                              "min_index_age": "7d"
+                            }
+                          }
+                        ],
+                        "transitions": [
+                          {
+                            "state_name": "warm",
+                            "conditions": {
+                              "min_index_age": "10d"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "name": "warm",
+                        "actions": [
+                          {
+                            "force_merge": {
+                              "max_num_segments": 1
+                            }
+                          }
+                        ],
+                        "transitions": [
+                          {
+                            "state_name": "delete",
+                            "conditions": {
+                              "min_index_age": "30d"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "name": "delete",
+                        "actions": [
+                          {
+                            "delete": {}
+                          }
+                        ],
+                        "transitions": []
+                      }
+                    ],
+                    "ism_template": [
+                      {
+                        "index_patterns": ["jaeger-span-*", "jaeger-service-*"],
+                        "priority": 100
+                      }
+                    ]
+                  }
+                }'
+              
+              echo "Jaeger ISM policy created successfully"
+{{- end -}}

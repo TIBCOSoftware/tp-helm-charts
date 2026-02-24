@@ -1,0 +1,202 @@
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# name of chart
+name: dp-config-opensearch
+# label indicating which project this pipeline belongs to (Don't change)
+partOf: TIBCO-Platform
+# indicating which tools are used to generate this template (Don't change)
+createdBy: generator
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+storage:
+  enabled: false
+  name: gp3enc
+  reclaimPolicy: Delete
+
+domain: ""
+
+# ============================================================================
+# OpenSearch subchart configuration (version 3.4.0)
+# These values are passed directly to the opensearch subchart
+# Reference: https://github.com/opensearch-project/helm-charts/tree/main/charts/opensearch
+# ============================================================================
+opensearch:
+  enabled: true
+  clusterName: "opensearch-cluster"
+  nodeGroup: "master"
+  masterService: "opensearch-cluster-master"
+
+  # Node roles - set as environment variable "node.roles"
+  roles:
+    - master
+    - ingest
+    - data
+    - remote_cluster_client
+
+  # Single node for development, increase for production
+  singleNode: false
+  replicas: 3
+
+  # OpenSearch Java options
+  opensearchJavaOpts: "-Xmx1g -Xms1g"
+
+  # Resource configuration
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "100Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    storageClass: "hostpath"
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+
+  # Security configuration - demo config for quick start
+  # For production, set DISABLE_INSTALL_DEMO_CONFIG to "true" and configure proper security
+  #
+  # Password requirements for OPENSEARCH_INITIAL_ADMIN_PASSWORD:
+  #   - Minimum 8 characters
+  #   - At least one uppercase letter (A-Z)
+  #   - At least one lowercase letter (a-z)
+  #   - At least one digit (0-9)
+  #   - At least one special character (!@#$%^&*()_+-=)
+  #   - Example: "MyPassw0rd!"
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      value: ""
+
+  # OpenSearch config
+  config:
+    opensearch.yml: |
+      cluster.name: opensearch-cluster
+      network.host: 0.0.0.0
+
+  httpPort: 9200
+  transportPort: 9300
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    httpPortName: https
+    transportPortName: transport
+
+  # Pod security context (renamed from securityContext in v3.x)
+  podSecurityContext:
+    fsGroup: 1000
+    runAsUser: 1000
+
+  # Security context for containers
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    runAsUser: 1000
+
+  # Sysctls init container for vm.max_map_count
+  sysctlInit:
+    enabled: true
+
+# ============================================================================
+# OpenSearch Dashboards subchart configuration
+# These values are passed directly to the opensearch-dashboards subchart
+# Reference: https://github.com/opensearch-project/helm-charts/tree/main/charts/opensearch-dashboards
+# ============================================================================
+opensearch-dashboards:
+  enabled: true
+  opensearchHosts: "https://opensearch-cluster-master:9200"
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: "150m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+  service:
+    type: ClusterIP
+    port: 5601
+    annotations: {}
+
+# ============================================================================
+# Custom Ingress/Route configuration for OpenSearch
+# (NOT passed to subchart - used by our custom templates)
+# ============================================================================
+opensearchIngress:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    host: opensearch
+    annotations: {}
+
+  httpRoute:
+    enabled: false
+    gatewayName: dp-config-gateway
+    gatewayNamespace: ""
+    host: opensearch
+    annotations: {}
+
+  route:
+    enabled: false
+    host: opensearch
+    annotations: {}
+
+# ============================================================================
+# Custom Ingress/Route configuration for OpenSearch Dashboards
+# (NOT passed to subchart - used by our custom templates)
+# ============================================================================
+dashboardsIngress:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    host: opensearch-dashboards
+    annotations: {}
+
+  httpRoute:
+    enabled: false
+    gatewayName: dp-config-gateway
+    gatewayNamespace: ""
+    host: opensearch-dashboards
+    annotations: {}
+
+  route:
+    enabled: false
+    host: opensearch-dashboards
+    annotations: {}
+
+# ============================================================================
+# Index template configuration
+# ============================================================================
+index:
+  enabled: true
+  opensearchUrl: ""
+  patterns:
+    userApps: ["user-app-*"]
+
+  # Jaeger tracing indices configuration
+  jaeger:
+    enabled: true
+    # Number of shards for Jaeger indices
+    shards: 3
+    # Number of replicas for Jaeger indices
+    replicas: 1

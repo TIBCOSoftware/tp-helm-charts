@@ -1,0 +1,26 @@
+#
+#
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{ if .Values.dashboardsIngress.route.enabled -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Release.Name }}-dashboards
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.dashboardsIngress.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ .Values.dashboardsIngress.route.host }}.{{ .Values.domain }}
+  to:
+    kind: Service
+    name: {{ .Release.Name }}-opensearch-dashboards
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{{- end -}}

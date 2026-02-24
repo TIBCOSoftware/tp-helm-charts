@@ -1,0 +1,15 @@
+Copyright © 2023 - 2026. Cloud Software Group, Inc.
+This file is subject to the license terms contained in the license file that is distributed with this file.
+
+This chart is used for config TIBCO Platform
+
+This will Set Up OpenSearch clusters for DP
+TO access OpenSearch Dashboards: https://opensearch-dashboards.{{.Values.domain}}
+TO access OpenSearch service: https://opensearch.{{.Values.domain}}
+
+To get OpenSearch admin password:
+$ kubectl get secret opensearch-cluster-master-credentials -n {{ .Release.Namespace }} -o jsonpath="{.data.password}" | base64 --decode
+
+Default credentials:
+  Username: admin
+  Password: (use command above or check your security configuration)
