@@ -12,15 +12,17 @@ global:
     image_repo_path: ""
     db_ssl_root_cert_secretname: "db-ssl-root-cert"
     db_ssl_root_cert_filename: "db_ssl_root.cert"
+    hybridConnectivity:
+      enabled: true
     logging:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 4.1.0
+          tag: 4.2.2
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
-        tag: 12.12
+        tag: 12.13
     cronjobs:
       disableProvisionInfraCapabilitiesJob: "false"
       disableGdprPurgeHistoryJob: "true"
@@ -32,6 +34,7 @@ global:
       password: ""
       repository: "tibco-platform-docker-prod"  # repository
     controlPlaneInstanceId: ""
+    self_hosted_deployment: true
 
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.

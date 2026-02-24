@@ -129,7 +129,7 @@ spec:
       {{ end }}
       containers:
       - name: cpwebserver
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.webserver }}:{{ include "web-server.generated.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-web-server:{{ include "web-server.generated.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
@@ -260,6 +260,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_EMS_HOST
+        - name: TP_DP_PROXY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_DP_PROXY_HOST
         - name: TP_CP_MCP_SERVER_HOST
           valueFrom:
             configMapKeyRef:
@@ -302,6 +307,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_ADMIN_DNS_DOMAIN
+        - name: ADMIN_HOST_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: ADMIN_HOST_PREFIX
         - name: TP_CP_WILDCARD_DNS_DOMAIN
           valueFrom:
             configMapKeyRef:
@@ -349,6 +359,8 @@ spec:
           value: /private/tsc
         - name: MSG_DP_CONFIG_ENABLED
           value: {{ .Values.global.tibco.msg_dp_config_enabled | quote }}
+        - name: HYBRID_CONNECTIVITY
+          value: {{ .Values.global.tibco.hybridConnectivity.enabled | quote}}
         - name: CP_HELM_REPO
           value: {{ .Values.global.external.helmRepo }}
         - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
@@ -363,6 +375,8 @@ spec:
           value: {{ include "cp-core-configuration.container-registry" . | quote }}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
+        - name: IS_SELF_HOSTED_DEPLOYMENT
+          value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         - name: AUDITSAFE_ENABLED
           value: "true"
         - name: DEPLOYMENT_REGION
@@ -1007,6 +1021,14 @@ spec:
         allowClientCache: true
         allowXFrameOptions: false
         enableRedirects: true
+  - path: /platform-console/api/v1
+    internalPath: /platform-console/api/v1
+    port: 3001
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_ADMIN_DNS_DOMAIN}
   - path: /admin/login
     internalPath: /admin/login
     port: 3001

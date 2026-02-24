@@ -86,7 +86,7 @@ spec:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
                 key: TP_CP_IDM_HOST
       - name: check-sql-schema-version
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
@@ -123,7 +123,7 @@ spec:
       {{ end }}
       containers:
       - name: tp-cp-identity-provider
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.identityProvider }}:{{ include "identity-provider.generated.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-identity-provider:{{ include "identity-provider.generated.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext }}
         securityContext:

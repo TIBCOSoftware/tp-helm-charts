@@ -6,28 +6,26 @@
 
 {{ if .Values.ingress.enabled -}}
 {{- $root := . }}
-{{- $ingresses := prepend .Values.ingress.additionalIngresses .Values.ingress }}
-{{- range $ingresses }}
 apiVersion: "networking.k8s.io/v1"
 kind: Ingress
 metadata:
-  name: {{ include "hybrid-proxy.consts.appName" $root }}
-  namespace: {{ $root.Release.Namespace }}
+  name: {{ include "hybrid-proxy.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "hybrid-proxy.shared.labels.standard" $root | nindent 4 }}
-  {{- if .annotations }}
+    {{- include "hybrid-proxy.shared.labels.standard" . | nindent 4 }}
+  {{- if .Values.ingress.annotations }}
   annotations:
-    {{- range $key, $value := .annotations }}
+    {{- range $key, $value := .Values.ingress.annotations }}
     {{- printf "%s: %s" $key (tpl $value $ | quote) | nindent 4 }}
     {{- end }}
   {{- end }}
 spec:
-  {{- if .ingressClassName }}
-  ingressClassName: {{ .ingressClassName }}
+  {{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
   {{- end -}}
-  {{- if .tls }}
+  {{- if .Values.ingress.tls }}
   tls:
-    {{- range .tls }}
+    {{- range .Values.ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ tpl . $ | quote }}
@@ -38,20 +36,26 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .hosts }}
+    {{- range .Values.ingress.hosts }}
     - host: {{ tpl .host $ | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+          - path: /infra/tunnel
+            pathType: Prefix
             backend:
               service:
                 name: {{ include "hybrid-proxy.consts.appName" $root }}
                 port:
-                  number: {{ .port }}
-          {{- end }}
+                  number: 105
+        {{- if ne ($root.Values.global.external.dnsDomain) ($root.Values.global.external.dnsTunnelDomain) }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "hybrid-proxy.consts.appName" $root }}
+                port:
+                  number: 105
+        {{- end }}
     {{- end }}
----
 {{- end }}
-{{- end }}
+
