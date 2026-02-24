@@ -1,0 +1,393 @@
+-- Database schema changes for 1.15.0
+
+ALTER TABLE V3_APPS ADD COLUMN IF NOT EXISTS DESIRED_REPLICAS  int;
+
+
+--Re-create V3_VIEW_APPS_ON_SUBSCRIPTIONS view as we have to alter the schema of this.
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_APPS_ON_SUBSCRIPTIONS;
+
+CREATE MATERIALIZED VIEW V3_VIEW_APPS_ON_SUBSCRIPTIONS
+AS
+SELECT
+    SUB.SUBSCRIPTION_ID,
+    DP.DP_ID,
+    DP.NAME as dp_name,
+    DP.DESCRIPTION as dp_description,
+    DP.HOST_CLOUD_TYPE,
+    DP.STATUS as dp_status,
+    DP.REGISTERED_REGION,
+    DP.RUNNING_REGION,
+    DP.TAGS as dp_tags,
+    CI.CAPABILITY_INSTANCE_ID,
+    CI.CAPABILITY_INSTANCE_NAME,
+    CI.CAPABILITY_ID,
+    CI.CAPABILITY_INSTANCE_DESCRIPTION,
+    CI.NAMESPACE as capability_instance_namespace,
+    CI.STATUS as capability_instance_status,
+    CI.TAGS as capability_instance_tags,
+    CI.VERSION as capability_instance_version,
+    APPS.APP_ID,
+    APPS.APP_NAME,
+    APPS.APP_DESCRIPTION,
+    APPS.APP_VERSION,
+    APPS.STATE as app_state,
+    APPS.DESIRED_REPLICAS,
+    APPS.TAGS as app_tags,
+    APPS.APP_LINKS,
+    APPS.EULA as app_eula,
+    APPS.RESOURCE_INSTANCE_IDS as app_resource_instance_ids,
+    APPS.CREATED_TIME,
+    APPS.MODIFIED_TIME,
+    APPS.NAMESPACE as app_namespace,
+    (select CONCAT(U.firstname || ' ',lastname) from v2_users U where U.USER_ENTITY_ID = APPS.MODIFIED_BY)
+        as modified_by,
+    (select CONCAT(U.firstname|| ' ',lastname) from v2_users U where U.USER_ENTITY_ID = APPS.CREATED_BY)
+        as created_by
+FROM V2_SUBSCRIPTIONS SUB JOIN V3_DATA_PLANES DP ON SUB.SUBSCRIPTION_ID = DP.SUBSCRIPTION_ID
+                          JOIN V3_CAPABILITY_INSTANCES CI ON DP.DP_ID = CI.DP_ID
+                          JOIN V3_APPS APPS ON CI.CAPABILITY_INSTANCE_ID = APPS.CAPABILITY_INSTANCE_ID
+    WITH DATA;
+
+CREATE UNIQUE INDEX IF NOT EXISTS V3_VIEW_APPS_ON_SUBSCRIPTIONS_INDEX ON V3_VIEW_APPS_ON_SUBSCRIPTIONS (SUBSCRIPTION_ID,REGISTERED_REGION,DP_ID,CAPABILITY_INSTANCE_ID,APP_ID);
+
+
+
+--
+-- V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE
+--
+
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE CASCADE;
+CREATE MATERIALIZED VIEW V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE
+AS
+SELECT
+    DP.SUBSCRIPTION_ID,
+    DP.DP_ID,
+    DP.NAME AS DP_NAME,
+    CI.CAPABILITY_ID,
+    CI.NAMESPACE,
+    CI.VERSION,
+    CI.STATUS,
+    CI.REGION,
+    CI.CREATED_TIME,
+    CI.MODIFIED_TIME,
+    (select CONCAT(U.firstname || ' ',lastname) from v2_users U where U.USER_ENTITY_ID = CI.MODIFIED_BY)
+        as MODIFIED_BY,
+    (select CONCAT(U.firstname|| ' ',lastname) from v2_users U where U.USER_ENTITY_ID = CI.CREATED_BY)
+        as CREATED_BY,
+    CI.TAGS,
+    CI.CAPABILITY_INSTANCE_ID,
+    CI.CAPABILITY_INSTANCE_NAME,
+    CI.CAPABILITY_INSTANCE_DESCRIPTION,
+    COALESCE(
+            (
+                SELECT JSON_AGG(
+                               JSON_BUILD_OBJECT(
+                                       'id', RI.RESOURCE_INSTANCE_ID,
+                                       'name', RI.RESOURCE_INSTANCE_NAME
+                               )
+                       )
+                FROM V3_RESOURCE_INSTANCES RI
+                WHERE RI.RESOURCE_INSTANCE_ID = ANY(CI.RESOURCE_INSTANCE_IDS)
+            ),
+            '[]'::JSON
+    ) AS "resource_instances",
+    CI.CAPABILITY_TYPE
+FROM V3_CAPABILITY_INSTANCES CI
+         LEFT JOIN V3_DATA_PLANES DP
+                   USING(DP_ID)
+WHERE CI.CAPABILITY_TYPE = 'PLATFORM'
+    WITH DATA;
+
+CREATE UNIQUE INDEX IF NOT EXISTS V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_INDEX ON V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE
+    (SUBSCRIPTION_ID, DP_ID,CAPABILITY_INSTANCE_ID);
+
+DROP FUNCTION IF EXISTS V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_REFRESH() CASCADE;
+CREATE FUNCTION V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_REFRESH()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE;
+RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_CI_TRIGGER ON V3_CAPABILITY_INSTANCES;
+CREATE TRIGGER V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_CI_TRIGGER AFTER
+    INSERT OR UPDATE OR DELETE
+              ON V3_CAPABILITY_INSTANCES
+                  FOR EACH STATEMENT
+                  EXECUTE PROCEDURE V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_REFRESH();
+
+DROP TRIGGER IF EXISTS V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_DP_TRIGGER ON V3_DATA_PLANES;
+CREATE TRIGGER V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_DP_TRIGGER
+    AFTER INSERT OR UPDATE OR DELETE
+                    ON V3_DATA_PLANES
+                        FOR EACH STATEMENT
+                        EXECUTE PROCEDURE V3_VIEW_CAPABILITY_INSTANCE_DATA_PLANE_REFRESH();
+
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES CASCADE;
+
+CREATE MATERIALIZED VIEW V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES AS
+SELECT
+    RI.RESOURCE_INSTANCE_ID,
+    RI.RESOURCE_ID,
+    RI.RESOURCE_INSTANCE_NAME,
+    RI.RESOURCE_INSTANCE_DESCRIPTION,
+    RI.SCOPE,
+    RI.SCOPE_ID AS SUBSCRIPTION_ID,
+    RI.REGION,
+    RI.RESOURCE_INSTANCE_METADATA,
+    RI.CREATED_BY,
+    RI.MODIFIED_BY,
+    RI.CREATED_TIME,
+    RI.MODIFIED_TIME,
+    RI.RESOURCE_LEVEL,
+    RI.CAPABILITY_ID,
+    RI.RESOURCE_TYPE,
+    COALESCE(
+            JSON_AGG(
+                    JSON_BUILD_OBJECT('id', DP.DP_ID, 'name', DP.NAME)
+            ) FILTER (WHERE DP.DP_ID IS NOT NULL),
+            '[]'::JSON
+    ) AS LINKED_DATAPLANES
+FROM V3_RESOURCE_INSTANCES RI
+LEFT JOIN V3_DATA_PLANES DP ON RI.SCOPE_ID = DP.SUBSCRIPTION_ID
+    AND RI.RESOURCE_INSTANCE_ID = ANY(DP.RESOURCE_INSTANCE_IDS)
+WHERE RI.SCOPE = 'SUBSCRIPTION'
+GROUP BY
+    RI.RESOURCE_INSTANCE_ID,
+    RI.RESOURCE_ID,
+    RI.RESOURCE_INSTANCE_NAME,
+    RI.RESOURCE_INSTANCE_DESCRIPTION,
+    RI.SCOPE,
+    RI.SCOPE_ID,
+    RI.REGION,
+    RI.RESOURCE_INSTANCE_METADATA,
+    RI.CREATED_BY,
+    RI.MODIFIED_BY,
+    RI.CREATED_TIME,
+    RI.MODIFIED_TIME,
+    RI.RESOURCE_LEVEL,
+    RI.CAPABILITY_ID,
+    RI.RESOURCE_TYPE
+WITH DATA;
+
+CREATE UNIQUE INDEX IF NOT EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_INDEX ON V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES
+    (RESOURCE_INSTANCE_ID,RESOURCE_ID,SUBSCRIPTION_ID);
+
+DROP FUNCTION IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_REFRESH() CASCADE;
+CREATE FUNCTION V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_REFRESH()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES;
+RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_RI_TRIGGER ON V3_RESOURCE_INSTANCES;
+CREATE TRIGGER V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_RI_TRIGGER AFTER
+    INSERT OR UPDATE OR DELETE
+              ON V3_RESOURCE_INSTANCES
+                  FOR EACH STATEMENT
+                  EXECUTE PROCEDURE V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_REFRESH();
+
+DROP TRIGGER IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_DP_TRIGGER ON V3_DATA_PLANES;
+CREATE TRIGGER V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_DP_TRIGGER
+    AFTER INSERT OR UPDATE OR DELETE
+                    ON V3_DATA_PLANES
+                        FOR EACH STATEMENT
+                        EXECUTE PROCEDURE V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_DATAPLANES_REFRESH();
+
+
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES CASCADE;
+
+CREATE MATERIALIZED VIEW V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES AS
+SELECT
+    RI.RESOURCE_INSTANCE_ID,
+    RI.RESOURCE_ID,
+    RI.RESOURCE_INSTANCE_NAME,
+    RI.RESOURCE_INSTANCE_DESCRIPTION,
+    RI.SCOPE,
+    RI.SCOPE_ID AS DP_ID,
+    DP.NAME AS DP_NAME,
+    DP.SUBSCRIPTION_ID,
+    RI.REGION,
+    RI.RESOURCE_INSTANCE_METADATA,
+    RI.CREATED_BY,
+    RI.MODIFIED_BY,
+    RI.CREATED_TIME,
+    RI.MODIFIED_TIME,
+    RI.RESOURCE_LEVEL,
+    RI.CAPABILITY_ID,
+    RI.RESOURCE_TYPE,
+    COALESCE(
+            JSON_AGG(
+                    JSON_BUILD_OBJECT('id', CI.CAPABILITY_INSTANCE_ID, 'name', CI.CAPABILITY_INSTANCE_NAME, 'capability', CI.CAPABILITY_ID)
+            ) FILTER (WHERE CI.CAPABILITY_INSTANCE_ID IS NOT NULL),
+            '[]'::JSON
+    ) AS LINKED_CAPABILITIES
+FROM V3_RESOURCE_INSTANCES RI
+         LEFT JOIN V3_DATA_PLANES DP
+                   ON RI.SCOPE_ID = DP.DP_ID
+         LEFT JOIN V3_CAPABILITY_INSTANCES CI
+                   ON RI.SCOPE_ID = CI.DP_ID
+                       AND RI.RESOURCE_INSTANCE_ID = ANY(CI.RESOURCE_INSTANCE_IDS)
+WHERE RI.SCOPE = 'DATAPLANE'
+GROUP BY
+    RI.RESOURCE_INSTANCE_ID,
+    RI.RESOURCE_ID,
+    RI.RESOURCE_INSTANCE_NAME,
+    RI.RESOURCE_INSTANCE_DESCRIPTION,
+    RI.SCOPE,
+    RI.SCOPE_ID,
+    DP.NAME,
+    DP.SUBSCRIPTION_ID,
+    RI.REGION,
+    RI.RESOURCE_INSTANCE_METADATA,
+    RI.CREATED_BY,
+    RI.MODIFIED_BY,
+    RI.CREATED_TIME,
+    RI.MODIFIED_TIME,
+    RI.RESOURCE_LEVEL,
+    RI.CAPABILITY_ID,
+    RI.RESOURCE_TYPE
+    WITH DATA;
+
+CREATE UNIQUE INDEX IF NOT EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_INDEX ON V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES
+    (RESOURCE_INSTANCE_ID,RESOURCE_ID,DP_ID,SUBSCRIPTION_ID);
+
+DROP FUNCTION IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_REFRESH() CASCADE;
+CREATE FUNCTION V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_REFRESH()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES;
+RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_RI_TRIGGER ON V3_RESOURCE_INSTANCES;
+CREATE TRIGGER V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_RI_TRIGGER AFTER
+    INSERT OR UPDATE OR DELETE
+              ON V3_RESOURCE_INSTANCES
+                  FOR EACH STATEMENT
+                  EXECUTE PROCEDURE V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_REFRESH();
+
+DROP TRIGGER IF EXISTS V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_CI_TRIGGER ON V3_CAPABILITY_INSTANCES;
+CREATE TRIGGER V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_CI_TRIGGER
+    AFTER INSERT OR UPDATE OR DELETE
+                    ON V3_CAPABILITY_INSTANCES
+                        FOR EACH STATEMENT
+                        EXECUTE PROCEDURE V3_VIEW_RESOURCE_INSTANCE_WITH_LINKED_CAPABILITIES_REFRESH();
+
+-- Delete all records from v2_accounts_resources_quota that do not have a matching subscription_id in v2_subscriptions
+DELETE FROM v2_accounts_resources_quota arq
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM v2_subscriptions s
+    WHERE s.subscription_id = arq.subscription_id
+);
+
+--First deletes records from v2_accounts_resources_quota with tenant_id = TSC that have a matching
+-- (tsc_account_id, subscription_id, id) in records with tenant_id = TP.
+-- Then, it updates remaining TSC records to set tenant_id to TP and region to global,
+-- effectively merging TSC tenant data into TP.
+
+-- Remove `TSC` tenant records from `v2_accounts_resources_quota` that have a matching `(tsc_account_id, subscription_id, id)` in `TP` tenant records.
+DELETE FROM v2_accounts_resources_quota
+WHERE tenant_id = 'TSC'
+  AND (tsc_account_id, subscription_id, id) IN (
+    SELECT tsc_account_id, subscription_id, id
+    FROM v2_accounts_resources_quota
+    WHERE tenant_id = 'TP'
+);
+
+-- Update remaining `TSC` tenant records to `TP` and set region to `global` to merge data.
+UPDATE v2_accounts_resources_quota
+SET tenant_id = 'TP', region = 'global'
+WHERE tenant_id = 'TSC';
+
+--Updates all records in the v2_resources table, setting tenant_id to TP where it is currently TSC
+UPDATE v2_resources
+SET tenant_id = 'TP'
+WHERE tenant_id = 'TSC';
+
+-- Update HOST_CLOUD_TYPE values in V3_DATA_PLANES table
+UPDATE V3_DATA_PLANES SET HOST_CLOUD_TYPE='k8s' WHERE HOST_CLOUD_TYPE IN ('aws','azure','gcp');
+
+-------------------------------------
+--  For optional-hybrid-connectivity
+-------------------------------------
+-- PCP-13022 : [CP DB] Add required column, data field and function for supporting optional hybrid data planes connection
+ALTER TABLE V3_DATA_PLANES ADD COLUMN IF NOT EXISTS OAUTH2_CREDENTIAL TEXT;
+ALTER TABLE V3_DATA_PLANES ADD COLUMN IF NOT exists CONNECTION_DETAILS JSONB;
+
+--
+-- PCP-15437 : [CP Backend] Update "v3_view_data_plane_capability_instances" view to include connection_details object
+--
+DROP MATERIALIZED VIEW IF EXISTS V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES CASCADE;
+CREATE MATERIALIZED VIEW V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES
+AS
+SELECT
+    DP.SUBSCRIPTION_ID,
+    DP.DP_ID,
+    DP.NAMESPACES,
+    DP.NAME,
+    DP.DESCRIPTION,
+    DP.HOST_CLOUD_TYPE,
+    DP.DP_CONFIG,
+    DP.STATUS,
+    DP.REGISTERED_REGION,
+    DP.RUNNING_REGION,
+    DP.MODIFIED_DATE,
+    DP.TAGS,
+    DP.CONTAINER_REGISTRY_CREDENTIAL,
+    DP.CONNECTION_DETAILS,
+    CI.CAPABILITIES,
+    AA.APPS,
+    RI.RESOURCE_INSTANCE_METADATA
+FROM ((
+    V3_DATA_PLANES DP
+        LEFT JOIN (
+        SELECT DP_ID, json_agg(row_to_json((
+            SELECT ColumnName
+            FROM (SELECT CAPABILITY_INSTANCE_ID, CAPABILITY_INSTANCE_NAME, CAPABILITY_INSTANCE_DESCRIPTION, CAPABILITY_ID, DISPLAY_NAME, CR.CAPABILITY_TYPE, NAMESPACE, CI.VERSION, STATUS, REGION, TAGS, CI.MODIFIED_TIME)
+                     AS ColumnName (CAPABILITY_INSTANCE_ID, CAPABILITY_INSTANCE_NAME, CAPABILITY_INSTANCE_DESCRIPTION, CAPABILITY_ID, CAPABILITY_NAME, CAPABILITY_TYPE, NAMESPACE, VERSION, STATUS, REGION, TAGS, MODIFIED_TIME)
+        ))) CAPABILITIES
+        FROM (V3_CAPABILITY_INSTANCES CI LEFT JOIN V3_CAPABILITY_METADATA CR USING (CAPABILITY_ID, CAPABILITY_TYPE))
+        GROUP BY DP_ID) CI USING (DP_ID)
+        LEFT JOIN (
+        SELECT DP_ID, json_agg(row_to_json((
+            SELECT ColumnName
+            FROM (SELECT APP_ID, APP_NAME, APP_VERSION, CAPABILITY_INSTANCE_ID, CAPABILITY_ID, CAPABILITY_VERSION, STATE, TAGS, A.MODIFIED_TIME)
+                     AS ColumnName (APP_ID, APP_NAME, APP_VERSION, CAPABILITY_INSTANCE_ID, CAPABILITY_ID, CAPABILITY_VERSION, STATE, TAGS, MODIFIED_TIME)
+        ))) APPS
+        FROM V3_APPS A
+        GROUP BY DP_ID) AA USING (DP_ID)
+    ))
+         LEFT JOIN V3_RESOURCE_INSTANCES RI ON RI.SCOPE='DATAPLANE' AND RI.SCOPE_ID=DP.DP_ID AND RI.RESOURCE_ID='SERVICEACCOUNT' AND RESOURCE_LEVEL='INFRA'
+    WITH DATA;
+
+CREATE UNIQUE INDEX VIEW_DATA_PLANE_CAPABILITY_INSTANCE_INDEX ON V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES (DP_ID);
+
+REFRESH MATERIALIZED VIEW V3_VIEW_DATA_PLANE_CAPABILITY_INSTANCES;
+
+--added haproxy for ingress PCP-15700
+UPDATE V3_RESOURCES SET RESOURCE_METADATA = '{"fields":[{"key":"ingressController","enum":["nginx","kong","traefik","openshiftRouter", "haProxy"],"name":"Ingress Controller","dataType":"string","required":true,"fieldType":"dropdown"},{"key":"ingressClassName","name":"Ingress Class Name","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$","dataType":"string","required":true,"maxLength":"63"},{"key":"fqdn","name":"Default FQDN","regex":"^[a-z0-9]([-a-z0-9][a-z0-9])?(\\.[a-z0-9]([-a-z0-9][a-z0-9])?)*$","dataType":"string","required":true,"maxLength":"255"},{"key":"annotations","name":"Annotations","dataType":"array","required":false,"maxLength":"255"}]}'
+WHERE RESOURCE_ID = 'INGRESS' AND RESOURCE_LEVEL = 'PLATFORM';
+
+-- Add GATEWAYAPI PLATFORM resource PCP-15003
+INSERT INTO V3_RESOURCES(RESOURCE_ID, NAME, DESCRIPTION, TYPE, RESOURCE_METADATA, HOST_CLOUD_TYPE, RESOURCE_LEVEL)
+VALUES ('GATEWAYAPI','GatewayAPI Controller','GatewayAPI Controller','GatewayAPI Controller','{"fields":[{"key":"gatewayAPIControllerName","enum":["nginx","GKE"],"name":"Gateway API Controller Name","dataType":"string","required":true,"fieldType":"dropdown"},{"key":"gatewayName","name":"Gateway Name","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$","dataType":"string","required":true,"maxLength":"63"},{"key":"gatewayNamespace","name":"Gateway Namespace","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$","dataType":"string","required":true,"maxLength":"63"},{"key":"gatewayHostOrDomainName","name":"Host/Domain Name","regex":"^[a-z0-9]([-a-z0-9][a-z0-9])?(\\.[a-z0-9]([-a-z0-9][a-z0-9])?)*$","dataType":"string","required":true,"maxLength":"255"},{"key":"gatewaySectionName","name":"Section Name","dataType":"string","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$","required":false,"maxLength":"253"}]}','{"k8s"}','PLATFORM')
+ON CONFLICT DO NOTHING;
+
+--Add istio controller for gateway api PCP-16324
+UPDATE V3_RESOURCES SET RESOURCE_METADATA = '{"fields":[{"key":"gatewayAPIControllerName","enum":["nginx","GKE","Istio"],"name":"Gateway API Controller Name","dataType":"string","required":true,"fieldType":"dropdown"},{"key":"gatewayName","name":"Gateway Name","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$","dataType":"string","required":true,"maxLength":"63"},{"key":"gatewayNamespace","name":"Gateway Namespace","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$","dataType":"string","required":true,"maxLength":"63"},{"key":"gatewayHostOrDomainName","name":"Host/Domain Name","regex":"^[a-z0-9]([-a-z0-9][a-z0-9])?(\\.[a-z0-9]([-a-z0-9][a-z0-9])?)*$","dataType":"string","required":true,"maxLength":"255"},{"key":"gatewaySectionName","name":"Section Name","dataType":"string","regex":"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$","required":false,"maxLength":"253"}]}'
+WHERE RESOURCE_ID = 'GATEWAYAPI' AND RESOURCE_LEVEL = 'PLATFORM';
+
+-- Update database schema at the end (earlier version is 1.14.0 i.e. 17)
+UPDATE schema_version SET version = 18;

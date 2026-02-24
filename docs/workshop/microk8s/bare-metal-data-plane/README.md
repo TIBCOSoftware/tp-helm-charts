@@ -16,6 +16,7 @@ This workshop guides you through setting up a single-cluster Kubernetes cluster 
 - Ingress Controller ([install steps](#install-ingress-controller))
    - Traefik (default ingress controller)
    - Nginx
+   - OpenShift Routes (for OpenShift/OKD clusters)
    - Used for inbound OpenTelemetry data and TEA agent leader election
 - Host Storage Class
    - Persistence for HawkConsole
@@ -35,6 +36,7 @@ This **`readme`** covers the prerequisites to get you started with a single-clus
 3. [Install Ingress Controller](#install-ingress-controller)
    - [Install Traefik Ingress Controller (default)](#install-traefik-ingress-controller)
    - [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
+   - [OpenShift Routes (for OpenShift/OKD)](#openshift-routes-for-opensiftoktd)
 4. [Install Prometheus for Metrics](#install-prometheus-for-metrics)
 5. [Install ElasticSearch for Traces](#install-elasticsearch-for-traces)
 6. [Create ElasticSearch Index Template for Traces](#create-elasticsearch-index-template-for-traces)
@@ -136,11 +138,14 @@ The incoming requests include:
 - OpenTelemtry data like traces and metrics from BW5 applications
 - TEA Agent leader election notification for BW6 applications
 
-In the current release, Control Tower Data Plane supports Traefik (default) and Nginx ingress controllers.
+In the current release, Control Tower Data Plane supports Traefik (default), Nginx ingress controllers, and OpenShift Routes (for OpenShift/OKD clusters).
 
 > [!IMPORTANT]
 >
-> Choose exactly one ingress controller for your setup. Traefik is recommended as the default for this workshop.
+> Choose exactly one ingress option for your setup:
+> - **Traefik** - Recommended as the default for vanilla Kubernetes
+> - **Nginx** - Alternative for vanilla Kubernetes
+> - **OpenShift Routes** - For OpenShift or OKD clusters (uses native Route resources)
 
 ### Install Traefik Ingress Controller
 
@@ -230,6 +235,26 @@ In current release, Control Tower Data Plane supports the Nginx Ingress Controll
 
 ---
 
+### OpenShift Routes (for OpenShift/OKD)
+
+If you are running on an OpenShift or OKD cluster, you can use native OpenShift Routes instead of standard Kubernetes Ingress resources. OpenShift Routes provide built-in HAProxy-based routing without requiring additional ingress controller installation.
+
+> [!NOTE]
+>
+> - OpenShift Routes are **only available on OpenShift/OKD clusters** and use the `route.openshift.io/v1` API
+> - The OpenShift Router (HAProxy-based) is installed by default in OpenShift clusters
+> - Routes provide native integration with OpenShift's routing layer
+> - For detailed configuration, troubleshooting, and TLS options, refer to [OPENSHIFT-ROUTES-README.md](./OPENSHIFT-ROUTES-README.md)
+
+> [!IMPORTANT]
+>
+> When using OpenShift Routes:
+> - The route files are referenced in the [Install Prometheus for Metrics](#install-prometheus-for-metrics) and [Install ElasticSearch for Traces](#install-elasticsearch-for-traces) sections
+> - Follow the same pattern as NGINX and Traefik by selecting the OpenShift route file when applying ingress manifests
+> - Ensure the `host` placeholder `%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%` is updated in the route files before applying
+
+---
+
 ## Install Prometheus for Metrics
 
 > [!NOTE]
@@ -292,6 +317,7 @@ Alternatively, you can also install Prometheus on another machine that allows yo
    - Install an Ingress Controller for exposing the metrics query service of the target Control Tower Data Plane
      - For Nginx, use [prometheus_ingress.yaml](./prometheus_ingress.yaml)
      - For Traefik, use [prometheus_ingress_traefik.yaml](./prometheus_ingress_traefik.yaml)
+     - For OpenShift, use [prometheus_ingress_openshift.yaml](./prometheus_ingress_openshift.yaml)
      - Ensure `ingressClassName`, `namespace` and `host` placeholders are updated accordingly
         - The ingress for Prometheus allows other Control Tower Data Planes running outside the cluster to query
         - This may create a public endpoint with no authentication required, depending on your ingress controller and machine network configuration
@@ -300,6 +326,7 @@ Alternatively, you can also install Prometheus on another machine that allows yo
         # Choose one manifest matching your ingress controller
         PROM_INGRESS_FILE=prometheus_ingress.yaml               # Nginx
         # PROM_INGRESS_FILE=prometheus_ingress_traefik.yaml     # Traefik
+        # PROM_INGRESS_FILE=prometheus_ingress_openshift.yaml   # OpenShift
         kubectl apply -f ${PROM_INGRESS_FILE}
         ```
 
@@ -369,12 +396,14 @@ If you do not have an existing ElasticSearch server server already installed in 
    - Apply the appropriate ingress manifest to ensure the `ingressClassName`, `namespace` and `host` are set properly
       - For Nginx, use [elasticsearch_ingress.yaml](./elasticsearch_ingress.yaml)
       - For Traefik, use [elasticsearch_ingress_traefik.yaml](./elasticsearch_ingress_traefik.yaml)
+      - For OpenShift, use [elasticsearch_ingress_openshift.yaml](./elasticsearch_ingress_openshift.yaml)
       - The ingress for ElasticSearch allows other Control Tower Data Planes running outside the cluster to query
 
       ```bash
       # Choose one manifest matching your ingress controller
       ES_INGRESS_FILE=elasticsearch_ingress.yaml                 # Nginx
       # ES_INGRESS_FILE=elasticsearch_ingress_traefik.yaml       # Traefik
+      # ES_INGRESS_FILE=elasticsearch_ingress_openshift.yaml     # OpenShift
       kubectl apply -f ${ES_INGRESS_FILE}
       ```
    
