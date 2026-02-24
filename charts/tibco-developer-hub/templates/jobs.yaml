@@ -1,3 +1,7 @@
+# Copyright © 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -59,7 +63,11 @@ spec:
             - -p
             - {{ .Values.ingress.pathPrefix }}
             - -d
+            {{- if .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}
+            - "https://{{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}"
+            {{- else }}
             - "https://{{ .Values.global.cp.resources.ingress.fqdn }}"
+            {{- end }}
             - -c
             - /api/auth/tibco-control-plane/handler/frame
             - -l

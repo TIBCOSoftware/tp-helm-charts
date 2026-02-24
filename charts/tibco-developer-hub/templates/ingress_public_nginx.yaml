@@ -1,8 +1,9 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
 {{ if eq .Values.global.cp.resources.ingress.ingressController "nginx" -}}
+{{- $fullName := include "tibcohub.fullname" . -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -24,7 +25,7 @@ spec:
         paths:
           - backend:
               service:
-                name: {{ include "tibcohub.fullname" . }}
+                name: {{ $fullName }}
                 port:
                   number: {{ .Values.service.ports.backend }}
             path: {{ .Values.ingress.pathPrefix }}/(.*)
