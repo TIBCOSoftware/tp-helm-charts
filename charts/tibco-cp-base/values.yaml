@@ -6,6 +6,7 @@
 # global values used by the chart. These values gets propagated to all sub-charts.
 global:
   tibco:
+    adminHostPrefix: "admin"
     is_replica_region: false
     finops: "disable"
     serviceAccount: ""
@@ -27,6 +28,10 @@ global:
     # Flag to enable or disable creating default network policies for a namespace
     # Default value is false. Possible values are true, false
     createNetworkPolicy: false
+
+    # Enable or disable hybrid connectivity
+    hybridConnectivity:
+      enabled: true
     networkPolicy:
       # Create deprecated network policies
       createDeprecatedPolicies: true
@@ -101,7 +106,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -207,10 +212,10 @@ tp-cp-configuration:
 tp-cp-infra:
   enabled: true
   dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.14.2"
-    dpCoreInfrastructureAppVersion: "1.14.0"
-    dpConfigureNamespaceChartVersion: "1.14.1"
-    dpConfigureNamespaceAppVersion: "1.14.0"
+    dpCoreInfrastructureChartVersion: "1.15.8"
+    dpCoreInfrastructureAppVersion: "1.15.0"
+    dpConfigureNamespaceChartVersion: "1.15.4"
+    dpConfigureNamespaceAppVersion: "1.15.0"
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
@@ -251,6 +256,33 @@ hybrid-proxy:
     limits:
       cpu: 500m  # Maximum CPU allowed
       memory: 1024Mi  # Maximum memory allowed
+  # Ingress configuration (traditional Ingress)
+  # ingress:
+  #   enabled: false
+  #   annotations: {}
+  #   ingressClassName: nginx
+  #   hosts:
+  #     - host: hybrid-proxy.example.com
+  #       paths:
+  #         - path: /
+  #           pathType: Prefix
+  #           port: 105
+  #   tls:
+  #     - secretName: hybrid-proxy-tls
+  #       hosts:
+  #         - hybrid-proxy.example.com
+  # Gateway API HTTPRoute configuration (gateway.networking.k8s.io/v1)
+  # Enable this to use Gateway API instead of traditional Ingress
+  # Requires Gateway API CRDs: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
+  # gatewayRoute:
+  #   enabled: true
+  #   parentRefs:
+  #     - name: gateway
+  #       namespace: cp1-ns
+  #   hostnames:
+  #     - "*.cp1-tunnel.localhost.dataplanes.pro"
+  #   annotations:
+  #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-tunnel.localhost.dataplanes.pro"
 
 router-operator:
   # switch to false to disable router-operator
@@ -275,6 +307,33 @@ router-operator:
     limits:
       cpu: 500m  # Maximum CPU allowed
       memory: 1024Mi  # Maximum memory allowed
+  # Ingress configuration (traditional Ingress)
+  # ingress:
+  #   enabled: false
+  #   annotations: {}
+  #   ingressClassName: nginx
+  #   hosts:
+  #     - host: router.example.com
+  #       paths:
+  #         - path: /
+  #           pathType: Prefix
+  #           port: 100
+  #   tls:
+  #     - secretName: router-tls
+  #       hosts:
+  #         - router.example.com
+  # Gateway API HTTPRoute configuration (gateway.networking.k8s.io/v1)
+  # Enable this to use Gateway API instead of traditional Ingress
+  # Requires Gateway API CRDs: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
+  # gatewayRoute:
+  #   enabled: true
+  #   parentRefs:
+  #     - name: gateway
+  #       namespace: cp1-ns
+  #   hostnames:
+  #     - "*.cp1-my.localhost.dataplanes.pro"
+  #   annotations:
+  #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-my.localhost.dataplanes.pro"
 
 resource-set-operator:
   # switch to false to disable resource-set-operator
@@ -305,4 +364,7 @@ otel-collector:
       memory: 1024Mi  # Maximum memory allowed
 
 tp-cp-integration-common:
+  enabled: true
+
+tp-dp-proxy:
   enabled: true

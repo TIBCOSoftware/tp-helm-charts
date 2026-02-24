@@ -21,4 +21,4 @@ spec:
       proxies:
         - listener: virtual
           config: insecure
-          fqdn: admin.{{ include "tp-cp-configuration.dns-domain" . }}
+          fqdn:  {{ .Values.global.tibco.adminHostPrefix | default "admin" }}.{{ include "tp-cp-configuration.dns-domain" . }}

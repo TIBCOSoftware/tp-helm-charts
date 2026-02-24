@@ -93,7 +93,7 @@ spec:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
                 key: TP_CP_IDM_HOST
       - name: check-sql-schema-version
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
@@ -130,7 +130,7 @@ spec:
       {{ end }}
       containers:
       - name: cpcronjobservice
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cronjobs }}:{{ include "cronjobs.generated.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cronjobs:{{ include "cronjobs.generated.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
@@ -300,6 +300,10 @@ spec:
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutdb
         - name: POSTGRES_UTD_DATABASE_USERNAME
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
+        - name: IS_SELF_HOSTED_DEPLOYMENT
+          value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
+        - name: ENABLE_HYBRID_CONNECTIVITY
+          value: {{ include "tp-cp-cronjobs.consts.enableHybridConnectivity" . | quote }}
         volumeMounts:
           - name: cp-core-config
             mountPath: /tmp/private/tsc/config

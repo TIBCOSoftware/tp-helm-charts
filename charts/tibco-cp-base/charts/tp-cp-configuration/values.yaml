@@ -45,7 +45,7 @@ router:
 fluentbit:
   image:
     name: "common-fluentbit"
-    tag: 4.1.0
+    tag: 4.2.2
     pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -78,8 +78,8 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for cp proxy, default is latest
-    version: "1.14.0"
-    tag: "291"
+    version: "1.15.5"
+    tag: "300"
     # Timestamp of capability release
     releaseDate: "2025/10/09"
     # Either a link to document or the document itself specifying _what was fixed in this release.
@@ -95,8 +95,8 @@ capabilities:
     releaseNotes: "Enhancements, Bug fixes, etc."
     # helm chart and image version for artifact manager, default helm chart version is latest
     artifactmanager:
-      version: "1.14.0"
-      tag: "145"
+      version: "1.15.2"
+      tag: "147"
   licensefile:
     version: "1.13.0"
     tag: "1"    
@@ -111,7 +111,7 @@ capabilities:
 # tp-cp-recipes image
 image:
   name: common-distroless-base-debian-debug
-  tag: 12.12
+  tag: 12.13
   pullPolicy: IfNotPresent
 
 # Resources

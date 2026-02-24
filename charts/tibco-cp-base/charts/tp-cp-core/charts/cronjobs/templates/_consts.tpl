@@ -12,6 +12,10 @@
 
 {{- define "tp-cp-cronjobs.consts.namespace" }}{{ .Release.Namespace }}{{ end -}}
 
+{{- define "tp-cp-cronjobs.consts.enableHybridConnectivity" }}
+  {{- .Values.global.tibco.hybridConnectivity.enabled -}}
+{{- end }}
+
 {{- define "tp-control-plane-env-configmap" }}tp-cp-core-env{{ end -}}
 {{- define "tp-control-plane-dnsdomain-configmap" }}tp-cp-core-dnsdomains{{ end -}}
 
@@ -64,7 +68,7 @@
 {{- define "tp-cp-cronjobs.consts.tscSchedulerPort" }}9601{{ end -}}
 {{- define "tp-cp-cronjobs.consts.tscSchedulerMonitorPort" }}9602{{ end -}}
 
-{{- define "tp-cp-cronjobs.consts.tscSchedulerTroposphereLogLevel" }}debug{{ end -}}
+{{- define "tp-cp-cronjobs.consts.tscSchedulerTroposphereLogLevel" }}info{{ end -}}
 {{- define "tp-cp-cronjobs.consts.maxRetryCountForResetClient" }}3{{ end -}}
 {{- define "tp-cp-cronjobs.consts.timeToScheduleJobsAt" }}0 00 04 * * *{{ end -}}
 {{- define "tp-cp-cronjobs.consts.tscConfigurationLocationScheduler" }}file:///tmp/private/tsc/config/tp-cp-cronjobs/cpcronjobsapi.json{{ end -}}

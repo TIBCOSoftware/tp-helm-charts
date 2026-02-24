@@ -12,7 +12,7 @@ spec:
   serviceNamespace: {{ include "tp-cp-prometheus.consts.namespace" . }}
   env:
   - name: CP_DNS_DOMAIN
-    value: admin.{{ include "tp-cp-prometheus.dns-domain" . }}
+    value: {{ .Values.global.tibco.adminHostPrefix | default "admin" }}.{{ include "tp-cp-prometheus.dns-domain" . }}
   endpoints:
   - path: /admin/hawk-console
     protocol: http
