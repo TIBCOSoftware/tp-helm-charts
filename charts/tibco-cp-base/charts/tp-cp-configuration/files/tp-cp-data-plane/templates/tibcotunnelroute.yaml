@@ -23,3 +23,24 @@ spec:
     configVariables:
       ACCESS_KEY_HASH: "{{ .Values.accessKeyHash}}"
       DATA_PLANE_ID: "{{ .Values.dataPlaneId }}"
+
+---
+
+apiVersion: cloud.tibco.com/v1
+kind: TibcoTunnelRoute
+metadata:
+  name: {{ include "tp-cp-data-plane.consts.appName" .}}-infra-tunnel-route
+  namespace: {{ include "tp-cp-data-plane.consts.namespace" .}}
+  labels:
+    {{- include "tp-cp-data-plane.shared.labels.standard" . | nindent 4}}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "tp-cp-data-plane.consts.subscriptionAppName" .}}
+    platform.tibco.com/subscriptionId: {{ .Values.subscriptionId | quote }}
+  endpoint:
+    path: {{ if .Values.pathPrefix }}{{ .Values.pathPrefix }}{{ end }}{{ if hasPrefix "/" (tpl .Values.path .) }}{{else}}/{{end}}{{ tpl .Values.path . }}
+    fqdn: {{ .Values.fqdn }}
+    config: accesskey
+    configVariables:
+      ACCESS_KEY_HASH: "{{ .Values.accessKeyHash}}"
+      DATA_PLANE_ID: "{{ .Values.dataPlaneId }}"

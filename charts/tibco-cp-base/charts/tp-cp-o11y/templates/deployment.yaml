@@ -71,6 +71,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: CP_DP_PROXY_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: TP_DP_PROXY_HOST
+                  name: tp-cp-core-dnsdomains
+            - name: CP_DP_PROXY_PORT
+              value: "80"
             - name: AUDITTRAIL_ENABLED
               value: {{ .Values.audittrail.enabled | quote }}
           livenessProbe:

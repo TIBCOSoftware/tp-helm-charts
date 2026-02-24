@@ -127,6 +127,13 @@ spec:
             configMapKeyRef:
               name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
               key: TP_CP_MONITORING_SERVICE_HOST
+        - name: DP_PROXY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "monitoring-service.tp-env-configmap" . }}
+              key: TP_DP_PROXY_HOST
+        - name: DP_PROXY_PORT
+          value: "80"
         - name: CP_ORCHESTRATOR_HOST
           valueFrom:
             configMapKeyRef:

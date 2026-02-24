@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-
+{{- if .Values.global.tibco.hybridConnectivity.enabled }}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -99,4 +99,5 @@ data:
       end
       return 1, timestamp, record
     end
+{{- end -}}
 {{- end -}}

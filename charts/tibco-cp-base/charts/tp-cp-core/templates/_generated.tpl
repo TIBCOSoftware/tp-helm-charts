@@ -5,4 +5,4 @@
 */}}
 
 {{/* CP Core scripts build nnumber */}}
-{{- define "cp-core-scripts.buildNumber" }}9011{{end -}}
+{{- define "cp-core-scripts.buildNumber" }}9153{{end -}}

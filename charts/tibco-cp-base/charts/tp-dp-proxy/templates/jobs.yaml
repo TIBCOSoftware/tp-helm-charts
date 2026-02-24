@@ -1,0 +1,74 @@
+#
+# Copyright © 2026 Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tp-dp-proxy.consts.appName" . }}-rollout-restart-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-proxy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      name: {{ include "tp-dp-proxy.consts.appName" . }}-rollout-restart
+      labels:
+        {{- include "tp-dp-proxy.labels" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: {{ include "tp-dp-proxy.container-registry.secret" . }}
+      containers:
+      - name: rollout-restart
+        image: {{ include "tp-dp-proxy.image.registry" .}}{{"/"}}{{ include "tp-dp-proxy.image.repository" .}}{{"/"}}{{ .Values.cpScriptsImage.name }}:{{ .Values.cpScriptsImage.tag }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            NS="{{ .Release.Namespace }}"
+            DEP="tp-identity-management"
+            
+            # Step 1: Wait for Helm to apply all resources
+            echo "Waiting 30s for Helm resources to settle..."
+            sleep 30
+            
+            # Step 2: Wait for IDM rollout to complete (30 min timeout)
+            echo "Waiting for ${DEP} rollout to complete..."
+            kubectl rollout status deploy/${DEP} -n ${NS} --timeout=1800s
+            
+            # Step 3: Verify all pods have the same image tag (container name is 'idm')
+            echo "Verifying all ${DEP} pods have correct image..."
+            EXPECTED_IMG=$(kubectl get deploy ${DEP} -n ${NS} -o jsonpath='{.spec.template.spec.containers[?(@.name=="idm")].image}')
+            DESIRED=$(kubectl get deploy ${DEP} -n ${NS} -o jsonpath='{.spec.replicas}')
+            MATCHED=$(kubectl get pods -n ${NS} -l app.kubernetes.io/name=${DEP} --field-selector=status.phase=Running \
+              -o jsonpath='{.items[*].spec.containers[?(@.name=="idm")].image}' | tr ' ' '\n' | grep -c "${EXPECTED_IMG}" || echo "0")
+            
+            if [ "${DESIRED}" != "${MATCHED}" ]; then
+              echo "ERROR: Image mismatch - expected ${DESIRED} pods with ${EXPECTED_IMG}, found ${MATCHED}"
+              exit 1
+            fi
+            echo "All ${MATCHED}/${DESIRED} pods have correct image"
+            
+            # Step 4: Restart dp-proxy
+            echo "Restarting tp-dp-proxy..."
+            kubectl rollout restart deploy/{{ include "tp-dp-proxy.consts.appName" . }} -n ${NS}

@@ -109,7 +109,7 @@ spec:
                   key: TP_CP_PERMISSIONS_ENGINE_HOST
                   name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
         - name: check-sql-schema-version
-          image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+          image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
           {{- if .Values.global.containerSecurityContext }}
           securityContext:
             {{- toYaml .Values.global.containerSecurityContext | nindent 12 }}
@@ -154,7 +154,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.userSubscriptions }}:{{ include "user-subscriptions.generated.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-user-subscriptions:{{ include "user-subscriptions.generated.buildNumber" . }}'
         resources:
           requests:
             cpu: {{ .Values.cpusersubservice.resources.requests.cpu }}
@@ -210,7 +210,7 @@ spec:
         - name: TSC_USER_TEAM_DIR_TEST_AUTOMATION_HTTP_PORT
           value: {{ include "tp-cp-user-subscriptions.consts.automation.http.port" . | quote }}
         - name: TSC_USER_TEAM_DIR_TROPOSPHERE_LOG_LEVEL
-          value: debug
+          value: info
         - name: TABLE_NAME_PREFIX
           value: V2_
         - name: PGHOST
@@ -315,7 +315,9 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
-              key: TP_CP_ORCH_HOST          
+              key: TP_CP_ORCH_HOST
+        - name: IS_SELF_HOSTED_DEPLOYMENT
+          value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         volumeMounts:
         - name: cp-core-config
           mountPath: /tmp/private/tsc/config

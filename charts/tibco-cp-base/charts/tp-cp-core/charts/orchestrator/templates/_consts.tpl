@@ -54,6 +54,10 @@
 
 {{- define "tp-cp-orchestrator.consts.cp.db.configuration" }}provider-cp-database-config{{ end -}}
 
+{{- define "tp-cp-orchestrator.consts.enableHybridConnectivity" }}
+  {{- .Values.global.tibco.hybridConnectivity.enabled -}}
+{{- end }}
+
 {{- define "cp-core-configuration.isSingleNamespace" }}
   {{- .Values.global.tibco.useSingleNamespace | quote -}}
 {{- end }}
