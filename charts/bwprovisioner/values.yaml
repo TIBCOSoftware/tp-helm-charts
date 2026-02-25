@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -12,6 +12,9 @@ global:
     instanceId: defaultinstid
     cpCertificateSecret: ""
     cpHostname: "acme.local.my.cic2.pro"
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
     containerRegistry:
       secret: ""
       url: ""
@@ -23,10 +26,16 @@ global:
         namespace: ""
         serviceAccountName: ""
       ingress:
-        fqdn: foo.com
-        ingressClassName: nginx
-        ingressController: nginx
+        fqdn: ""
+        ingressClassName: ""
+        ingressController: ""
         annotations: {}
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
       activationServer:
         url: ""
     secrets:
@@ -56,7 +65,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 4.1.0
+          tag: 4.2.2
         resources:
           requests:
             cpu: 10m
@@ -255,12 +264,20 @@ autoDiscovery:
     APP_ID_PREFIX: "bwce"
 
 publicApi:
-  ingress:
-    controllerName: nginx
-    config:
-      className: nginx
-      pathPrefix: /tibco/bw
-      fqdn: ""
+  config:
+    pathPrefix: /tibco/bw
+  gke:
+    healthCheckPolicy:
+      default:
+        checkIntervalSec: 20
+        timeoutSec: 10
+        healthyThreshold: 1
+        unhealthyThreshold: 3
+        config:
+          type: HTTP
+          httpHealthCheck:
+            port: 7814
+            requestPath: /v1/readiness
 
 infraCPProxy:
   resources:

@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -12,15 +12,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.13.0",
-      "minCPVersion": "1.13.0",
+      "capabilityVersion": "1.15.0",
+      "minCPVersion": "1.15.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwadapter.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwadapter.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.7.0",
-        "dp-configure-namespace": "1.7.0"
+        "dp-core-infrastructure": "1.15.0",
+        "dp-configure-namespace": "1.15.0"
       }
     }
   package.json: |
@@ -53,7 +53,7 @@ data:
       helmCharts:
         - name: dp-bw-adapter
           namespace: ${NAMESPACE}
-          version: "1.13.3"
+          version: "1.15.4"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -62,7 +62,7 @@ data:
                 global:
                   bwadapter:
                     image:
-                      tag: 57
+                      tag: 69
           flags:
             install: true
             createNamespace: false
@@ -115,7 +115,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.13.0"
+          value: "1.15.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

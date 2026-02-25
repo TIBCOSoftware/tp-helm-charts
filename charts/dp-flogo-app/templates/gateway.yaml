@@ -1,0 +1,118 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.gateway.enabled -}}
+{{- $dot := . }}
+{{- range $rule := .Values.gateway.rules -}}
+{{- range $path := $rule.paths }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+  labels:
+    {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
+    platform.tibco.com/service-discoverable: {{ $path.serviceDiscoverable | quote }}
+  annotations:
+    platform.tibco.com/controller-name: {{ $.Values.gateway.controllerName | quote }}
+    platform.tibco.com/resource-instance-name: {{ $.Values.gateway.resourceInstanceName | quote }}
+    {{- if $path.serviceDiscoverable }}
+    platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
+    {{- end }}
+    {{- with $.Values.gateway.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  parentRefs:
+  - name: {{ $.Values.gateway.name }}
+    {{- if $.Values.gateway.namespace }}
+    namespace: {{ $.Values.gateway.namespace }}
+    {{- end }}
+    {{- if $.Values.gateway.sectionName }}
+    sectionName: {{ $.Values.gateway.sectionName }}
+    {{- end }}
+  hostnames:
+  - {{ $rule.host | quote }}
+  rules:
+  - matches:
+    - path:
+        type: {{ $path.pathType }}
+        value: {{ $path.path }}
+    filters:
+    {{- if $path.filters }}
+    {{- toYaml $path.filters | nindent 4 }}
+    {{- else }}
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Forwarded-Prefix
+          value: {{ $path.path }}
+        - name: X-Forwarded-Host
+          value: {{ $rule.host | quote }}
+    {{- end }}
+    backendRefs:
+    - name: {{ include "dp-flogo-app.fullname" $dot }}
+      port: {{ $path.port }}
+
+{{- if eq $.Values.gateway.controllerName "nginx" }}
+---
+apiVersion: gateway.nginx.org/v1alpha2
+kind: ObservabilityPolicy
+metadata:
+  labels:
+    {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
+  name: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: {{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}
+  {{- if $path.customCRDConfig }}
+  {{- toYaml $path.customCRDConfig | nindent 2 }}
+  {{- else }}
+  tracing:
+    strategy: ratio
+    ratio: 100
+    context: propagate
+  {{- end }}
+{{- end }}
+
+{{- end }}
+{{- end }}
+
+{{- if eq $.Values.gateway.controllerName "GKE" }}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  labels:
+    {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
+  name: {{ include "dp-flogo-app.fullname" $dot }}
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ include "dp-flogo-app.fullname" $dot }}
+  {{- if $.Values.service.customhealthCheckPolicy }}
+  {{- toYaml $.Values.service.customhealthCheckPolicy | nindent 2 }}
+  {{- else }}
+  default:
+    checkIntervalSec: 20
+    timeoutSec: 10
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 7777
+        requestPath: /ping
+  {{- end }}
+{{- end }}
+
+{{- end }}

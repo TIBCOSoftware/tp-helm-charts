@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -50,9 +50,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-bwce-app-init"
-  appInitImageTag: "52"
+  appInitImageTag: "62"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "4.1.0"
+  fluentBitImageTag: "4.2.2"
   bw5ceBaseImageName: "tp-bw5ce-base"
 
 imagePullSecrets: []
@@ -199,6 +199,8 @@ service:
   annotations: {}
   labels: {}
   allocateLoadBalancerNodePorts: false
+  # for GKE gateway loadbalancer health check policy
+  customhealthCheckPolicy: {}
 
   # Example config for making TCP endpoint public over AWS NLB
   # type: LoadBalancer
@@ -218,6 +220,7 @@ ingress:
   enabled: false
   className: ""
   controllerName: ""
+  resourceInstanceName: ""
   annotations: {}
     # kubernetes.io/tls-acme: "true"
   rules:
@@ -234,6 +237,25 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+gateway:
+  enabled: false
+  name: ""
+  namespace: ""
+  sectionName: ""
+  controllerName: ""
+  resourceInstanceName: ""
+  annotations: {}
+  rules:
+    - host: example.com
+      paths:
+        - path: /
+          pathType: PathPrefix
+          port: 8081
+          serviceDiscoverable: true
+          serviceDescription: ""
+          filters: []
+          customCRDConfig: {}
+
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -245,6 +267,7 @@ autoscaling:
 
 # enable or disable the resources volume mounts. these are required for readOnlyRootFilesystem security context, default is true
 enableResourcesVolumes: true
+enableTmpVolume: true
 
 # Additional volumes on the output Deployment definition.
 volumes: []
