@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2025. Cloud Software Group, Inc.
+Copyright © 2023-2026. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -150,30 +150,6 @@ Form a URL using Control Plane hostname
 {{- end -}}
 {{- print $url -}}
 {{- end }}
-{{- end -}}
-
-Form a URL using TIBCO HUB hostname
-*/}}
-{{- define "tibcohub.host.url" -}}
-{{- $ctx := .context | default . -}}
-{{- if ($ctx.Values.global.cp.resources.ingress).fqdn }}
-{{- $url := $ctx.Values.global.cp.resources.ingress.fqdn | trimSuffix "/" -}}
-{{- if not (regexMatch "^http[s]://" $url) -}}
-    {{- $url = print "https://" $url -}}
-{{- end -}}
-{{- if .path -}}
-    {{- $url = print $url "/" (.path | trimPrefix "/") -}}
-{{- end -}}
-{{- print $url -}}
-{{- end }}
-{{- end -}}
-
-{{- define "tibcohub.ingress.annotations" -}}
-nginx.ingress.kubernetes.io/auth-response-headers: >-
-    X-Auth-Request-User,X-Auth-Request-Email,X-Forwarded-Access-Token,X-Auth-Request-Access-Token,X-Atmosphere-Token
-nginx.ingress.kubernetes.io/auth-signin: {{ include "tibcohub.host.url" (dict "path" "tibco/hub/oauth2/start?rd=$escaped_request_uri" "context" $) }}
-nginx.ingress.kubernetes.io/auth-url: {{ include "tibcohub.host.url" (dict "path" "tibco/hub/oauth2/auth" "context" $) }}
-nginx.ingress.kubernetes.io/proxy-buffer-size: 16k  
 {{- end -}}
 
 {{- define "postgresql.imagePullSecrets" -}}
