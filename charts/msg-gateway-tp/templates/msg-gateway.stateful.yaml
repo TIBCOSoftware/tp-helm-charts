@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -69,11 +69,12 @@ spec:
               command: ['/compliance/check_eua', 'bash', '-c' ]
               args:
               - >
+                [ -n "$TMPDIR" ] && mkdir -p "$TMPDIR" && chmod 1777 "$TMPDIR" ;
                 COPY_FROM=/boot COPY_TO=/logs/boot bash < /boot/copy-boot-config.sh ;
                 COPY_FROM=/boot COPY_TO=/data/boot bash < /boot/copy-boot-config.sh ;
                 COPY_FROM=/boot-certs COPY_TO=/data/certs bash < /boot/copy-boot-config.sh ;
                 COPY_FROM=/opt/tibco/ems/current-version/samples/certs COPY_TO=/data/certs/samples  bash < /boot/copy-boot-config.sh ;
-                /logs/boot/ems-registration.sh mainK8RegisterEms preload | tee /logs/init-registration.log || true ;
+                /app/ems-registration k8sregister -preload | tee /logs/init-registration.log || true ;
                 exec /usr/local/watchdog/bin/watchdog  ; 
               ports:
               - name: ops-shell
@@ -82,9 +83,6 @@ spec:
                 protocol: TCP
               - name: restd-port
                 containerPort: {{ int $params.msggw.ports.restdPort | default 9014 }}
-                protocol: TCP
-              - name: rvmon-port
-                containerPort: {{ int $params.msggw.ports.rvmon | default 7585 }}
                 protocol: TCP
               - name: watchdog-port
                 containerPort: {{ int $params.msggw.ports.watchdogPort }}
@@ -118,6 +116,8 @@ spec:
                 {{ include "msg.pv.vol.mount" $params.msggw.data | nindent 16 }}
               - mountPath: /podinfo
                 name: podinfo
+              - mountPath: /tmp
+                name: tmp-vol
               terminationMessagePath: /dev/termination-log
               terminationMessagePolicy: File
               envFrom:
@@ -130,13 +130,20 @@ spec:
                 value: "force"
               - name: COMMAND
                 value: /logs/boot/ops-msg-gateway-shell.sh
+              - name: EMS_CERT_DIR
+                value: "/data/certs"
               - name: EMS_RESTD_DIR
                 value: "/logs/restd-api"
               - name: EMS_RESTD_URL
                 value: "http://localhost:{{ $params.msggw.ports.restdPort | default 9014 }}"
               - name: MY_DATAPLANE
                 value: "{{ $params.dp.name }}"
+              - name: MSG_DP_TYPE
+                value: "k8s"
+              - name: LOG_LEVEL
+                value: "{{ $params.msggw.logLevel | default "info" }}"
               - name: IS_BMDP
+                # IS_BMDP is deprecated, use MSG_DP_TYPE
                 value: "n"
               - name: DP_USE_HAWK
                 value: "no"
@@ -144,12 +151,16 @@ spec:
                 value: "{{ $params.dp.hostCloudType }}"
               - name: DP_SUPPORT_SHELL_ENABLED
                 value: {{ $params.msggw.supportShellEnabled | default "no" | quote }}
+              - name: CLI_ROUTE_PATH
+                value: "/tibco/agent/msg/$(MY_DATAPLANE)/ops/cli/toolset"
+              - name: CLOUDSHELL_CTL
+                value: "/logs/boot"
               - name: MY_SVC_NAME
                 value: "{{ $stsname }}"
               - name: MY_SVC_HOST
                 value: "$(MY_POD_NAME).{{ $stsname }}.{{ .Release.Namespace }}.svc"
               - name: ALLOWED_HOSTNAMES
-                value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}"
+                value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ include "msg.dp.dpUrl.host" . }},dp-$(MY_DATAPLANE).platform.local,{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}"
               - name: ACCEPT_EUA
                 value: "y"
               - name: EMS_REG_DEBUG
@@ -169,6 +180,9 @@ spec:
             volumes:
             {{ include "msg.pv.vol.def" $params.msggw.boot | nindent 12 }}
             {{ include "msg.pv.vol.def" $params.msggw.data | nindent 12 }}
+            - name: tmp-vol
+              emptyDir:
+                sizeLimit: "2Gi"
             # NOTE: $params.msggw.logs uses hawk shared PVC
             - name: podinfo
               downwardAPI:

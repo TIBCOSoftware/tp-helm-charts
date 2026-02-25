@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -25,6 +25,11 @@ cat - <<EOF > $outfile
     Match   ems.logs
     Script  transform_ems_to_otel.lua
     Call    transform_ems_to_otel
+
+[OUTPUT]
+    Name stdout
+    Match ems.logs
+    format json_lines
 
 [OUTPUT]
     Name                 opentelemetry

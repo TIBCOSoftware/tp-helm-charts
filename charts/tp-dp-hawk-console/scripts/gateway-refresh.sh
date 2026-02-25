@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -16,6 +16,8 @@ $cmd -- Periodically refresh JWKS from CP
 fmtTime="--rfc-3339=ns"
 jwksFile="${JWKS_FILE:-/logs/jwks/jwks.json}"
 freqJwks="${JWKS_REFRESH_INTERVAL:-3600}"
+LOG_CLEANUP_DAYS="${LOG_CLEANUP_DAYS:-7}"
+freqLogCleanup="${LOG_CLEANUP_INTERVAL:-86400}"
 freqTibemsrestdWatch=1
 freqK8EmsWatch=30
 export iter=0
@@ -206,6 +208,11 @@ do
         echo >&2 "#+: Refreshing JWKS from CP"
         jwks="$(getJWKS)"
         saveJWKS "$jwks"
+    fi
+
+    if [ 0 -eq $(( $iter % $freqLogCleanup )) ] ; then
+        echo >&2 "#+: Removing stale log rotations older than $LOG_CLEANUP_DAYS days"
+        find /logs -type f -name '*.log.*' -mtime +$LOG_CLEANUP_DAYS -delete
     fi
 
     if [ "$IS_BMDP" != "y" ] ; then

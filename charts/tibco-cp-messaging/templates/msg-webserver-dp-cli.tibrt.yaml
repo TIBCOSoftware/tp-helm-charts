@@ -1,3 +1,4 @@
+
 #
 # Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
@@ -7,16 +8,16 @@
 apiVersion: cloud.tibco.com/v1
 kind: TibcoRoute
 metadata:
-  name: tp-cp-msg-webserver
+  name: tp-cp-msg-webserver-ops
+  namespace: "{{ .Release.Namespace }}"
   labels:
     app.kubernetes.io/name: msg-webserver
     app.kubernetes.io/component: msg
-  namespace: "{{ .Release.Namespace }}"
 spec:
   endpoints:
-  - internalPath: /
-    path: /msg
-    port: 7513
+  - internalPath: /v1/proxy/$1/tibco/agent/msg/ops/shell$2
+    path: /tibco/agent/msg/([^/]+)/ops/cli(.*)
+    port: 80
     protocol: http
     proxies:
     - allowClientCache: true
@@ -27,24 +28,7 @@ spec:
         SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
         SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
       enableRedirects: true
-      fqdn: "{{ $cpParams.cp.DNS_DOMAIN }}"
+      fqdn: "{{ $cpParams.DNS_DOMAIN }}"
       listener: virtual
-      methods:
-      - GET
-  - internalPath: /api
-    path: /msg/api
-    port: 7513
-    protocol: http
-    proxies:
-    - allowClientCache: false
-      allowXFrameOptions: false
-      config: secure
-      configVariables:
-        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
-        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
-        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
-      enableRedirects: true
-      fqdn: "{{ $cpParams.cp.DNS_DOMAIN }}"
-      listener: virtual
-  serviceName: msg-webserver
-  serviceNamespace: "{{ .Release.Namespace }}"
+  serviceName: dp-proxy
+  serviceNamespace: {{ .Release.Namespace }}

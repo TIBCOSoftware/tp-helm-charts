@@ -20,7 +20,7 @@ replicaCount: "1"
 
 image:
   name: hawk-console
-  imageTag: "1.14.0.4"
+  imageTag: "1.15.0.31"
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -33,6 +33,9 @@ tolerations: {}
 global:
   cp:
     cpHostname: ""
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
     dataplaneId: dp1
     cpInstanceId: cp1
     subscriptionId: sub1
@@ -59,7 +62,7 @@ global:
         enabled: true
         image:
           name: common-fluentbit
-          tag: 4.1.0
+          tag: 4.2.2
         # Resources
         # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
