@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -10,7 +10,7 @@ metadata:
   name: tp-cp-msg-webserver
   namespace: "{{ .Release.Namespace }}"
   labels:
-    tib-msgdp-mm-version: "1.13.0-0"
+    tib-msgdp-mm-version: "1.15.0-0"
 spec:
   replicas: 1
   selector:
@@ -109,6 +109,11 @@ spec:
         {{ include "msg.envStdPodRefs" . | indent  8 }}
         - name: ACCEPT_EUA
           value: "y"
+        - name: MSG_DP_TYPE
+          value: "control-plane"
+        # FIXME: OHC FB Temporary Disable flag
+        - name: MSG_WEB_DIR
+          value: "/contributions/gems"
         - name: TCM_WATCHDOG_LOG_FILE
           value: /logs/msg-webserver/watchdog.log
         - name: TCM_WATCHDOG_CONFIG

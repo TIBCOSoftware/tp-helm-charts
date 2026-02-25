@@ -29,3 +29,6 @@ in the license file that is distributed with this file.
 {{- define "tp-dp-hawk-console.image.repository" -}}
     {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
+
+{{/* Address of CP-proxy in DP */}}
+{{- define "tp-dp-hawk-console.cp.domain" }}cp-proxy.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local{{ end -}}

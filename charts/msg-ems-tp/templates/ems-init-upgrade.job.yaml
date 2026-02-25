@@ -1,6 +1,5 @@
-{{ if .Release.IsUpgrade }}
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -10,7 +9,7 @@
 #
 {{- $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
-{{- $jobname := printf "%s-emsupgrade-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
+{{- $jobname := printf "%s-ems-ini-up-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcEmsHost := printf "%s.%s.svc" $svcEms $emsParams.ems.namespace -}}
@@ -32,7 +31,7 @@ metadata:
 spec:
   backoffLimit: 0
   #4hr limit -  activeDeadlineSeconds: 14400
-  ttlSecondsAfterFinished: 3600
+  ttlSecondsAfterFinished: 86400
   template:
       metadata:
           name: "{{ $jobname }}"
@@ -79,15 +78,7 @@ spec:
                 ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
                 mkdir -p /logs/boot ; cd /logs/boot ;
-                bash < /boot/k8DpadminSetup.sh ;
-                echo "Upgrading pods ..." ; 
-                kubectl get pods -l=tib-msg-stsname={{ $stsname }} | egrep -v NAME | while read x o ; do 
-                  echo "POD=$x"; done ; 
-                export HEALTH_ACTION=redeploy ; 
-                {{ if .Values.ems.skipRedeploy }}
-                export HEALTH_ACTION=skip-redeploy ; 
-                {{ end }}
-                bash < /boot/health-watcher.sh 
+                bash < /boot/ems-init-upgrade.sh ; 
               image: "{{ $emsParams.ems.image }}"
               imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
               resources:
@@ -111,6 +102,13 @@ spec:
               env:
               # CAUTION! Setting Names here overrides envFrom values
               {{ include "msg.dp.stdenv" $emsParams | nindent  14 }}
+    {{ if .Values.ems.skipRedeploy }}
+              - name: HEALTH_ACTION
+                value: "skip-redeploy"
+    {{ else }}
+              - name: HEALTH_ACTION
+                value: "redeploy"
+    {{ end }}
               - name: ACCEPT_EUA
                 value: "y"
               - name: STS_NAME
@@ -145,5 +143,3 @@ spec:
               - name: FTL_REALM_URL
                 # the service load-balanced REALM URL
                 value: "http://{{ $svcFtlHost }}:$(REALM_PORT)"
-
-{{ end }}

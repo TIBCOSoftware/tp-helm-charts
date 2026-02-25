@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -94,11 +94,11 @@ data:
 {{- if .Values.recipeOverride }}
   recipeOverrides: |
   {{- if .Values.recipeOverride.MSGCORE }}
-    infra/msgcore/1.13.0/recipe.yaml:
+    infra/msgcore/1.15.0/recipe.yaml:
       {{ toYaml .Values.recipeOverride.MSGCORE | nindent 6 }}
   {{- end }}
   {{- if .Values.recipeOverride.EMS }}
-    platform/ems/1.13.0/recipe.yaml:
+    platform/ems/1.15.0/recipe.yaml:
       {{ toYaml .Values.recipeOverride.EMS | nindent 6 }}
   {{- end }}
 {{- end }}
