@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.12
+    tag: 12.13
 
 nameOverride: ""
 podAnnotations: {}
@@ -152,24 +152,24 @@ flogopluginsB:
     default: 3.0.1-hf1-b01
   tp-flogo-connector-ems:
     tags:
-      - 1.0.3-b03
-    default: 1.0.3-b03
+      - 1.0.4-b01
+    default: 1.0.4-b01
   tp-flogo-connector-gcps:
     tags:
       - 1.0.1-hf1-b01
     default: 1.0.1-hf1-b01
   tp-flogo-connector-general:
     tags:
-      - 1.6.11-b02
-    default: 1.6.11-b02
+      - 1.6.12-b06
+    default: 1.6.12-b06
   tp-flogo-connector-http:
     tags:
       - 1.1.1-b03
     default: 1.1.1-b03
   tp-flogo-connector-kafka:
     tags:
-      - 1.3.4-b02
-    default: 1.3.4-b02
+      - 1.3.5-b02
+    default: 1.3.5-b02
   tp-flogo-connector-lambda:
     tags:
       - 1.3.2-hf1-b01
@@ -228,8 +228,8 @@ flogopluginsD:
     default: 1.0.2-b01
   tp-flogo-connector-tcm:
     tags:
-      - 1.4.0-b11
-    default: 1.4.0-b11
+      - 1.4.1-b02
+    default: 1.4.1-b02
   tp-flogo-connector-tdv:
     tags:
       - 1.1.2-b05
@@ -288,8 +288,8 @@ flogopluginsF:
     default: 1.0.0-hf1-b01
   tp-flogo-connector-mcp:
     tags:
-      - 1.0.0-b11
-    default: 1.0.0-b11
+      - 1.0.1-b02
+    default: 1.0.1-b02
   tp-flogo-connector-databricks:
     tags:
       - 1.0.1-b01
@@ -316,7 +316,7 @@ flogoBuildtypeImages:
   - name: tp-flogo-buildtype
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.26.0-b352
+    tag: 2.26.1-b392
     target_location: flogo/buildtypes
 
 probes:

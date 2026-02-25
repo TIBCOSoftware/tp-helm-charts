@@ -1,8 +1,8 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if eq .Values.publicApi.ingress.controllerName "traefik" -}}
+{{ if eq .Values.global.cp.resources.ingress.ingressController "traefik" -}}
 {{- $fullName := include "bwprovisioner.fullname" . -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -14,9 +14,9 @@ metadata:
     {{- end }}
   name: {{ $fullName }}-public-traefik
 spec:
-  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
   rules:
-  - host: {{ .Values.publicApi.ingress.config.fqdn }}
+  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
     http:
       paths:
       - backend:
@@ -24,7 +24,7 @@ spec:
             name: {{ $fullName }}
             port:
               number: {{ $.Values.publicApiService.targetPort }}
-        path: {{ .Values.publicApi.ingress.config.pathPrefix }}/
+        path: {{ .Values.publicApi.config.pathPrefix }}/
         pathType: Prefix
 
 ---
@@ -35,6 +35,6 @@ metadata:
 spec:
   stripPrefix:
     prefixes:
-    - {{ .Values.publicApi.ingress.config.pathPrefix }}/
+    - {{ .Values.publicApi.config.pathPrefix }}/
 
 {{- end }}

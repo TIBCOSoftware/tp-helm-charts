@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.12
+    tag: 12.13
 
 nameOverride: ""
 
@@ -154,6 +154,10 @@ bwPluginsJobA:
     tags:
       - 7.3.2.v3.1-tci-2.0
     default: 7.3.2.v3.1-tci-2.0
+  tci-bw-plugin-adswift:
+    tags:
+      - 5.24.0.v25-tci-2.0
+    default: 5.24.0.v25-tci-2.0
 
 bwPluginsJobB:
   tci-bw-plugin-kafka:
@@ -207,7 +211,7 @@ bwPluginsJobC:
       - 1.4.0.v11.2-tci-2.0
     default: 1.4.0.v11.2-tci-2.0
 
-bwAdaptersExtractJob:
+bwAdaptersJob:
   tci-bw-adapter-adfiles:
     tags:
       - 7.1.1.v37-tci-2.0
@@ -218,8 +222,8 @@ bwAdaptersExtractJob:
     default: 7.3.2.v46-tci-2.0
   tci-bw-adapter-adldap:
     tags:
-      - 6.1.2.v6-tci-2.0
-    default: 6.1.2.v6-tci-2.0
+      - 6.1.2.v15-tci-2.0
+    default: 6.1.2.v15-tci-2.0
   tci-bw-adapter-adr3:
     tags:
       - 7.3.2.v34.5-tci-2.0
@@ -241,7 +245,7 @@ bwPluginsExtractJobA: true
 bwPluginsExtractJobB: true
 bwPluginsExtractJobC: true
 
-bwAdapterExtractJob: true
+bwAdaptersExtractJob: true
 buildtypesExtract: true
 bw5CardJob: true
 
@@ -251,7 +255,7 @@ buildtypeImages:
 - name: tp-bw5ce-buildtype
   extract_image: true
   path: /var/lib/bw5ce/buildtypes
-  tag: preview-0.4
+  tag: preview-0.5
   target_location: bw5ce/buildtypes
 
 probes:

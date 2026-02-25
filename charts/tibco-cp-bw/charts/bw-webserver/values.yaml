@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -26,7 +26,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -55,7 +55,7 @@ config:
   HTTP_REQUEST_TIMEOUT: "120000"
   IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
-  BW_WEBSERVER_IMAGE_TAG: "921"
+  BW_WEBSERVER_IMAGE_TAG: "1084"
 
 replicaCount: 1
 
@@ -63,8 +63,8 @@ hpa:
   cpu: 70
   memory: 70
   maxReplicas: 3
-  minReplicas: 1  
-  
+  minReplicas: 1
+
 volumes:
   bwwebserver:
     mountPath: /usr/share/nginx/html
@@ -108,7 +108,7 @@ bwmcpserver:
   enabled: false
   image:
     name: tp-bw-mcp-server
-    tag: "43"
+    tag: "62"
   logLevel: "INFO"
   resources:
     requests:

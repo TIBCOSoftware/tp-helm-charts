@@ -1,0 +1,36 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" -}}
+{{- $fullName := include "bwadapter.fullname" . -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $fullName }}-public-openshift
+spec:
+  host: {{ .Values.global.cp.resources.ingress.fqdn }}
+  httpHeaders:
+    actions:
+      request:
+      - action:
+          set:
+            value: {{ .Values.global.cp.resources.ingress.pathPrefix }}
+          type: Set
+        name: X-Forwarded-Prefix
+  path: {{ .Values.global.cp.resources.ingress.pathPrefix }}
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: {{ $fullName }}
+    weight: 100
+  wildcardPolicy: None
+{{- end }}

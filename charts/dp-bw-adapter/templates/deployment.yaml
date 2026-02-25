@@ -78,6 +78,8 @@ spec:
               value: {{ .Chart.Version }}
             - name: CHART_APP_VERSION
               value: {{ .Chart.AppVersion }}
+            - name: CP_DOMAIN
+              value: {{ include "bwadapter.cp.domain" . }}
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

@@ -1,8 +1,8 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if eq .Values.publicApi.ingress.controllerName "nginx" -}}
+{{ if eq .Values.global.cp.resources.ingress.ingressController "nginx" -}}
 {{- $fullName := include "bw5provisioner.fullname" . -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -11,16 +11,16 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
     nginx.ingress.kubernetes.io/proxy-body-size: "200m"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
-    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.publicApi.ingress.config.pathPrefix }}
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.publicApi.config.pathPrefix }}
     nginx.ingress.kubernetes.io/use-regex: "true"
     {{- with .Values.global.cp.resources.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   name: {{ $fullName }}-public-nginx
 spec:
-  ingressClassName: {{ .Values.publicApi.ingress.config.className }}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
   rules:
-  - host: {{ .Values.publicApi.ingress.config.fqdn }}
+  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
     http:
       paths:
       - backend:
@@ -28,6 +28,6 @@ spec:
             name: {{ $fullName }}
             port:
               number: {{ $.Values.publicApiService.targetPort }}
-        path: {{ .Values.publicApi.ingress.config.pathPrefix }}/(.*)
+        path: {{ .Values.publicApi.config.pathPrefix }}/(.*)
         pathType: ImplementationSpecific
 {{- end }}
