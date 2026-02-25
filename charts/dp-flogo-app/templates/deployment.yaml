@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -49,6 +49,7 @@ spec:
         networking.platform.tibco.com/database-egress: {{ .Values.networkPolicy.databaseEgress | quote }}
         networking.platform.tibco.com/proxy-egress: {{ .Values.networkPolicy.proxyEgress | quote }}
         networking.platform.tibco.com/userApps: {{ .Values.networkPolicy.userApps | quote }}
+        networking.platform.tibco.com/cluster-egress: {{ .Values.networkPolicy.clusterEgress | quote }}
         {{- if .Values.serviceMesh.enabled }}
         sidecar.istio.io/inject: {{ .Values.serviceMesh.enabled | quote }}
         {{- end }}
@@ -116,8 +117,8 @@ spec:
           mountPath: /tmp
         {{- end }}
         {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
-        - mountPath: {{ .Values.dpConfig.licenseMountPath }}
-          name: license-volume
+        - name: license-volume
+          mountPath: {{ .Values.dpConfig.licenseMountPath }}
           readOnly: true
         {{- end }}
         {{- with .Values.flogoapp.volumeMounts }}

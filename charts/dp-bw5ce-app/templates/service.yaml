@@ -23,7 +23,7 @@ metadata:
 spec:
   ports:
   {{- range $svcPort := .Values.service.ports }}
-  - name: port-{{ $svcPort.port }}
+  - name: {{ default (printf "port-%d" (int $svcPort.port)) $svcPort.name }}
     port: {{ $svcPort.port }}
     protocol: {{ default "TCP" $svcPort.protocol }}
     targetPort: {{ $svcPort.targetPort }}

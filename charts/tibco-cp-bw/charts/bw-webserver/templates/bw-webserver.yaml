@@ -145,11 +145,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
-        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+        - name: TP_DP_PROXY_HOST
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
-              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+              key: TP_DP_PROXY_HOST
         - name: DOC_BASE_URL
           valueFrom:
             configMapKeyRef:
@@ -170,6 +170,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: TP_CP_O11Y_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_O11Y_HOST
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS
@@ -244,7 +249,7 @@ spec:
         resources:
         {{- toYaml $.Values.bwmcpserver.resources | nindent 10 }}
         {{- end }}
-        ports: 
+        ports:
         - containerPort: 8085
           name: bw-mcp-server
         livenessProbe:
@@ -285,7 +290,7 @@ spec:
             claimName: {{ include "bw-webserver.pvc-name" . }}
         - name: logs-share
           emptyDir: {}
-{{- if (include "bw-webserver.container-registry.secret" .) }}            
+{{- if (include "bw-webserver.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "bw-webserver.container-registry.secret" . }}
 {{- end }}

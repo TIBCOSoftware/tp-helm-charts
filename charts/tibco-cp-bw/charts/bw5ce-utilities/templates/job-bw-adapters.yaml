@@ -31,7 +31,7 @@ spec:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       {{- end }}
       containers:
-      {{- range $name, $adapter := .Values.bwAdaptersExtractJob }}
+      {{- range $name, $adapter := .Values.bwAdaptersJob }}
         {{- range $tag := $adapter.deleteTags }}
         - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-delete
           image: {{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}

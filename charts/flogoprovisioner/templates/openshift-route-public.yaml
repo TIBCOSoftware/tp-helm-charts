@@ -1,8 +1,8 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if eq .Values.publicApi.ingress.controllerName "openshiftRouter" -}}
+{{ if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" -}}
 {{- $fullName := include "flogoprovisioner.fullname" . -}}
 apiVersion: route.openshift.io/v1
 kind: Route
@@ -14,16 +14,16 @@ metadata:
     {{- end }}
   name: {{ $fullName }}-public-openshift
 spec:
-  host: {{ .Values.publicApi.ingress.config.fqdn }}
+  host: {{ .Values.global.cp.resources.ingress.fqdn }}
   httpHeaders:
     actions:
       request:
       - action:
           set:
-            value: {{ .Values.publicApi.ingress.config.pathPrefix }}
+            value: {{ .Values.publicApi.config.pathPrefix }}
           type: Set
         name: X-Forwarded-Prefix
-  path: {{ .Values.publicApi.ingress.config.pathPrefix }}
+  path: {{ .Values.publicApi.config.pathPrefix }}
   port:
     targetPort: publicapihttp
   tls:
