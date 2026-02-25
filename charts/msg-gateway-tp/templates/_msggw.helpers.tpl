@@ -2,7 +2,7 @@
 {{/*
 MSGDP Control Tower Gateway Helpers
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -38,6 +38,19 @@ MSGDP Control Tower Gateway Helpers
   {{- end -}}
   {{ printf "%s" $repository }}
 {{ end }}
+
+{{/*
+msg.dp.dpUrl.*
+*/}}
+{{- define "msg.dp.dpUrl.host" -}}
+{{- $dpGlobals := include "dp.values.global" (toJson . | fromJson) | fromYaml -}}
+{{- tpl (printf "%s" ($dpGlobals.cp.dpUrl.host | default "")) . -}}
+{{- end -}}
+
+{{- define "msg.dp.dpUrl.port" -}}
+{{- $dpGlobals := include "dp.values.global" (toJson . | fromJson) | fromYaml -}}
+{{- int ($dpGlobals.cp.dpUrl.port | default 443) -}}
+{{- end -}}
 
 {{/*
 need.msg.dp.params
@@ -80,8 +93,8 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-95" $dpParams.dp.registry $dpParams.dp.repository -}}
-{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.4.0-11" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-21" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.5.0-39" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -168,12 +181,12 @@ platform.tibco.com/dataplane-id: "{{ .dp.name }}"
 app.cloud.tibco.com/created-by: tp-msg
 app.cloud.tibco.com/tenant-name: messaging
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.13.0.15"
+tib-dp-msgbuild: "1.15.0.31"
 tib-dp-chart: {{ .dp.chart }}
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"
 tib-dp-app: msg-gateway
-tib-msgdp-mm-version: "1.13.0-0"
+tib-msgdp-mm-version: "1.15.0-0"
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: msg-infra-core
@@ -292,7 +305,8 @@ msg.pv.vol.def - Generate a volumes: section from a standard volSpec structure
       {{- end }}
 {{- else if eq "emptyDir" .storageType -}}
 - name: {{ $volName }}
-  emptyDir: {}
+  emptyDir:
+    sizeLimit: {{ .storageSize | default "2Gi" }}
 {{- else if eq "storageClass" .storageType -}}
 {{- else if not (hasPrefix "use-" .storageType) -}}
   {{ fail (printf "unknown storageType: %s" .storageType) }}
@@ -343,6 +357,10 @@ msg.dp.stdenv - generate a list of standard pod ENV settigns including PodRefs
   value: {{ .dp.fluentbitEnabled | quote }}
 - name: LOG_ALERT_PORT
   value: "8099"
+- name: FTL_REALM_URL_TEMPLATE
+  value: 'http://$groupName-ftl.vdp.svc:9013'
+- name: EMS_ACTIVE_URL_TEMPLATE 
+  value: 'tcp://$groupName-emsactive.vdp.svc:9011'
 {{- $stdRefs := (dict "MY_POD_NAME" "metadata.name" "MY_NAMESPACE" "metadata.namespace" "MY_POD_IP" "status.podIP" "MY_NODE_NAME" "spec.nodeName" "MY_NODE_IP" "status.hostIP" "MY_SA_NAME" "spec.serviceAccountName"  ) -}}
 {{ include "msg.envPodRefs" $stdRefs }}
 {{- end }}

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -7,10 +7,10 @@
 apiVersion: cloud.tibco.com/v1
 kind: TibcoRoute
 metadata:
+  name: tp-cp-msg-webserver
   labels:
     app.kubernetes.io/name: msg-webserver
     app.kubernetes.io/component: msg
-  name: tp-cp-msg-webserver
   namespace: "{{ .Release.Namespace }}"
 spec:
   endpoints:

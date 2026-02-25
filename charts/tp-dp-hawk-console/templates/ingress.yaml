@@ -29,7 +29,7 @@ spec:
               name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
               port:
                 number: 9687
-  - host: dp-{{ .Values.global.cp.dataplaneId }}.platform.local
+  - host: {{ include "msg.dp.dpUrl.host" . }}
     http:
       paths:
         - pathType: Prefix
