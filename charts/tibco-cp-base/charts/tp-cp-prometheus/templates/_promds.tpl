@@ -69,6 +69,11 @@ env:
       secretKeyRef:
         name: metric-token-query-secret-1
         key: metric_auth_token
+  - name: TP_DP_PROXY_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+        key: TP_DP_PROXY_HOST
 volumeMounts:
   - name: server-ds-vol
     mountPath: /etc/prometheus-discovery

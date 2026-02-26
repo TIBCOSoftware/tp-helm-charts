@@ -35,3 +35,6 @@
 {{- define "tp-cp-prometheus-ds.image.repository" -}}
   {{- .Values.global.tibco.containerRegistry.repository | default "tibco-platform-docker-prod" }}
 {{- end -}}
+
+{{/* DNS domain configmap name */}}
+{{- define "tp-control-plane-dnsdomain-configmap" }}tp-cp-core-dnsdomains{{ end -}}

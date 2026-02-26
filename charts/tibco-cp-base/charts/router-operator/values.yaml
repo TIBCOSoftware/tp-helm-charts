@@ -32,7 +32,7 @@ additionalLabels: {}
 
 image:
   name: infra-router
-  tag: 778-distroless
+  tag: 816-distroless
   pullPolicy: IfNotPresent
 
 ports:
@@ -119,6 +119,29 @@ ingress:
   #       hosts:
   #         - router.example.com
 
+# Gateway API HTTPRoute configuration (gateway.networking.k8s.io/v1)
+# This provides native Gateway API support for NGINX Gateway Fabric and other Gateway API implementations
+#
+# IMPORTANT: Gateway API CRDs must be installed in the cluster before enabling this feature
+# Install with: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
+#
+# Example configuration for control plane instance "cp1" with NGINX Gateway Fabric:
+gatewayRoute:
+  enabled: false
+#   parentRefs:
+#     - name: gateway
+#       namespace: cp1-ns
+#   hostnames:
+#     - "*.cp1-my.localhost.dataplanes.pro"
+#   rules:
+#   - matches:
+#     - path:
+#         type: PathPrefix
+#         value: /
+#     backendRefs:
+#     - name: router
+#       port: 100
+
 # no of replicas
 # replicaCount: "1"  # Commented out - HPA manages replicas dynamically
 
@@ -192,7 +215,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         resources:
           requests:

@@ -96,7 +96,7 @@ spec:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
                 key: TP_CP_ORCH_HOST
       - name: check-sql-schema-version
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
@@ -133,7 +133,7 @@ spec:
       {{ end }}
       containers:
       - name: idm
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.identityManagement }}:{{ include "identity-management.generated.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-identity-management:{{ include "identity-management.generated.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
@@ -243,8 +243,8 @@ spec:
               key: TSC_ADMIN_DNS_DOMAIN
         - name: TIBCO_INTERNAL_HEAP_DUMP_PATH
           value: /mnt/heapdumps
-        - name: IDENTITY_MANAGEMENT_OPTS
-          value: -DrootLogLevel=DEBUG -Djava.io.tmpdir=/tmp/files
+        - name: IDENTITY_MANAGEMENT_ROOT_LOG_LEVEL
+          value: INFO
         - name: IDENTITY_MANAGEMENT_JWT_KEYSTORE_URL
           value: /etc/idm/certs/jwt.p12
         - name: IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD
@@ -373,6 +373,14 @@ spec:
               key: TSC_ADMIN_DNS_DOMAIN
         - name: IDENTITY_MANAGEMENT_CP_SUFFIX
           value: {{ include "cp-core-configuration.cp-dns-domain" . }}
+        - name: IS_SELF_HOSTED_DEPLOYMENT
+          value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
+        # PCP-9451: Admin host prefix for short DNS support
+        - name: ADMIN_DNS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: ADMIN_HOST_PREFIX
         volumeMounts:
         - name: store-vol
           mountPath: /mnt/heapdumps
@@ -903,6 +911,7 @@ spec:
     proxies:
     - listener: virtual
       config: secure_logout
+      allowXFrameOptions: true
       fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
       methods:
       - POST
@@ -956,7 +965,7 @@ spec:
     protocol: http
     proxies:
     - listener: virtual
-      config: empty
+      config: secure_logout
       fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
       methods:
       - POST
