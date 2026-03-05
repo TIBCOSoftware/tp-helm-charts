@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -12,6 +12,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    platform.tibco.com/controller-name: {{ $.Values.ingress.controllerName | quote }}
+    platform.tibco.com/resource-instance-name: {{ $.Values.ingress.resourceInstanceName | quote }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-{{ include "dp-bw5ce-app.fullname" $dot }}-{{ $path.port }}@kubernetescrd
     {{- if $path.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
@@ -59,7 +61,6 @@ spec:
   {{- toYaml $path.customCRDConfig | nindent 2 }}
   {{- else }}
   stripPrefix:
-    forceSlash: false
     prefixes:
     - {{ $path.path }}
   {{- end }}

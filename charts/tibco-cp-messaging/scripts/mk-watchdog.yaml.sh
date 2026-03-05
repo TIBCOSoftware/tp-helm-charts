@@ -1,17 +1,18 @@
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 export MY_POD_NAME="${MY_POD_NAME:-$(hostname)}"
+export MSG_WEB_DIR="${MSG_WEB_DIR:-/contributions/gems}"
 outfile=${1:-watchdog.yml}
 cat - <<EOF > $outfile
 services:
   - name: msg-gems
     config:
-      cmd: /contributions/gems/gems
-      cwd: /contributions/gems/
+      cmd: ${MSG_WEB_DIR}/gems
+      cwd: ${MSG_WEB_DIR}/
       ctl: /logs/msg-webserver/
       log:
         file: /logs/msg-webserver/webserver.log

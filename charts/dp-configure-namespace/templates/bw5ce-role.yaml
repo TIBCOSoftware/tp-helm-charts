@@ -54,6 +54,19 @@ rules:
   resources: ["routes", "routes/custom-host"]
   verbs: ["list", "get", "create", "update", "delete", "patch"]
 {{- end }}
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+{{- if .Values.rbac.gatewayAPI.nginxGatewayFabric }}
+- apiGroups: ["gateway.nginx.org"]
+  resources: ["observabilitypolicies"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+{{- end }}
+{{- if .Values.rbac.gatewayAPI.gkeGatewayController }}
+- apiGroups: ["networking.gke.io"]
+  resources: ["healthcheckpolicies"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+{{- end }}
 
 ---
 

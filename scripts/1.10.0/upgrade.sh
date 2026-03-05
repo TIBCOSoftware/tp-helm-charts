@@ -300,8 +300,8 @@ interactive_helm_upgrade() {
     fi
     
     # Get Helm repository name
-    read -p "Enter Helm repository name (default: tp-helm-charts): " TP_HELM_REPO_NAME
-    [[ -z "${TP_HELM_REPO_NAME}" ]] && TP_HELM_REPO_NAME="tp-helm-charts"
+    read -p "Enter Helm repository name (default: tibco-platform): " TP_HELM_REPO_NAME
+    [[ -z "${TP_HELM_REPO_NAME}" ]] && TP_HELM_REPO_NAME="tibco-platform"
     
     print_success "Helm upgrade configuration complete"
     

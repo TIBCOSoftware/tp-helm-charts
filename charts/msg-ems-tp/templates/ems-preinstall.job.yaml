@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -83,6 +83,20 @@ spec:
                       --from-literal=DP_VIEW_USER={{ $dpViewUser }} --from-literal=DP_VIEW_PASSWORD={{ $dpViewPwd }} 
                     kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE
                   fi
+                  if  [ -z "$TIBEMS_LICENSE" ]; then
+                    licenseSize=$( cat /boot-activation/license-file.bin 2>/dev/null | wc -c )
+                    if [ "$licenseSize" -gt 0 ] ; then
+                      echo "Using in-product activation: file:///boot-activation/license-file.bin"
+                    else
+                      echo "EMS Requires Dataplane Activation to be configured, Exiting."
+                      exit 1
+                    fi
+                  else
+                    echo "Using provided TIBEMS_LICENSE $TIBEMS_LICENSE"
+                  fi
+                volumeMounts:
+                  - mountPath: /boot-activation
+                    name: activation-vol
                 image: "{{ $emsParams.ems.image }}"
                 imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
                 resources:
@@ -91,6 +105,9 @@ spec:
                 env:
                 # CAUTION! Setting Names here overrides envFrom values
                 {{ include "msg.dp.stdenv" $emsParams | indent  16 }}
+                - name: TIBEMS_LICENSE
+                  #TIBEMS_LICENSE=https://msgblade07.na.tibco.com:7070
+                  value: "{{ $emsParams.dp.activationUrl }}"
                 - name: ACCEPT_EUA
                   value: "y"
                 - name: FTL_SERVICE
@@ -108,3 +125,11 @@ spec:
                 - name: FTL_REALM_URL
                   # the service load-balanced REALM URL
                   value: "http://{{ $svcFtlHost }}:$(REALM_PORT)"
+            volumes:
+              - name: activation-vol
+                secret:
+                  secretName: "{{ $emsParams.ems.activationSecret | default "cp-license-file-secret" }}"
+                  optional: True
+                  items:
+                    - key: "{{ $emsParams.ems.activationSecretKey | default "license-file.bin" }}"
+                      path: license-file.bin

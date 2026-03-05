@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -16,6 +16,8 @@ metadata:
     {{- include "dp-flogo-app.labels" $dot | nindent 4 }}
     platform.tibco.com/service-discoverable: {{ $path.serviceDiscoverable | quote }}
   annotations:
+    platform.tibco.com/controller-name: {{ $.Values.ingress.controllerName | quote }}
+    platform.tibco.com/resource-instance-name: {{ $.Values.ingress.resourceInstanceName | quote }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-{{ include "dp-flogo-app.fullname" $dot }}-{{ $path.port }}@kubernetescrd
     {{- if $path.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
@@ -59,7 +61,6 @@ spec:
   {{- toYaml $path.customCRDConfig | nindent 2 }}
   {{- else }}
   stripPrefix:
-    forceSlash: false
     prefixes:
     - {{ $path.path }}
   {{- end }}

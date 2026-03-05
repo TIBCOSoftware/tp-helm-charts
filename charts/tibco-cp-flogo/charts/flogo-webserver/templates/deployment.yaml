@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -131,11 +131,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
-        - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+        - name: TP_DP_PROXY_HOST
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
-              key: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
+              key: TP_DP_PROXY_HOST
         - name: DOC_BASE_URL
           valueFrom:
             configMapKeyRef:

@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -21,6 +21,7 @@ spec:
       name: {{ include "flogoprovisioner.fullname" . }}-oauth2-client-cred-creation
       labels:
         {{- include "flogoprovisioner.labels" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
     spec:
       nodeSelector:
         kubernetes.io/os: linux
@@ -57,9 +58,13 @@ spec:
             - -g
             - authorization_code
             - -p
-            - {{ .Values.publicApi.ingress.config.pathPrefix }}
+            - {{ .Values.publicApi.config.pathPrefix }}
             - -d
-            - "https://{{ .Values.publicApi.ingress.config.fqdn }}"
+            {{- if .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}
+            - "https://{{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}"
+            {{- else }}
+            - "https://{{ .Values.global.cp.resources.ingress.fqdn }}"
+            {{- end }}
           env:
             - name: DATAPLANE_ID
               value: {{ .Values.global.cp.dataplaneId }}
@@ -96,6 +101,7 @@ spec:
       name: {{ include "flogoprovisioner.fullname" . }}-oauth2-client-cred-deletion
       labels:
         {{- include "flogoprovisioner.labels" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
     spec:
       nodeSelector:
         kubernetes.io/os: linux

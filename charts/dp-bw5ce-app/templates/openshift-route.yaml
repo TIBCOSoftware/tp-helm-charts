@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -12,6 +12,8 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   annotations:
+    platform.tibco.com/controller-name: {{ $.Values.ingress.controllerName | quote }}
+    platform.tibco.com/resource-instance-name: {{ $.Values.ingress.resourceInstanceName | quote }}
     haproxy.router.openshift.io/rewrite-target: /
     {{- if $path.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}

@@ -156,6 +156,8 @@ spec:
           value: {{ .Values.global.cp.dataplaneId }}
         - name: DP_SUBSCRIPTION_ID
           value: {{ .Values.global.cp.subscriptionId }}
+        - name: CP_DOMAIN
+          value: cp-proxy.{{ .Release.Namespace }}.svc.cluster.local
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
         volumeMounts:
         - name: logs

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023-2025 Cloud Software Group, Inc. All Rights Reserved. Confidential and Proprietary.
+# Copyright (c) 2023-2026 Cloud Software Group, Inc. All Rights Reserved. Confidential and Proprietary.
 
 base="$(cd "${0%/*}" 2>/dev/null; echo "$PWD")"
 cmd="${0##*/}"

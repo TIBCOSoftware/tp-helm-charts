@@ -40,7 +40,7 @@ hpa:
 
 image:
   name: infra-hybrid-proxy
-  tag: 102-distroless
+  tag: 107-distroless
   pullPolicy: IfNotPresent
 
 ports:
@@ -108,10 +108,6 @@ ingress:
   # ingressClassName: nginx
   # hosts:
   #   - host: hybrid-proxy.example.com
-  #     paths:
-  #       - path: /
-  #         pathType: Prefix
-  #         port: 105
   # tls:
   #   - secretName: hybrid-proxy-tls
   #     hosts:
@@ -134,6 +130,29 @@ ingress:
   #     - secretName: hybrid-proxy-tls
   #       hosts:
   #         - hybrid-proxy.example.com
+
+# Gateway API HTTPRoute configuration (gateway.networking.k8s.io/v1)
+# This provides native Gateway API support for NGINX Gateway Fabric and other Gateway API implementations
+#
+# IMPORTANT: Gateway API CRDs must be installed in the cluster before enabling this feature
+# Install with: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
+#
+# Example configuration for control plane  with NGINX Gateway Fabric:
+gatewayRoute:
+  enabled: false
+#   parentRefs:
+#     - name: gateway
+#       namespace: cp1-ns
+#   hostnames:
+#     - "*.hybrid-proxy.example.com"
+#   rules:
+#   - matches:
+#     - path:
+#         type: PathPrefix
+#         value: /
+#     backendRefs:
+#     - name: hybrid-proxy
+#       port: 105
 
 # no of replicas
 # replicaCount: "1"  # Commented out - HPA manages replicas dynamically
@@ -189,7 +208,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -201,3 +220,4 @@ global:
 
   external:
     dnsTunnelDomain: ""
+    dnsDomain: ""

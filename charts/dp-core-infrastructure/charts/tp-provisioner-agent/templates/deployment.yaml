@@ -53,6 +53,8 @@ spec:
             value: {{ .Values.forcePull | quote }}
           - name: CACHE_CLEANUP_INTERVAL
             value: {{ .Values.cacheCleanupInterval | quote }}
+          - name: CP_DOMAIN
+            value: {{ .Values.global.tibco.cpHostName }}
           # Note: The Helm cache directory is configured as /tmp/.cache/helm to circumvent potential file permission issues due to security context.
           - name: HELM_CACHE_HOME
             value: /tmp/.cache/helm
@@ -60,6 +62,17 @@ spec:
             value: /tmp/.config/helm
           - name: HELM_DATA_HOME
             value: /tmp/.data/helm
+          {{- if or .Values.global.tibco.helmRepo.certificateSecret .Values.global.tibco.cpCertificateSecret }}
+          {{- $paths := list }}
+          {{- if .Values.global.tibco.cpCertificateSecret }}
+          {{- $paths = append $paths "/etc/ssl/certs/cp-certs" }}
+          {{- end }}
+          {{- if .Values.global.tibco.helmRepo.certificateSecret }}
+          {{- $paths = append $paths "/etc/ssl/certs/cp-helmrepo-certs" }}
+          {{- end }}
+          - name: SSL_CERT_DIR
+            value: {{ join ":" $paths }}
+          {{- end }}
           {{- with .Values.global.proxy }}
           {{- if .httpProxy }}
           - name: http_proxy
@@ -105,8 +118,12 @@ spec:
           periodSeconds: 10
         volumeMounts:
         {{- if .Values.global.tibco.helmRepo.certificateSecret }}
+        - name: cp-helmrepo-certs
+          mountPath: /etc/ssl/certs/cp-helmrepo-certs
+        {{- end }}
+        {{- if .Values.global.tibco.cpCertificateSecret }}
         - name: cp-certs
-          mountPath: /etc/ssl/certs/
+          mountPath: /etc/ssl/certs/cp-certs
         {{- end }}
         - name: helm-cache
           mountPath: /tmp
@@ -197,10 +214,16 @@ spec:
         - name: logs
           emptyDir: {}
 {{- if .Values.global.tibco.helmRepo.certificateSecret }}
+        - name: cp-helmrepo-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.tibco.helmRepo.certificateSecret }}
+{{- end }}
+{{- if .Values.global.tibco.cpCertificateSecret }}
         - name: cp-certs
           secret:
             defaultMode: 420
-            secretName: {{ .Values.global.tibco.helmRepo.certificateSecret }}       
+            secretName: {{ .Values.global.tibco.cpCertificateSecret }}
 {{- end }}
 {{- if .Values.global.logging.fluentbit.enabled }}
         - name: db

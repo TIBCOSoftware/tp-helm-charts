@@ -2,7 +2,7 @@
 {{/*
 MSG CP Common Helpers
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -80,7 +80,7 @@ cp:
   pullSecret: "tibco-container-registry-credentials"
   pullPolicy: Always
   imageName: "msg-cp-ui-contrib"
-  imageTag: "1.13.0-14"
+  imageTag: "1.15.0-30"
   enableResourceConstraints: true
     {{ if hasKey .Values.cp "enableSecurityContext" }}
   enableSecurityContext: {{ .Values.cp.enableSecurityContext }}

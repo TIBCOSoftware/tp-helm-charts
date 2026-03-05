@@ -41,6 +41,24 @@ PRIVATE_SUBNET_ID_2=$(echo "${_private_subnets}" | jq '.[1]' | tr -d '"')
 PRIVATE_SUBNET_ID_3=$(echo "${_private_subnets}" | jq '.[2]' | tr -d '"')
 echo "Private Subnet Ids: ${PRIVATE_SUBNET_ID_1}, ${PRIVATE_SUBNET_ID_2}, ${PRIVATE_SUBNET_ID_3}"
 
+# Get route table details for public subnets (handles both shared and separate route tables)
+echo "Get public route table details"
+PUBLIC_ROUTE_TABLE_ID_1=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.subnet-id,Values=${PUBLIC_SUBNET_ID_1}" --query 'RouteTables[0].RouteTableId' --output text)
+PUBLIC_ROUTE_TABLE_ID_2=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.subnet-id,Values=${PUBLIC_SUBNET_ID_2}" --query 'RouteTables[0].RouteTableId' --output text)
+PUBLIC_ROUTE_TABLE_ID_3=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.subnet-id,Values=${PUBLIC_SUBNET_ID_3}" --query 'RouteTables[0].RouteTableId' --output text)
+echo "Public Route Table Ids: ${PUBLIC_ROUTE_TABLE_ID_1}, ${PUBLIC_ROUTE_TABLE_ID_2}, ${PUBLIC_ROUTE_TABLE_ID_3}"
+
+# Get unique public route table IDs
+PUBLIC_ROUTE_TABLES_UNIQUE=($(printf "%s\n" "${PUBLIC_ROUTE_TABLE_ID_1}" "${PUBLIC_ROUTE_TABLE_ID_2}" "${PUBLIC_ROUTE_TABLE_ID_3}" | sort -u | grep -v '^$'))
+echo "Unique Public Route Table Ids: ${PUBLIC_ROUTE_TABLES_UNIQUE[@]}"
+
+# Get route table details for private subnets (each has its own route table)
+echo "Get private route table details"
+PRIVATE_ROUTE_TABLE_ID_1=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.subnet-id,Values=${PRIVATE_SUBNET_ID_1}" --query 'RouteTables[0].RouteTableId' --output text)
+PRIVATE_ROUTE_TABLE_ID_2=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.subnet-id,Values=${PRIVATE_SUBNET_ID_2}" --query 'RouteTables[0].RouteTableId' --output text)
+PRIVATE_ROUTE_TABLE_ID_3=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.subnet-id,Values=${PRIVATE_SUBNET_ID_3}" --query 'RouteTables[0].RouteTableId' --output text)
+echo "Private Route Table Ids: ${PRIVATE_ROUTE_TABLE_ID_1}, ${PRIVATE_ROUTE_TABLE_ID_2}, ${PRIVATE_ROUTE_TABLE_ID_3}"
+
 ## OIDC details
 OIDC_ISSUER_URL=$(aws eks describe-cluster --name ${TP_CLUSTER_NAME} --query "cluster.identity.oidc.issuer" --output text)
 OIDC_ISSUER_HOSTPATH=$(echo "${OIDC_ISSUER_URL}" | cut -d/ -f3-)
@@ -77,6 +95,12 @@ data:
     - "${PRIVATE_SUBNET_ID_1}"
     - "${PRIVATE_SUBNET_ID_2}"
     - "${PRIVATE_SUBNET_ID_3}"
+  NET_PUBLIC_ROUTE_TABLES: |
+$(printf '    - "%s"\n' "${PUBLIC_ROUTE_TABLES_UNIQUE[@]}")
+  NET_PRIVATE_ROUTE_TABLES: |
+    - "${PRIVATE_ROUTE_TABLE_ID_1}"
+    - "${PRIVATE_ROUTE_TABLE_ID_2}"
+    - "${PRIVATE_ROUTE_TABLE_ID_3}"
 EOF
 echo -e "Platform ConfigMap:\n$(cat ./tibco-platform-cm.yaml)"
 

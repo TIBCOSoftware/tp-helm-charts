@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -49,7 +49,7 @@ function process_recipe_overrides {
       values:
         - content: |
 !
-        cat $tmp/update.yaml | sed -e 's/^/          /' >> $tmp/new.yaml
+        cat $tmp/update.yaml | sed -e 's/^/            /' >> $tmp/new.yaml
         auditsize=$( cat $tmp/new.yaml 2>/dev/null | wc -c )
         [ $auditsize -le 0 ]  && echo "Error computing updated recipe for $key, skipping" && return 1
         mv $tmp/new.yaml $key  

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -23,6 +23,9 @@ emsTcpPort="${EMS_TCP_PORT:-9011}"
 emsSslPort="${EMS_SSL_PORT:-9012}"
 emsAdminPort="${EMS_ADMIN_PORT:-9014}"
 dataplaneID="${DATAPLANE_ID:-$MY_NAMESPACE}"
+loggerDir="${EMS_LOGGER_DIR:-/run/logs/emslogger}"
+restdDir="${EMS_RESTD_DIR:-/run/logs/restd}"
+gatewayDir="${CLOUDSHELL_CTL:-/data/msg/gateway}"
 
 # Set signal traps
 function log
@@ -60,44 +63,25 @@ function waitForConfig {
 # .. start the logger client
 
 # Wait for a registered EMS server config file
-EMSCONFIG=/logs/restd-api/ems.*.restd.yaml
+EMSCONFIG=${restdDir}/ems.*.restd.yaml
 waitForConfig $EMSCONFIG
 serverlist=()
 serverlist+=($EMSCONFIG)
- 
-# Generate Registration config files
-# TODO: Until this finds a better home (like gateway-refersh?)
-mkdir -p /data/msg/gateway
-# FIXME: For now do a full sync on logger startup to handle EMS deletes
-rm -f /data/msg/gateway/ems.*.registration.yaml
-for server in "${serverlist[@]}"; do
-  export groupName="$(echo $(basename $server) | cut -d. -f2 )"
-  export capabilityId="$(echo $(basename $server) | cut -d. -f3 )"
-  regFile="/data/msg/gateway/ems.$groupName.$capabilityId.registration.yaml"
-  if [ -f $regFile ]; then
-    echo >&2 "Skipping existing registration file: $regFile"
-    continue
-  fi
-  echo >&2 "Generating registration file: $regFile"
-  /logs/boot/ems-registration.sh emsRestd2Registration "$server" $regFile
-done
 
 # Generate logger config files
 # TODO: Uses a changes list ? 
-dpLoggerFile="dp.$MY_DATAPLANE.logger.yaml"
-/logs/boot/ems-registration.sh emsLoggerHeader logHeader.yaml
+dpLoggerFile="${loggerDir}/dp.$MY_DATAPLANE.logger.yaml"
+/app/ems-registration generate-log-header -header ${loggerDir}/logHeader.yaml
 # refresh all, since we do not have an add-delete list (yet)
-rm -f ./ems.*.logger.yaml
+rm -f ${loggerDir}/ems.*.logger.yaml
 for server in "${serverlist[@]}"; do
   export groupName="$(echo $(basename $server) | cut -d. -f2 )"
   export capabilityId="$(echo $(basename $server) | cut -d. -f3 )"
   # Migration: 1.13.0:  Upgrade existing registrations for logging
-  /logs/boot/ems-registration.sh enableLogMonitoring "$groupName"
-  loggerFile="./ems.$groupName.$capabilityId.logger.yaml"
-  /logs/boot/ems-registration.sh emsRestd2logger "$server" $loggerFile
+  /app/ems-registration enable-log-monitor -group "$groupName"
+  loggerFile="${loggerDir}/ems.$groupName.$capabilityId.logger.yaml"
+  /app/ems-registration generate-log-config -restd "$server" -log $loggerFile
 done
-cat logHeader.yaml ./ems.*.logger.yaml  > "$dpLoggerFile"
+cat ${loggerDir}/logHeader.yaml ${loggerDir}/ems.*.logger.yaml  > "$dpLoggerFile"
 
-emslog -config $dpLoggerFile
-# echo >&2 "Waiting for shutdown ..."
-# /usr/local/watchdog/bin/wait-for-shutdown.sh
+exec emslog -rotate.bytes 10MiB -config $dpLoggerFile

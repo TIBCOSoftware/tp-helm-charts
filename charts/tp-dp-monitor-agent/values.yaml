@@ -10,11 +10,14 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 4.1.0
+          tag: 4.2.2
   cp:
     dataplaneId: "abcd"
     subscriptionId: "sub1"
     instanceId: "qwerty"
+    dpUrl:
+      host: "dp-{{ .Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
     containerRegistry:
       url: "csgprdusw2reposaas.jfrog.io"
       secret: "test"

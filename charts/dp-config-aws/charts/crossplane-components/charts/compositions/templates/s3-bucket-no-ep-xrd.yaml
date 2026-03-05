@@ -1,0 +1,140 @@
+{{/*
+Copyright © 2026. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositenoeps3bucket.s3.platform.tibco.com
+  labels:
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  group: s3.platform.tibco.com
+  names:
+    kind: CompositeNoEpS3Bucket
+    plural: compositenoeps3bucket
+    singular: compositenoeps3bucket
+  claimNames:
+    kind: TibcoNoEpS3Bucket
+    plural: tibconoeps3bucket
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          description: Tibco XRD for AWS S3 Bucket
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    acl:
+                      description: Canned ACL to apply to the bucket
+                      type: string
+                      enum:
+                        - private
+                        - public-read
+                        - public-read-write
+                        - authenticated-read
+                    bucketName:
+                      description: Name of the S3 bucket
+                      type: string
+                    lifecycleConfiguration:
+                      description: Lifecycle configurations for the bucket
+                      type: object
+                      properties:
+                        rules:
+                          description: Multiple lifecycle rules
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              filter:
+                                type: object
+                                properties:
+                                  prefix:
+                                    type: string
+                              id:
+                                type: string
+                              status:
+                                type: string
+                              transitions:
+                                description: Multiple transition configurations
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    days:
+                                      type: integer
+                                    storageClass:
+                                      type: string
+                                      enum:
+                                        - STANDARD_IA
+                                        - INTELLIGENT_TIERING
+                                        - GLACIER
+                                        - DEEP_ARCHIVE
+                                  required:
+                                    - days
+                                    - storageClass
+                            required:
+                              - status
+                    # encryption:
+                    #   description: Server-side encryption configuration
+                    #   type: object
+                    #   properties:
+                    #     enabled:
+                    #       type: boolean
+                    #       default: true
+                    #     sseAlgorithm:
+                    #       type: string
+                    #       default: AES256
+                    #       enum:
+                    #         - AES256
+                    #         - aws:kms
+                    #     kmsMasterKeyId:
+                    #       type: string
+                    publicAccessBlock:
+                      description: Public access block configuration
+                      type: object
+                      properties:
+                        blockPublicAcls:
+                          type: boolean
+                          default: true
+                        blockPublicPolicy:
+                          type: boolean
+                          default: true
+                        ignorePublicAcls:
+                          type: boolean
+                          default: true
+                        restrictPublicBuckets:
+                          type: boolean
+                          default: true
+                    region:
+                      description: AWS region for the bucket
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value:
+                            type: string
+                        required:
+                          - key
+                          - value
+                    versioning:
+                      description: Enable versioning for the bucket
+                      type: string
+                  required:
+                    - bucketName
+                    - region
+              required:
+                - parameters

@@ -1,0 +1,89 @@
+{{/*
+Copyright © 2026. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.s3 }}
+{{- if eq .Values.s3.create true }}
+apiVersion: s3.platform.tibco.com/v1alpha1
+{{- if eq .Values.s3.endpoints.create true }}
+kind: TibcoS3Bucket
+{{- else }}
+kind: TibcoNoEpS3Bucket
+{{- end }}
+metadata:
+  name: {{ .Values.commonResourcePrefix }}-s3
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "claims.labels" . | nindent 4 }}
+    claim-name: {{ .Values.commonResourcePrefix }}-s3
+spec:
+  parameters:
+    {{- if eq .Values.s3.endpoints.create true }}
+    nodeCIDR: {{ include "claims.net-node-cidr" . }}
+    prefix: {{ .Values.commonResourcePrefix }}
+    routeTableIds:
+    {{- $privateRouteTables := (include "claims.net-private-route-tables" .) }}
+    {{- range (split "\n" $privateRouteTables) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    subnetIds:
+    {{- $privateSubnets := (include "claims.net-private-subnets" .) }}
+    {{- range (split "\n" $privateSubnets) }}
+    {{ . | indent 2 }}
+    {{- end }}
+    vpcId: {{ include "claims.net-vpc-identifier" . }}
+    {{- end }}
+    region: {{ include "claims.cloud-region" . }}
+    {{- /* mandatory parameters */ -}}
+    {{- toYaml .Values.s3.mandatoryConfigurationParameters | nindent 4 }}
+    {{- /* additional configuration parameters */ -}}
+    {{- if .Values.s3.additionalConfigurationParameters }}
+    {{- with .Values.s3.additionalConfigurationParameters }}
+    {{- if .acl }}
+    acl: {{ .acl }}
+    {{- end }}
+    # {{- if .encryption }}
+    # encryption:
+    #   {{- toYaml .encryption | nindent 6 }}
+    # {{- end }}
+    {{- if .lifecycleConfiguration }}
+    lifecycleConfiguration:
+      {{- toYaml .lifecycleConfiguration | nindent 6 }}
+    {{- end }}
+    {{- if hasKey . "privateDNSEnabled" }}
+    privateDNSEnabled: {{ .privateDNSEnabled }}
+    {{- end }}
+    {{- if .publicAccessBlock }}
+    publicAccessBlock:
+      {{- toYaml .publicAccessBlock | nindent 6 }}
+    {{- end }}
+    {{- if .versioning }}
+    versioning: {{ .versioning }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- /* tags */ -}}
+    {{- if or .Values.commonTags .Values.s3.resourceTags }}
+    tags:
+    {{- range $key, $value := .Values.commonTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- range $key, $value := .Values.s3.resourceTags }}
+      - key: {{ $key }}
+        value: {{ $value }}
+    {{- end }}
+    {{- end }}
+  compositionSelector:
+    matchLabels:
+      {{- if eq .Values.s3.endpoints.create true }}
+      provider: "provider-aws-s3"
+      {{- else }}
+      provider: "provider-aws-s3-no-ep"
+      {{- end }}
+  writeConnectionSecretToRef:
+    name: {{ .Values.s3.connectionDetailsSecret }}
+{{- end }}
+{{- end }}

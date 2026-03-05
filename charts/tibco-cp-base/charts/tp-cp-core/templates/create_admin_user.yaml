@@ -11,6 +11,8 @@ metadata:
   namespace: {{ include "tp-control-plane-ops.consts.namespace" . }}
   labels:
     app.cloud.tibco.com/created-by: tp-cp
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 14400
@@ -64,7 +66,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}        
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         env:
         - name: REGION
@@ -77,11 +79,30 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_ORCH_HOST
+        - name: TP_CP_IDP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDP_HOST
         - name: TSC_DNS_DOMAIN
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_DNS_DOMAIN
+        - name: TSC_ADMIN_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TSC_ADMIN_DNS_DOMAIN
+        - name: ADMIN_HOST_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: ADMIN_HOST_PREFIX
+        - name: ENABLE_API_BASED_INITIALIZATION
+          value: {{ .Values.global.external.enable_api_based_initialization | quote }}
+        - name: INITIAL_ADMIN_PASSWORD
+          value: {{ .Values.global.external.adminInitialPassword }}
         - name: EMAIL_ID
           value: {{ .Values.global.external.admin.email }}
         - name: FIRSTNAME
@@ -99,9 +120,40 @@ spec:
             set -o nounset
             set -o errexit
             region=${REGION}
-            echo "Provisioning the Admin Subscription for ${EMAIL_ID}.."
-            curl -sS -XPOST -H 'x-atmosphere-for-user: ProvisioningUser' -H "Content-type: application/json" -H "Host: ${TSC_DNS_DOMAIN}" -H "x-real-ip: 0.0.0.0" -H "X-Initial-Admin-User: true" -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"admin","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' 'http://'${TP_CP_ORCH_HOST}:8833'/v1/tibco-subscriptions'
-            echo "Subscription for ${EMAIL_ID} provisioned successfully."
-
-
+            # Fixed assignment logic
+            if [ "${ENABLE_API_BASED_INITIALIZATION}" = "true" ]; then
+                echo "API based provisioning is enabled, hence only creating user in Default-IdP for ${EMAIL_ID}.."
+                curl -sS -XPOST \
+                  -H 'x-atmosphere-for-user: ProvisioningUser' \
+                  -H "Content-type: application/json" \
+                  -H "Host: $TSC_ADMIN_DNS_DOMAIN" \
+                  -H "x-real-ip: 0.0.0.0" \
+                  -H "X-Initial-Admin-User: true" \
+                  -d '{"inviteRequest":{"firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email":"'"$EMAIL_ID"'","password":"'"$INITIAL_ADMIN_PASSWORD"'", "redirectUrl": "https://'"$TSC_ADMIN_DNS_DOMAIN"'"}}' \
+                  "http://${TP_CP_IDP_HOST}:7893/v1/users"
+                echo "User for ${EMAIL_ID} created in Default-IdP successfully."
+                echo "=================================================================================="
+                echo "WARNING: API-Based Provisioning Enabled"
+                echo "--------------------------------------------------------------------------------"
+                echo "The Platform Console Subscription has not been provisioned automatically."
+                echo ""
+                echo "Action Required:"
+                echo "  1. Provision the Platform Console Subscription via API using the credentials"
+                echo "     created above (use Basic Authorization)"
+                echo ""
+                echo "Important:"
+                echo "  - Browser-based login will disable API-based Platform Console Subscription provisioning"
+                echo "=================================================================================="
+            else
+                echo "Provisioning the Admin Subscription for ${EMAIL_ID}.."
+                curl -sS -XPOST \
+                  -H 'x-atmosphere-for-user: ProvisioningUser' \
+                  -H "Content-type: application/json" \
+                  -H "Host: $TSC_ADMIN_DNS_DOMAIN" \
+                  -H "x-real-ip: 0.0.0.0" \
+                  -H "X-Initial-Admin-User: true" \
+                  -d '{"externalAccountId": "'"$EXTERNAL_ACCOUNT_ID"'","externalSubscriptionId": "'"$EXTERNAL_SUBSCRIPTION_ID"'","firstName":"'"$FIRSTNAME"'","lastName":"'"$LASTNAME"'","email": "'"$EMAIL_ID"'","organizationName":"TSC Admin Subscription '"$region"'","hostPrefix":"'"$ADMIN_HOST_PREFIX"'","prefixId":"tibc","tenantSubscriptionDetails": [{"eula": true,"region": "'${region}'","expiryInMonths": -1,"planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS","tenantId": "ADMIN","seats": {"ADMIN": {"ENGR": -1,"PM": -1,"SUPT": -1,"OPS": -1,"PROV": -1,"TSUPT": -1}}}],"skipEmail": false}' \
+                  "http://${TP_CP_ORCH_HOST}:8833/v1/tibco-subscriptions"
+                echo "Subscription for ${EMAIL_ID} provisioned successfully."
+            fi
 {{- end }}

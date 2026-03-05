@@ -2,7 +2,7 @@
 {{/*
 MSG DP Common Helpers
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -187,7 +187,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.13.0.15"
+tib-dp-msgbuild: "1.15.0.31"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "user-app"
 tib-dp-dataplane-id: "{{ .dp.name }}"

@@ -1,0 +1,86 @@
+{{/*
+Copyright © 2026. Cloud Software Group, Inc.
+This file is subject to the license terms contained
+in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: compositenoeps3bucket.s3.platform.tibco.com
+  labels:
+    provider: provider-aws-s3-no-ep
+    {{- include "compositions.labels" . | nindent 4 }}
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: s3.platform.tibco.com/v1alpha1
+    kind: CompositeNoEpS3Bucket
+  resources:
+    - name: s3-bucket
+      base:
+        apiVersion: s3.aws.crossplane.io/v1beta1
+        kind: Bucket
+        spec:
+          deletionPolicy: Delete
+          providerConfigRef:
+            name: aws-provider-config
+          forProvider:
+            locationConstraint: ""
+            # serverSideEncryptionConfiguration:
+            #   rules:
+            #     - applyServerSideEncryptionByDefault:
+            #         sseAlgorithm: AES256
+            objectOwnership: BucketOwnerEnforced
+            versioningConfiguration:
+              status: ""
+            publicAccessBlockConfiguration:
+              blockPublicAcls: true
+              blockPublicPolicy: true
+              ignorePublicAcls: true
+              restrictPublicBuckets: true
+            tagging:
+              tagSet: []
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.labels['bucket-name']"
+        - fromFieldPath: "spec.parameters.acl"
+          toFieldPath: "spec.forProvider.acl"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.locationConstraint"
+        - fromFieldPath: "spec.parameters.versioning"
+          toFieldPath: "spec.forProvider.versioningConfiguration.status"
+        # - fromFieldPath: "spec.parameters.encryption.sseAlgorithm"
+        #   toFieldPath: "spec.forProvider.serverSideEncryptionConfiguration.rules[0].applyServerSideEncryptionByDefault.sseAlgorithm"
+        #   policy:
+        #     fromFieldPath: Optional
+        # - fromFieldPath: "spec.parameters.encryption.kmsMasterKeyId"
+        #   toFieldPath: "spec.forProvider.serverSideEncryptionConfiguration.rules[0].applyServerSideEncryptionByDefault.kmsMasterKeyId"
+        #   policy:
+        #     fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.blockPublicAcls"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.blockPublicAcls"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.blockPublicPolicy"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.blockPublicPolicy"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.ignorePublicAcls"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.ignorePublicAcls"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.publicAccessBlock.restrictPublicBuckets"
+          toFieldPath: "spec.forProvider.publicAccessBlockConfiguration.restrictPublicBuckets"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.lifecycleConfiguration"
+          toFieldPath: "spec.forProvider.lifecycleConfiguration"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.tags"
+          toFieldPath: "spec.forProvider.tagging.tagSet"
+          policy:
+            fromFieldPath: Optional

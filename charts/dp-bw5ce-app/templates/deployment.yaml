@@ -149,6 +149,10 @@ spec:
           name: artifacts-share
         - mountPath: /app/logs
           name: logs-share
+        {{- if .Values.enableTmpVolume }}
+        - mountPath: /tmp
+          name: tmp
+        {{- end }}
         {{- if .Values.enableResourcesVolumes }}
         - mountPath: /resources/addons/plugins
           name: resources-addons-plugins
@@ -249,6 +253,10 @@ spec:
       volumes:
       - emptyDir: {}
         name: artifacts-share
+      {{- if .Values.enableTmpVolume }}
+      - emptyDir: {}
+        name: tmp
+      {{- end }}
       {{- if .Values.enableResourcesVolumes }}
       - emptyDir: {}
         name: resources-addons-lib

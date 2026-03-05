@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -163,9 +163,13 @@ spec:
             - name: AUTHORIZATION_SERVER_URL
               value: "https://{{ .Values.global.cp.cpHostname}}"
             - name: DATAPLANE_HOST
-              value: "{{ .Values.publicApi.ingress.config.fqdn }}"
+              {{- if .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}
+              value: "{{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}"
+              {{- else }}
+              value: "{{ .Values.global.cp.resources.ingress.fqdn }}"
+              {{- end }}
             - name: PATH_PREFIX
-              value: {{ .Values.publicApi.ingress.config.pathPrefix }}
+              value: {{ .Values.publicApi.config.pathPrefix }}
           volumeMounts:
             - name: logs-share
               mountPath: /tmp/logs/share

@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -19,8 +19,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.26.0-b350"
-  flogoBaseImageTag: "2.26.0-b350"
+  flogoBuildTypeTag: "2.26.1-b392"
+  flogoBaseImageTag: "2.26.1-b392"
   customFQImage: ""
   tags: ""
   connectors: ""
@@ -46,6 +46,7 @@ networkPolicy:
   databaseEgress: enable
   proxyEgress: enable
   userApps: enable
+  clusterEgress: enable
 
 replicaCount: 1
 
@@ -53,9 +54,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-flogo-app-init"
-  appInitImageTag: "51"
+  appInitImageTag: "55"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "4.1.0"
+  fluentBitImageTag: "4.2.2"
   flogoBaseImageName: "tp-flogo-app-base"
 
 imagePullSecrets: []
@@ -196,12 +197,15 @@ service:
   # ports:
   #  - port: 9999
   #    targetPort: 9999
+  # for GKE gateway loadbalancer health check policy
+  customhealthCheckPolicy: {}
 
 ingress:
   enabled: false
   className: ""
   # currently supported controllerName are: nginx, kong, traefik
   controllerName: ""
+  resourceInstanceName: ""
   annotations: {}
     # kubernetes.io/tls-acme: "true"
   rules:
@@ -217,6 +221,25 @@ ingress:
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
+
+gateway:
+  enabled: false
+  name: ""
+  namespace: ""
+  sectionName: ""
+  controllerName: ""
+  resourceInstanceName: ""
+  annotations: {}
+  rules:
+  - host: example.com
+    paths:
+    - path: /
+      pathType: PathPrefix
+      port: 9999
+      serviceDiscoverable: true
+      serviceDescription: ""
+      filters: []
+      customCRDConfig: {}
 
 autoscaling:
   enabled: false

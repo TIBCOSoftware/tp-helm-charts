@@ -13,6 +13,7 @@ global:
   tibco:
     region: "global"
     region_to_prefix: '{"TSC":{"global":""},"ADMIN":{"global":""}}'
+    adminHostPrefix: "admin"      # Configurable admin hostname prefix (e.g., "admin", "platform")
     # Flag to enable or disable database jobs (upgrade and cleanup)
     # Set to false to disable DB script execution if you want to run scripts manually outside of the chart
     # Default value is true
@@ -47,15 +48,6 @@ global:
       disableGdprPurgeHistoryJob: "true"
       disableIdmCleanUpJob: "false"
       disableIdmNotifyCertificatesExpiryJob: "true"
-    image_name:
-      webserver: "core-web-server"
-      orchestrator: "core-orchestrator"
-      userSubscriptions: "core-user-subscriptions"
-      cronjobs: "core-cronjobs"
-      identityManagement: "core-identity-management"
-      identityProvider: "core-identity-provider"
-      pengine: "core-pengine"
-      cpScripts: "core-cp-scripts"
     helm:
       url: "https://tibcosoftware.github.io"
       repo: "tp-helm-charts"
@@ -68,11 +60,11 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 4.1.0
+          tag: 4.2.2
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
-        tag: 12.12
+        tag: 12.13
     self_hosted_deployment: true
     is_replica_region: false
     finops: "disable"

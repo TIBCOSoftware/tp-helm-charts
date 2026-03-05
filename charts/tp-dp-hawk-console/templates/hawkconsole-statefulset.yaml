@@ -87,6 +87,8 @@ spec:
             value: {{ .Values.hawkconsole.fileupload.requestSizeLimit }}
           - name: EMS_DOMAIN_RECONNECT_ATTEMPTS_AND_INTERVAL
             value: {{ .Values.hawkconsole.domain.ems.reconnectAttemptsAndInterval  }}
+          - name: CP_DOMAIN
+            value: {{ include "tp-dp-hawk-console.cp.domain" . }}
           - name: log_level
             value: {{ .Values.hawkconsole.log.level }}  
           - name: JAVA_TOOL_OPTIONS

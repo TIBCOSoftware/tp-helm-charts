@@ -19,7 +19,7 @@ spec:
   ingressClassName: {{ tpl .Values.ingress.className . }}
   rules:
   # Host-based rule for Control Plane traffic using the Data Plane ID
-  - host: "dp-{{ .Values.global.cp.dataplaneId }}.platform.local"
+  - host: {{ tpl .Values.global.cp.dpUrl.host . }}
     http:
       paths:
       - pathType: Prefix

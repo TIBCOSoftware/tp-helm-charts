@@ -1,0 +1,27 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: openshift-elastic
+  namespace: elastic
+  annotations:
+    # Strip /o11y/traces-server prefix and rewrite to root /
+    haproxy.router.openshift.io/rewrite-target: /
+spec:
+  host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+  path: /o11y/traces-server
+  tls:
+    # Edge termination at the router, then HTTPS to backend
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+    # For reencrypt, specify destination CA if needed
+    # destinationCACertificate: |
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
+  to:
+    kind: Service
+    name: elasticsearch-master
+    weight: 100
+  port:
+    targetPort: 9200
+  wildcardPolicy: None

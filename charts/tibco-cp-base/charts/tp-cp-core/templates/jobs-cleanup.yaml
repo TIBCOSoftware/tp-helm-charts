@@ -293,7 +293,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -389,7 +389,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         env:
         - name: POD_NAMESPACE

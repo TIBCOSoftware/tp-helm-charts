@@ -36,7 +36,11 @@ rbac:
   ems: true
   devHub: true
   o11y: true
-  # Conditional RBACS for ingress controller
+  # Gateway API RBAC
+  gatewayAPI:
+    nginxGatewayFabric: true
+    gkeGatewayController: true
+  # Ingress Controller RBAC
   ingressController:
     kong: true
     traefik: true

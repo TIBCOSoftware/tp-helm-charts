@@ -103,7 +103,7 @@ spec:
               matchControllerRef: true
             engine: "" # patched
             replicationGroupDescription: "" # patched
-            securityGroupIDSelector:
+            securityGroupIdSelector:
               matchControllerRef: true
           writeConnectionSecretToRef:
             namespace: "crossplane-system"
@@ -119,11 +119,11 @@ spec:
               string:
                 fmt: "%s-redis"
         - fromFieldPath: "spec.parameters.applyModificationsImmediately"
-          toFieldPath: "spec.parameters.applyModificationsImmediately"
+          toFieldPath: "spec.forProvider.applyModificationsImmediately"
         - fromFieldPath: "spec.parameters.atRestEncryptionEnabled"
-          toFieldPath: "spec.parameters.atRestEncryptionEnabled"
+          toFieldPath: "spec.forProvider.atRestEncryptionEnabled"
         - fromFieldPath: "spec.parameters.authEnabled"
-          toFieldPath: "spec.parameters.authEnabled"
+          toFieldPath: "spec.forProvider.authEnabled"
         - fromFieldPath: "spec.parameters.cacheNodeType"
           toFieldPath: "spec.forProvider.cacheNodeType"
         - fromFieldPath: "spec.parameters.cacheParameterGroupName"
@@ -152,6 +152,9 @@ spec:
           toFieldPath: "spec.forProvider.transitEncryptionEnabled"
       connectionDetails:
         - fromConnectionSecretKey: endpoint
-          name: configuration_endpoint
+        - fromConnectionSecretKey: password
         - fromConnectionSecretKey: port
-          name: configuration_port
+        - fromConnectionSecretKey: readerEndpoint
+          name: reader_endpoint
+        - fromConnectionSecretKey: readerPort
+          name: reader_port

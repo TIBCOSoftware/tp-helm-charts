@@ -134,7 +134,7 @@ spec:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
                 key: TP_CP_EMAIL_SERVICE_HOST
       - name: check-sql-schema-version
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.cpScripts }}:{{ include "cp-core-scripts.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
@@ -175,7 +175,7 @@ spec:
       {{ end }}
       containers:
       - name: cporchservice
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.image_name.orchestrator }}:{{ include "orchestrator.generated.buildNumber" . }}
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-orchestrator:{{ include "orchestrator.generated.buildNumber" . }}'
         imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
@@ -312,6 +312,8 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_IDP_HOST
+        - name: ENABLE_HYBRID_CONNECTIVITY
+          value: {{ include "tp-cp-orchestrator.consts.enableHybridConnectivity" . | quote }}
         - name: TP_CP_ALERT_SERVICE_HOST
           valueFrom:
             configMapKeyRef:
@@ -327,6 +329,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
+        - name: TP_DP_PROXY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_DP_PROXY_HOST
         - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
           valueFrom:
             configMapKeyRef:
@@ -352,6 +359,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TSC_ADMIN_DNS_DOMAIN
+        - name: ADMIN_HOST_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: ADMIN_HOST_PREFIX
         - name: TP_CP_VERSION
           valueFrom:
             configMapKeyRef:
@@ -366,7 +378,7 @@ spec:
         - name: TSC_ORCHESTRATOR_PUBLISHED_HTTP_PORT
           value: {{ include "tp-cp-orchestrator.consts.published.http.port" . | quote }}
         - name: TSC_ORCHESTRATOR_TROPOSPHERE_LOG_LEVEL
-          value: debug
+          value: info
         - name: TSC_DNS_DOMAIN
           value: https://$(TSC_DNS_DOMAIN_NAME)
         - name: ADMIN_DNS_DOMAIN
@@ -484,6 +496,8 @@ spec:
           value: {{ .Values.global.external.helmRepo }}
         - name: DP_DEFAULT_HELM_REPO
           value: {{ .Values.global.tibco.helm | toJson | quote }}
+        - name: ENABLE_API_BASED_INITIALIZATION
+          value: {{ .Values.global.external.enable_api_based_initialization | quote }}
         - name: INITIAL_ADMIN_PASSWORD
           value: {{ .Values.global.external.adminInitialPassword }}
         - name: EMAIL_SERVICE_SERVICE_HTTP_PORT
@@ -541,6 +555,8 @@ spec:
           value: file:///private/tsc/config/emailservice/emailservice.json
         - name: EMAIL_SERVICE_SMTP_INSECURE_SKIP_VERIFY_TLS
           value: {{ .Values.global.external.emailServer.smtp.insecureSkipVerifyTls | quote }}
+        - name: IS_SELF_HOSTED_DEPLOYMENT
+          value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         volumeMounts:
         {{- if .Values.global.external.emailServer.smtp.customCertsSecretName }} 
           - name: smtp-certs
@@ -740,6 +756,18 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+  - path: /platform-console/api/v1/init
+    internalPath: /v1/tibco-subscriptions
+    port: 8833
+    protocol: http
+    proxies:
+    - allowClientCache: false
+      allowXFrameOptions: false
+      config: empty
+      fqdn: ${TSC_ADMIN_DNS_DOMAIN}
+      listener: virtual
+      methods:
+      - POST
   - path: /cp-orchestrator/v1/my-accounts/info
     internalPath: /v1/my-accounts/info
     port: 7833

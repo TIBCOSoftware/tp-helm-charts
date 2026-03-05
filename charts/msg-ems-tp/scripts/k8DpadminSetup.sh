@@ -1,6 +1,7 @@
 #!/bin/bash
+
 #
-# Copyright (c) 2023-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -21,4 +22,4 @@ $tibemsadmin -server $EMS_ACTIVE_URL -script $cmdFile |
     sed -e "s;$DP_ADMIN_PASSWORD;xxxx;g" 
 rtc=$?
 rm -f $cmdFile
-exit $rtc
+exit 0

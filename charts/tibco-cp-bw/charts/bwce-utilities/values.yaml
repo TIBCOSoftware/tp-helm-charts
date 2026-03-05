@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.1.0
+          tag: 4.2.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.12
+    tag: 12.13
 
 nameOverride: ""
 
@@ -149,8 +149,8 @@ bwPluginsJobA:
     default: 6.2.0.v26-tci-2.0
   tci-bw-plugin-dynamicscrm:
     tags:
-      - 6.10.0.v9-tci-2.0
-    default: 6.10.0.v9-tci-2.0
+      - 6.10.1.v6.2-tci-2.0
+    default: 6.10.1.v6.2-tci-2.0
   tci-bw-plugin-ariba:
     tags:
       - 6.0.0.v7.0.1-tci-2.0
@@ -163,8 +163,8 @@ bwPluginsJobA:
 bwPluginsJobB:
   tci-bw-plugin-salesforce:
     tags:
-      - 6.11.0.v19.1-tci-2.0
-    default: 6.11.0.v19.1-tci-2.0
+      - 6.11.0.v20.2-tci-2.0
+    default: 6.11.0.v20.2-tci-2.0
   tci-bw-plugin-peoplesoft:
     tags:
       - 7.4.0.v19-tci-2.0
@@ -183,16 +183,16 @@ bwPluginsJobB:
     default: 6.1.2.v12-tci-2.0
   tci-bw-plugin-googlecs:
     tags:
-      - 6.0.0.v28-tci-2.0
-    default: 6.0.0.v28-tci-2.0
+      - 6.0.0.v43.1-tci-2.0
+    default: 6.0.0.v43.1-tci-2.0
   tci-bw-plugin-bc:
     tags:
       - 6.3.1.v12.1-tci-2.0
     default: 6.3.1.v12.1-tci-2.0
   tci-bw-plugin-amazons3:
     tags:
-      - 6.7.0.v11-tci-2.0
-    default: 6.7.0.v11-tci-2.0
+      - 6.7.0.v25.2-tci-2.0
+    default: 6.7.0.v25.2-tci-2.0
   tci-bw-plugin-smpp:
     tags:
       - 6.0.3.v5-tci-2.0
@@ -217,20 +217,20 @@ bwPluginsJobC:
     default: 8.8.0.v25.2-tci-2.0
   tci-bw-plugin-mongodb:
     tags:
-      - 6.4.2.v32-tci-2.0
-    default: 6.4.2.v32-tci-2.0
+      - 6.5.0.v5.1-tci-2.0
+    default: 6.5.0.v5.1-tci-2.0
   tci-bw-plugin-pdf:
     tags:
-      - 6.2.2.v12-tci-2.0
-    default: 6.2.2.v12-tci-2.0
+      - 6.2.3.v4.2-tci-2.0
+    default: 6.2.3.v4.2-tci-2.0
   tci-bw-plugin-googlepubsub:
     tags:
       - 6.0.2.v23-tci-2.0
     default: 6.0.2.v23-tci-2.0
   tci-bw-plugin-kafka:
     tags:
-      - 6.8.2.v8-tci-2.0
-    default: 6.8.2.v8-tci-2.0
+      - 6.8.2.v27-tci-2.0
+    default: 6.8.2.v27-tci-2.0
   tci-bw-plugin-siebel:
     tags:
       - 7.3.0.v3.0.1-tci-2.0
@@ -239,8 +239,8 @@ bwPluginsJobC:
 bwPluginsJobD:
   tci-bw-plugin-excel:
     tags:
-      - 6.1.1.v41.1-tci-2.0
-    default: 6.1.1.v41.1-tci-2.0
+      - 6.1.1.v41.5-tci-2.0
+    default: 6.1.1.v41.5-tci-2.0
   tci-bw-plugin-dataconversion:
     tags:
       - 4.8.1.v2.2-tci-2.0
@@ -335,8 +335,8 @@ bwPluginsJobF:
     default: 6.5.2.v6-tci-2.0
   tci-bw-plugin-ftl:
     tags:
-      - 6.7.3.v4.3-tci-2.0
-    default: 6.7.3.v4.3-tci-2.0
+      - 6.7.4.v13-tci-2.0
+    default: 6.7.4.v13-tci-2.0
   tci-bw-plugin-workday:
     tags:
       - 6.0.1.v13.3-tci-2.0
@@ -357,8 +357,8 @@ bwPluginsJobF:
 bwPluginsJobG:
   tci-bw-plugin-s4hanacloud:
     tags:
-      - 6.4.0.v19-tci-2.0
-    default: 6.4.0.v19-tci-2.0
+      - 6.4.0.v39.1-tci-2.0
+    default: 6.4.0.v39.1-tci-2.0
   tci-bw-plugin-bwlx:
     tags:
       - 6.1.4.v24-tci-2.0
@@ -385,8 +385,12 @@ bwPluginsJobG:
     default: 6.5.0.v14.1-tci-2.0
   tci-bw-plugin-as2:
     tags:
-      - 6.0.0.v7.2-tci-2.0
-    default: 6.0.0.v7.2-tci-2.0
+      - 6.0.0.v10-tci-2.0
+    default: 6.0.0.v10-tci-2.0
+  tci-bw-plugin-rag:
+    tags:
+      - 6.0.0.v8-tci-2.0
+    default: 6.0.0.v8-tci-2.0
 
 volumes:
   plugins:

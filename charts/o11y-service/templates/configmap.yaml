@@ -62,9 +62,12 @@ data:
 {{- $metricsOtlpUrl := "localhost:4317" }}
 {{- $traceOtlpUrl := "localhost:4317" }}
 {{- $esEndpoint := "https://elasticsearch-master:9200" }}
+{{- $osEndpoint := "https://opensearch-master:9200" }}
 {{- $appLogExpESOpt := false }}
+{{- $appLogExpOSOpt := false }}
 {{- $svcLogExpESOpt := false }}
 {{- $auditsafeExpESOpt := false }}
+{{- $auditsafeExpOSOpt := false }}
 ##logsserver:userapp exporter
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "elasticSearch" }}
@@ -73,6 +76,13 @@ data:
   LOGS_EXPORTER_APP_ES_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.username }}
   {{- $appLogExpESOpt = true -}}
   {{- $appLogExp = "'[elasticsearch/log]'" -}}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "openSearch" }}
+  LOGS_EXPORTER_APP_OS_INDEX_NAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.logIndex }}
+  LOGS_EXPORTER_APP_OS_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.endpoint }}
+  LOGS_EXPORTER_APP_OS_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.elasticSearch.username }}
+  {{- $appLogExpOSOpt = true -}}
+  {{- $appLogExp = "'[opensearch/log]'" -}}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "kafka" }}
   LOGS_EXPORTER_APP_KAFKA_BROKERS: '{{ include "logs.exporters.userapp.kafka.brokers" . }}'
@@ -94,9 +104,9 @@ data:
   {{- end }}
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
-  {{- $appLogProc = "'[k8sattributes/general, transform/logs, filter/userapp, memory_limiter, batch]'" -}}
+  {{- $appLogProc = "'[k8sattributes/general, transform/logs, transform/logs-ext, filter/userapp, memory_limiter, batch]'" -}}
   {{- else }}
-  {{- $appLogProc = "'[k8sattributes/general-ns, transform/logs, filter/userapp, memory_limiter, batch]'" -}}
+  {{- $appLogProc = "'[k8sattributes/general-ns, transform/logs, transform/logs-ext, filter/userapp, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
 ##logsserver:userapp secondary exporter
@@ -114,6 +124,7 @@ data:
 {{- end }}
 ##logsserver:userapp proxy
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.enabled }}
+  logserver-proxy-app-kind: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.kind }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.kind "elasticSearch" }}
   logserver-proxy-app-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.elasticSearch.logIndex }}
   logserver-proxy-app-endpoint: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.userApps.elasticSearch.endpoint }}
@@ -154,9 +165,9 @@ data:
   {{- end }}
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
-  {{- $svcLogProc = "'[k8sattributes/general, filter/svc, memory_limiter, batch]'" -}}
+  {{- $svcLogProc = "'[k8sattributes/general, filter/svc, transform/svclogs-ext, memory_limiter, batch]'" -}}
   {{- else }}
-  {{- $svcLogProc = "'[k8sattributes/general-ns, filter/svc, memory_limiter, batch]'" -}}
+  {{- $svcLogProc = "'[k8sattributes/general-ns, filter/svc, transform/svclogs-ext, memory_limiter, batch]'" -}}
   {{- end }}
 {{- end }}
 ##logsserver:service secondary exporter
@@ -181,6 +192,13 @@ data:
   {{- $auditsafeExpESOpt = true -}}
   {{- $auditsafeExp = "'[elasticsearch/auditsafe]'" -}}
   {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.kind "openSearch" }}
+  LOGS_EXPORTER_AUDITSAFE_OS_INDEX_NAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.logIndex }}
+  LOGS_EXPORTER_AUDITSAFE_OS_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.endpoint }}
+  LOGS_EXPORTER_AUDITSAFE_OS_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.auditSafe.elasticSearch.username }}
+  {{- $auditsafeExpOSOpt = true -}}
+  {{- $auditsafeExp = "'[opensearch/auditsafe]'" -}}
+  {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
   {{- $auditsafeProc = "'[k8sattributes/general, transform/logs, transform/auditsafe, memory_limiter, batch]'" -}}
   {{- else }}
@@ -189,7 +207,13 @@ data:
 {{- end }}
 ##logsserver:auditSafe proxy
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.enabled }}
+  logserver-proxy-auditsafe-kind: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.kind }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.kind "elasticSearch" }}
+  logserver-proxy-auditsafe-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.logIndex }}
+  logserver-proxy-auditsafe-endpoint: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.endpoint }}
+  logserver-proxy-auditsafe-userName: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.username }}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.kind "openSearch" }}
   logserver-proxy-auditsafe-index: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.logIndex }}
   logserver-proxy-auditsafe-endpoint: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.endpoint }}
   logserver-proxy-auditsafe-userName: {{ .Values.global.cp.resources.o11yv3.logsServer.config.proxy.auditSafe.elasticSearch.username }}
@@ -313,11 +337,17 @@ data:
 {{- if not $appLogExpESOpt }}
   LOGS_EXPORTER_APP_ES_ENDPOINT: {{ $esEndpoint }}
 {{- end }}
+{{- if not $appLogExpOSOpt }}
+  LOGS_EXPORTER_APP_OS_ENDPOINT: {{ $osEndpoint }}
+{{- end }}
 {{- if not $svcLogExpESOpt }}
   LOGS_EXPORTER_SVC_ES_ENDPOINT: {{ $esEndpoint }}
 {{- end }}
 {{- if not $auditsafeExpESOpt }}
   LOGS_EXPORTER_AUDITSAFE_ES_ENDPOINT: {{ $esEndpoint }}
+{{- end }}
+{{- if not $auditsafeExpOSOpt }}
+  LOGS_EXPORTER_AUDITSAFE_OS_ENDPOINT: {{ $osEndpoint }}
 {{- end }}
   LOGS_EXPORTER_APP_OTLP_URL: {{ $appLogOtlpUrl }}
   LOGS_EXPORTER_SVC_OTLP_URL: {{ $svcLogOtlpUrl }}

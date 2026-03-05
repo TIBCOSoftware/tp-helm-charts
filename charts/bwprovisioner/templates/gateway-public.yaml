@@ -1,0 +1,70 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) -}}
+{{- $fullName := include "bwprovisioner.fullname" . -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-public-gateway-route
+  annotations:
+    {{- with .Values.global.cp.resources.gatewayapi.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    {{- end }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.publicApi.config.pathPrefix }}/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Forwarded-Prefix
+          value: {{ .Values.publicApi.config.pathPrefix }}
+        - name: X-Forwarded-Host
+          value: {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+        - name: X-Forwarded-Port
+          value: "443"
+        - name: X-Forwarded-Proto
+          value: "https"
+    backendRefs:
+    - name: {{ $fullName }}
+      port: {{ $.Values.publicApiService.targetPort }}
+      weight: 100
+
+---
+{{- if eq .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName "GKE" -}}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "bwprovisioner.fullname" . }}
+spec:
+  {{- with $.Values.publicApi.gke.healthCheckPolicy }}
+    {{- toYaml . | nindent 2 }}
+  {{- end }}
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ include "bwprovisioner.fullname" . }}
+
+{{- end }}
+{{- end }}
