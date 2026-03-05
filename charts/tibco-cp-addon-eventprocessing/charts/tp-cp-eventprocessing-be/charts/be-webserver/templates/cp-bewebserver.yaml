@@ -110,6 +110,11 @@ spec:
             configMapKeyRef:
               name: {{ include "be-webserver.cp-env-configmap" . }}
               key: CP_INSTANCE_ID
+        - name: TP_DP_PROXY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_DP_PROXY_HOST
         - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
           valueFrom:
             configMapKeyRef:
