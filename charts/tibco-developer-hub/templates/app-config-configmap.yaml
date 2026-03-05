@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -14,7 +14,7 @@ data:
     value passed from backstage.appConfig.cpLink will have precedence
  */}}
   app-config.yaml: |
-{{- $baseUrl := print "https://" .Values.global.cp.resources.ingress.fqdn .Values.ingress.pathPrefix -}}
+{{- $baseUrl := print "https://" (or .Values.global.cp.resources.ingress.fqdn .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName) .Values.ingress.pathPrefix -}}
 {{- if .Values.backstage.tibcoDeveloperHubCustomAppVersion }}
     {{- include "common.tplvalues.render" ( dict "value" (mergeOverwrite .Values.backstage.appConfig (dict "cpLink" .Values.global.cp.cpHostname) (dict "app" (dict "baseUrl" $baseUrl)) (dict "backend" (dict "baseUrl" $baseUrl)) (dict "tibcoDeveloperHubCustomAppVersion" .Values.backstage.tibcoDeveloperHubCustomAppVersion)) "context" $) | nindent 4 }}
 {{- else }}

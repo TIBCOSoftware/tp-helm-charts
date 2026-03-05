@@ -1,4 +1,5 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+#
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file
 
@@ -28,10 +29,16 @@ global:
         namespace: ""
         serviceAccountName: ""
       ingress:
-        fqdn: foo.com
-        ingressClassName: nginx
-        ingressController: nginx
+        fqdn: ""
+        ingressClassName: ""
+        ingressController: ""
         annotations: {}
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
       storage:
         storageClassName: ""
       dbconfig:
@@ -50,7 +57,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 4.1.0
+          tag: 4.2.2
         enabled: true
         resources:
           requests:
@@ -130,9 +137,6 @@ ingress:
   # -- Name of the IngressClass cluster resource which defines which controller will implement the resource (e.g nginx)
   className: ""
 
-  # -- Additional annotations for the Ingress resource
-  annotations: '{{- include "tibcohub.ingress.annotations" . -}}'
-
   # -- Hostname to be used to expose the route to access the backstage application (e.g: backstage.IP.nip.io)
   host: ""
 
@@ -158,7 +162,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "1196"
+    tag: "1245"
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -500,7 +504,7 @@ metrics:
 
 fluentbit:
   image:
-    tag: 4.1.0
+    tag: 4.2.2
     pullPolicy: Always
   securityContext:
     runAsNonRoot: false
@@ -533,12 +537,20 @@ initContainer:
     digest: ""
 
 publicApi:
-  ingress:
-    controllerName: nginx
-    config:
-      className: nginx
-      pathPrefix: /tibco/hub
-      fqdn: ""
+  config:
+    pathPrefix: /tibco/hub
+  gke:
+    healthCheckPolicy:
+      default:
+        checkIntervalSec: 20
+        timeoutSec: 10
+        healthyThreshold: 1
+        unhealthyThreshold: 3
+        config:
+          type: HTTP
+          httpHealthCheck:
+            port: 7007
+            requestPath: /tibco/hub/health
 
 resources:
   requests:

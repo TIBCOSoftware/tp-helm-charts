@@ -266,14 +266,14 @@ spec:
             {{- if or .httpProxy .httpsProxy }}
             {{- if not .noProxy }}
             - name: no_proxy
-              value: "127.0.0.1"
+              value: "127.0.0.1,*.svc.cluster.local"
             - name: GLOBAL_AGENT_NO_PROXY
-              value: "127.0.0.1"
+              value: "127.0.0.1,*.svc.cluster.local"
             {{- else }}
             - name: no_proxy
-              value: "{{ .noProxy }},127.0.0.1"
+              value: "{{ .noProxy }},127.0.0.1,*.svc.cluster.local"
             - name: GLOBAL_AGENT_NO_PROXY
-              value: "{{ .noProxy }},127.0.0.1"
+              value: "{{ .noProxy }},127.0.0.1,*.svc.cluster.local"
             {{- end }}
             {{- end }}
             {{- end }}
