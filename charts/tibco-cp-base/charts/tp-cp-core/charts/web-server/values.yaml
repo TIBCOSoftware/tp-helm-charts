@@ -18,11 +18,11 @@ global:
       fluentbit:
         image:
           name: "common-fluentbit"
-          tag: 4.1.0
+          tag: 4.2.2
     check_dependencies:
       distroless_debian:
         name: "common-distroless-base-debian-debug"
-        tag: 12.12
+        tag: 12.13
     finops: "disable"
     msg_dp_config_enabled: "true"
 
@@ -92,7 +92,7 @@ cpmcpserver:
   enabled: false
   image:
     name: infra-cp-mcp-server
-    tag: "304-distroless"
+    tag: "509-distroless"
   logLevel: "INFO"
   resources:
     requests:

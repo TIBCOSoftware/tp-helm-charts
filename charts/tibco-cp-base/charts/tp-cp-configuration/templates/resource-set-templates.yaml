@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-
+{{- if .Values.global.tibco.hybridConnectivity.enabled }}
 {{- $root := . }}
 {{/* For ignored filenames, below: put comma-separated list of file names (or parts of file names), but NO spaces. */}}
 {{- $ignoredFilenames := splitList "," ".DS_Store" }}
@@ -100,3 +100,4 @@ spec:
     content: {{ $root.Files.Get $path | b64enc }}
     {{- end }}
   {{- end }}
+{{- end }}

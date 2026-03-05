@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.14.0",
+      "capabilityVersion": "1.15.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
@@ -97,6 +97,17 @@ data:
                       enabled: false
                 mode: "deployment"
                 fullnameOverride: otel-services
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 serviceAccount:
                   create: false
                   annotations: {}
@@ -124,6 +135,17 @@ data:
                       enabled: true
                 mode: "deployment"
                 fullnameOverride: otel-userapp
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
                   networking.platform.tibco.com/logServer-egress: enable
@@ -297,8 +319,6 @@ data:
                   service:
                     telemetry:
                       logs: {}
-                      metrics:
-                        address: :8888
                     extensions:
                       - health_check
                     pipelines:
@@ -331,6 +351,17 @@ data:
             - content: |
                 mode: "deployment"
                 fullnameOverride: otel-userapp-metrics
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
                   networking.platform.tibco.com/prometheus: enable
@@ -856,6 +887,17 @@ data:
                       enabled: false
                 mode: "deployment"
                 fullnameOverride: otel-finops
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 serviceAccount:
                   create: false
                   annotations: {}
@@ -983,7 +1025,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.14.0"
+          value: "1.15.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

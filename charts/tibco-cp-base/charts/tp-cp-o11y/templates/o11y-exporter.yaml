@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.14.0",
+      "capabilityVersion": "1.15.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -120,6 +120,17 @@ data:
                       enabled: false
                 mode: "deployment"
                 fullnameOverride: otel-services
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 serviceAccount:
                   create: false
                   annotations: {}
@@ -147,6 +158,17 @@ data:
                       enabled: true
                 mode: "deployment"
                 fullnameOverride: otel-userapp
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
                   networking.platform.tibco.com/logServer-egress: enable
@@ -356,6 +378,7 @@ data:
                         - set(resource.attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
                         - set(resource.attributes["pod_name"], resource.attributes["k8s.pod.name"])
                         - set(resource.attributes["pod_uid"], resource.attributes["k8s.pod.uid"])
+                        - set(resource.attributes["pod_start_time"], resource.attributes["k8s.pod.start_time"])
                         - set(resource.attributes["workload_type"], "user-app") where IsMatch(resource.attributes["app_type"], "msg-*") or IsMatch(body["host_cloud_type"], "control-tower")
                         - set(resource.attributes["app_id"], body["app_id"]) where IsMatch(body["host_cloud_type"], "control-tower")
                         - set(resource.attributes["app_id"], resource.attributes["capability_instance_id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
@@ -365,6 +388,38 @@ data:
                         - delete_key(resource.attributes, "k8s.pod.name")
                         - delete_key(resource.attributes, "k8s.pod.uid")
                         - delete_key(resource.attributes, "k8s.pod.ip")
+                        - delete_key(resource.attributes, "k8s.pod.start_time")
+                    transform/logs-ext:
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(body["@timestamp"], body["log_time"])
+                        - set(body["app_id"], resource.attributes["app_id"])
+                        - set(body["app_name"], resource.attributes["app_name"])
+                        - set(body["app_tags"], resource.attributes["app_tags"])
+                        - set(body["app_type"], resource.attributes["app_type"])
+                        - set(body["app_version"], resource.attributes["app_version"])
+                        - set(body["capability_instance_id"], resource.attributes["capability_instance_id"])
+                        - set(body["dataplane_id"], resource.attributes["dataplane_id"])
+                        - set(body["pod_name"], resource.attributes["pod_name"])
+                        - set(body["pod_namespace"], resource.attributes["pod_namespace"])
+                        - set(body["pod_uid"], resource.attributes["pod_uid"])
+                        - set(body["pod_start_time"], resource.attributes["pod_start_time"])
+                        - set(body["workload_type"], resource.attributes["workload_type"])
+                        - set(body["server_name"], resource.attributes["server_name"])
+                    transform/svclogs-ext:
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(body["@timestamp"], FormatTime(log.time, "%Y-%m-%dT%H:%M:%S.%LZ"))
+                        - set(body["dataplane_id"], resource.attributes["dataplane_id"])
+                        - set(body["capability_instance_id"], resource.attributes["capability_instance_id"])
+                        - set(body["workload_type"], resource.attributes["workload_type"])
+                        - set(body["pod_name"], resource.attributes["k8s.pod.name"])
+                        - set(body["pod_namespace"], resource.attributes["k8s.namespace.name"])
+                        - set(body["pod_start_time"], resource.attributes["k8s.pod.start_time"])
+                        - set(body["pod_uid"], resource.attributes["k8s.pod.uid"])
+                        - set(body["pod_ip"], resource.attributes["k8s.pod.ip"])
                     transform/msg-excl:
                       log_statements:
                       - context: log
@@ -392,6 +447,7 @@ data:
                         statements:
                         - set(cache["ep0"]["prop_name"], "dataplane_id")
                         - set(cache["ep0"]["prop_value"], resource.attributes["dataplane_id"])
+                        - set(cache["ep0"]["prop_value"], "${DATAPLANE-ID}") where resource.attributes["dataplane_id"] == nil
                         - set(cache["ep1"]["prop_name"], "workload_type")
                         - set(cache["ep1"]["prop_value"], resource.attributes["workload_type"])
                         - set(cache["ep2"]["prop_name"], "namespace")
@@ -400,17 +456,23 @@ data:
                         - set(cache["ep3"]["prop_value"], resource.attributes["pod_name"])
                         - set(cache["ep4"]["prop_name"], "app_id")
                         - set(cache["ep4"]["prop_value"], resource.attributes["app_id"])
+                        - set(cache["ep5"]["prop_name"], "origin")
+                        - set(cache["ep5"]["prop_value"], "pod")
+                        - set(cache["ep5"]["prop_value"], "external") where resource.attributes["dataplane_id"] == nil
                         - set(cache["len"], Len(body["extra_props"])) where body["extra_props"] != nil or Len(body["extra_props"]) > 0
                         - set(cache["len"], 0) where body["extra_props"] == nil or Len(body["extra_props"]) == 0
-                        - append(body["extra_props"], values = ["el0", "el1", "el2", "el3", "el4"])
+                        - append(body["extra_props"], values = ["el0", "el1", "el2", "el3", "el4", "el5"])
                         - set(body["extra_props"][Int(cache["len"])], cache["ep0"])
                         - set(body["extra_props"][Int(cache["len"]+Int(1))], cache["ep1"])
                         - set(body["extra_props"][Int(cache["len"]+Int(2))], cache["ep2"])
                         - set(body["extra_props"][Int(cache["len"]+Int(3))], cache["ep3"])
                         - set(body["extra_props"][Int(cache["len"]+Int(4))], cache["ep4"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(5))], cache["ep5"])
                   exporters:
                     debug: {}
                     elasticsearch/log:
+                      mapping:
+                        mode: bodymap
                       endpoints:
                       - ${env:LOGS_EXPORTER_APP_ES_ENDPOINT}
                       logs_index: ${env:LOGS_EXPORTER_APP_ES_INDEX_NAME}
@@ -483,6 +545,8 @@ data:
                       topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
                       protocol_version: ${env:TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION}
                     elasticsearch/svclog:
+                      mapping:
+                        mode: bodymap
                       endpoints:
                       - ${env:LOGS_EXPORTER_SVC_ES_ENDPOINT}
                       logs_index: ${env:LOGS_EXPORTER_SVC_ES_INDEX_NAME}
@@ -515,15 +579,48 @@ data:
                       brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
                       topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
                       protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
+                    opensearch/log:
+                      mapping:
+                        mode: bodymap
+                      logs_index: ${env:LOGS_EXPORTER_APP_OS_INDEX_NAME}
+                      http:
+                        endpoint: ${env:LOGS_EXPORTER_APP_OS_ENDPOINT}
+                        headers: ${env:headers_logs_expo_userapp}
+                        auth:
+                          authenticator: basicauth/os_userapp
+                        tls:
+                          insecure: false
+                          insecure_skip_verify: true
+                    opensearch/auditsafe:
+                      mapping:
+                        mode: bodymap
+                      logs_index: ${env:LOGS_EXPORTER_AUDITSAFE_OS_INDEX_NAME}
+                      http:
+                        endpoint: ${env:LOGS_EXPORTER_AUDITSAFE_OS_ENDPOINT}
+                        headers: ${env:headers_logs_expo_auditsafe}
+                        auth:
+                          authenticator: basicauth/os_auditsafe
+                        tls:
+                          insecure: false
+                          insecure_skip_verify: true
                   extensions:
-                    health_check: {}
+                    health_check:
+                      endpoint: ${env:MY_POD_IP}:13133
+                    basicauth/os_userapp:
+                      client_auth:
+                        username: ${env:LOGS_EXPORTER_APP_OS_USERNAME}
+                        password: ${env:LOGS_EXPORTER_APP_OS_PASSWORD}
+                    basicauth/os_auditsafe:
+                      client_auth:
+                        username: ${env:LOGS_EXPORTER_AUDITSAFE_OS_USERNAME}
+                        password: ${env:LOGS_EXPORTER_AUDITSAFE_OS_PASSWORD}
                   service:
                     telemetry:
                       logs: {}
-                      metrics:
-                        address: :8888
                     extensions:
                       - health_check
+                      - basicauth/os_userapp
+                      - basicauth/os_auditsafe
                     pipelines:
                       logs/app:
                         receivers: ${env:app_logs_receiver}
@@ -557,6 +654,17 @@ data:
             - content: |
                 mode: "deployment"
                 fullnameOverride: otel-userapp-metrics
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 podLabels:
                   networking.platform.tibco.com/kubernetes-api: enable
                   networking.platform.tibco.com/prometheus: enable
@@ -1075,8 +1183,6 @@ data:
                   service:
                     telemetry:
                       logs: {}
-                      metrics:
-                        address: :8888
                     extensions:
                       - health_check
                     pipelines:
@@ -1111,6 +1217,17 @@ data:
                       enabled: false
                 mode: "deployment"
                 fullnameOverride: otel-finops
+                internalTelemetryViaOTLP:
+                  endpoint: ""
+                  traces:
+                    enabled: false
+                    endpoint: ""
+                  metrics:
+                    enabled: false
+                    endpoint: ""
+                  logs:
+                    enabled: false
+                    endpoint: ""
                 serviceAccount:
                   create: false
                   annotations: {}
@@ -1269,7 +1386,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.14.0"
+          value: "1.15.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

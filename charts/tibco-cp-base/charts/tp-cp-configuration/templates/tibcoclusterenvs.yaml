@@ -54,5 +54,5 @@ metadata:
 spec:
   group: "infra.router"
   setting: "SUPPORTED_DOMAINS_REGEX"
-  value: "[^.]+\\.([^.]+\\.{{ include "tp-cp-configuration.cookie-domain" . | replace "." "\\\\." }})"
+  value: {{ if eq (.Values.global.tibco.region | default "global") "global" }}""{{ else }}"[^.]+\\.([^.]+\\.{{ include "tp-cp-configuration.cookie-domain" . | replace "." "\\\\." }})"{{ end }}
   

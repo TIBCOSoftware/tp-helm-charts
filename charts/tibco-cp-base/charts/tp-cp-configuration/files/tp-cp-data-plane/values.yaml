@@ -16,6 +16,9 @@ subscriptionId: subscription-id
 dataPlaneId: dp-id
 
 accessKeyHash: ""
+
+# pathPrefix: prefix to add before the path (e.g., "/infra/tunnel")
+pathPrefix: "/infra/tunnel"
 path: "/sub-{{ .Values.subscriptionId }}-dp-{{ .Values.dataPlaneId }}"
 
 # fqdn
