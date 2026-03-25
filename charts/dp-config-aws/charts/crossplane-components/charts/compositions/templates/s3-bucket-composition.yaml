@@ -147,9 +147,21 @@ spec:
             vpcEndpointType: Interface
             securityGroupIdSelector:
               matchControllerRef: true
+            tags: {}
+            tagSpecifications:
+              - resourceType: vpc-endpoint
+                tags: []
       patches:
         - type: PatchSet
           patchSetName: RegionParameter
+        - fromFieldPath: "spec.parameters.tags"
+          toFieldPath: "spec.forProvider.tagSpecifications[0].tags"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.vpcEndpointTags"
+          toFieldPath: "spec.forProvider.tags"
+          policy:
+            fromFieldPath: Optional
         - type: PatchSet
           patchSetName: VpcIdParameter
         - fromFieldPath: spec.parameters.region
@@ -175,9 +187,21 @@ spec:
             name: aws-provider-config
           forProvider:
             vpcEndpointType: Gateway
+            tags: {}
+            tagSpecifications:
+              - resourceType: vpc-endpoint
+                tags: []
       patches:
         - type: PatchSet
           patchSetName: RegionParameter
+        - fromFieldPath: "spec.parameters.tags"
+          toFieldPath: "spec.forProvider.tagSpecifications[0].tags"
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: "spec.parameters.vpcEndpointTags"
+          toFieldPath: "spec.forProvider.tags"
+          policy:
+            fromFieldPath: Optional
         - type: PatchSet
           patchSetName: VpcIdParameter
         - fromFieldPath: spec.parameters.region

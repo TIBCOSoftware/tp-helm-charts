@@ -27,21 +27,31 @@ s3:
     bucketName: ""
   # Additional configuration parameters for S3
   # additionalConfigurationParameters:
-  #  # encryption:
-  #  #   enabled: true
-  #  #   sseAlgorithm: "AES256"  # AES256 | aws:kms
-  #  #   kmsMasterKeyId: ""  # Required if sseAlgorithm is aws:kms
+  #   encryption:
+  #     enabled: true
+  #     sseAlgorithm: "AES256"  # AES256 | aws:kms
+  #     kmsMasterKeyId: ""  # Required if sseAlgorithm is aws:kms
   #   lifecycleConfiguration:
   #     rules:
-  #       - id: "langfuse_lifecycle"
+  #       - id: "archive-and-delete-after-90-days"
   #         status: "Enabled"
   #         filter:
-  #           prefix: ""
+  #           prefix: "events/"
   #         transitions:
-  #           - days: 90
+  #           - days: 30
   #             storageClass: "STANDARD_IA"
-  #           - days: 180
+  #           - days: 60
   #             storageClass: "GLACIER"
+  #         expiration:
+  #           days: 95
+  #       - id: "cleanup-incomplete-multipart-uploads"
+  #         status: "Enabled"
+  #         abortIncompleteMultipartUpload:
+  #           daysAfterInitiation: 7
+  #       - id: "expire-old-versions"
+  #         status: "Enabled"
+  #         noncurrentVersionExpiration:
+  #           noncurrentDays: 30
   #   privateDNSEnabled: false
   #   publicAccessBlock:
   #     blockPublicAcls: true
@@ -240,8 +250,10 @@ redis:
   #   applyModificationsImmediately: "true"
   #   atRestEncryptionEnabled: "false"
   #   authEnabled: "false"
+  #   automaticFailoverEnabled: "false"
   #   engine: "redis"
   #   multiAZEnabled: "false"
+  #   numCacheClusters: 1
   #   numNodeGroups: 1
   #   replicasPerNodeGroup: "0"
   #   restoreFrom:

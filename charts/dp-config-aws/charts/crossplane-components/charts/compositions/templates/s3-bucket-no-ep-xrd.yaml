@@ -55,6 +55,16 @@ spec:
                           items:
                             type: object
                             properties:
+                              abortIncompleteMultipartUpload:
+                                type: object
+                                properties:
+                                  daysAfterInitiation:
+                                    type: integer
+                              expiration:
+                                type: object
+                                properties:
+                                  days:
+                                    type: integer
                               filter:
                                 type: object
                                 properties:
@@ -62,10 +72,15 @@ spec:
                                     type: string
                               id:
                                 type: string
+                              noncurrentVersionExpiration:
+                                type: object
+                                properties:
+                                  noncurrentDays:
+                                    type: integer
                               status:
                                 type: string
                               transitions:
-                                description: Multiple transition configurations
+                                description: Multiple transitions configurations
                                 type: array
                                 items:
                                   type: object

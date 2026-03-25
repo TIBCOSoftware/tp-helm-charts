@@ -55,6 +55,16 @@ spec:
                           items:
                             type: object
                             properties:
+                              abortIncompleteMultipartUpload:
+                                type: object
+                                properties:
+                                  daysAfterInitiation:
+                                    type: integer
+                              expiration:
+                                type: object
+                                properties:
+                                  days:
+                                    type: integer
                               filter:
                                 type: object
                                 properties:
@@ -62,10 +72,15 @@ spec:
                                     type: string
                               id:
                                 type: string
+                              noncurrentVersionExpiration:
+                                type: object
+                                properties:
+                                  noncurrentDays:
+                                    type: integer
                               status:
                                 type: string
                               transitions:
-                                description: Multiple transition configurations
+                                description: Multiple transitions configurations
                                 type: array
                                 items:
                                   type: object
@@ -139,6 +154,7 @@ spec:
                         type: string
                     tags:
                       type: array
+                      description: Tags for S3 bucket and SecurityGroup (array format)
                       items:
                         type: object
                         properties:
@@ -149,6 +165,10 @@ spec:
                         required:
                           - key
                           - value
+                    vpcEndpointTags:
+                      type: object
+                      description: Tags for VPC Endpoints (map format required by provider-aws)
+                      x-kubernetes-preserve-unknown-fields: true
                     versioning:
                       description: Enable versioning for the bucket
                       type: string

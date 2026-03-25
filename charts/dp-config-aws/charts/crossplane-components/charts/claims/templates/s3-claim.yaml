@@ -75,6 +75,13 @@ spec:
       - key: {{ $key }}
         value: {{ $value }}
     {{- end }}
+    vpcEndpointTags:
+    {{- range $key, $value := .Values.commonTags }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- range $key, $value := .Values.s3.resourceTags }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
     {{- end }}
   compositionSelector:
     matchLabels:

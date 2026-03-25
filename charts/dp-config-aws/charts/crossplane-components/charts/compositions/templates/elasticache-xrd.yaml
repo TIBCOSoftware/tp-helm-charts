@@ -49,6 +49,9 @@ spec:
                     authEnabled:
                       type: boolean
                       default: false
+                    automaticFailoverEnabled:
+                      type: boolean
+                      default: false
                     engine:
                       type: string
                       default: redis
@@ -57,10 +60,10 @@ spec:
                       default: false
                     numNodeGroups:
                       type: integer
-                      default: 1
+                    numCacheClusters:
+                      type: integer
                     replicasPerNodeGroup: 
                       type: integer
-                      default: 0
                     restoreFrom:
                       type: object
                       properties:

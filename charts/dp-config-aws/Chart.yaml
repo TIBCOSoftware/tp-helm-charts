@@ -4,13 +4,13 @@
 
 apiVersion: v2
 name: dp-config-aws
-version: "1.15.5"
-appVersion: "1.15.0"
+version: "1.16.6"
+appVersion: "1.16.0"
 description: Helm chart to configure pre-requisites on AWS
 type: application
 dependencies:
   - name: traefik
-    version: 34.4.1
+    version: 39.0.2
     repository: https://traefik.github.io/charts
     condition: traefik.enabled
   - name: ingress-nginx
@@ -47,7 +47,7 @@ dependencies:
     repository: https://charts.crossplane.io/stable
     condition: crossplane.enabled
   - name: crossplane-components
-    version: "1.15.4"
+    version: "1.16.*"
     repository: file://charts/crossplane-components
     condition: crossplane-components.enabled
 annotations:
