@@ -31,7 +31,7 @@ init_common_variables
 # ============================================================================
 
 # Version configuration
-FROM_VERSION="1.X.0"  # TODO: Update this (must be 1.13.0+)
+FROM_VERSION="${FROM_VERSION:-1.X.0}"  # TODO: Update this (must be 1.13.0+) - supports env override
 TO_VERSION="1.Y.0"    # TODO: Update this
 DEFAULT_VERSION="${TO_VERSION}"
 
@@ -69,20 +69,22 @@ EOF
 # ============================================================================
 
 interactive_mode() {
-    print_info "TIBCO Control Plane Upgrade Script - ${FROM_VERSION} to ${TO_VERSION}"
+    local minor_version
+    minor_version=$(get_minor_version "${TO_VERSION}")
+    print_info "TIBCO Control Plane Upgrade Script - ${FROM_VERSION} to ${minor_version}"
     print_info "Chart: tibco-cp-base"
     print_separator
     
     echo "Please select your operation mode:"
-    echo "1) Generate ${TO_VERSION} values.yaml file from current ${FROM_VERSION} setup"
-    echo "2) Perform Helm upgrade using existing ${TO_VERSION}-compatible values.yaml file"
+    echo "1) Generate ${minor_version} values.yaml file from current ${FROM_VERSION} setup"
+    echo "2) Perform Helm upgrade using existing ${minor_version}-compatible values.yaml file"
     echo ""
     
     while true; do
         read -p "Enter your choice (1 or 2): " choice
         case $choice in
             1)
-                print_info "Selected: Generate ${TO_VERSION} values.yaml file"
+                print_info "Selected: Generate ${minor_version} values.yaml file"
                 interactive_values_generation
                 break
                 ;;
@@ -143,8 +145,10 @@ interactive_file_input() {
     print_info "Output File Configuration"
     print_separator
     
-    read -p "Custom output file for control plane (default: control-plane-${TO_VERSION}.yaml): " custom_output
-    CONTROL_PLANE_OUTPUT_FILE="${custom_output:-control-plane-${TO_VERSION}.yaml}"
+    local minor_version
+    minor_version=$(get_minor_version "${TO_VERSION}")
+    read -p "Custom output file for control plane (default: control-plane-${minor_version}.yaml): " custom_output
+    CONTROL_PLANE_OUTPUT_FILE="${custom_output:-control-plane-${minor_version}.yaml}"
     print_info "Using output: ${CONTROL_PLANE_OUTPUT_FILE}"
     
     print_success "Configuration completed successfully"
@@ -171,8 +175,10 @@ interactive_helm_input() {
     print_info "Output File Configuration"
     print_separator
     
-    read -p "Custom output file for control plane (default: control-plane-${TO_VERSION}.yaml): " custom_output
-    CONTROL_PLANE_OUTPUT_FILE="${custom_output:-control-plane-${TO_VERSION}.yaml}"
+    local minor_version
+    minor_version=$(get_minor_version "${TO_VERSION}")
+    read -p "Custom output file for control plane (default: control-plane-${minor_version}.yaml): " custom_output
+    CONTROL_PLANE_OUTPUT_FILE="${custom_output:-control-plane-${minor_version}.yaml}"
     print_info "Using output: ${CONTROL_PLANE_OUTPUT_FILE}"
     
     print_success "Configuration completed successfully"
@@ -343,7 +349,9 @@ verify_helm_upgrades() {
 # ============================================================================
 
 main() {
-    print_info "TIBCO Control Plane Upgrade Script - ${FROM_VERSION} to ${TO_VERSION}"
+    local minor_version
+    minor_version=$(get_minor_version "${TO_VERSION}")
+    print_info "TIBCO Control Plane Upgrade Script - ${FROM_VERSION} to ${minor_version}"
     print_info "Chart: ${CHART_NAME} (release: ${CONTROL_PLANE_RELEASE_NAME})"
     print_separator
     
@@ -385,9 +393,9 @@ main() {
             extract_helm_values_for_upgrade
         fi
         
-        # Generate output filename if not set
+        # Generate output filename if not set (uses minor version for master script compatibility)
         [[ -z "${CONTROL_PLANE_OUTPUT_FILE}" ]] && \
-            CONTROL_PLANE_OUTPUT_FILE="control-plane-${TO_VERSION}.yaml"
+            CONTROL_PLANE_OUTPUT_FILE="control-plane-$(get_minor_version "${TO_VERSION}").yaml"
         
         process_files
         

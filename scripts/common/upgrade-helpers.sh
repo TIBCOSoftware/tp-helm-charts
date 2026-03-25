@@ -323,14 +323,16 @@ extract_helm_values() {
     return 0
 }
 
-# Validate Helm release for upgrade
-# Usage: validate_helm_release_for_upgrade <release_name> <namespace> <expected_version> <expected_status>
+# Validate Helm release for upgrade with retry support
+# Usage: validate_helm_release_for_upgrade <release_name> <namespace> <expected_version> <expected_status> [target_version] [allow_retry]
 validate_helm_release_for_upgrade() {
     local release_name="$1"
     local namespace="$2"
     local expected_version="$3"
     local expected_status="${4:-deployed}"
-    
+    local target_version="${5:-${expected_version}}"
+    local allow_retry="${6:-false}"
+
     # Check if release exists
     if ! helm status "${release_name}" -n "${namespace}" >/dev/null 2>&1; then
         print_error "Release '${release_name}' not found in namespace '${namespace}'"
@@ -343,20 +345,39 @@ validate_helm_release_for_upgrade() {
     
     print_info "Release '${release_name}' status: ${current_status}, version: ${current_version}"
     
-    # Validate status
-    if [[ "${current_status}" != "${expected_status}" ]]; then
-        print_error "Release status is '${current_status}', expected '${expected_status}'"
-        return 1
-    fi
+    # Helper for status classification
+    local FAILED_STATES="failed pending-install pending-rollback pending-upgrade superseded"
     
-    # Validate version
-    if [[ "${current_version}" != "${expected_version}" ]]; then
-        print_error "Release version is '${current_version}', expected '${expected_version}'"
-        return 1
+    if [[ "${current_status}" == "${expected_status}" ]]; then
+        # Standard validation for deployed releases
+        if [[ "${current_version}" != "${expected_version}" ]]; then
+            print_error "Release version is '${current_version}', expected '${expected_version}'"
+            return 1
+        fi
+        print_success "Release validation passed: ${current_version}"
+        return 0
+    else
+        # Handle failed states with retry logic
+        if echo " ${FAILED_STATES} " | grep -q " ${current_status} "; then
+            if [[ "${allow_retry}" == "true" && "${current_version}" == "${target_version}" ]]; then
+                echo ""
+                print_warning "${release_name} is already at app_version ${target_version} but in '${current_status}' state."
+                read -p "Do you want to retry the ${target_version} upgrade for ${release_name}? (yes/no): " retry_confirm
+                if [[ "${retry_confirm}" != "yes" ]]; then
+                    print_info "Skipping upgrade retry for ${release_name} per user choice."
+                    return 0
+                fi
+                print_success "Proceeding with upgrade retry"
+                return 0
+            else
+                print_error "Upgrade blocked: ${release_name} status is '${current_status}'. Resolve (e.g., rollback) and retry."
+                return 1
+            fi
+        else
+            print_error "Upgrade blocked: ${release_name} status is '${current_status}'. Expected '${expected_status}' or a retry-able failed state."
+            return 1
+        fi
     fi
-    
-    print_success "Release validation passed"
-    return 0
 }
 
 # ============================================================================
@@ -627,6 +648,13 @@ fatal_error() {
 # ============================================================================
 # COMMON VARIABLE INITIALIZATION
 # ============================================================================
+
+# Extract minor version (X.Y.Z) from a version string, stripping any suffix like -alpha, -beta, -rc
+# Usage: get_minor_version "1.16.0-alpha.49" -> "1.16.0"
+get_minor_version() {
+    local version="$1"
+    echo "${version}" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo "${version}"
+}
 
 # Initialize common global variables for upgrade scripts
 init_common_variables() {

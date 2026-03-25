@@ -144,6 +144,9 @@ extract_helm_values "platform-base" "default" "/tmp/values.yaml"
 # Validate release before upgrade
 validate_helm_release_for_upgrade "platform-base" "default" "1.13.0" "deployed"
 
+# Validate release before upgrade with retry support (for upgrade scripts)
+validate_helm_release_for_upgrade "platform-base" "default" "1.13.0" "deployed" "1.14.0" "true"
+
 # Verify upgrade was successful
 verify_upgrade "platform-base" "my-namespace" "1.14.0"
 ```
