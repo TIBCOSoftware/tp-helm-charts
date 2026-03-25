@@ -132,7 +132,7 @@ spec:
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS
-          value: {{ .Values.config.IDLE_TIME_SECONDS | quote }}
+          value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}
         - name: WEB_SERVER_LOG_ENABLED
           value: {{ .Values.config.WEB_SERVER_LOG_ENABLED | quote }}
         # FIXME: check what it is referring to in code
