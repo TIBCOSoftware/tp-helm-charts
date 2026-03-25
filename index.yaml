@@ -7257,6 +7257,32 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.16.0-alpha.23/tibco-cp-bw-1.16.0-alpha.23.tgz
     version: 1.16.0-alpha.23
   - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2026-03-25T09:49:47.239638756Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.16.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.16.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.16.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.16.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 79aa295174e2e1ce6dd6e07a2da550a1177e62273b3adf65d364657bf24a174f
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.16.0-alpha.23/tibco-cp-bw-1.16.0-alpha.23.tgz
+    version: 1.16.0-alpha.23
+  - apiVersion: v2
     appVersion: 1.15.0
     created: "2026-03-05T14:48:47.348419259Z"
     dependencies:
@@ -7644,6 +7670,28 @@ entries:
       version: 1.16.*
     description: TIBCO Controlplane chart for FLOGO Capability
     digest: 5c1d8917b67a09bc97e847115bcaa95db10f571cbc3a51fb21f473cc9d308a68
+    name: tibco-cp-flogo
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.16.0-alpha.20/tibco-cp-flogo-1.16.0-alpha.20.tgz
+    version: 1.16.0-alpha.20
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2026-03-25T09:49:47.45371581Z"
+    dependencies:
+    - condition: flogo-recipes.enabled
+      name: flogo-recipes
+      repository: ""
+      version: 1.16.*
+    - condition: flogo-webserver.enabled
+      name: flogo-webserver
+      repository: ""
+      version: 1.16.*
+    - condition: flogo-utilities.enabled
+      name: flogo-utilities
+      repository: ""
+      version: 1.16.*
+    description: TIBCO Controlplane chart for FLOGO Capability
+    digest: b50b9585fa8bb7ca5a66d4697e60a68b1f3d9549757af543a36313175933c744
     name: tibco-cp-flogo
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.16.0-alpha.20/tibco-cp-flogo-1.16.0-alpha.20.tgz
@@ -15022,4 +15070,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2026-03-25T09:48:48.677197565Z"
+generated: "2026-03-25T09:49:47.454648687Z"
