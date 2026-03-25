@@ -4,6 +4,7 @@
 
 global:
   tibco:
+    idleSessionTimeoutInSeconds: "14400"
     containerRegistry:
       url: ""
       username: ""
@@ -27,7 +28,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -48,6 +49,20 @@ global:
 # Sub charts
 flogo-recipes:
   enabled: true
+  flogoprovisioner:
+    image:
+      tag: 876-platform-1.16.0
+    config:
+      APP_INIT_IMAGE_TAG: "56"
+      APP_HELMCHART_VERSION: "1.16.8"
+      INFRA_CP_PROXY_IMAGE_TAG: "291"
+    resources:
+      requests:
+        cpu: "2"
+        memory: 2Gi
+      limits:
+        cpu: "4"
+        memory: 4Gi
 
 flogo-webserver:
   enabled: true

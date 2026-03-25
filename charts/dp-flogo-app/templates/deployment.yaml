@@ -64,8 +64,9 @@ spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if eq .Values.appConfig.customFQImage "" }}
+      {{- if or (eq .Values.appConfig.customFQImage "") .Values.initContainers }}
       initContainers:
+      {{- if eq .Values.appConfig.customFQImage "" }}
       - name: app-init
         image: {{ .Values.image.repository }}{{ .Values.image.appInitImageName }}:{{ .Values.image.appInitImageTag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -90,6 +91,10 @@ spec:
         resources:
           {{- toYaml .Values.appInit.resources | nindent 10 }}
       {{- end }}
+      {{- with .Values.initContainers }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- end }}
       containers:
       - name: flogoapp
         {{- if .Values.appConfig.customFQImage }}
@@ -98,6 +103,10 @@ spec:
         image: {{ .Values.image.repository }}{{ .Values.image.flogoBaseImageName }}:{{ .Values.appConfig.flogoBaseImageTag }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.flogoapp.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         ports:
         {{- range $svcPort := .Values.service.ports }}
         - containerPort: {{ $svcPort.port }}
@@ -121,6 +130,11 @@ spec:
           mountPath: {{ .Values.dpConfig.licenseMountPath }}
           readOnly: true
         {{- end }}
+        {{- if .Values.dpConfig.customCertSecretName }}
+        - name: custom-ssl-certs
+          mountPath: /home/flogo/custom-ssl-certs
+          readOnly: true
+        {{- end }}
         {{- with .Values.flogoapp.volumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -142,10 +156,12 @@ spec:
         - name: TIBCO_INTERNAL_FLOGO_BASE_IMAGE_TAG
           value: {{ .Values.appConfig.flogoBaseImageTag | quote }}
         {{- end }}
+        {{- if .Values.auditSafe.enabled }}
         - name: FLOGO_AUDITSAFE_O11Y_SVC_ENDPOINT
           value: "http://o11y-service.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:7820"
         - name: FLOGO_AUDITSAFE_OTLP_ENDPOINT
           value: "http://otel-userapp-logs.{{ .Values.dpConfig.capabilityDefaultNamespace }}.svc.cluster.local:24318"
+        {{- end }}
         - name: FLOGO_APP_PROPS_ENV
           value: {{ .Values.appConfig.flogoAppPropsEnv | quote }}
         - name: FLOGO_EXPOSE_SWAGGER_EP
@@ -174,6 +190,10 @@ spec:
         {{- end }}
         - name: OTEL_SERVICE_NAME
           value: flogo-app.{{ $.Release.Namespace }}
+        {{- if .Values.dpConfig.customCertSecretName }}
+        - name: SSL_CERT_DIR
+          value: /home/flogo/custom-ssl-certs
+        {{- end }}
         {{- with .Values.flogoapp.envs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -206,6 +226,10 @@ spec:
       - name: fluent-bit
         image: {{ .Values.image.repository }}{{ .Values.image.fluentBitImageName }}:{{ .Values.image.fluentBitImageTag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.fluentBit.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         ports:
         - containerPort: 2020
           protocol: TCP
@@ -247,6 +271,9 @@ spec:
         resources:
           {{- toYaml .Values.fluentBit.resources | nindent 10 }}
       {{- end }}
+      {{- with .Values.sidecars }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       volumes:
       {{- if not .Values.appConfig.customFQImage }}
       - name: artifacts-share
@@ -262,6 +289,11 @@ spec:
       - name: license-volume
         secret:
           secretName: {{ .Values.dpConfig.licenseSecretName }}
+      {{- end }}
+      {{- if .Values.dpConfig.customCertSecretName }}
+      - name: custom-ssl-certs
+        secret:
+          secretName: {{ .Values.dpConfig.customCertSecretName }}
       {{- end }}
       {{- if .Values.fluentBit.enabled }}
       - name: fluentbit-config

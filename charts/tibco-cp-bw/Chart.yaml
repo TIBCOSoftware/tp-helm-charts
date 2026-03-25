@@ -4,19 +4,19 @@
 #
 apiVersion: v2
 name: tibco-cp-bw
-version: 1.15.0
-appVersion: 1.15.0
+version: 1.16.0-alpha.23
+appVersion: 1.16.0
 description: TIBCO Controlplane chart for BW Capability
 dependencies:
   - name: bw-recipes
-    version: "1.15.*"
+    version: "1.16.*"
     condition: bw-recipes.enabled
   - name: bw-webserver
-    version: "1.15.*"
+    version: "1.16.*"
     condition: bw-webserver.enabled
   - name: bwce-utilities
-    version: "1.15.*"
+    version: "1.16.*"
     condition: bwce-utilities.enabled
   - name: bw5ce-utilities
-    version: "1.15.*"
+    version: "1.16.*"
     condition: bw5ce-utilities.enabled

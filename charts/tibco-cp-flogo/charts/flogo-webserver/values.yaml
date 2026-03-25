@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -54,9 +54,8 @@ global:
 
 config:
   HTTP_REQUEST_TIMEOUT: "120000"
-  IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
-  FLOGO_WEBSERVER_IMAGE_TAG: "565-platform-1.15.0"
+  FLOGO_WEBSERVER_IMAGE_TAG: "580-platform-1.16.0"
 
 replicaCount: 1
 
@@ -108,7 +107,7 @@ mcpserver:
   enabled: false
   image:
     name: tp-flogo-mcp-server
-    tag: "31"
+    tag: "48"
   logLevel: "INFO"
   resources:
     requests:

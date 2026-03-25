@@ -91,10 +91,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- "o11y-service."}}{{ .Release.Namespace }}{{".svc.cluster.local" }}
 {{- end }}
 
-{{- define "flogo-webserver.use-single-namespace" -}}
-{{- .Values.global.tibco.useSingleNamespace | quote }}
-{{- end }}
-
 {{- define "tp-cp-flogo-mcpserver.consts.appName" }}tp-cp-flogo-mcpserver{{- end }}
 
 {{- define "flogo-webserver.service.host-port" }}{{ include "flogo-webserver.consts.appName" . }}.{{ .Release.Namespace }}.svc.cluster.local:3002{{- end }}

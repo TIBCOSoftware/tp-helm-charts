@@ -12,6 +12,7 @@ dpConfig:
   helmRepoAlias: ""
   licenseMountPath: ""
   licenseSecretName: ""
+  customCertSecretName: ""
 
 appConfig:
   appId: ""
@@ -19,8 +20,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.26.1-b392"
-  flogoBaseImageTag: "2.26.1-b392"
+  flogoBuildTypeTag: "2.26.2-b400"
+  flogoBaseImageTag: "2.26.2-b400"
   customFQImage: ""
   tags: ""
   connectors: ""
@@ -35,6 +36,9 @@ otel:
     enabled: true
   metrics:
     enabled: true
+
+auditSafe:
+  enabled: true
 
 serviceMesh:
   enabled: false
@@ -54,9 +58,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-flogo-app-init"
-  appInitImageTag: "55"
+  appInitImageTag: "56"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "4.2.2"
+  fluentBitImageTag: "4.2.3"
   flogoBaseImageName: "tp-flogo-app-base"
 
 imagePullSecrets: []
@@ -142,6 +146,7 @@ flogoapp:
     periodSeconds: 5
     successThreshold: 1
     timeoutSeconds: 5
+  lifecycle: {}
 
 fluentBit:
   enabled: true
@@ -172,6 +177,7 @@ fluentBit:
     periodSeconds: 10
     successThreshold: 1
     timeoutSeconds: 5
+  lifecycle: {}
 
 appInit:
   securityContext:
@@ -197,6 +203,8 @@ service:
   # ports:
   #  - port: 9999
   #    targetPort: 9999
+  annotations: {}
+  labels: {}
   # for GKE gateway loadbalancer health check policy
   customhealthCheckPolicy: {}
 
@@ -302,3 +310,13 @@ crds: []
 #      name: crd1
 #    spec:
 #      group: example.com
+
+initContainers: []
+#  - name: init-myservice
+#    image: busybox
+#    command: ['sh', '-c', 'echo The app init container is running! && sleep 60']
+
+sidecars: []
+#  - name: sidecar-myservice
+#    image: busybox
+#    command: ['sh', '-c', 'echo The app sidecar container is running! && sleep 3600']

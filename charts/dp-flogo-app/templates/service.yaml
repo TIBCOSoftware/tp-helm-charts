@@ -10,9 +10,15 @@ metadata:
   labels:
     {{- include "dp-flogo-app.labels" . | nindent 4 }}
     platform.tibco.com/service-discoverable: {{ .Values.service.serviceDiscoverable | quote }}
+    {{- with .Values.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   annotations:
     {{- if .Values.service.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ .Values.service.serviceDescription | squote }}
+    {{- end }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   type: {{ .Values.service.type }}

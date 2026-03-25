@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.13
+    tag: 13.3
 
 nameOverride: ""
 
@@ -125,272 +125,656 @@ bwStudioCard: true
 bwPluginsJobA:
   tci-bw-plugin-customplugin:
     tags:
-      - 1.0.0.v1-tci-2.0
-    default: 1.0.0.v1-tci-2.0
+      - tag: 1.0.0.v1-tci-2.0
+        metadata:
+          displayVersion: "1.0.0"
+          docLink: ""
+          releaseDate: "August 2023"
+          supportedBWVersions: ""
+          supportedBWCEVersions: ""
+          endOfSupportDate: ""
   tci-bw-plugin-customdriver:
     tags:
-      - 1.0.0.v1-tci-2.0
-    default: 1.0.0.v1-tci-2.0
+      - tag: 1.0.0.v1-tci-2.0
+        metadata:
+          displayVersion: "1.0.0"
+          docLink: ""
+          releaseDate: "August 2023"
+          supportedBWVersions: ""
+          supportedBWCEVersions: ""
+          endOfSupportDate: ""
   tci-bw-plugin-ems:
     tags:
-      - 1.0.0.v1-tci-2.0
-    default: 1.0.0.v1-tci-2.0
+      - tag: 1.0.0.v1-tci-2.0
+        metadata:
+          displayVersion: "1.0.0"
+          docLink: ""
+          releaseDate: "August 2023"
+          supportedBWVersions: ""
+          supportedBWCEVersions: ""
+          endOfSupportDate: ""
   tci-bw-plugin-oracle:
     tags:
-      - 1.0.0.v1-tci-2.0
-    default: 1.0.0.v1-tci-2.0
+      - tag: 1.0.0.v1-tci-2.0
+        metadata:
+          displayVersion: "1.0.0"
+          docLink: ""
+          releaseDate: "August 2023"
+          supportedBWVersions: ""
+          supportedBWCEVersions: ""
+          endOfSupportDate: ""
   tci-bw-plugin-auditsafe:
     tags:
-      - 6.3.2.v12-tci-2.0
-    default: 6.3.2.v12-tci-2.0
+      - tag: 6.3.2.v12-tci-2.0
+        metadata:
+          displayVersion: "6.3.2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-tibco-auditsafe"
+          releaseDate: "August 2023"
+          supportedBWVersions: ""
+          supportedBWCEVersions: ""
+          endOfSupportDate: ""
   tci-bw-plugin-sftp:
     tags:
-      - 6.2.0.v26-tci-2.0
-    default: 6.2.0.v26-tci-2.0
+      - tag: 6.2.0.v26-tci-2.0
+        metadata:
+          displayVersion: "6.2.0 HF3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sftp"
+          releaseDate: "November 2025"
+          supportedBWVersions: "6.8.1 - 6.12.0"
+          supportedBWCEVersions: "2.7.2 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-dynamicscrm:
     tags:
-      - 6.10.1.v6.2-tci-2.0
-    default: 6.10.1.v6.2-tci-2.0
+      - tag: 6.10.1.v6.2-tci-2.0
+        metadata:
+          displayVersion: "6.10.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-microsoft-dynamics-crm"
+          releaseDate: "November 2025"
+          supportedBWVersions: "6.9.0 - 6.12.0"
+          supportedBWCEVersions: "2.8.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ariba:
     tags:
-      - 6.0.0.v7.0.1-tci-2.0
-    default: 6.0.0.v7.0.1-tci-2.0
+      - tag: 6.0.0.v7.0.1-tci-2.0
+        metadata:
+          displayVersion: "6.0.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sap-ariba"
+          releaseDate: "February 2021"
+          supportedBWVersions: "6.5.1 - 6.11.0"
+          supportedBWCEVersions: "2.4.3 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ibmi:
     tags:
-      - 7.3.0.v20-tci-2.0
-    default: 7.3.0.v20-tci-2.0
+      - tag: 7.3.0.v20-tci-2.0
+        metadata:
+          displayVersion: "7.3.0 HF4"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-ibm-i"
+          releaseDate: "February 2024"
+          supportedBWVersions: "6.8.0 - 6.10.x"
+          supportedBWCEVersions: "2.7.0 - 2.9.1"
+          endOfSupportDate: ""
 
 bwPluginsJobB:
   tci-bw-plugin-salesforce:
     tags:
-      - 6.11.0.v20.2-tci-2.0
-    default: 6.11.0.v20.2-tci-2.0
+      - tag: 6.11.0.v20.2-tci-2.0
+        metadata:
+          displayVersion: "6.11.0 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-salesforce-com"
+          releaseDate: "January 2026"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-peoplesoft:
     tags:
-      - 7.4.0.v19-tci-2.0
-    default: 7.4.0.v19-tci-2.0
+      - tag: 7.4.0.v19-tci-2.0
+        metadata:
+          displayVersion: "7.4.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-peoplesoft"
+          releaseDate: "February 2025"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-amazoncs:
     tags:
-      - 6.1.1.v4.1-tci-2.0
-    default: 6.1.1.v4.1-tci-2.0
+      - tag: 6.1.1.v4.1-tci-2.0
+        metadata:
+          displayVersion: "6.1.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-component-for-aws-common-services"
+          releaseDate: "November 2022"
+          supportedBWVersions: "6.6.0 - 6.12.0"
+          supportedBWCEVersions: "2.5.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ap:
     tags:
-      - 6.2.1.v7-tci-2.0
-    default: 6.2.1.v7-tci-2.0
+      - tag: 6.2.1.v7-tci-2.0
+        metadata:
+          displayVersion: "6.2.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-apache-pulsar"
+          releaseDate: "May 2025"
+          supportedBWVersions: "6.8.0 - 6.11.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-oebs:
     tags:
-      - 6.1.2.v12-tci-2.0
-    default: 6.1.2.v12-tci-2.0
+      - tag: 6.1.2.v12-tci-2.0
+        metadata:
+          displayVersion: "6.1.2 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-oracle-e-business-suite"
+          releaseDate: "November 2018"
+          supportedBWVersions: "6.4.2 - 6.12.x"
+          supportedBWCEVersions: "2.3.4 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-googlecs:
     tags:
-      - 6.0.0.v43.1-tci-2.0
-    default: 6.0.0.v43.1-tci-2.0
+      - tag: 6.0.0.v43.1-tci-2.0
+        metadata:
+          displayVersion: "6.0.0 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-google-cloud-storage"
+          releaseDate: "December 2025"
+          supportedBWVersions: "6.6.1 - 6.11.0"
+          supportedBWCEVersions: "2.5.3 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bc:
     tags:
-      - 6.3.1.v12.1-tci-2.0
-    default: 6.3.1.v12.1-tci-2.0
+      - tag: 6.3.1.v12.1-tci-2.0
+        metadata:
+          displayVersion: "6.3.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-businessconnect"
+          releaseDate: "January 2023"
+          supportedBWVersions: ""
+          supportedBWCEVersions: ""
+          endOfSupportDate: ""
   tci-bw-plugin-amazons3:
     tags:
-      - 6.7.0.v25.2-tci-2.0
-    default: 6.7.0.v25.2-tci-2.0
+      - tag: 6.7.0.v25.2-tci-2.0
+        metadata:
+          displayVersion: "6.7.0 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amazon-s3"
+          releaseDate: "December 2025"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-smpp:
     tags:
-      - 6.0.3.v5-tci-2.0
-    default: 6.0.3.v5-tci-2.0
+      - tag: 6.0.3.v5-tci-2.0
+        metadata:
+          displayVersion: "6.0.3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-smpp"
+          releaseDate: "January 2023"
+          supportedBWVersions: "6.6.0 - 6.12.0"
+          supportedBWCEVersions: "2.5.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   
 bwPluginsJobC:
   tci-bw-plugin-adbplugin:
     tags:
-      - 8.6.0.v41.1-tci-2.0
-    default: 8.6.0.v41.1-tci-2.0
+      - tag: 8.6.0.v44-tci-2.0
+        metadata:
+          displayVersion: "8.6.0 HF4"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-database"
+          releaseDate: "February 2026"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bigquery:
     tags:
-      - 6.1.0.v9.1-tci-2.0
-    default: 6.1.0.v9.1-tci-2.0
+      - tag: 6.1.0.v9.1-tci-2.0
+        metadata:
+          displayVersion: "6.1.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-google-bigquery"
+          releaseDate: "April 2023"
+          supportedBWVersions: "6.8.0 - 6.11.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-acs:
     tags:
-      - 6.0.0.v21-tci-2.0
-    default: 6.0.0.v21-tci-2.0
+      - tag: 6.0.0.v21-tci-2.0
+        metadata:
+          displayVersion: "6.0.0 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-azure-cloud-services-azure-data-lake-storage-gen2"
+          releaseDate: "May 2025"
+          supportedBWVersions: "6.6.0 - 6.12.0"
+          supportedBWCEVersions: "2.5.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sap:
     tags:
-      - 8.8.0.v25.2-tci-2.0
-    default: 8.8.0.v25.2-tci-2.0
+      - tag: 8.8.0.v25.2-tci-2.0
+        metadata:
+          displayVersion: "8.8.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sap-solutions"
+          releaseDate: "February 2025"
+          supportedBWVersions: "6.8.1 - 6.12.0"
+          supportedBWCEVersions: "2.7.2 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-mongodb:
     tags:
-      - 6.5.0.v5.1-tci-2.0
-    default: 6.5.0.v5.1-tci-2.0
+      - tag: 6.5.0.v5.1-tci-2.0
+        metadata:
+          displayVersion: "6.5.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-mongodb"
+          releaseDate: "February 2025"
+          supportedBWVersions: "6.5.0 - 6.11.0"
+          supportedBWCEVersions: "2.4.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-pdf:
     tags:
-      - 6.2.3.v4.2-tci-2.0
-    default: 6.2.3.v4.2-tci-2.0
+      - tag: 6.2.3.v4.2-tci-2.0
+        metadata:
+          displayVersion: "6.2.3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-pdf"
+          releaseDate: "November 2025"
+          supportedBWVersions: "6.8.1 - 6.12.0"
+          supportedBWCEVersions: "2.7.2 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-googlepubsub:
     tags:
-      - 6.0.2.v23-tci-2.0
-    default: 6.0.2.v23-tci-2.0
+      - tag: 6.0.2.v36.3-tci-2.0
+        metadata:
+          displayVersion: "6.0.2 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-google-cloud-pub-sub"
+          releaseDate: "March 2026"
+          supportedBWVersions: "6.6.0 - 6.12.x"
+          supportedBWCEVersions: "2.5.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-kafka:
     tags:
-      - 6.8.2.v27-tci-2.0
-    default: 6.8.2.v27-tci-2.0
+      - tag: 6.8.2.v27-tci-2.0
+        metadata:
+          displayVersion: "6.8.2 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-apache-kafka"
+          releaseDate: "December 2025"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-siebel:
     tags:
-      - 7.3.0.v3.0.1-tci-2.0
-    default: 7.3.0.v3.0.1-tci-2.0
+      - tag: 7.3.0.v3.0.1-tci-2.0
+        metadata:
+          displayVersion: "7.3.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-siebel"
+          releaseDate: "April 2022"
+          supportedBWVersions: "6.7.0 - 6.11.0"
+          supportedBWCEVersions: "2.6.3 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobD:
   tci-bw-plugin-excel:
     tags:
-      - 6.1.1.v41.5-tci-2.0
-    default: 6.1.1.v41.5-tci-2.0
+      - tag: 6.1.1.v41.5-tci-2.0
+        metadata:
+          displayVersion: "6.1.1 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-microsoft-excel"
+          releaseDate: "June 2025"
+          supportedBWVersions: "6.4.2 - 6.12.x"
+          supportedBWCEVersions: "2.4.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-dataconversion:
     tags:
-      - 4.8.1.v2.2-tci-2.0
-    default: 4.8.1.v2.2-tci-2.0
+      - tag: 4.8.1.v2.2-tci-2.0
+        metadata:
+          displayVersion: "4.8.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-data-conversion"
+          releaseDate: "August 2025"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-snowflake:
     tags:
-      - 6.3.1.v2.1-tci-2.0
-    default: 6.3.1.v2.1-tci-2.0
+      - tag: 6.3.1.v2.1-tci-2.0
+        metadata:
+          displayVersion: "6.3.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-snowflake"
+          releaseDate: "September 2025"
+          supportedBWVersions: "6.9.0 - 6.12.0"
+          supportedBWCEVersions: "2.8.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sqs:
     tags:
-      - 6.6.0.v5.1-tci-2.0
-    default: 6.6.0.v5.1-tci-2.0
+      - tag: 6.6.0.v5.1-tci-2.0
+        metadata:
+          displayVersion: "6.6.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amazon-sqs-and-sns"
+          releaseDate: "August 2023"
+          supportedBWVersions: "6.7.0 - 6.12.0"
+          supportedBWCEVersions: "2.6.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-cassandra:
     tags:
-      - 6.3.3.v12-tci-2.0
-    default: 6.3.3.v12-tci-2.0
+      - tag: 6.3.3.v12-tci-2.0
+        metadata:
+          displayVersion: "6.3.3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-apache-cassandra"
+          releaseDate: "May 2025"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-eftl:
     tags:
-      - 6.0.0.v33-tci-2.0
-    default: 6.0.0.v33-tci-2.0
+      - tag: 6.0.0.v33-tci-2.0
+        metadata:
+          displayVersion: "6.0.0 HF4"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-tibco-eftl"
+          releaseDate: "October 2024"
+          supportedBWVersions: "6.5.1 - 6.12.0"
+          supportedBWCEVersions: "2.4.3 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-mq:
     tags:
-      - 8.8.2.v17-tci-2.0
-    default: 8.8.2.v17-tci-2.0
+      - tag: 8.8.2.v17-tci-2.0
+        metadata:
+          displayVersion: "8.8.2 HF2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-ibm-mq"
+          releaseDate: "September 2025"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-marketorest:
     tags:
-      - 7.2.2.v13.1-tci-2.0
-    default: 7.2.2.v13.1-tci-2.0
+      - tag: 7.2.2.v13.1-tci-2.0
+        metadata:
+          displayVersion: "7.2.2 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-marketo"
+          releaseDate: "March 2024"
+          supportedBWVersions: "6.5.0 - 6.10.x"
+          supportedBWCEVersions: "2.4.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sharepoint:
     tags:
-      - 6.4.0.v16-tci-2.0
-    default: 6.4.0.v16-tci-2.0
+      - tag: 6.4.0.v16-tci-2.0
+        metadata:
+          displayVersion: "6.4.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-microsoft-sharepoint"
+          releaseDate: "November 2023"
+          supportedBWVersions: "6.6.0 - 6.12.0"
+          supportedBWCEVersions: "2.5.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobE:
   tci-bw-plugin-mi:
     tags:
-      - 6.4.0.v5.1-tci-2.0
-    default: 6.4.0.v5.1-tci-2.0
+      - tag: 6.4.0.v5.1-tci-2.0
+        metadata:
+          displayVersion: "6.4.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-mobile-integration"
+          releaseDate: "January 2025"
+          supportedBWVersions: "6.7.0 - 6.12.0"
+          supportedBWCEVersions: "2.6.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-redis:
     tags:
-      - 6.1.0.v6.2-tci-2.0
-    default: 6.1.0.v6.2-tci-2.0
+      - tag: 6.1.0.v6.2-tci-2.0
+        metadata:
+          displayVersion: "6.1.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-redis"
+          releaseDate: "February 2024"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-tux:
     tags:
-      - 8.3.0.v5.0.1-tci-2.0
-    default: 8.3.0.v5.0.1-tci-2.0
+      - tag: 8.3.0.v5.0.1-tci-2.0
+        metadata:
+          displayVersion: "8.3.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-oracle-tuxedo"
+          releaseDate: "February 2023"
+          supportedBWVersions: "6.8.0 - 6.11.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-cics:
     tags:
-      - 2.5.0.v4.3-tci-2.0
-    default: 2.5.0.v4.3-tci-2.0
+      - tag: 2.5.0.v4.3-tci-2.0
+        metadata:
+          displayVersion: "2.5.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-cics"
+          releaseDate: "September 2023"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-fileplugin:
     tags:
-      - 8.3.0.v7-tci-2.0
-    default: 8.3.0.v7-tci-2.0
+      - tag: 8.3.0.v7-tci-2.0
+        metadata:
+          displayVersion: "8.3.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-files-for-unix-and-windows"
+          releaseDate: "December 2023"
+          supportedBWVersions: "6.7.0 - 6.12.x"
+          supportedBWCEVersions: "2.6.3 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-firefly:
     tags:
-      - 8.1.1.v5.0.1-tci-2.0
-    default: 8.1.1.v5.0.1-tci-2.0
+      - tag: 8.1.1.v5.0.1-tci-2.0
+        metadata:
+          displayVersion: "8.1.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-activespaces"
+          releaseDate: "August 2025"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-saphana:
     tags:
-      - 6.1.0.v5.2-tci-2.0
-    default: 6.1.0.v5.2-tci-2.0
+      - tag: 6.1.0.v5.2-tci-2.0
+        metadata:
+          displayVersion: "6.1.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sap-hana-database"
+          releaseDate: "May 2024"
+          supportedBWVersions: "6.7.0 - 6.12.x"
+          supportedBWCEVersions: "2.6.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-smartmapper:
     tags:
-      - 7.1.3.v4.0.2-tci-2.0
-    default: 7.1.3.v4.0.2-tci-2.0
+      - tag: 7.1.3.v4.0.2-tci-2.0
+        metadata:
+          displayVersion: "7.1.3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-smartmapper"
+          releaseDate: "March 2023"
+          supportedBWVersions: "6.8.0 - 6.12.0"
+          supportedBWCEVersions: "2.7.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-facebook:
     tags:
-      - 6.5.0.v3.0.1-tci-2.0
-    default: 6.5.0.v3.0.1-tci-2.0
+      - tag: 6.5.0.v3.0.1-tci-2.0
+        metadata:
+          displayVersion: "6.5.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-facebook"
+          releaseDate: "October 2022"
+          supportedBWVersions: "6.7.0 - 6.10.x"
+          supportedBWCEVersions: "2.6.0 - 2.9.x"
+          endOfSupportDate: ""
   tci-bw-plugin-netsuite:
     tags:
-      - 6.4.0.v5.0.1-tci-2.0
-    default: 6.4.0.v5.0.1-tci-2.0
+      - tag: 6.4.0.v5.0.1-tci-2.0
+        metadata:
+          displayVersion: "6.4.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-netsuite"
+          releaseDate: "November 2023"
+          supportedBWVersions: "6.7.0 - 6.10.x"
+          supportedBWCEVersions: "2.6.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobF:
   tci-bw-plugin-odata:
     tags:
-      - 6.8.0.v2.1-tci-2.0
-    default: 6.8.0.v2.1-tci-2.0
+      - tag: 6.8.0.v2.1-tci-2.0
+        metadata:
+          displayVersion: "6.8.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-odata"
+          releaseDate: "March 2024"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-servicenow:
     tags:
-      - 6.1.0.v9.2-tci-2.0
-    default: 6.1.0.v9.2-tci-2.0
+      - tag: 6.1.0.v9.2-tci-2.0
+        metadata:
+          displayVersion: "6.1.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-servicenow"
+          releaseDate: "December 2021"
+          supportedBWVersions: "6.4.2 - 6.11.0"
+          supportedBWCEVersions: "2.3.2 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-successfactors:
     tags:
-      - 6.1.0.v23-tci-2.0
-    default: 6.1.0.v23-tci-2.0
+      - tag: 6.1.0.v23-tci-2.0
+        metadata:
+          displayVersion: "6.1.0 HF3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sap-successfactors"
+          releaseDate: "February 2025"
+          supportedBWVersions: "6.7.0 - 6.12.0"
+          supportedBWCEVersions: "2.6.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-amqp:
     tags:
-      - 6.5.2.v6-tci-2.0
-    default: 6.5.2.v6-tci-2.0
+      - tag: 6.5.2.v6-tci-2.0
+        metadata:
+          displayVersion: "6.5.2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amqp"
+          releaseDate: "September 2025"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ftl:
     tags:
-      - 6.7.4.v13-tci-2.0
-    default: 6.7.4.v13-tci-2.0
+      - tag: 6.7.4.v13-tci-2.0
+        metadata:
+          displayVersion: "6.7.4"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-tibco-ftl"
+          releaseDate: "December 2025"
+          supportedBWVersions: "6.9.0 - 6.12.0"
+          supportedBWCEVersions: "2.8.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-workday:
     tags:
-      - 6.0.1.v13.3-tci-2.0
-    default: 6.0.1.v13.3-tci-2.0
+      - tag: 6.0.1.v13.3-tci-2.0
+        metadata:
+          displayVersion: "6.0.1 HF3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-workday"
+          releaseDate: "November 2021"
+          supportedBWVersions: "6.3.1 - 6.11.0"
+          supportedBWCEVersions: "2.2.0 - 2.10.0"
+          endOfSupportDate: ""
   tci-bw-plugin-cdcplugin:
     tags:
-      - 6.2.0.v17.1-tci-2.0
-    default: 6.2.0.v17.1-tci-2.0
+      - tag: 6.2.0.v17.1-tci-2.0
+        metadata:
+          displayVersion: "6.2.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-change-data-capture"
+          releaseDate: "August 2025"
+          supportedBWVersions: "6.8.0 - 6.12.x"
+          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-amazonredshift:
     tags:
-      - 6.1.0.v6.1-tci-2.0
-    default: 6.1.0.v6.1-tci-2.0
+      - tag: 6.1.0.v6.1-tci-2.0
+        metadata:
+          displayVersion: "6.1.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amazon-redshift"
+          releaseDate: "January 2024"
+          supportedBWVersions: "6.7.0 - 6.12.0"
+          supportedBWCEVersions: "2.6.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-confidentiality:
     tags:
-      - 6.1.1.v3-tci-2.0
-    default: 6.1.1.v3-tci-2.0
+      - tag: 6.1.1.v3-tci-2.0
+        metadata:
+          displayVersion: "6.1.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-confidentiality"
+          releaseDate: "November 2021"
+          supportedBWVersions: "6.5.0 - 6.12.x"
+          supportedBWCEVersions: "2.4.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobG:
   tci-bw-plugin-s4hanacloud:
     tags:
-      - 6.4.0.v39.1-tci-2.0
-    default: 6.4.0.v39.1-tci-2.0
+      - tag: 6.4.0.v39.1-tci-2.0
+        metadata:
+          displayVersion: "6.4.0 HF3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-odata-services-for-sap-s-4hana"
+          releaseDate: "January 2026"
+          supportedBWVersions: "6.8.1 - 6.12.x"
+          supportedBWCEVersions: "2.7.2 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bwlx:
     tags:
-      - 6.1.4.v24-tci-2.0
-    default: 6.1.4.v24-tci-2.0
+      - tag: 6.1.4.v30-tci-2.0
+        metadata:
+          displayVersion: "6.1.4 HF3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-large-xml"
+          releaseDate: "March 2026"
+          supportedBWVersions: "6.5.0 - 6.12.0"
+          supportedBWCEVersions: "2.4.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-btpservice:
     tags:
-      - 6.0.0.v12.0.3-tci-2.0
-    default: 6.0.0.v12.0.3-tci-2.0
+      - tag: 6.0.0.v12.0.3-tci-2.0
+        metadata:
+          displayVersion: "6.0.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sap-business-technology-platform"
+          releaseDate: "September 2023"
+          supportedBWVersions: "6.8.1 - 6.11.0"
+          supportedBWCEVersions: "2.7.2 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ldap:
     tags:
-      - 7.3.0.v36-tci-2.0
-    default: 7.3.0.v36-tci-2.0
+      - tag: 7.3.0.v36-tci-2.0
+        metadata:
+          displayVersion: "7.3.0 HF3"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-ldap"
+          releaseDate: "November 2025"
+          supportedBWVersions: "6.7.0 - 6.12.x"
+          supportedBWCEVersions: "2.6.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-oerp:
     tags:
-      - 6.0.0.v14.1-tci-2.0
-    default: 6.0.0.v14.1-tci-2.0
+      - tag: 6.0.0.v14.1-tci-2.0
+        metadata:
+          displayVersion: "6.0.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-oracle-fusion-cloud-applications-suite"
+          releaseDate: "February 2023"
+          supportedBWVersions: "6.7.0 - 6.11.0"
+          supportedBWCEVersions: "2.6.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-hadoop:
     tags:
-      - 6.6.1.v3.0.1-tci-2.0
-    default: 6.6.1.v3.0.1-tci-2.0
+      - tag: 6.6.1.v3.0.1-tci-2.0
+        metadata:
+          displayVersion: "6.6.1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-big-data"
+          releaseDate: "November 2021"
+          supportedBWVersions: "6.5.0 - 6.12.0"
+          supportedBWCEVersions: "2.4.0 - 2.9.0"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-pi:
     tags:
-      - 6.5.0.v14.1-tci-2.0
-    default: 6.5.0.v14.1-tci-2.0
+      - tag: 6.5.0.v14.1-tci-2.0
+        metadata:
+          displayVersion: "6.5.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-osisoft-pi-system"
+          releaseDate: "August 2023"
+          supportedBWVersions: "6.7.0 - 6.10.x"
+          supportedBWCEVersions: "2.6.0 - 2.9.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-as2:
     tags:
-      - 6.0.0.v10-tci-2.0
-    default: 6.0.0.v10-tci-2.0
+      - tag: 6.0.0.v10-tci-2.0
+        metadata:
+          displayVersion: "6.0.0 HF1"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-applicability-statement-2-as2-protocol"
+          releaseDate: "May 2025"
+          supportedBWVersions: "6.11.0 - 6.12.x"
+          supportedBWCEVersions: "2.10.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-rag:
     tags:
-      - 6.0.0.v8-tci-2.0
-    default: 6.0.0.v8-tci-2.0
+      - tag: 6.0.0.v8-tci-2.0
+        metadata:
+          displayVersion: "6.0.0"
+          docLink: ""
+          releaseDate: ""
+          supportedBWVersions: "6.11.0 - 6.12.0"
+          supportedBWCEVersions: "2.10.0 - 2.10.x"
+          endOfSupportDate: ""
 
 volumes:
   plugins:
@@ -415,6 +799,11 @@ buildtypeImages:
   extract_image: true
   path: /var/lib/bwce/buildtypes
   tag: 6.12.0-HF1
+  target_location: bwce/buildtypes
+- name: tp-bwce-buildtype
+  extract_image: true
+  path: /var/lib/bwce/buildtypes
+  tag: 2.10.0-HF5
   target_location: bwce/buildtypes
 
 probes:

@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 12.13
+    tag: 13.3
 
 nameOverride: ""
 podAnnotations: {}
@@ -292,8 +292,18 @@ flogopluginsF:
     default: 1.0.1-b02
   tp-flogo-connector-databricks:
     tags:
-      - 1.0.1-b01
-    default: 1.0.1-b01
+      - 1.0.1-hf1-b01
+    default: 1.0.1-hf1-b01
+
+flogopluginsG:
+  tp-flogo-connector-mail:
+    tags:
+      - 1.0.0-b08
+    default: 1.0.0-b08
+  tp-flogo-connector-agenticai:
+    tags:
+      - 0.9.0-b03
+    default: 0.9.0-b03
 
 volumes:
   plugins:
@@ -308,6 +318,7 @@ flogopluginsExtractC: true
 flogopluginsExtractD: true
 flogopluginsExtractE: true
 flogopluginsExtractF: true
+flogopluginsExtractG: true
 buildtypesExtract: true
 
 cleanupJob: false
@@ -316,7 +327,7 @@ flogoBuildtypeImages:
   - name: tp-flogo-buildtype
     extract_image: true
     path: /var/lib/flogo/buildtypes/
-    tag: 2.26.1-b392
+    tag: 2.26.2-b400
     target_location: flogo/buildtypes
 
 probes:

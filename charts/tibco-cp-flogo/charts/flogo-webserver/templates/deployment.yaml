@@ -143,15 +143,28 @@ spec:
               key: DOC_BASE_URL
               optional: true
         - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
-          value: {{ include "flogo-webserver.use-single-namespace" . }}
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "flogo-webserver.cp-env-configmap" . }}
+              key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: TP_CP_PERMISSIONS_ENGINE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_PERMISSIONS_ENGINE_HOST
+        - name: TP_CP_O11Y_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_O11Y_HOST
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS
-          value: {{ .Values.config.IDLE_TIME_SECONDS | quote }}
+          value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}
         - name: WEB_SERVER_LOG_ENABLED
           value: {{ .Values.config.WEB_SERVER_LOG_ENABLED | quote }}
         - name: TSC_CONFIG_LOCATION
@@ -248,9 +261,13 @@ spec:
           value: {{ .Values.mcpserver.logLevel }}
         - name: LOG_FILE_PATH
           value: "/tmp/logs/tp-cp-flogo-mcpserver.log"
-        - name: FLOGO_CP_HOST
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: FLOGO_WEB_SERVER_HOST
           value: {{ include "flogo-webserver.service.host-port" . }}
-        - name: CP_HOST
+        - name: CP_WEB_SERVER_HOST
           value: {{ include "cp-webserver.service.host-port" . }}
         volumeMounts:
           - name: logs-share

@@ -74,12 +74,26 @@ spec:
               value: {{ .Values.global.cp.instanceId }}
             - name: CP_DOMAIN
               value: {{ include "flogoprovisioner.cp.domain" . }}
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: SSL_CERT_DIR
+              value: /etc/ssl/certs/cp-certs
+            {{- end }}
           volumeMounts:
             - name: logs
               mountPath: /tmp/logs
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: cp-certs
+              mountPath: /etc/ssl/certs/cp-certs
+            {{- end }}
       volumes:
         - name: logs
           emptyDir: {}
+        {{- if .Values.global.cp.cpCertificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.cp.cpCertificateSecret }}
+        {{- end }}
 
 
 ---
@@ -140,9 +154,23 @@ spec:
               value: {{ .Values.global.cp.instanceId }}
             - name: CP_DOMAIN
               value: {{ include "flogoprovisioner.cp.domain" . }}
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: SSL_CERT_DIR
+              value: /etc/ssl/certs/cp-certs
+            {{- end }}
           volumeMounts:
             - name: logs
               mountPath: /tmp/logs
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: cp-certs
+              mountPath: /etc/ssl/certs/cp-certs
+            {{- end }}
       volumes:
         - name: logs
           emptyDir: {}
+        {{- if .Values.global.cp.cpCertificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.cp.cpCertificateSecret }}
+        {{- end }}

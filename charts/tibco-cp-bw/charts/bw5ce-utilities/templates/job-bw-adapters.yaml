@@ -63,7 +63,7 @@ spec:
               mountPath: /tmp
         {{- end }}
         {{- range $tag := $adapter.tags }}
-        - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-img-extract
+        - name: {{ $name }}-{{ $tag.tag | replace "." "-" | lower }}-img-extract
           image: {{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.image.name }}:{{ $.Values.image.tag }}
           imagePullPolicy: IfNotPresent
           {{- with $.Values.probes.startupProbe }}
@@ -82,13 +82,13 @@ spec:
           - name: SOURCE_REGISTRY
             value: "{{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.plugins.image.repository" $dot }}"
           - name: SOURCE_DOCKER_IMAGE
-            value: "{{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.plugins.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $tag }}"
+            value: "{{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.plugins.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $tag.tag }}"
           - name: IMAGE_TEMP_DIR
-            value: "/tmp/{{ $name }}-{{ $tag }}/"
+            value: "/tmp/{{ $name }}-{{ $tag.tag }}/"
           - name: SOURCE_DIRS
             value: "/opt/tibco/adapter/"
           - name: TARGET_DIRS
-            value: "{{ $.Values.volumes.plugins.mountPath }}/bw5-contribution/{{ $name }}/{{ $tag }}/{{ $name  | replace "tci-bw-adapter-" "" }}"
+            value: "{{ $.Values.volumes.plugins.mountPath }}/bw5-contribution/{{ $name }}/{{ $tag.tag }}/{{ $name  | replace "tci-bw-adapter-" "" }}"
           - name: LOG_LEVEL
             value: debug
           - name: IS_AWS
@@ -128,7 +128,8 @@ spec:
             name: container-registry-custom-cert-secret
             readOnly: true
 {{- end }}
-        - name: {{ $name }}-{{ $tag | replace "." "-" | lower }}-default
+{{ if $tag.metadata }}
+        - name: {{ $name }}-{{ $tag.tag | replace "." "-" | lower }}-metadata
           image: {{ include "bw5ce-utilities.image.registry" $dot }}{{"/"}}{{ include "bw5ce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
           imagePullPolicy: IfNotPresent
           {{- with $.Values.probes.startupProbe }}
@@ -147,14 +148,11 @@ spec:
             - "sh"
             - "-c"
             - |
-              tag={{ $adapter.default }}
-              adpaterName={{ $name }}
-              echo "tag:"$tag
-              echo "adpaterName:"$adapterName
-              echo {{ $.Values.volumes.plugins.mountPath }}
-              path={{ $.Values.volumes.plugins.mountPath }}/bw5-contribution/$adapterName/default.ver
+              path={{ $.Values.volumes.plugins.mountPath }}/bw5-contribution/{{ $name }}/{{ $tag.tag }}/metadata.json
               mkdir -p "${path%/*}" && touch "$path"
-              echo $tag > $path
+              echo '{{ toJson $tag.metadata }}' > $path
+              echo "Created metadata file at location: $path, Contents:\n"
+              cat $path
           volumeMounts:
             - name: shared-vol
               mountPath: {{ $.Values.volumes.plugins.mountPath }}
@@ -163,6 +161,7 @@ spec:
               mountPath: /tmp
         {{- end }}
       {{- end }}
+  {{- end }}
       volumes:
       - name: shared-vol
         persistentVolumeClaim:
