@@ -22,7 +22,7 @@ global:
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "4.2.2"
+      tag: "4.2.3"
     probes:
       livenessProbe:
         failureThreshold: 3
@@ -49,7 +49,6 @@ replicaCount: 1
 config:
   BE_WEBSERVER_IMAGE_TAG: "71"
   HTTP_REQUEST_TIMEOUT: "120000"
-  IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
 
 hpa:
