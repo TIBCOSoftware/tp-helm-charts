@@ -115,8 +115,8 @@ traefik:
       allowExternalNameServices: true
   nodeSelector:  # for cic2
     kubernetes.io/os: linux
-  serversTransport:
-    insecureSkipVerify: true
+  additionalArguments:
+    - "--serversTransport.insecureSkipVerify=true"
 
 kong:
   # chart values: https://github.com/Kong/charts/blob/main/charts/kong/values.yaml
