@@ -20,6 +20,10 @@ global:
     controlPlaneInstanceId: ""
     useSingleNamespace: true
     enableResourceConstraints: true
+    tcta:
+      TCTA_DB_CONFIGURATION: provider-cp-database-config
+    db_ssl_root_cert_secretname: "db-ssl-root-cert"
+    db_ssl_root_cert_filename: "db_ssl_root.cert"
     logging:
       # The fluentbit configuration section.
       # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -32,7 +36,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -79,7 +83,7 @@ probes:
 image:
   name: "o11y-service"
   pullPolicy: IfNotPresent
-  tag: 3758
+  tag: 3965
 
 tibcoRouter:
   path: /o11y
@@ -107,7 +111,7 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.15.19"
+        version: "1.16.10"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.140.3"
@@ -125,18 +129,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.15.19"
+        version: "1.16.10"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.140.3"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
         version: "0.72.40"
-job:
-  image:
-    name: common-distroless-base-debian-debug
-    tag: 12.13
-    pullPolicy: IfNotPresent
 
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -175,7 +174,7 @@ o11ymcpserver:
   enabled: false
   image:
     name: o11y-mcp-service
-    tag: "106"
+    tag: "186"
   resources:
     requests:
       cpu: 100m
@@ -189,3 +188,12 @@ audittrail:
   # - This allows Audit Trail functionality to be disabled when otel-service on CP is enabled
   # - By default, Audit Trail is enabled
   enabled: true
+
+checkPermissionEngine:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"

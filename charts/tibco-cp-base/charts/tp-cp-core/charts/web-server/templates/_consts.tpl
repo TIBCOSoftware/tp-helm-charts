@@ -44,7 +44,6 @@
 {{- end }}
 
 {{- define "tp-cp-web-server.consts.http.request.timeout" }}120000{{ end -}}
-{{- define "tp-cp-web-server.consts.idle.time.seconds" }}14400{{ end -}}
 {{- define "tp-cp-web-server.consts.custom.scheme.urls" }}'["vscode://tibco.flogo"]'{{ end -}}
 {{- define "tp-cp-web-server.consts.web.server.log.enabled" }}true{{ end -}}
 {{- define "tp-cp-web-server.consts.external.idp.ui" }}enable{{ end -}}

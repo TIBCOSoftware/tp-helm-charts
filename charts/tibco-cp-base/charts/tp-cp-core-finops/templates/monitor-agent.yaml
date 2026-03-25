@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.15.0",
+      "capabilityVersion": "1.16.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.monitorAgent.releaseDate | quote }},
@@ -87,8 +87,8 @@ spec:
         kubernetes.io/os: linux
       containers:
       - name: monitor-agent
-        image: {{ include "tp-cp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-cp-monitor-agent.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{ include "tp-cp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-cp-monitor-agent.image.repository" .}}{{"/common-distroless-base-debian-debug"}}:{{ .Values.global.tibco.commonImages.distrolessDebug.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
@@ -107,7 +107,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.15.0"
+          value: "1.16.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

@@ -1,5 +1,5 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2026 Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -18,11 +18,6 @@ global:
     # Set to false to disable DB script execution if you want to run scripts manually outside of the chart
     # Default value is true
     manageDbSchema: true
-    rbac:
-      # Flag to enable or disable creation of RBAC resources (ServiceAccount, Role, RoleBinding)
-      # Set to false if you want to manage RBAC resources externally
-      # Default value is true
-      infra: true
     containerRegistry:
       url: ""
       username: ""
@@ -55,16 +50,6 @@ global:
       password: ""
       pullLatestCharts: false
       certificateSecretName: ""
-    logging:
-      fluentbit:
-        enabled: true
-        image:
-          name: "common-fluentbit"
-          tag: 4.2.2
-    check_dependencies:
-      distroless_debian:
-        name: "common-distroless-base-debian-debug"
-        tag: 12.13
     self_hosted_deployment: true
     is_replica_region: false
     finops: "disable"

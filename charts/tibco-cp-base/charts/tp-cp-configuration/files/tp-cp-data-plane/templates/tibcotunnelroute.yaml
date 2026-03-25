@@ -38,7 +38,7 @@ spec:
     app.kubernetes.io/name: {{ include "tp-cp-data-plane.consts.subscriptionAppName" .}}
     platform.tibco.com/subscriptionId: {{ .Values.subscriptionId | quote }}
   endpoint:
-    path: {{ if .Values.pathPrefix }}{{ .Values.pathPrefix }}{{ end }}{{ if hasPrefix "/" (tpl .Values.path .) }}{{else}}/{{end}}{{ tpl .Values.path . }}
+    path: {{ if .Values.pathPrefix }}{{ .Values.pathPrefix }}{{ end }}{{ if hasPrefix "/" (tpl .Values.path .) }}{{else}}/{{end}}{{ tpl .Values.path . }}                 
     fqdn: {{ .Values.fqdn }}
     config: accesskey
     configVariables:

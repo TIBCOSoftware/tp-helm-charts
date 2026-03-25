@@ -14,7 +14,7 @@ subscriptionId: ""
 
 image:
   name: infra-hybrid-server
-  tag: 145-distroless
+  tag: 150-distroless
   pullPolicy: IfNotPresent
 
 # no of replicas
@@ -84,10 +84,6 @@ global:
     logging:
       fluentbit:
         enabled: true
-        image:
-          name: "common-fluentbit"
-          tag: 4.2.2
-          pullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 50m
@@ -95,7 +91,11 @@ global:
           limits:
             cpu: 100m
             memory: 150Mi
-        
+
+    commonImages:
+      fluentbit:
+        tag: "latest"
+      
     useSingleNamespace: false
     enableResourceConstraints: true
   

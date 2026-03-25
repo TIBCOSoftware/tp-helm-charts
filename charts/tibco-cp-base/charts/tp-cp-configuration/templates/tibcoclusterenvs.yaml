@@ -55,4 +55,17 @@ spec:
   group: "infra.router"
   setting: "SUPPORTED_DOMAINS_REGEX"
   value: {{ if eq (.Values.global.tibco.region | default "global") "global" }}""{{ else }}"[^.]+\\.([^.]+\\.{{ include "tp-cp-configuration.cookie-domain" . | replace "." "\\\\." }})"{{ end }}
-  
+
+---
+
+kind: TibcoClusterEnv
+apiVersion: cloud.tibco.com/v1
+metadata:
+  name: "infra.router.cookie.timeout.in.seconds"
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "tp-cp-configuration.labels" $ | nindent 4 }}
+spec:
+  group: "infra.router"
+  setting: "COOKIE_TIMEOUT_IN_SECONDS"
+  value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}

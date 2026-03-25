@@ -106,7 +106,8 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         - name: copy-default-configuration
-          image: {{ include "tp-cp-alertmanager.image.registry" .}}{{"/"}}{{ include "tp-cp-alertmanager.image.repository" .}}{{"/"}}{{ .Values.initContainer.name }}:{{ .Values.initContainer.tag}}
+          image: {{ include "tp-cp-alertmanager.image.registry" .}}{{"/"}}{{ include "tp-cp-alertmanager.image.repository" .}}{{"/common-distroless-base-debian-debug"}}:{{ .Values.global.tibco.commonImages.distrolessDebug.tag }}
+          imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
           securityContext:
           {{- toYaml .Values.initContainerSecurityContext | nindent 12 }}

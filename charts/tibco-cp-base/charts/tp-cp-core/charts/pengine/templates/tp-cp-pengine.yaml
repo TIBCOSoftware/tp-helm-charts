@@ -93,7 +93,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
         - name: check-sql-schema-version
-          image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
+          image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
           {{- if .Values.global.containerSecurityContext }}
           securityContext:
             {{- toYaml .Values.global.containerSecurityContext | nindent 12 }}
@@ -285,7 +285,7 @@ spec:
           mountPath: /tmp/logs
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}

@@ -1,30 +1,14 @@
 #
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026 Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
-{{/* Cleanup RBAC resources - needed for both DB cleanup and self-signed cert cleanup jobs */}}
+{{/* Cleanup resources - needed for both DB cleanup and self-signed cert cleanup jobs */}}
 {{- if or (and .Values.global.tibco.manageDbSchema (eq .Values.global.tibco.is_replica_region false)) (eq .Values.global.tibco.self_hosted_deployment true) }}
 
-{{- if empty .Values.global.tibco.serviceAccount }}
-{{/* Dedicated ServiceAccount for cleanup jobs */}}
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-sa
-  namespace: {{ include "tp-control-plane.consts.namespace" . }}
-  annotations:
-    "helm.sh/hook": post-delete
-    "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
-  labels:
-    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
-{{- end }}
-
 ---
-{{/* Dedicated Role for cleanup jobs */}}
-{{- if .Values.global.tibco.rbac.infra }}
+{{/* Role for cleanup jobs */}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -40,11 +24,9 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get", "list", "delete"]
-{{- end }}
 
 ---
-{{/* Dedicated RoleBinding for cleanup jobs */}}
-{{- if .Values.global.tibco.rbac.infra }}
+{{/* RoleBinding for cleanup jobs */}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -62,9 +44,8 @@ roleRef:
   name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-role
 subjects:
 - kind: ServiceAccount
-  name: {{ include "tp-cp-core.cleanup.serviceAccountName" . }}
+  name: {{ .Values.global.tibco.serviceAccount | default "control-plane-sa" }}
   namespace: {{ include "tp-control-plane.consts.namespace" . }}
-{{- end }}
 
 ---
 {{/* Post-delete hook version of container registry secret for cleanup jobs */}}
@@ -279,7 +260,7 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "tp-cp-core.cleanup.serviceAccountName" . }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount | default "control-plane-sa" }}
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
@@ -293,7 +274,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -375,7 +356,7 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "tp-cp-core.cleanup.serviceAccountName" . }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount | default "control-plane-sa" }}
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
@@ -389,7 +370,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
         imagePullPolicy: IfNotPresent
         env:
         - name: POD_NAMESPACE
