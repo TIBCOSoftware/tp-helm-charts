@@ -87,8 +87,8 @@ spec:
         kubernetes.io/os: linux
       containers:
       - name: dp-license-file
-        image: {{ include "tp-cp-configuration.image.registry" .}}{{"/"}}{{ include "tp-cp-configuration.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{ include "tp-cp-configuration.image.registry" .}}{{"/"}}{{ include "tp-cp-configuration.image.repository" .}}{{"/common-distroless-base-debian-debug"}}:{{ .Values.global.tibco.commonImages.distrolessDebug.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}

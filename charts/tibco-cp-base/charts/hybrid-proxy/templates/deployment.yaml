@@ -105,7 +105,7 @@ spec:
         lifecycle:
           preStop:
             exec:
-              command: ["/bin/bash", "-c", "sleep 300"] # allow some time to complete in-flight API calls and to have new NLB targets become healthy
+              command: ["/busybox/sleep", "300"] # allow some time to complete in-flight API calls and to have new NLB targets become healthy
         env:
         - name: WAIT_FOR_BACKEND_POD_TO_BE_READY
           value: "{{ .Values.waitForBackendPodToBeReady }}"
@@ -152,8 +152,8 @@ spec:
 {{- end }}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "hybrid-proxy.image.registry" .}}{{"/"}}{{ include "hybrid-proxy.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        image: {{ include "hybrid-proxy.image.registry" .}}{{"/"}}{{ include "hybrid-proxy.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}

@@ -109,7 +109,7 @@ spec:
       terminationGracePeriodSeconds: 15
       initContainers:
       - name: check-pod-dependencies
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.check_dependencies.distroless_debian.name }}:{{ .Values.global.tibco.check_dependencies.distroless_debian.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/common-distroless-base-debian-debug"}}:{{ .Values.global.tibco.commonImages.distrolessDebug.tag }}
         {{- if .Values.global.containerSecurityContext }}
         resources:
           {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
@@ -285,6 +285,15 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_O11Y_MCP_SERVER_HOST
+{{- if .Values.cpwebserver.aiAgent.enabled }}
+        - name: TP_AI_AGENT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_AI_AGENT_HOST
+        - name: AI_AGENT_CONFIG
+          value: '{"enabled":true,"url":"http://$(TP_AI_AGENT_HOST):8000"}'
+{{- end }}
         - name: SYSTEM_WHO
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
@@ -320,7 +329,7 @@ spec:
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ include "tp-cp-web-server.consts.http.request.timeout" . | quote }}
         - name: IDLE_TIME_SECONDS
-          value: {{ include "tp-cp-web-server.consts.idle.time.seconds" . | quote }}
+          value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}
         - name: CUSTOM_SCHEME_URLS
           value: {{ include "tp-cp-web-server.consts.custom.scheme.urls" . }}
         - name: WEB_SERVER_LOG_ENABLED
@@ -442,15 +451,22 @@ spec:
             value: "localhost:3000"
           - name: LOG_LEVEL
             value: {{ .Values.cpmcpserver.logLevel }}
+          - name: READ_ONLY_MODE
+            value: "{{ .Values.cpmcpserver.readOnlyMode }}"
           - name: PORT
             value: "8066"
+          - name: MCP_SERVER_VERSION
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_APP_VERSION
         volumeMounts:
           - name: logs
             mountPath: /tmp/logs
  {{- end }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
         {{- if .Values.global.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}

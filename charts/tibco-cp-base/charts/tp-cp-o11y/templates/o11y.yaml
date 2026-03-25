@@ -15,7 +15,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.15.0",
+      "capabilityVersion": "1.16.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
@@ -1005,8 +1005,8 @@ spec:
         kubernetes.io/os: linux
       containers:
       - name: o11y
-        image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.job.image.name }}:{{ .Values.job.image.tag}}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/common-distroless-base-debian-debug"}}:{{ .Values.global.tibco.commonImages.distrolessDebug.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
@@ -1025,7 +1025,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.15.0"
+          value: "1.16.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

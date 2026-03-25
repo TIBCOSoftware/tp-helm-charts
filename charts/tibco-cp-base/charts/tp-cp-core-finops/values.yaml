@@ -25,9 +25,6 @@ global:
       password: ""
       repository: "tibco-platform-docker-prod"  # repository
     controlPlaneInstanceId: ""
-    logging:
-      fluentbit:
-        enabled: true
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
   # The user, group, and filesystem group IDs are all set to 1000.
@@ -80,8 +77,8 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for monitor-agent, default is latest
-    version: "1.15.228"
-    tag: "380"
+    version: "1.16.230"
+    tag: "381"
     # Timestamp of capability release
     releaseDate: "2024/07/22"
     # Either a link to document or the document itself specifying _what was fixed in this release.
@@ -94,11 +91,6 @@ podRecipeSecurityContext:
   fsGroupChangePolicy: "Always"
   seccompProfile:
     type: RuntimeDefault
-
-image:
-  name: common-distroless-base-debian-debug
-  tag: 12.13
-  pullPolicy: IfNotPresent
 
 securityContext:
   # It specifies that privilege escalation is not allowed for security reasons.

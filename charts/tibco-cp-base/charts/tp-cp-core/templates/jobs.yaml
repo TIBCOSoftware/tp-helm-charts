@@ -37,7 +37,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_PREFIX
@@ -164,7 +164,7 @@ spec:
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
         {{- end }}
-        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ include "cp-core-scripts.buildNumber" . }}'
+        image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
         imagePullPolicy: IfNotPresent
         workingDir: /tmp # Use tmp folder which is mounted to this container and is writable
         env:

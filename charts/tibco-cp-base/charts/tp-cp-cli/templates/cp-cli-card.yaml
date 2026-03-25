@@ -29,8 +29,8 @@ spec:
       {{- end }}
       containers:
         - name: post-extractor
-          image: {{ include "cp-cli-utilities.image.registry" .}}{{"/"}}{{ include "cp-cli-utilities.infra.image.repository" .}}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
-          imagePullPolicy: {{ $.Values.containerImageExtractor.image.pullPolicy }}
+          image: {{ include "cp-cli-utilities.image.registry" .}}{{"/"}}{{ include "cp-cli-utilities.infra.image.repository" .}}{{"/common-distroless-base-debian-debug"}}:{{ $.Values.global.tibco.commonImages.distrolessDebug.tag }}
+          imagePullPolicy: IfNotPresent
           {{- with $.Values.probes.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}

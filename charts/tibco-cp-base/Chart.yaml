@@ -8,8 +8,8 @@ apiVersion: v2
 name: tibco-cp-base
 description: TIBCO Platform base chart
 type: application
-version: 1.15.0
-appVersion: "1.15.0"
+version: 1.16.0-alpha.70
+appVersion: "1.16.0"
 keywords:
   - tibco-platform
   - platform
@@ -19,42 +19,38 @@ annotations:
   app.helm.sh/name: tibco-cp-base
 dependencies:
   - name: tp-cp-infra
-    version: "1.15.*"
-    condition: tp-cp-infra.enabled
+    version: "1.16.*"
   - name: hybrid-proxy
-    version: "1.15.*"
+    version: "1.16.*"
     condition: global.tibco.hybridConnectivity.enabled
   - name: resource-set-operator
-    version: "1.15.*"
+    version: "1.16.*"
     condition: global.tibco.hybridConnectivity.enabled
   - name: router-operator
-    version: "1.15.*"
-    condition: router-operator.enabled
+    version: "1.16.*"
   - name: otel-collector
     version: "0.116.*"
     condition: otel-collector.enabled
-  - name: tp-cp-o11y
-    version: "1.15.*"
-    condition: tp-cp-o11y.enabled
   - name: tp-cp-configuration
-    version: "1.15.*"
+    version: "1.16.*"
   - name: tp-cp-core
-    version: "1.15.*"
+    version: "1.16.*"
   - name: tp-cp-core-finops
-    version: "1.15.*"
+    version: "1.16.*"
+  - name: tp-cp-o11y
+    version: "1.16.*"
+    condition: tp-cp-o11y.enabled
   - name: tp-cp-integration-common
-    version: "1.13.*"
+    version: "1.16.*"
     condition: tp-cp-integration-common.enabled
   - name: tp-cp-cli
-    version: "1.6.*"
+    version: "1.7.*"
     condition: tp-cp-cli.enabled
   - name: tp-cp-alertmanager
-    version: "1.15.*"
+    version: "1.16.*"
   - name: tp-cp-prometheus
-    version: "1.15.*"
+    version: "1.16.*"
   - name: tp-cp-auditsafe
-    version: "1.15.*"
-    condition: tp-cp-auditsafe.enabled
+    version: "1.16.*"
   - name: tp-dp-proxy
-    version: "1.15.*"
-    condition: tp-dp-proxy.enabled
+    version: "1.16.*"

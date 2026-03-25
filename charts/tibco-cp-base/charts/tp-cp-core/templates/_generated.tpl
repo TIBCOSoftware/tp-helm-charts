@@ -3,6 +3,3 @@
  This file is subject to the license terms contained
  in the license file that is distributed with this file.
 */}}
-
-{{/* CP Core scripts build nnumber */}}
-{{- define "cp-core-scripts.buildNumber" }}9153{{end -}}

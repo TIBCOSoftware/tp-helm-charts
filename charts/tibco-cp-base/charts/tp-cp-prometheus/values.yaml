@@ -43,21 +43,6 @@ global:
           - CAP_NET_RAW
           - ALL
 
-  # The fluentbit configuration section.
-  # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-  # Privilege escalation is not allowed for security reasons.
-  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-  # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-  fluentbit:
-    securityContext:
-      runAsNonRoot: false
-      runAsUser: 0
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - CAP_NET_RAW
-          - ALL
-
   # Prometheus Discovery side car resource values for production like setup
   resources:
     prometheusds:
@@ -259,7 +244,7 @@ server:
       name: hawk-prometheus-discoveryservice
       pullPolicy: IfNotPresent
       # tag: 120
-      tag: "1.15.0.30"
+      tag: "1.16.0.6"
     promDSLivenessProbe:
       successThreshold: 1
       failureThreshold: 5

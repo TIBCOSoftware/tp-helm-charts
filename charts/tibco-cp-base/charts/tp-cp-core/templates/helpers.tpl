@@ -1,5 +1,5 @@
 {{/*
- Copyright © 2025. Cloud Software Group, Inc.
+ Copyright © 2026 Cloud Software Group, Inc.
  This file is subject to the license terms contained
  in the license file that is distributed with this file.
 */}}
@@ -22,17 +22,6 @@
   {{- end }}
 {{- end -}}
 
-{{/*
-Returns the ServiceAccount name for the cleanup job.
-Uses user-provided serviceAccount if available, otherwise dedicated cleanup-sa.
-*/}}
-{{- define "tp-cp-core.cleanup.serviceAccountName" -}}
-  {{- if empty .Values.global.tibco.serviceAccount }}
-    {{- include "tp-control-plane.consts.appName" . }}-cleanup-sa
-  {{- else }}
-    {{- .Values.global.tibco.serviceAccount }}
-  {{- end }}
-{{- end -}}
 
 {{/*
 Returns the container registry secret name for cleanup jobs.

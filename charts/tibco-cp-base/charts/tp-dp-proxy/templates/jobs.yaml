@@ -35,7 +35,7 @@ spec:
         - name: {{ include "tp-dp-proxy.container-registry.secret" . }}
       containers:
       - name: rollout-restart
-        image: {{ include "tp-dp-proxy.image.registry" .}}{{"/"}}{{ include "tp-dp-proxy.image.repository" .}}{{"/"}}{{ .Values.cpScriptsImage.name }}:{{ .Values.cpScriptsImage.tag }}
+        image: {{ include "tp-dp-proxy.image.registry" .}}{{"/"}}{{ include "tp-dp-proxy.image.repository" .}}{{"/core-cp-scripts"}}:{{ .Values.global.tibco.commonImages.cpScripts.tag }}
         imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
