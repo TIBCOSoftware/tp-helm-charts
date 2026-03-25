@@ -11,7 +11,6 @@
 # and modifying this code to fit their specific operational environments and requirements
 # prior to deployment.
 #
-#
 # Automates TIBCO Platform provisioning end-to-end with IdP configuration:
 #   1. Initialize the Platform Console (ADMIN subscription)
 #   2. Register an OAuth2 client for the ADMIN subscription
