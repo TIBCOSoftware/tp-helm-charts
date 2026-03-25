@@ -12,7 +12,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.15.0",
+      "capabilityVersion": "1.16.0",
       "minCPVersion": "1.15.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bw5ce.releaseDate | quote }},
@@ -72,7 +72,7 @@ data:
       helmCharts:
         - name: bw5provisioner
           namespace: ${NAMESPACE}
-          version: "1.15.6"
+          version: "1.16.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -86,10 +86,10 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bw5provisioner:
                     image:
-                      tag: 168
+                      tag: 176
                 config:
-                  APP_INIT_IMAGE_TAG: "62"
-                  BW5CE_APP_HELMCHART_VERSION: "1.15.6"
+                  APP_INIT_IMAGE_TAG: "63"
+                  BW5CE_APP_HELMCHART_VERSION: "1.16.1"
                   INFRA_CP_PROXY_IMAGE_TAG: "291"
                 publicApi:
                   config:
@@ -146,7 +146,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.15.0"
+          value: "1.16.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

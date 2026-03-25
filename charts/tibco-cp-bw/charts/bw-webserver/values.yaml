@@ -26,7 +26,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -53,9 +53,8 @@ global:
 
 config:
   HTTP_REQUEST_TIMEOUT: "120000"
-  IDLE_TIME_SECONDS: "1800"
   WEB_SERVER_LOG_ENABLED: "true"
-  BW_WEBSERVER_IMAGE_TAG: "1084"
+  BW_WEBSERVER_IMAGE_TAG: "1122"
 
 replicaCount: 1
 
@@ -108,7 +107,7 @@ bwmcpserver:
   enabled: false
   image:
     name: tp-bw-mcp-server
-    tag: "62"
+    tag: "92"
   logLevel: "INFO"
   resources:
     requests:

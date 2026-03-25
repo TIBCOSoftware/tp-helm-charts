@@ -24,7 +24,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.2
+          tag: 4.2.3
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -46,7 +46,7 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Timestamp of capability release
-    releaseDate: "2026/02/27"
+    releaseDate: "2026/03/30"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "#cshid=new_features"
 
@@ -54,7 +54,7 @@ image:
   name: common-distroless-base-debian-debug
   registry: ""
   repo: ""
-  tag: 12.13
+  tag: 13.3
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -80,6 +80,21 @@ securityContext:
     drop:
       - ALL
       - CAP_NET_RAW
+
+flogoprovisioner:
+  image:
+    tag: 876-platform-1.16.0
+  config:
+    APP_INIT_IMAGE_TAG: "56"
+    APP_HELMCHART_VERSION: "1.16.8"
+    INFRA_CP_PROXY_IMAGE_TAG: "291"
+  resources:
+    requests:
+      cpu: "2"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 4Gi
 
 scripts:
   resources:

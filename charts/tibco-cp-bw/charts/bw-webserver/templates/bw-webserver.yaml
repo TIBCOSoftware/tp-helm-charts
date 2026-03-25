@@ -178,7 +178,7 @@ spec:
         - name: HTTP_REQUEST_TIMEOUT
           value: {{ .Values.config.HTTP_REQUEST_TIMEOUT | quote }}
         - name: IDLE_TIME_SECONDS
-          value: {{ .Values.config.IDLE_TIME_SECONDS | quote }}
+          value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}
         - name: WEB_SERVER_LOG_ENABLED
           value: {{ .Values.config.WEB_SERVER_LOG_ENABLED | quote }}
         - name: TSC_CONFIG_LOCATION
@@ -275,6 +275,10 @@ spec:
           value: {{ .Values.bwmcpserver.logLevel }}
         - name: LOG_FILE_PATH
           value: "/tmp/logs/tp-cp-bw-mcpserver.log"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         volumeMounts:
           - name: logs-share
             mountPath: /tmp/logs

@@ -12,7 +12,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.15.0",
+      "capabilityVersion": "1.16.0",
       "minCPVersion": "1.15.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
@@ -83,7 +83,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.15.6"
+          version: "1.16.2"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -97,10 +97,10 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 899
+                      tag: 909
                 config:
-                  APP_INIT_IMAGE_TAG: "62"
-                  BWCE_APP_HELMCHART_VERSION: "1.15.7"
+                  APP_INIT_IMAGE_TAG: "63"
+                  BWCE_APP_HELMCHART_VERSION: "1.16.1"
                   ENABLE_NON_TOKENIZED_PROPS: ${ENABLE_NON_TOKENIZED_PROPS}
                   INFRA_CP_PROXY_IMAGE_TAG: "291"
                 autoDiscovery:
@@ -117,7 +117,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.15.2"
+          version: "1.16.1"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -180,7 +180,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.15.0"
+          value: "1.16.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

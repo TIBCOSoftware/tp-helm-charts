@@ -76,6 +76,10 @@ spec:
                   name: {{ $fullName }}-serviceconfig
                   key: {{ $filename }}
             {{- end }}
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: SSL_CERT_DIR
+              value: /etc/ssl/certs/cp-certs
+            {{- end }}
             {{- with .Values.global.cp.proxy }}
             {{- if .httpProxy }}
             - name: http_proxy
@@ -85,10 +89,8 @@ spec:
             - name: https_proxy
               value: {{ .httpsProxy }}
             {{- end }}
-            {{- if .noProxy }}
             - name: no_proxy
-              value: {{ .noProxy | quote }}
-            {{- end }}
+              value: {{ printf "%s,.svc.cluster.local,$(KUBERNETES_SERVICE_HOST)" (.noProxy | default "") | trimPrefix "," | quote }}
             {{- end }}
             - name: DATAPLANE_ID
               value: {{ .Values.global.cp.dataplaneId }}
@@ -126,6 +128,10 @@ spec:
               value: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
             - name: ACTIVATION_SERVICE_URL
               value: {{ .Values.global.cp.resources.activationServer.url | quote }}
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: CP_CERTIFICATE_SECRET_NAME
+              value: {{ .Values.global.cp.cpCertificateSecret | quote }}
+            {{- end }}
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:
@@ -175,6 +181,10 @@ spec:
               mountPath: /tmp/logs/share
             - name: tmp-workspace
               mountPath: /tmp
+            {{- if .Values.global.cp.cpCertificateSecret }}
+            - name: cp-certs
+              mountPath: /etc/ssl/certs/cp-certs
+            {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
           image: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
@@ -219,6 +229,12 @@ spec:
           name: tmp-workspace
         - emptyDir: {}
           name: logs-share
+        {{- if .Values.global.cp.cpCertificateSecret }}
+        - name: cp-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.cp.cpCertificateSecret }}
+        {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit-config
           configMap:

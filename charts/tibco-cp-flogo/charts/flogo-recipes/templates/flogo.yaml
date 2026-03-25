@@ -73,7 +73,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.15.5"
+          version: "1.16.7"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -87,11 +87,13 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   flogoprovisioner:
                     image:
-                      tag: 857-platform-1.15.0
+                      tag: {{ .Values.flogoprovisioner.image.tag }}
                 config:
-                  APP_INIT_IMAGE_TAG: "55"
-                  APP_HELMCHART_VERSION: "1.15.12"
-                  INFRA_CP_PROXY_IMAGE_TAG: "291"
+                  APP_INIT_IMAGE_TAG: {{ .Values.flogoprovisioner.config.APP_INIT_IMAGE_TAG | quote }}
+                  APP_HELMCHART_VERSION: {{ .Values.flogoprovisioner.config.APP_HELMCHART_VERSION | quote }}
+                  INFRA_CP_PROXY_IMAGE_TAG: {{ .Values.flogoprovisioner.config.INFRA_CP_PROXY_IMAGE_TAG | quote }}
+                resources:
+                  {{- toYaml .Values.flogoprovisioner.resources | nindent 18 }}
                 publicApi:
                   config:
                     pathPrefix: ${INGRESS_PATH_PREFIX}
