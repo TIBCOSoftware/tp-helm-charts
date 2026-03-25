@@ -1,12 +1,11 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2026 Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
 
 
 {{/* all cluster role bindings are created at once during the deployment of the chart in the namespace */}}
-{{- if .Values.global.tibco.rbac.infra }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -21,4 +20,3 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "tibco-cp-base.serviceAccount" . }}
     namespace: {{ .Release.Namespace }}
-{{- end -}}

@@ -7,13 +7,8 @@
 
 image:
   name: infra-dp-proxy
-  tag: 143-distroless
+  tag: 150-distroless
   pullPolicy: IfNotPresent
-
-# Image for post-upgrade job (core-cp-scripts image with kubectl)
-cpScriptsImage:
-  name: core-cp-scripts
-  tag: "9153"
 
 # Resource values for production like setup
 resources:
@@ -72,24 +67,3 @@ global:
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-    logging:
-      fluentbit:
-        enabled: true
-        image:
-          name: "common-fluentbit"
-          registry: ""
-          repo: ""
-          tag: 4.0.3
-          pullPolicy: IfNotPresent
-        resources:
-          requests:
-            cpu: 50m
-            memory: 100Mi
-          limits:
-            cpu: 100m
-            memory: 150Mi

@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# Copyright © 2026 Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -8,17 +8,11 @@ global:
   tibco:
     adminHostPrefix: "admin"
     is_replica_region: false
-    finops: "disable"
     serviceAccount: ""
     # Flag to enable or disable database jobs (upgrade and cleanup)
     # Set to false to disable DB script execution if you want to run scripts manually outside of the chart
     # Default value is true
     manageDbSchema: true
-    # k8s rbac required by the service account
-    rbac:
-      # create the rbac for base resources.
-      # set to true to create rbac resources for the service account (cluster role and binding), set to false if the service account already have the rbacs
-      infra: true
     containerRegistry:
       url: ""
       username: ""
@@ -90,10 +84,9 @@ global:
     useSingleNamespace: true
     enableResourceConstraints: true
     self_hosted_deployment: true
-    proxy:
-      httpProxy: ""
-      httpsProxy: ""
-      noProxy: ""
+    # Session timeout in seconds for idle session redirect and cookie timeout
+    # Default is 14400 seconds (4 hours). Allowable range is 600s (5 min) to 86400 (24 hours) exclusive
+    idleSessionTimeoutInSeconds: "14400"
     logging:
       # The fluentbit configuration section.
       # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
@@ -102,12 +95,6 @@ global:
       # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
       fluentbit:
         enabled: true
-        image:
-          name: "common-fluentbit"
-          registry: ""
-          repo: ""
-          tag: 4.2.2
-          pullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 50m
@@ -115,7 +102,15 @@ global:
           limits:
             cpu: 100m
             memory: 150Mi
-      repository: "tibco-platform-docker-prod"  # repository
+    # Common images
+    commonImages:
+      distrolessDebug:
+        tag: 13.3
+      cpScripts:
+        tag: "9203"
+      fluentbit:
+        tag: 4.2.3
+
   external:
     db_host: ""
     db_master_writer_host: ""
@@ -127,7 +122,6 @@ global:
     db_secret_name: "provider-cp-database-credentials"
     environment: "production"
     db_ssl_mode: "disable"
-    db_ssl_root_cert: ""
     fromAndReplyToEmailAddress: ""
     cronJobReportsEmailAlias: ""
     platformEmailNotificationCcAddresses: ""
@@ -179,12 +173,7 @@ global:
 tp-cp-cli:
   enabled: true
 
-# Default values for tp-cp-prometheus.
-tp-cp-prometheus:
-  enabled: true
-
 tp-cp-o11y:
-  enabled: true
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
@@ -210,12 +199,6 @@ tp-cp-configuration:
 
 # Default values for tp-cp-infra.
 tp-cp-infra:
-  enabled: true
-  dpMetadata:
-    dpCoreInfrastructureChartVersion: "1.15.8"
-    dpCoreInfrastructureAppVersion: "1.15.0"
-    dpConfigureNamespaceChartVersion: "1.15.4"
-    dpConfigureNamespaceAppVersion: "1.15.0"
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
@@ -229,7 +212,6 @@ tp-cp-infra:
         memory: 1024Mi  # Maximum memory allowed
 
 tp-cp-auditsafe:
-  enabled: true
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
@@ -242,8 +224,6 @@ tp-cp-auditsafe:
       memory: 1024Mi  # Maximum memory allowed
 
 hybrid-proxy:
-  # switch to false to disable hybrid-proxy
-  enabled: true
   # HPO replica count
   # replicaCount: "1"  # Commented out - HPA manages replicas dynamically
   # Resource values for production-like setup
@@ -285,8 +265,6 @@ hybrid-proxy:
   #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-tunnel.localhost.dataplanes.pro"
 
 router-operator:
-  # switch to false to disable router-operator
-  enabled: true
   # SecretNames for environment variables TSC_SESSION_KEY and DOMAIN_SESSION_KEY.
   # These secrets are used to store session keys securely.
   # The secrets should be created in the same namespace as the tibco-cp-base.
@@ -336,8 +314,6 @@ router-operator:
   #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-my.localhost.dataplanes.pro"
 
 resource-set-operator:
-  # switch to false to disable resource-set-operator
-  enabled: true
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
@@ -364,7 +340,4 @@ otel-collector:
       memory: 1024Mi  # Maximum memory allowed
 
 tp-cp-integration-common:
-  enabled: true
-
-tp-dp-proxy:
   enabled: true

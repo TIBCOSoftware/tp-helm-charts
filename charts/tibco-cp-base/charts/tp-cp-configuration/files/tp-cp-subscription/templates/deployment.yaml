@@ -92,8 +92,8 @@ spec:
               mountPath: /tmp/logs
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: fluentbit
-          image: {{ include "tp-cp-subscription.image.registry" .}}{{"/"}}{{ include "tp-cp-subscription.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          image: {{ include "tp-cp-subscription.image.registry" .}}{{"/"}}{{ include "tp-cp-subscription.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+          imagePullPolicy: IfNotPresent
           {{- if .Values.securityContext }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

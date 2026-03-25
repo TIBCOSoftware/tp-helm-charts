@@ -218,8 +218,8 @@ spec:
                   key: tasMaxWriteDBPoolSize
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: fluentbit
-          image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+          imagePullPolicy: IfNotPresent
           {{- if .Values.auditsafe.securityContext }}
           securityContext:
             {{- toYaml .Values.auditsafe.securityContext | nindent 12 }}

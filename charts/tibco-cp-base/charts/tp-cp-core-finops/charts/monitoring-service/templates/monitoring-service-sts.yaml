@@ -307,7 +307,8 @@ spec:
 {{- end }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       - name: fluentbit
-        image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        image: {{ include "monitoring-service.image.registry" .}}{{"/"}}{{ include "monitoring-service.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.global.containerSecurityContext.monitoringService }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContext.monitoringService | nindent 10 }}

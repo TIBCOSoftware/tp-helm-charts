@@ -39,6 +39,43 @@ spec:
       serviceAccountName: {{ include "tp-cp-o11y.service-account-name" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: check-sql-schema-version
+          image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.checkPermissionEngine.resources | nindent 12 }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_PREFIX
+              value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: MasterWriterHost
+                  {{- else }}
+                  key: DBHost
+                  {{- end }}
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tasdataserver-postgres-credential
+                  key: PGPASSWORD
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              /opt/tibco/tsc/scripts/postgres-helper.bash check-schema-version tasdataserver
       containers:
         - name: tp-cp-o11y
           image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
@@ -67,6 +104,62 @@ spec:
               value: {{ include "tp-cp-o11y.cp-dp-url" . }}
             - name: CP_O11Y_DPCACHE_ENABLED
               value: "true"
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: MasterWriterHost
+                  {{- else }}
+                  key: DBHost
+                  {{- end }}
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: READ_PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: LocalReaderHost
+                  {{- else }}
+                  key: DBHost
+                  {{- end }}
+            - name: READ_PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: WRITE_POSTGRES_ENDPOINT_URL
+              value: "$(PGHOST):$(PGPORT)"
+            - name: READ_POSTGRES_ENDPOINT_URL
+              value: "$(READ_PGHOST):$(READ_PGPORT)"
+            - name: POSTGRES_DATABASE_SSL_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-cp-o11y.consts.cp.db.configuration" . }}
+                  key: DBSSLMode
+            - name: POSTGRES_DATABASE_SSL_CERT
+              value: ""
+            - name: POSTGRES_DATABASE_SSL_KEY
+              value: ""
+            - name: POSTGRES_DATABASE_SSL_ROOT_CERT
+              value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
+            - name: TCTA_DTS_DB_HOSTPORT
+              value: "$(PGHOST):$(PGPORT)"
+            - name: TCTA_DTS_DB_USER_NAME
+              value: {{ include "tp-cp-o11y.cp-instance-id" . }}_tctadataserveruser
+            - name: TCTA_DTS_DB_USER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: tasdataserver-postgres-credential
+                  key: PGPASSWORD
+            - name: TCTA_DTS_DB_NAME
+              value: {{ include "tp-cp-o11y.cp-instance-id" . }}_tctadataserver
+            - name: TCTA_DTS_DB_SCHEMA_NAME
+              value: {{ include "tp-cp-o11y.cp-instance-id" . }}_tctadataserver
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
@@ -122,6 +215,11 @@ spec:
             - name: cp-otel-secret
               readOnly: true
               mountPath: "/o11y/secrets"
+{{- if ne .Values.global.external.db_ssl_mode "disable" }}
+            - mountPath: /private/tsc/certificates
+              name: db-ssl-cert-vol
+              readOnly: true
+{{- end }}
   {{- if .Values.o11ymcpserver.enabled }}
         - name: o11y-mcp-server
           image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.o11ymcpserver.image.name }}:{{ .Values.o11ymcpserver.image.tag }}
@@ -168,8 +266,8 @@ spec:
   {{- end }}
   {{- if .Values.global.tibco.logging.fluentbit.enabled }}
         - name: fluentbit
-          image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          image: {{ include "tp-cp-o11y.image.registry" .}}{{"/"}}{{ include "tp-cp-o11y.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+          imagePullPolicy: IfNotPresent
           {{- if .Values.securityContext }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -251,6 +349,11 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-o11y.consts.appName" . }}-fluentbit-config
+{{- end }}
+{{- if ne .Values.global.external.db_ssl_mode "disable" }}
+        - name: db-ssl-cert-vol
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
 {{- end }}
         - name: cp-otel-config
           configMap:

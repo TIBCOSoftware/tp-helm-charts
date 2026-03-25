@@ -129,8 +129,8 @@ spec:
             mountPath: "/etc/config"
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "resource-set-operator.image.registry" .}}{{"/"}}{{ include "resource-set-operator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        image: {{ include "resource-set-operator.image.registry" .}}{{"/"}}{{ include "resource-set-operator.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}

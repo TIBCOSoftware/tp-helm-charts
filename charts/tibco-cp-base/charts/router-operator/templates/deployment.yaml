@@ -104,7 +104,7 @@ spec:
         lifecycle:
           preStop:
             exec:
-              command: ["/bin/bash", "-c", "sleep 60"]  # allow some time to complete in-flight API calls and to have new NLB targets become healthy
+              command: ["/busybox/sleep", "60"]  # allow some time to complete in-flight API calls and to have new NLB targets become healthy
         env:
         - name: REAL_IP_TRUSTED_CIDRS # needed for Real-IP calculations
           value: "{{ .Values.global.external.clusterInfo.nodeCIDR }},{{ .Values.global.external.clusterInfo.podCIDR }}"
@@ -150,8 +150,8 @@ spec:
 {{- end }}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "router-operator.image.registry" .}}{{"/"}}{{ include "router-operator.image.repository" .}}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
-        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        image: {{ include "router-operator.image.registry" .}}{{"/"}}{{ include "router-operator.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}

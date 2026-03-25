@@ -32,7 +32,7 @@ additionalLabels: {}
 
 image:
   name: infra-router
-  tag: 816-distroless
+  tag: 821-distroless
   pullPolicy: IfNotPresent
 
 ports:
@@ -121,7 +121,7 @@ ingress:
 
 # Gateway API HTTPRoute configuration (gateway.networking.k8s.io/v1)
 # This provides native Gateway API support for NGINX Gateway Fabric and other Gateway API implementations
-#
+# 
 # IMPORTANT: Gateway API CRDs must be installed in the cluster before enabling this feature
 # Install with: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
 #
@@ -202,28 +202,6 @@ global:
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""
-
-    # The fluentbit configuration section.
-    # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
-    # Privilege escalation is not allowed for security reasons.
-    # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    # GitHub issue: https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207, https://github.com/kyma-project/kyma/pull/11657/files
-    logging:
-      fluentbit:
-        enabled: true
-        image:
-          name: "common-fluentbit"
-          registry: ""
-          repo: ""
-          tag: 4.2.2
-          pullPolicy: IfNotPresent
-        resources:
-          requests:
-            cpu: 50m
-            memory: 100Mi
-          limits:
-            cpu: 100m
-            memory: 150Mi
 
   external:
     clusterInfo:

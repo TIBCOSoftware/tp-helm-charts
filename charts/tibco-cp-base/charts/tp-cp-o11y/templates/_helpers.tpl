@@ -82,6 +82,8 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
   {{- default "" .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
+{{- define "tp-cp-o11y.consts.cp.db.configuration" }}provider-cp-database-config{{ end -}}
+
 {{/* Service account configured for control plane. fail if service account not exist */}}
 {{- define "tp-cp-o11y.service-account-name" }}
 {{- if .Values.serviceAccount }}

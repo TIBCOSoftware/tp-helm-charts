@@ -25,6 +25,8 @@ spec:
       value: {{ include "tp-cp-configuration.image.repository" .}}
     - name: global.tibco.logging.fluentbit.enabled
       value: {{ include "tp-cp-configuration.cp-logging-fluentbit-enabled" . | quote }}
+    - name: global.tibco.commonImages.fluentbit.tag
+      value: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
     {{- if (include "tp-cp-configuration.container-registry.secret" .) }}
     - name: global.tibco.containerRegistry.secret
       value: {{ include "tp-cp-configuration.container-registry.secret" . }}
