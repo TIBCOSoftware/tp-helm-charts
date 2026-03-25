@@ -55,7 +55,7 @@ replicaCount: "1"
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 226
+  tag: 228
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -63,20 +63,6 @@ nodeSelector:
 affinity: {}
 
 tolerations: {}
-
-fluentbit:
-  image:
-    tag: 4.2.2
-    name: common-fluentbit
-  # Resources
-  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-  resources:
-    requests:
-      cpu: 10m
-      memory: 15Mi
-    limits:
-      cpu: 50m
-      memory: 30Mi
 
 # probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
 provisionerAgentProbe:

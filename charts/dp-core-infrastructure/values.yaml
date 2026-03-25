@@ -29,6 +29,17 @@ global:
   logging:
     fluentbit:
       enabled: true
+      image:
+        name: "common-fluentbit"
+        tag: latest
+        pullPolicy: IfNotPresent
+      resources:
+        requests:
+          cpu: 10m
+          memory: 15Mi
+        limits:
+          cpu: 50m
+          memory: 30Mi
 
   dpUrl:
     host: "dp-{{ .Values.global.tibco.dataPlaneId }}.platform.local"

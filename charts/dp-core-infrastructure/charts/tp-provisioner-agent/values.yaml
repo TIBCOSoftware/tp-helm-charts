@@ -29,7 +29,7 @@ cacheCleanupInterval: "8h"
 
 image:
   name: infra-provisioner-agent
-  tag: 650
+  tag: 660
   pullPolicy: Always
 
 nodeSelector:
@@ -67,18 +67,6 @@ global:
       httpProxy: ""    # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
       httpsProxy: ""    # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
       noProxy: ""     # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
-fluentbit:
-  image:
-    tag: 4.2.2
-  # Resources
-  # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-  resources:
-    requests:
-      cpu: 10m
-      memory: 15Mi
-    limits:
-      cpu: 50m
-      memory: 30Mi
 hpa:
   minReplicas: 1
   maxReplicas: 3

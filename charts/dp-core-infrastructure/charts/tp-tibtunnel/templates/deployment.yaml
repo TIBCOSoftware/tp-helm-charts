@@ -113,8 +113,8 @@ spec:
           mountPath: /tmp/logs
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.fluentbit.image.name }}:{{ .Values.fluentbit.image.tag }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{ include "tp-tibtunnel.image.registry" .}}{{"/"}}{{ include "tp-tibtunnel.image.repository" .}}{{"/"}}{{ .Values.global.logging.fluentbit.image.name }}:{{ .Values.global.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.logging.fluentbit.image.pullPolicy }}
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
@@ -139,7 +139,7 @@ spec:
               fieldRef:
                 fieldPath: status.hostIP
         {{- if .Values.global.tibco.enableResourceConstraints }}
-        {{- with .Values.fluentbit.resources }}
+        {{- with .Values.global.logging.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}

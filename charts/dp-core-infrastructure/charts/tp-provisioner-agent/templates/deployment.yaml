@@ -32,6 +32,7 @@ spec:
       {{- if .Values.global.tibco.serviceAccount }}
       serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
       {{- end }}
+      terminationGracePeriodSeconds: 360
       containers:
       - name: provisioner-agent
         image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
@@ -116,6 +117,10 @@ spec:
           timeoutSeconds: 5
           initialDelaySeconds: 10
           periodSeconds: 10
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/busybox/sleep", "300"]  # allow some time to complete in-flight API calls
         volumeMounts:
         {{- if .Values.global.tibco.helmRepo.certificateSecret }}
         - name: cp-helmrepo-certs
@@ -131,8 +136,8 @@ spec:
           mountPath: /tmp/logs
 {{- if .Values.global.logging.fluentbit.enabled }}
       - name: fluentbit
-        image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.fluentbit.image.tag }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{ include "tp-provisioner-agent.image.registry" .}}{{"/"}}{{ include "tp-provisioner-agent.image.repository" .}}{{"/"}}{{ .Values.global.logging.fluentbit.image.name }}:{{ .Values.global.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.logging.fluentbit.image.pullPolicy }}
         {{- if .Values.securityContext }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
@@ -163,7 +168,7 @@ spec:
           - name: DATAPLANE_ID
             value: {{ .Values.global.tibco.dataPlaneId }}
         {{- if .Values.global.tibco.enableResourceConstraints }}
-        {{- with .Values.fluentbit.resources }}
+        {{- with .Values.global.logging.fluentbit.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
@@ -217,13 +222,13 @@ spec:
         - name: cp-helmrepo-certs
           secret:
             defaultMode: 420
-            secretName: {{ .Values.global.tibco.helmRepo.certificateSecret }}
+            secretName: {{ .Values.global.tibco.helmRepo.certificateSecret }}       
 {{- end }}
 {{- if .Values.global.tibco.cpCertificateSecret }}
         - name: cp-certs
           secret:
             defaultMode: 420
-            secretName: {{ .Values.global.tibco.cpCertificateSecret }}
+            secretName: {{ .Values.global.tibco.cpCertificateSecret }}       
 {{- end }}
 {{- if .Values.global.logging.fluentbit.enabled }}
         - name: db
