@@ -7791,6 +7791,24 @@ entries:
   tibco-cp-devhub:
   - apiVersion: v2
     appVersion: 1.16.0
+    created: "2026-03-27T08:47:39.418962936Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.16.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.16.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: 0c66dd3af63cbe8f61576efdf74f75fec8fbc4097c7961e3182b373386de6a70
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.16.0-alpha.6/tibco-cp-devhub-1.16.0-alpha.6.tgz
+    version: 1.16.0-alpha.6
+  - apiVersion: v2
+    appVersion: 1.16.0
     created: "2026-03-25T12:59:57.768080422Z"
     dependencies:
     - condition: tibcohub-recipes.enabled
@@ -8399,6 +8417,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-messaging-1.11.15/tibco-cp-messaging-1.11.15.tgz
     version: 1.11.15
   tibco-developer-hub:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2026-03-27T08:47:39.614415804Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 11.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: b35c896af4c9776f07915a5ab715dc1b96d2f280a62a4497d7a9c99833a258c4
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.16.7/tibco-developer-hub-1.16.7.tgz
+    version: 1.16.7
   - apiVersion: v2
     appVersion: 1.16.0
     created: "2026-03-25T12:59:57.921925985Z"
@@ -15430,4 +15468,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2026-03-26T03:03:50.663780088Z"
+generated: "2026-03-27T08:47:39.616186808Z"
