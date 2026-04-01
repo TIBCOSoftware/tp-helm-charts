@@ -13,8 +13,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.15.0",
-      "minCPVersion": "1.15.0",
+      "capabilityVersion": "1.16.0",
+      "minCPVersion": "1.16.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
@@ -82,7 +82,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: "1.15.14"
+        version: "1.16.7"
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -157,7 +157,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.15.0"
+          value: "1.16.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
