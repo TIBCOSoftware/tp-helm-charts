@@ -97,9 +97,9 @@ spec:
       {{- if and (.Values.postgresql.enabled) (.Values.global.cp.resources.storage) (.Values.global.cp.resources.storage.storageClassName) }}
       initContainers:
         - name: check-db-ready
-          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.initContainer.image.name }}:{{ .Values.initContainer.image.tag }}
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.postgresql.image.name }}:{{ .Values.postgresql.image.tag }}
           command: ['sh', '-c',
-            'until pg_isready -U {{ .Values.postgresql.auth.username }} -h {{ include "backstage.postgresql.host" . }} -p 5432;
+            'until pg_isready -U {{ .Values.postgresql.auth.username }} -h postgresql-stable-{{.Values.postgresql.image.version}} -p 5432;
             do echo waiting for database; sleep 2; done;']
           {{- if .Values.global.cp.enableResourceConstraints }}
           {{- if .Values.appInit.resources }}
@@ -111,9 +111,34 @@ spec:
           securityContext:
             {{- toYaml .Values.appInit.securityContext | nindent 12 }}
           {{- end }}
+        - name: restore-data
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "backstage.postgresql.databaseSecretName" . }}
+                  key: postgres-password
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.kubectl.image.name }}:{{ .Values.kubectl.image.tag }}
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              echo "Checking for data restore process..."; \
+              NAMESPACE={{ .Release.Namespace }}; \
+              POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=postgresql -o jsonpath="{.items[0].metadata.name}"); \
+              kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'if [[ -f /bitnami/postgresql/data_backup.sql && ! -d /bitnami/postgresql/restore_running ]]; then mkdir /bitnami/postgresql/restore_running; echo Running restore task..; PGPASSWORD=$PGPASSWORD psql -U postgres -f /bitnami/postgresql/data_backup.sql postgres; rm -rf /bitnami/postgresql/restore_running; rm /bitnami/postgresql/data_backup.sql; elif [[ -f /bitnami/postgresql/data_backup.sql && -d /bitnami/postgresql/restore_running ]];then until [ ! -d /bitnami/postgresql/restore_running ]; do echo Waiting for database restore; sleep 2; done; fi'; \
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- if .Values.backupJob.resources }}
+          resources:
+            {{- toYaml .Values.backupJob.resources | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.appInit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.appInit.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end }}
       {{- if .Values.backstage.initContainers }}
         {{- include "common.tplvalues.render" ( dict "value" .Values.backstage.initContainers "context" $) | nindent 8 }}
-      {{- end }}
       {{- end }}
       containers:
         - name: backstage-backend
@@ -220,7 +245,7 @@ spec:
             {{- end }}
             {{- if and (.Values.postgresql.enabled) (.Values.global.cp.resources.storage) (.Values.global.cp.resources.storage.storageClassName) }}
             - name: POSTGRES_HOST
-              value: {{ include "backstage.postgresql.host" . }}
+              value: postgresql-stable-{{.Values.postgresql.image.version}}
             - name: POSTGRES_PORT
               value: "5432"
             - name: POSTGRES_USER
@@ -325,7 +350,7 @@ spec:
           startupProbe:
             httpGet:
               scheme: HTTP
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
             initialDelaySeconds: 0
             periodSeconds: 1
@@ -335,7 +360,7 @@ spec:
           livenessProbe:
             httpGet:
               scheme: HTTP
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
             periodSeconds: 10
             timeoutSeconds: 2
@@ -345,7 +370,7 @@ spec:
           readinessProbe:
             httpGet:
               scheme: HTTP
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
             periodSeconds: 10
             timeoutSeconds: 2

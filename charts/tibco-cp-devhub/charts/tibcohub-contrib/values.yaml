@@ -28,6 +28,11 @@ image:
   tag: 170-distroless
   pullPolicy: IfNotPresent
 
+debug:
+  image:
+    name: common-distroless-base-debian-debug
+    tag: 13.4
+
 podAnnotations: {}
 
 capability:
@@ -39,7 +44,7 @@ source:
 tibcoHub:
   image:
     name: "dx-tibco-hub-cp-contrib"
-    tag: "325"
+    tag: "330"
     pullPolicy: IfNotPresent
 
 target:
@@ -91,3 +96,4 @@ probes:
   #  failureThreshold: 5
   #  successThreshold: 1
   #  timeoutSeconds: 5
+useImageVolumes: true

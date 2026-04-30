@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-stable-{{.Values.postgresql.image.version}}
+  namespace: {{.Release.Namespace}}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: {{.Release.Name}}
