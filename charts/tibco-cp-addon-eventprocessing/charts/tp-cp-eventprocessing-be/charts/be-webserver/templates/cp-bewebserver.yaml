@@ -115,11 +115,6 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_DP_PROXY_HOST
-        - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "be-webserver.cp-env-configmap" . }}
-              key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
