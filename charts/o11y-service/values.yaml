@@ -1,8 +1,7 @@
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
+
 # Default values for o11y service.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -462,7 +461,7 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 4.2.3
+          tag: 5.0.2
         resources:
           requests:
             cpu: 10m
@@ -481,10 +480,10 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 3965
+      tag: 4207
     job:
       image:
-        tag: 9203
+        tag: 9328
 
 
 replicaCount: 1

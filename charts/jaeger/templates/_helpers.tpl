@@ -609,9 +609,9 @@ Elasticsearch related command line options
 - --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
 {{- end -}}
 {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch" -}}
-- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.openSearch.endpoint }}
-- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.openSearch.username }}
-- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.openSearch.password }}
+- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.endpoint }}
+- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.username }}
+- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
 {{- end -}}
 {{- end -}}
 {{- else }}

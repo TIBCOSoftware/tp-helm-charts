@@ -1,8 +1,9 @@
 {{/*
-    Copyright © 2024. Cloud Software Group, Inc.
-    This file is subject to the license terms contained
-    in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
+
 {{/* 
     NOTES: 
       - Helpers below are making some assumptions regarding files Chart.yaml and values.yaml. Change carefully!

@@ -1,7 +1,7 @@
 {{/*
-Copyright © 2024. Cloud Software Group, Inc.
-This file is subject to the license terms contained
-in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{/* Get control plane environment configuration value from a key. key = key name in configmap, default = If key not found or configmap does not exist then the return default  */}}

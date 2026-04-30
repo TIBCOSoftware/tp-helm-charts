@@ -1,8 +1,9 @@
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
 {{ if and (.Values.global.cp.dataplane.hostCloudType) (eq .Values.global.cp.dataplane.hostCloudType "control-tower") }}
 {{- $fullName := include "o11y-service.fullname" . -}}
 {{- $releaseName := .Release.Name -}}
@@ -77,7 +78,6 @@ metadata:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.entrypoints: web
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-logs-rewrite@kubernetescrd
     {{- end }}
 spec:
@@ -180,7 +180,6 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.entrypoints: web
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces-rewrite@kubernetescrd
     {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "nginx" }}
@@ -288,7 +287,6 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.entrypoints: web
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-rewrite@kubernetescrd
     {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "nginx" }}
@@ -396,7 +394,6 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.entrypoints: web
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-export-rewrite@kubernetescrd
     {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "nginx" }}

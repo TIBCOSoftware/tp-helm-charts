@@ -1,7 +1,7 @@
 {{/*
-    Copyright © 2025. Cloud Software Group, Inc.
-    This file is subject to the license terms contained
-    in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{- if .Values.rbac.devHub}}
@@ -13,13 +13,13 @@ metadata:
     {{- include "dp-configure-namespace.labels" . | nindent 4 }}
 rules:
 - apiGroups: ["apps"]
-  resources: ["statefulsets", "deployments"]
+  resources: ["statefulsets", "deployments", "deployments/scale"]
   verbs: ["create", "delete", "get", "update", "patch"]
 - apiGroups: ["autoscaling"]
   resources: ["horizontalpodautoscalers"]
   verbs: ["get", "update", "create", "delete"]
 - apiGroups: [""]
-  resources: ["configmaps", "services", "secrets"]
+  resources: ["pods/exec", "configmaps", "services", "secrets"]
   verbs: ["create", "delete", "get", "update"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
