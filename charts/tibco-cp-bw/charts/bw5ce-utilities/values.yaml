@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.3
+          tag: 5.0.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.3
+    tag: 13.4
 
 nameOverride: ""
 
@@ -369,6 +369,7 @@ buildtypesExtract: true
 bw5CardJob: true
 
 bw5CleanupJob: false
+useImageVolumes: true
 
 buildtypeImages:
 - name: tp-bw5ce-buildtype

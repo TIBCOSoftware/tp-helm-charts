@@ -1,8 +1,8 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if .Values.bwAdaptersExtractJob }}
+{{ if and .Values.bwAdaptersExtractJob (or (semverCompare "<1.35-0" .Capabilities.KubeVersion.GitVersion) (not .Values.useImageVolumes)) }}
 {{- $dot := . }}
 apiVersion: batch/v1
 kind: Job
