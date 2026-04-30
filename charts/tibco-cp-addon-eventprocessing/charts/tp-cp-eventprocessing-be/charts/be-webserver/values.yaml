@@ -22,12 +22,12 @@ global:
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "4.2.3"
+      tag: "5.0.2"
     probes:
       livenessProbe:
         failureThreshold: 3
         httpGet:
-          path: /api/v1/health
+          path: /api/v1/uptime
           port: 2020
           scheme: HTTP
         initialDelaySeconds: 10
