@@ -1,7 +1,8 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
+{{ if or (semverCompare "<1.35-0" .Capabilities.KubeVersion.GitVersion) (not .Values.useImageVolumes) }}
 {{- $targetTag := (.Values.tibcoHub.image).tag | required ".Values.tibcoHub.image.tag is required." }}
 {{- $dot := . }}
 apiVersion: batch/v1
@@ -44,7 +45,7 @@ spec:
         securityContext:
         {{- toYaml $.Values.securityContext | nindent 10 }}
         {{- end }}
-        {{- if eq (include "tibcohub-contrib.enableResourceConstraints" $dot ) "true" }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
         resources:
         {{- toYaml $.Values.scripts.resources | nindent 10 }}
         {{- end }}
@@ -118,4 +119,5 @@ spec:
             secretName: {{ include "tibcohub-contrib.container-registry.secret" . }}
       imagePullSecrets:
         - name: {{ include "tibcohub-contrib.container-registry.secret" . }}
+{{- end }}
 {{- end }}

@@ -121,11 +121,6 @@ networking.platform.tibco.com/proxy-egress: enable
 {{- default "" .Values.global.tibco.containerRegistry.certificateSecret }}
 {{- end }}
 
-{{/* Control plane enable or disable resource constraints */}}
-{{- define "tibcohub-contrib.enableResourceConstraints" -}}
-{{- default "false" .Values.global.tibco.enableResourceConstraints | quote }}
-{{- end }}
-
 {{- define "tibcohub-contrib.cp-http-proxy" }}
 {{- default "" .Values.global.tibco.proxy.httpProxy }}
 {{- end }}

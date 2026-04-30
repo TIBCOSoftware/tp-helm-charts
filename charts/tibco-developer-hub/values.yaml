@@ -57,7 +57,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 4.2.3
+          tag: 5.0.2
         enabled: true
         resources:
           requests:
@@ -162,7 +162,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "1306"
+    tag: "1350"
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -357,14 +357,16 @@ networkPolicy:
 # -- PostgreSQL [chart configuration](https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml)
 # @default -- See below
 postgresql:
-
+  postgresqlDataDir: /bitnami/postgresql/data_18
   # -- Switch to enable or disable the PostgreSQL helm chart
   enabled: false
   image:
     name: dx-postgresql
-    tag: 14.16.0-debian-12-r4
+    tag: 18.1
+    version: 18
   commonLabels: '{{- include "tibcohub.platform.commonLabels" . -}}'
-
+  serviceAccount:
+    create: false
   # -- The authentication details of the Postgres database
   auth:
 
@@ -381,10 +383,10 @@ postgresql:
     secretKeys:
 
       # -- The key in which Postgres will look for, for the admin password, in the existing Secret
-      adminPasswordKey: admin-password
+      adminPasswordKey: postgres-password
 
       # -- The key in which Postgres will look for, for the user password, in the existing Secret
-      userPasswordKey: user-password
+      userPasswordKey: password
 
       # -- The key in which Postgres will look for, for the replication password, in the existing Secret
       replicationPasswordKey: replication-password
@@ -393,6 +395,8 @@ postgresql:
     # The user, group, and filesystem group IDs are all set to 1000.
     # The filesystem group change policy is set to "Always", meaning the filesystem group is always set to the fsGroup.
     # The seccomp (secure computing mode) profile is set to RuntimeDefault, which means it uses the default profile provided by the runtime.
+    networkPolicy:
+      enabled: false
     podSecurityContext:
       runAsNonRoot: true
       runAsUser: 1001
@@ -410,27 +414,12 @@ postgresql:
       readOnlyRootFilesystem: true
       runAsNonRoot: true
       runAsUser: 1001
-      runAsGroup: 0   # see https://github.com/bitnami/charts/issues/13985#issuecomment-1411654273
+      runAsGroup: 1001
       allowPrivilegeEscalation: false
       capabilities:
         drop:
           - ALL
           - CAP_NET_RAW
-
-    extraVolumes:
-      - name: tmp
-        emptyDir: {}
-      - name: conf
-        emptyDir: {}
-      - name: postgrestmp
-        emptyDir: {}
-    extraVolumeMounts:
-      - name: tmp
-        mountPath: /tmp
-      - name: conf
-        mountPath: /opt/bitnami/postgresql/conf
-      - name: postgrestmp
-        mountPath: /opt/bitnami/postgresql/tmp/
 
     resources:
       limits:
@@ -504,7 +493,7 @@ metrics:
 
 fluentbit:
   image:
-    tag: 4.2.3
+    tag: 5.0.2
     pullPolicy: Always
   securityContext:
     runAsNonRoot: false
@@ -528,13 +517,6 @@ autoscaling:
 
   targetMemoryUtilizationPercentage: 70
 
-# Configuration needed for initContainer for deployment
-
-initContainer:
-  image:
-    name: dx-postgresql
-    tag: 14.16.0-debian-12-r4
-    digest: ""
 
 publicApi:
   config:
@@ -586,9 +568,19 @@ job:
       cpu: 100m
       memory: 100Mi
 
+backupJob:
+  # Job resources
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
 image:
   name: infra-cp-proxy
-  tag: 291
+  tag: 311
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -614,3 +606,8 @@ securityContext:
   capabilities:
     drop:
       - ALL
+
+kubectl:
+  image:
+    name: dx-kubectl
+    tag: 1.17.0
