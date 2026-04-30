@@ -1,3 +1,7 @@
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
 -- Database schema changes for 1.5.1
 
 -- PCP-10584: [CP Backend] Add a constraint at CP UTD DB side to allow only one default repo to be added/updated

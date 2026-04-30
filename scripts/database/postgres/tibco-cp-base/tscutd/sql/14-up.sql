@@ -1,3 +1,7 @@
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
 -- Database schema changes for 1.11.0
 
 -- PCP-12722: Add new column checkpointed_version to v3_archived_capability_instances table

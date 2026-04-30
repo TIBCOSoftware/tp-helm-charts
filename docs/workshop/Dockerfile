@@ -1,3 +1,7 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
 #---------------------------------------------------------------------------------------------
 # BUILD AWSCLI V2 offical doc:
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-source-install.html#source-getting-started-install-workflows-alpine

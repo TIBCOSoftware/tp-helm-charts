@@ -1,3 +1,6 @@
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
 
 -------------------------------------------------------------------------------
 -- Database (tscutdb, tscutdb_audit) schema for cp 1.0.0 - based on tsc 2.51.0
