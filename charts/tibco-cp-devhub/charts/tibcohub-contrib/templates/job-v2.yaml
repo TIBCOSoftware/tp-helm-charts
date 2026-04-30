@@ -1,0 +1,77 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if and (semverCompare ">=1.35-0" .Capabilities.KubeVersion.GitVersion) .Values.useImageVolumes }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: capability-contribution-v2-{{ .Values.capability.name }}-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tibcohub-contrib.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "tibcohub-contrib.selectorLabels" . | nindent 8 }}
+        {{- include "tibcohub-contrib.networkPolicyLabels" . | nindent 8 }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      # serviceAccountName: {{ include "tibcohub-contrib.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: devhub-buildtype-extract
+        image: {{ include "tibcohub-contrib.image.registry" $dot }}{{"/"}}{{ include "tibcohub-contrib.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.securityContext }}
+        securityContext:
+        {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+        {{- toYaml $.Values.scripts.resources | nindent 10 }}
+        {{- end }}
+        command:
+          - "sh"
+          - "-c"
+          - |
+            # Extract the tibco hub contribution UI image to get the contents
+            mkdir -p {{ .Values.target.directory }}
+            echo "Extracting tibco hub contribution UI image {{ .Values.tibcoHub.image.name }} with tag {{ .Values.tibcoHub.image.tag }}"
+            cp -r /tmp/{{ .Values.tibcoHub.image.name }}/{{ .Values.tibcoHub.image.tag }}{{ .Values.source.directory }}/* {{ .Values.target.directory }}/
+        volumeMounts:
+          - name: store-vol
+            mountPath: /efs
+            subPath: tsc/contributors
+          - name: {{ .Values.tibcoHub.image.name | lower }}-{{ .Values.tibcoHub.image.tag | replace "." "-" | lower }}-img-vol
+            mountPath: /tmp/{{ .Values.tibcoHub.image.name }}/{{ .Values.tibcoHub.image.tag }}
+      volumes:
+      - name: store-vol
+        persistentVolumeClaim:
+          claimName: {{ include "tibcohub-contrib.pvc-name" $dot }}
+      - name: {{ .Values.tibcoHub.image.name | lower }}-{{ .Values.tibcoHub.image.tag | replace "." "-" | lower }}-img-vol
+        image:
+          reference: {{ include "tibcohub-contrib.image.registry" $dot }}{{"/"}}{{ include "tibcohub-contrib.infra.image.repository" $dot }}{{"/"}}{{ .Values.tibcoHub.image.name }}:{{ .Values.tibcoHub.image.tag }}
+          pullPolicy: IfNotPresent
+{{- if (include "tibcohub-contrib.container-registry.secret" $dot) }}
+      imagePullSecrets:
+        - name: {{ include "tibcohub-contrib.container-registry.secret" $dot }}
+{{- end }} 
+{{- end }}

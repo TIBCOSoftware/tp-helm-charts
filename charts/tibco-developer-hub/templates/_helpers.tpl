@@ -55,7 +55,7 @@ Create a default fully qualified app name.
  {{- end -}}
 {{- end -}}
 
-{{- define "postgresql.image" -}}
+{{- define "postgresql.v1.image" -}}
   {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
 {{- end -}}
 
@@ -70,7 +70,7 @@ Create a default fully qualified app name.
     {{ default "default" .Values.global.cp.resources.serviceaccount.serviceAccountName }}
     {{- else -}}
     {{ default "default" .Values.serviceAccount.name  }}
-    {{- end -}} 
+    {{- end -}}
 {{- end -}}
 {{- end -}}
 # here we are overridding the helper function used in postgresql charts to set the serviceaccount.name based on user provided value from CP.
@@ -152,7 +152,7 @@ Form a URL using Control Plane hostname
 {{- end }}
 {{- end -}}
 
-{{- define "postgresql.imagePullSecrets" -}}
+{{- define "postgresql.v1.imagePullSecrets" -}}
 {{- if .Values.global.cp.containerRegistry.secret -}}
 imagePullSecrets:
   - name: {{ .Values.global.cp.containerRegistry.secret }}

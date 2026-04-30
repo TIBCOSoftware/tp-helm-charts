@@ -1,27 +1,34 @@
+{{- /*
+Copyright Broadcom, Inc. All Rights Reserved.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- if .Values.primary.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "postgresql.primary.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
+  name: {{ include "postgresql.v1.primary.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  {{- $labels := .Values.commonLabels }}
+  {{- if .Values.primary.service.labels }}
+  {{- $labels = include "common.tplvalues.merge" ( dict "values" ( list .Values.primary.service.labels $labels ) "context" . ) }}
+  {{- end }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: primary
-  annotations:
-    {{- if .Values.commonAnnotations }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
-    {{- end }}
-    {{- if .Values.primary.service.annotations }}
-    {{- include "common.tplvalues.render" (dict "value" .Values.primary.service.annotations "context" $) | nindent 4 }}
-    {{- end }}
+  {{- if or .Values.commonAnnotations .Values.primary.service.annotations }}
+  {{- $annotations := include "common.tplvalues.merge" ( dict "values" ( list .Values.primary.service.annotations .Values.commonAnnotations ) "context" . ) }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.primary.service.type }}
   {{- if or (eq .Values.primary.service.type "LoadBalancer") (eq .Values.primary.service.type "NodePort") }}
   externalTrafficPolicy: {{ .Values.primary.service.externalTrafficPolicy | quote }}
   {{- end }}
   {{- if and (eq .Values.primary.service.type "LoadBalancer") (not (empty .Values.primary.service.loadBalancerSourceRanges)) }}
-  loadBalancerSourceRanges: {{ .Values.primary.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{ .Values.primary.service.loadBalancerSourceRanges | toJson}}
+  {{- end }}
+  {{- if and (eq .Values.primary.service.type "LoadBalancer") (not (empty .Values.primary.service.loadBalancerClass)) }}
+  loadBalancerClass: {{ .Values.primary.service.loadBalancerClass }}
   {{- end }}
   {{- if and (eq .Values.primary.service.type "LoadBalancer") (not (empty .Values.primary.service.loadBalancerIP)) }}
   loadBalancerIP: {{ .Values.primary.service.loadBalancerIP }}
@@ -29,15 +36,15 @@ spec:
   {{- if and .Values.primary.service.clusterIP (eq .Values.primary.service.type "ClusterIP") }}
   clusterIP: {{ .Values.primary.service.clusterIP }}
   {{- end }}
-  {{- if .Values.primary.service.sessionAffinity }}
+  {{- if ne .Values.primary.service.sessionAffinity "None"}}
   sessionAffinity: {{ .Values.primary.service.sessionAffinity }}
-  {{- end }}
   {{- if .Values.primary.service.sessionAffinityConfig }}
   sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.primary.service.sessionAffinityConfig "context" $) | nindent 4 }}
   {{- end }}
+  {{- end }}
   ports:
     - name: tcp-postgresql
-      port: {{ template "postgresql.service.port" . }}
+      port: {{ template "postgresql.v1.service.port" . }}
       targetPort: tcp-postgresql
       {{- if and (or (eq .Values.primary.service.type "NodePort") (eq .Values.primary.service.type "LoadBalancer")) (not (empty .Values.primary.service.nodePorts.postgresql)) }}
       nodePort: {{ .Values.primary.service.nodePorts.postgresql }}
@@ -47,5 +54,7 @@ spec:
     {{- if .Values.primary.service.extraPorts }}
     {{- include "common.tplvalues.render" (dict "value" .Values.primary.service.extraPorts "context" $) | nindent 4 }}
     {{- end }}
-  selector: {{- include "common.labels.matchLabels" . | nindent 4 }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.primary.podLabels .Values.commonLabels ) "context" . ) }}
+  selector: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: primary
+{{- end }}
