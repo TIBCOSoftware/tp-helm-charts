@@ -1,5 +1,5 @@
 #
-# Copyright © 2026. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -12,4 +12,15 @@ metadata:
     {{- include "flogoprovisioner.labels" . | nindent 4 }}
   name: otel-config-flogo
 data:
-{{ (.Files.Glob "config/otel/*.conf").AsConfig | indent 2 }}
+  fluent-bit.conf: |
+    {{- (tpl .Values.fluentbit.apps.config.fluentbit $) | nindent 4 }}
+  filters.conf: |
+    {{- (tpl .Values.fluentbit.apps.config.filters $) | nindent 4 }}
+  parsers.conf: |
+    {{- (tpl .Values.fluentbit.apps.config.parsers $) | nindent 4 }}
+  input-tail.conf: |
+    {{- (tpl .Values.fluentbit.apps.config.inputtail $) | nindent 4 }}
+  output-otel.conf: |
+    {{- (tpl .Values.fluentbit.apps.config.outputotel $) | nindent 4 }}
+  update_record.lua: |
+    {{- (tpl .Values.fluentbit.apps.config.updaterecordlua $) | nindent 4 }}

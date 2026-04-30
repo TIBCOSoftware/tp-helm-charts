@@ -1,4 +1,4 @@
-# Copyright © 2026. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -30,7 +30,7 @@ spec:
     termination: edge
   to:
     kind: Service
-    name: {{ include "flogoprovisioner.fullname" . }}
+    name: {{ $fullName }}
     weight: 100
   wildcardPolicy: None
 {{- end }}

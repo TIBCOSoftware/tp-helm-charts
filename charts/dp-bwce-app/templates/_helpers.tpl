@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2025. Cloud Software Group, Inc.
+Copyright © 2026. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -72,7 +72,6 @@ platform.tibco.com/buildtype-base-image: {{ .Values.appConfig.bwceBaseImageTag |
 platform.tibco.com/buildtype-version: {{ .Values.appConfig.bwceBuildTypeTag | quote }}
 platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanceId | quote }}
 platform.tibco.com/capability-version: {{ .Values.dpConfig.capabilityVersion | quote }}
-platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
 platform.tibco.com/helm-repo-alias: {{ .Values.dpConfig.helmRepoAlias | quote }}
 {{- end }}
 
@@ -82,6 +81,7 @@ BW app deployment annotations
 {{- define "dp-bwce-app.bwapp.deployment.annotations" -}}
 platform.tibco.com/connectors: {{ .Values.appConfig.connectors | quote }}
 platform.tibco.com/original-app-name: {{ .Values.appConfig.originalAppName | quote }}
+platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
 {{- end }}
 
 {{/*
@@ -94,7 +94,6 @@ platform.tibco.com/app-name: {{ include "dp-bwce-app.fullname" . }}
 platform.tibco.com/app-version: {{ .Values.appConfig.appVersion | quote }}
 platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanceId | quote }}
 platform.tibco.com/name: {{ include "dp-bwce-app.fullname" . }}
-platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
 platform.tibco.com/app.resources.limits.cpu: {{ (.Values.bwapp.resources.limits).cpu | default "" | quote }}
 platform.tibco.com/app.resources.limits.memory: {{ (.Values.bwapp.resources.limits).memory | default "" | quote }}
 platform.tibco.com/app.resources.requests.cpu: {{ (.Values.bwapp.resources.requests).cpu | default "" | quote }}
@@ -109,6 +108,7 @@ platform.tibco.com/app-logs-regex: "(?P<timestamp>[^ ]*) (?P<level>[^ ]*) (?P<ms
 platform.tibco.com/app-logs-ts-layout: "2006-01-02T15:04:05,000"
 platform.tibco.com/last-updated: {{ .Values.appConfig.lastUpdated | quote}}
 platform.tibco.com/original-app-name: {{ .Values.appConfig.originalAppName | quote }}
+platform.tibco.com/tags: {{ .Values.appConfig.tags | quote }}
 {{- end }}
 
 {{/*

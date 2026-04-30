@@ -2,7 +2,7 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-{{ if .Values.bwPluginsExtractJobA }}
+{{ if and .Values.bwPluginsExtractJobA (or (semverCompare "<1.35-0" .Capabilities.KubeVersion.GitVersion) (not .Values.useImageVolumes)) }}
 {{- $dot := . }}
 apiVersion: batch/v1
 kind: Job

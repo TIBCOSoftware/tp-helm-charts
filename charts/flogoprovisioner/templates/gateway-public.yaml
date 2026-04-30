@@ -50,6 +50,7 @@ spec:
     - name: {{ $fullName }}
       port: {{ $.Values.publicApiService.targetPort }}
       weight: 100
+
 ---
 {{- if eq .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName "GKE" -}}
 apiVersion: networking.gke.io/v1

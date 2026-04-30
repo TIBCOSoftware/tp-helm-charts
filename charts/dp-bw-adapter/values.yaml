@@ -42,7 +42,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 4.2.3
+          tag: 5.0.2
         resources:
           requests:
             cpu: 10m
@@ -54,7 +54,7 @@ global:
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10

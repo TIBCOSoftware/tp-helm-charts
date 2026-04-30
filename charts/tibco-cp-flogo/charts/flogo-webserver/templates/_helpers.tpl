@@ -87,8 +87,8 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end }}
 
 {{/* Control plane OTEL service. default value otel-services */}}
-{{- define "flogo-webserver.o11y-service-host" }}
-{{- "o11y-service."}}{{ .Release.Namespace }}{{".svc.cluster.local" }}
+{{- define "flogo-webserver.cp-otel-services" }}
+{{- "otel-services."}}{{ .Release.Namespace }}{{".svc.cluster.local" }}
 {{- end }}
 
 {{- define "tp-cp-flogo-mcpserver.consts.appName" }}tp-cp-flogo-mcpserver{{- end }}

@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.3
+          tag: 5.0.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +54,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.3
+    tag: 13.4
 
 nameOverride: ""
 
@@ -175,11 +175,11 @@ bwPluginsJobA:
           endOfSupportDate: ""
   tci-bw-plugin-sftp:
     tags:
-      - tag: 6.2.0.v26-tci-2.0
+      - tag: 6.2.0.v28.2-tci-2.0
         metadata:
-          displayVersion: "6.2.0 HF3"
+          displayVersion: "6.2.0 HF4"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sftp"
-          releaseDate: "November 2025"
+          releaseDate: "March 2026"
           supportedBWVersions: "6.8.1 - 6.12.0"
           supportedBWCEVersions: "2.7.2 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
@@ -503,11 +503,11 @@ bwPluginsJobE:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-redis:
     tags:
-      - tag: 6.1.0.v6.2-tci-2.0
+      - tag: 6.1.0.v15-tci-2.0
         metadata:
-          displayVersion: "6.1.0"
+          displayVersion: "6.1.0 HF1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-redis"
-          releaseDate: "February 2024"
+          releaseDate: "March 2026"
           supportedBWVersions: "6.8.0 - 6.12.0"
           supportedBWCEVersions: "2.7.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
@@ -793,12 +793,13 @@ bwPluginsExtractJobG: true
 buildtypesExtract: true
 
 bwCleanupJob: false
+useImageVolumes: true
 
 buildtypeImages:
 - name: tp-bwce-buildtype
   extract_image: true
   path: /var/lib/bwce/buildtypes
-  tag: 6.12.0-HF1
+  tag: 6.12.0-HF2
   target_location: bwce/buildtypes
 - name: tp-bwce-buildtype
   extract_image: true

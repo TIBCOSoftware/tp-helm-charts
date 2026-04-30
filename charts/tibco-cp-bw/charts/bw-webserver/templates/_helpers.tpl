@@ -125,6 +125,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 
 {{/* Control plane OTEL service. default value otel-services */}}
 {{- define "bw-webserver.cp-otel-services" }}
-  {{- "o11y-service."}}{{ .Release.Namespace }}{{".svc.cluster.local" }}
+  {{- "otel-services."}}{{ .Release.Namespace }}{{".svc.cluster.local" }}
 {{- end }}
 
