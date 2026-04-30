@@ -26,7 +26,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.3
+          tag: 5.0.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -39,7 +39,7 @@ global:
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10
@@ -54,7 +54,7 @@ global:
 config:
   HTTP_REQUEST_TIMEOUT: "120000"
   WEB_SERVER_LOG_ENABLED: "true"
-  BW_WEBSERVER_IMAGE_TAG: "1122"
+  BW_WEBSERVER_IMAGE_TAG: "1182"
 
 replicaCount: 1
 
@@ -107,7 +107,7 @@ bwmcpserver:
   enabled: false
   image:
     name: tp-bw-mcp-server
-    tag: "92"
+    tag: "103"
   logLevel: "INFO"
   resources:
     requests:

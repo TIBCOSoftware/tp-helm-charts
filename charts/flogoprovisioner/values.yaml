@@ -1,4 +1,4 @@
-# Copyright © 2026. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -10,39 +10,49 @@ global:
   cp:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
-    containerRegistry:
-      secret: ""
-      url: ""
-      repository: "tibco-platform-docker-prod"
     cpCertificateSecret: ""
     cpHostname: "acme.local.my.cic2.pro"
     dpUrl:
       host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
       port: 443
+    containerRegistry:
+      secret: ""
+      url: ""
+      repository: "tibco-platform-docker-prod"
     environmentType: ""
     enableResourceConstraints: true
     resources:
       serviceaccount:
-        nameSpace: ""
+        namespace: ""
         serviceAccountName: ""
       ingress:
         fqdn: ""
         ingressClassName: ""
         ingressController: ""
         annotations: {}
-      activationServer:
-        url: ""
       gatewayapi:
         gatewayAPIControllerName: ""
         gatewayName: ""
         gatewayNamespace: ""
         gatewayHostOrDomainName: ""
         gatewaySectionName: ""
+      activationServer:
+        url: ""
     secrets:
       # iat : Control Plane Authentication
       # this is used to generate client id and client secret.
       # Client Id and secret are used to generate time bound access token
       iat: ""  # initial access token used to generate client credentials
+
+    # proxy configuration for the outward traffic from cp proxy
+    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
+    proxy:
+      # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
+      httpProxy: ""
+      # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
+      httpsProxy: ""
+      # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
+      noProxy: ""
 
     logging:
       # The fluentbit configuration section.
@@ -55,7 +65,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 4.2.3
+          tag: 5.0.2
         resources:
           requests:
             cpu: 10m
@@ -67,7 +77,7 @@ global:
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10
@@ -83,15 +93,7 @@ global:
             drop:
               - ALL
               - CAP_NET_RAW
-    # proxy configuration for the outward traffic from cp proxy
-    # should have access to the proxy server and proxy server should have access to CP Subscription DNS domain
-    proxy:
-      # http proxy to forward the http traffic. Ex : http://proxy.example.com:8080
-      httpProxy: ""
-      # https proxy to forward the https traffic. Ex: https://proxy.example.com:8080
-      httpsProxy: ""
-      # comma separated list of domains to exclude from proxy. Ex: .example1.com,.example2.com
-      noProxy: ""
+
   flogoprovisioner:
     serviceAccount: ""
     image:
@@ -133,7 +135,7 @@ podSecurityContext:
     type: RuntimeDefault
 
 securityContext:
-  # This section of the configuration is for the flogo Provisioner.
+  # This section of the configuration is for the flogoprovisioner.
   # It specifies that privilege escalation is not allowed for security reasons.
   # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
   flogoprovisioner:
@@ -161,7 +163,7 @@ publicApiService:
   targetPort: 7816
 
 ingress:
-  # -- Enables configuration of ingress to expose flogo provisioner. Requires ingress support in the Kubernetes cluster.
+  # -- Enables configuration of ingress to expose flogoprovisioner. Requires ingress support in the Kubernetes cluster.
   enabled: true
   hostsOverride: false
   className: haproxy
@@ -204,8 +206,15 @@ tolerations: []
 affinity: {}
 
 topologySpreadConstraints: []
-# -- Additional environment variables.
 
+probes:
+  liveness:
+    initialDelaySeconds: 60
+    failureThreshold: 10
+    periodSeconds: 10
+    timeoutSeconds: 10
+
+# -- Additional environment variables.
 extraEnvVars: []
 #  - name: NAME
 #    value: value
@@ -232,13 +241,9 @@ extraVolumes: []
 
 # -- Additional init containers to add to the automationservices pod.
 extraInitContainers: []
-
-probes:
-  liveness:
-    initialDelaySeconds: 60
-    failureThreshold: 10
-    periodSeconds: 10
-    timeoutSeconds: 10
+  # - name: dummy-init
+  #   image: busybox
+  #   command: ['echo', "hey"]
 
 config:
   ARTIFACT_MANAGER_PORT: "7813"
@@ -269,3 +274,105 @@ infraCPProxy:
     limits:
       cpu: 100m
       memory: 100Mi
+
+fluentbit:
+  apps:
+    config:
+      fluentbit: |-
+        [SERVICE]
+          Flush           1
+          Daemon          off
+          Log_Level       error
+          Parsers_File    parsers.conf
+          HTTP_Server     On
+          HTTP_Listen     0.0.0.0
+          HTTP_Port       2020
+          Health_Check    On
+
+        @INCLUDE input-tail.conf
+        @INCLUDE output-otel.conf
+        @INCLUDE filters.conf
+
+      filters: |-
+        [FILTER]
+          Name   parser
+          Match  app.*
+          key_name log
+          parser  formattedlog
+          parser  unformattedlog
+
+        [FILTER]
+          Name   lua
+          Match  app.*
+          Script update_record.lua
+          Call   update_record
+
+      parsers: |-
+        [MULTILINE_PARSER]
+          name          multiline-regex
+          type          regex
+          key_content   log
+          flush_timeout 1000
+          rule          "start_state"   "/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+.*/"     "cont"
+          rule          "cont"          "/^(?!\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+).*/"   "cont"
+
+        [PARSER]
+          Name        formattedlog
+          Format      regex
+          Regex       /^(?<log_time>[^ ]*)\t(?<log_level>INFO|WARN|DEBUG|ERROR|FATAL)\t(?<message>.*)/m
+          Time_Key    time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+          Time_Keep   On
+
+        [PARSER]
+          Name        unformattedlog
+          Format      regex
+          Regex       /^(?<message>.*)/m
+          Time_Key    time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+          Time_Keep   On
+
+      inputtail: |-
+        [INPUT]
+          Name              tail
+          Tag               app.*
+          Path              /var/log/pods/*${POD_NAME}*/${CONTAINER_NAME}/*.log
+          multiline.parser  docker, cri, multiline-regex
+          Mem_Buf_Limit     30MB
+          Read_From_Head    True
+          Buffer_Chunk_Size 10M
+          Buffer_Max_Size   20M
+          skip_long_lines   Off
+
+      outputotel: |-
+        [OUTPUT]
+          Name                 opentelemetry
+          Match                app.*
+          Host                 otel-userapp-logs
+          Port                 4318
+          Log_response_payload True
+          Logs_body_key        $log
+          Tls                  Off
+          Tls.verify           Off
+
+      updaterecordlua: |-
+        function update_record(tag, timestamp, record)
+          msg = record["message"]
+          if msg ~= nil then
+            trace_id = msg:match("%[traceID:%s*([%da-fA-F]+)%]")
+            span_id = msg:match("%[spanID:%s*([%da-fA-F]+)%]")
+            if trace_id then
+              record["trace_id"] = trace_id
+            end
+            if span_id then
+              record["span_id"] = span_id
+            end
+            if msg:find("%[flogo%.general%.activity%.log%]") then
+              record["log_type"] = "user"
+            else
+              record["log_type"] = "engine"
+            end
+            return 1, timestamp, record
+          end
+          return 1, timestamp, record
+        end

@@ -1,0 +1,105 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if and .Values.bwPluginsExtractJobC (semverCompare ">=1.35-0" .Capabilities.KubeVersion.GitVersion) .Values.useImageVolumes }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bwce-utilities.fullname" $dot }}-plugins-extract-job-c-v2-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bwce-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "bwce-utilities.selectorLabels" . | nindent 8 }}
+        {{- include "bwce-utilities.networkPolicyLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      # serviceAccountName: {{ include "bwce-utilities.service-account-name" . }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: plugins-extract-job
+          image: {{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+          {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+          {{- toYaml $.Values.scripts.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              # Loop through all plugins and their tags to perform delete and extract operations
+            {{- range $name, $plugin := .Values.bwPluginsJobC }}
+              # Loop through deleteTags and remove the corresponding plugin directories
+            {{- range $tag := $plugin.deleteTags }}
+              path={{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag }}
+              rm -rf "${path}"
+              echo "Deleted contribution from location: $path"
+            {{- end }}
+              # loop through tags and extract the plugin contents
+            {{- range $tag := $plugin.tags }}
+              echo "Extracting plugin {{ $name }} with tag {{ $tag.tag }}"
+              mkdir -p {{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag.tag }}
+              cp -r /tmp/{{ $name }}-{{ $tag.tag }}/opt/tibco/bw-contribution/* {{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag.tag }}/
+              cp -r /tmp/{{ $name }}-{{ $tag.tag }}/opt/tibco/bw-mp-icon/* {{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag.tag }}/
+              echo "Extracted plugin {{ $name }} with tag {{ $tag.tag }} to location: {{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag.tag }}"
+              # create metadata file if metadata is present for the tag
+            {{- if $tag.metadata }}
+              path={{ $.Values.volumes.plugins.mountPath }}/bw-contribution/{{ $name }}/{{ $tag.tag }}/metadata.json
+              mkdir -p "${path%/*}" && touch "$path"
+              echo '{{ toJson $tag.metadata }}' > $path
+              echo "Created metadata file at location: $path, Contents:\n"
+              cat $path
+            {{- end }}
+
+            {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.volumes.plugins.mountPath }}
+              subPath: {{ $.Values.volumes.plugins.subPath }}
+            {{- range $name, $plugin := .Values.bwPluginsJobC }}
+            {{- range $tag := $plugin.tags }}
+            - name: {{ $name | lower }}-{{ $tag.tag | replace "." "-" | lower }}-img-vol
+              mountPath: /tmp/{{ $name }}-{{ $tag.tag }}
+            {{- end }}
+            {{- end }}
+      volumes:
+      - name: shared-vol
+        persistentVolumeClaim:
+          claimName: {{ include "bwce-utilities.pvc-name" $dot }}
+      {{- range $name, $plugin := .Values.bwPluginsJobC }}
+       {{- range $tag := $plugin.tags }}
+      - name: {{ $name | lower }}-{{ $tag.tag | replace "." "-" | lower }}-img-vol
+        image:
+          reference: "{{ include "bwce-utilities.image.registry" $dot }}{{"/"}}{{ include "bwce-utilities.infra.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $tag.tag }}"
+          pullPolicy: IfNotPresent
+       {{- end }}
+      {{- end }}
+{{- if (include "bwce-utilities.container-registry.secret" $dot) }}
+      imagePullSecrets:
+        - name: {{ include "bwce-utilities.container-registry.secret" $dot }}          
+{{- end }} 
+{{- end }}

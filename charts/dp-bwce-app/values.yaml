@@ -58,9 +58,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-bwce-app-init"
-  appInitImageTag: "63"
+  appInitImageTag: "67"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "4.2.3"
+  fluentBitImageTag: "5.0.2"
   bwceBaseImageName: "tp-bwce-base"
 
 imagePullSecrets: []
@@ -171,7 +171,7 @@ fluentBit:
   livenessProbe:
     failureThreshold: 3
     httpGet:
-      path: /api/v1/health
+      path: /api/v1/uptime
       port: 2020
       scheme: HTTP
     initialDelaySeconds: 10

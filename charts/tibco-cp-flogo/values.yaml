@@ -28,7 +28,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.3
+          tag: 5.0.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -51,11 +51,11 @@ flogo-recipes:
   enabled: true
   flogoprovisioner:
     image:
-      tag: 876-platform-1.16.0
+      tag: 903-platform-1.17.0
     config:
-      APP_INIT_IMAGE_TAG: "56"
-      APP_HELMCHART_VERSION: "1.16.8"
-      INFRA_CP_PROXY_IMAGE_TAG: "291"
+      APP_INIT_IMAGE_TAG: "60"
+      APP_HELMCHART_VERSION: "1.17.14"
+      INFRA_CP_PROXY_IMAGE_TAG: "311"
     resources:
       requests:
         cpu: "2"

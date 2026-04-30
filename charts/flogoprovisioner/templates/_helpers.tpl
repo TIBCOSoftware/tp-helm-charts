@@ -1,5 +1,5 @@
 {{/*
-Copyright © 2023. Cloud Software Group, Inc.
+Copyright © 2023-2026. Cloud Software Group, Inc.
 This file is subject to the license terms contained
 in the license file that is distributed with this file.
 */}}
@@ -84,8 +84,6 @@ Integration storage folder pvc name
 {{- define "flogoprovisioner.image.repository" -}}
   {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
-
-
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "flogoprovisioner.appinit.image.repository" -}}

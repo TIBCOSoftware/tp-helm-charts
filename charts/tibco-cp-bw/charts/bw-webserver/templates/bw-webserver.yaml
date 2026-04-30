@@ -156,11 +156,6 @@ spec:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: DOC_BASE_URL
               optional: true
-        - name: CP_SUBSCRIPTION_SINGLE_NAMESPACE
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "bw-webserver.cp-env-configmap" . }}
-              key: CP_SUBSCRIPTION_SINGLE_NAMESPACE
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -190,6 +185,8 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: REGION
+        - name: LOG_LEVEL
+          value: "INFO"
         volumeMounts:
           - name: store-vol
             mountPath: {{ .Values.volumes.bwwebserver.mountPath }}

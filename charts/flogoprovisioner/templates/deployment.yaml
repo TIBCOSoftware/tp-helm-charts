@@ -1,4 +1,4 @@
-# Copyright © 2026. Cloud Software Group, Inc.
+# Copyright © 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -22,10 +22,11 @@ spec:
     type: RollingUpdate
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
+        checksum/config: {{ include (print $.Template.BasePath "/service-configmap.yaml") . | sha256sum }}
       labels:
         {{- include "flogoprovisioner.selectorLabels" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
@@ -132,6 +133,26 @@ spec:
             - name: CP_CERTIFICATE_SECRET_NAME
               value: {{ .Values.global.cp.cpCertificateSecret | quote }}
             {{- end }}
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
+                  key: clientId
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
+                  key: clientSecret
+            - name: AUTHORIZATION_SERVER_URL
+              value: "https://{{ .Values.global.cp.cpHostname}}"
+            - name: DATAPLANE_HOST
+              {{- if .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}
+              value: "{{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}"
+              {{- else }}
+              value: "{{ .Values.global.cp.resources.ingress.fqdn }}"
+              {{- end }}
+            - name: PATH_PREFIX
+              value: "{{ .Values.publicApi.config.pathPrefix }}"
             - name: OTEL_METRICS_SERVICE_NAME
               valueFrom:
                 configMapKeyRef:
@@ -156,26 +177,6 @@ spec:
                   name: {{ include "flogoprovisioner.o11yservice.configmap" . }}
                   key: otel-recvservice-port
                   optional: true
-            - name: OAUTH2_PROXY_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
-                  key: clientId
-            - name: OAUTH2_PROXY_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "flogoprovisioner.secrets.oauth2clientcreds" .}}
-                  key: clientSecret
-            - name: AUTHORIZATION_SERVER_URL
-              value: "https://{{ .Values.global.cp.cpHostname}}"
-            - name: DATAPLANE_HOST
-              {{- if .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}
-              value: "{{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName }}"
-              {{- else }}
-              value: "{{ .Values.global.cp.resources.ingress.fqdn }}"
-              {{- end }}
-            - name: PATH_PREFIX
-              value: {{ .Values.publicApi.config.pathPrefix }}
           volumeMounts:
             - name: logs-share
               mountPath: /tmp/logs/share

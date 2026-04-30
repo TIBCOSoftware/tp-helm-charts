@@ -20,8 +20,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.26.2-b400"
-  flogoBaseImageTag: "2.26.2-b400"
+  flogoBuildTypeTag: "2.26.3-b428"
+  flogoBaseImageTag: "2.26.3-b428"
   customFQImage: ""
   tags: ""
   connectors: ""
@@ -58,9 +58,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-flogo-app-init"
-  appInitImageTag: "56"
+  appInitImageTag: "60"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "4.2.3"
+  fluentBitImageTag: "5.0.2"
   flogoBaseImageName: "tp-flogo-app-base"
 
 imagePullSecrets: []
@@ -170,7 +170,7 @@ fluentBit:
   livenessProbe:
     failureThreshold: 3
     httpGet:
-      path: /api/v1/health
+      path: /api/v1/uptime
       port: 2020
       scheme: HTTP
     initialDelaySeconds: 10
