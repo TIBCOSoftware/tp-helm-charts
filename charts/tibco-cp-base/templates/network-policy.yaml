@@ -1,9 +1,8 @@
-#
-# Copyright © 2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
-
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 {{- if .Values.global.tibco.createNetworkPolicy }}
 {{/* Default network policies applied to the namespace */}}
@@ -613,6 +612,32 @@ spec:
     ports:
     - protocol: TCP
       port: {{ .Values.global.tibco.networkPolicy.proxy.port }}
+{{- end }}
+
+---
+
+{{/* Label based network policy to enable egress communication to Data Plane */}}
+{{- if and .Values.global.tibco.networkPolicy.dpEgress.CIDR .Values.global.tibco.networkPolicy.dpEgress.port }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: dp-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tibco-cp-base.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/dp-egress: enable
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: {{ .Values.global.tibco.networkPolicy.dpEgress.CIDR }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.global.tibco.networkPolicy.dpEgress.port }}
 {{- end }}
 
 ---

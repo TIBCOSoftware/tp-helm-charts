@@ -1,8 +1,8 @@
-#
-# Copyright © 2026 Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 {{/* Cleanup resources - needed for both DB cleanup and self-signed cert cleanup jobs */}}
 {{- if or (and .Values.global.tibco.manageDbSchema (eq .Values.global.tibco.is_replica_region false)) (eq .Values.global.tibco.self_hosted_deployment true) }}

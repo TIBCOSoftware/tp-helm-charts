@@ -1,8 +1,6 @@
-#
-# Copyright © 2024-2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
 
 # Global section will apply to this chart and all of its subcharts.
 global:
@@ -43,6 +41,13 @@ global:
         drop:
           - ALL
           - CAP_NET_RAW
+    monitoringInitJob:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+          - CAP_NET_RAW
     # The fluentbit configuration section.
     # It specifies that the fluentbit should not run as a non-root user and the user ID should be 0 (root).
     # Privilege escalation is not allowed for security reasons.
@@ -71,6 +76,14 @@ fluentbit:
     limits:
       cpu: "100m"
       memory: "150Mi"
+checkPodDependencies:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"
 monitoringtibtunnel:
   schedule: "* * * * *"
 monitoringcapresources:
@@ -82,6 +95,8 @@ monitoringhomepagemetrics:
   prodSchedule: "0 * * * *"  # For production environment, runs once every hour  
 monitoringdataplanesync:
   schedule: "0 0 * * *" 
+monitoringdataplanestatussync:
+  schedule: "* * * * *"
 monitoringfinopsmetrics:
   schedule: "1 0 * * *"
 # HPA

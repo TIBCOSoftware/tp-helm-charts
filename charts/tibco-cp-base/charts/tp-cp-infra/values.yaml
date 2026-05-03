@@ -1,9 +1,6 @@
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
-
 
 ## CONTEXT
 
@@ -11,11 +8,11 @@ logLevel: "info"
 
 dpMetadata:
   dpConfigureNamespaceChartName: "dp-configure-namespace"
-  dpConfigureNamespaceChartVersion: "1.16.0"
-  dpConfigureNamespaceAppVersion: "1.16.0"
+  dpConfigureNamespaceChartVersion: "1.17.1"
+  dpConfigureNamespaceAppVersion: "1.17.0"
   dpCoreInfrastructureChartName: "dp-core-infrastructure"
-  dpCoreInfrastructureChartVersion: "1.16.4"
-  dpCoreInfrastructureAppVersion: "1.16.0"
+  dpCoreInfrastructureChartVersion: "1.17.6"
+  dpCoreInfrastructureAppVersion: "1.17.0"
 
   components:
     services:
@@ -67,11 +64,11 @@ hpa:
 image:
   infra-compute-services:
     name: infra-compute-services
-    tag: 725-distroless
+    tag: 757-distroless
     pullPolicy: IfNotPresent
   infra-alerts-services:
     name: infra-alerts-service
-    tag: 190-distroless
+    tag: 204-distroless
     pullPolicy: IfNotPresent
 
 # no of replicas
@@ -118,6 +115,7 @@ dpContainerRegistries:
 # Global section will apply to this chart and all of its subcharts.
 global:
   tibco:
+    useSingleNamespace: true
     serviceAccount: ""
     containerRegistry:
       url: ""

@@ -1,8 +1,8 @@
-#
-# Copyright © 2024-2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 {{- if (include "cp-core-configuration.enableLogging" .) }}
 apiVersion: v1
@@ -22,7 +22,7 @@ data:
       HTTP_Server       On
       HTTP_Listen       0.0.0.0
       HTTP_Port         2020
- 
+
     @INCLUDE input.conf
     @INCLUDE filter.conf
     @INCLUDE output.conf

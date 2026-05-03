@@ -1,3 +1,9 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
 The Prometheus server can be accessed via port {{ .Values.server.service.servicePort }} on the following DNS name from within your cluster:
 {{ template "prometheus.server.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
 

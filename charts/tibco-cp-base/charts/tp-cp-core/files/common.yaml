@@ -1,8 +1,7 @@
-#
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
+
 global:
   allInternalTenantsDnsDomains: ${TSC_ADMIN_DNS_DOMAIN}, ${TSC_DNS_DOMAIN}
   psqlMaxOpenConnections: "100"
@@ -46,8 +45,8 @@ web-server:
 
 user-subscriptions:
   appNameMaxLength: "63"
-  psqlMaxOpenConnections: "100"
-  psqlMaxIdleConnections: "100"
+  psqlMaxOpenConnections: "150"
+  psqlMaxIdleConnections: "150"
   psqlConnectionMaxLifeTime: "3600"
 
 ####################################      CP cronjobs env variables     #################################################
