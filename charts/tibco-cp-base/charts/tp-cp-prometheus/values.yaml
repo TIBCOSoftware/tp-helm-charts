@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -35,23 +35,8 @@ global:
   containerSecurityContext:
     # It specifies that privilege escalation is not allowed for security reasons.
     # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
-    prometheusds:
-      readOnlyRootFilesystem: true
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - CAP_NET_RAW
-          - ALL
 
-  # Prometheus Discovery side car resource values for production like setup
   resources:
-    prometheusds:
-      requests:
-        cpu: 20m
-        memory: 50Mi
-      limits:
-        cpu: 100m
-        memory: 100Mi
 
 # yaml-language-server: $schema=values.schema.json
 # Default values for prometheus.
@@ -225,9 +210,7 @@ server:
   #         name: oauth-proxy
   #         protocol: TCP
   #       resources: {}
-  sidecarContainers:
-    prom-discoveryservice: |-
-      {{ include "prom-ds-template" . }}
+  #sidecarContainers:
 
   # sidecarTemplateValues - context to be used in template for sidecarContainers
   # Example:
@@ -239,36 +222,12 @@ server:
   #   image: "{{ .Values.server.sidecarTemplateValues.repository }}:{{ .Values.server.sidecarTemplateValues.tag }}"
   #   ...
   #
-  sidecarTemplateValues:
-    image:
-      name: hawk-prometheus-discoveryservice
-      pullPolicy: IfNotPresent
-      # tag: 120
-      tag: "1.16.0.6"
-    promDSLivenessProbe:
-      successThreshold: 1
-      failureThreshold: 5
-      initialDelaySeconds: 15
-      periodSeconds: 15
-      timeoutSeconds: 10
-      httpGet:
-        path: /target/hawkconsole
-        port: prometheus-ds
-        scheme: HTTP
-    promDSReadinessProbe:
-      successThreshold: 1
-      failureThreshold: 5
-      initialDelaySeconds: 12
-      periodSeconds: 15
-      timeoutSeconds: 10
-      httpGet:
-        path: /target/hawkconsole
-        port: prometheus-ds
-        scheme: HTTP
+  #sidecarTemplateValues:
+  
   ## Prometheus server container image
   ##
   image:
-    tag: "v3.5.1"
+    tag: "v3.5.2"
     pullPolicy: IfNotPresent
 
   ## Prometheus server command
@@ -1390,7 +1349,6 @@ extraManifests:
                 - tp-cp-alertmanager.{{ .Release.Namespace }}.svc.cluster.local:9093
         rule_files:
           - /prometheus/rules/*.yml
-
         scrape_configs:
           - job_name: 'redtailmetrics'
             scrape_interval: 90s
@@ -1402,9 +1360,9 @@ extraManifests:
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
-            file_sd_configs:
-              - files:
-                - /etc/prometheus-community/discovery/metrictargets.json
+            http_sd_configs:
+             - url: 'http://querynode.{{ .Release.Namespace }}.svc.cluster.local:9681/api/v2/metrictarget/redtailmetrics'
+               refresh_interval: 30s # How often Prometheus queries this endpoint
           - job_name: 'o11ymetrics'
             scrape_timeout: 30s
             scrape_interval: 30s
@@ -1425,9 +1383,9 @@ extraManifests:
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
-            file_sd_configs:
-              - files:
-                - /etc/prometheus-community/discovery/bw5_metrictargets.json
+            http_sd_configs:
+             - url: 'http://querynode.{{ .Release.Namespace }}.svc.cluster.local:9681/api/v2/metrictarget/bw5_metrics'
+               refresh_interval: 30s
           - job_name: be_metrics
             scrape_interval: 90s
             scrape_timeout: 30s
@@ -1438,9 +1396,9 @@ extraManifests:
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
-            file_sd_configs:
-              - files:
-                - /etc/prometheus-community/discovery/be_metrictargets.json
+            http_sd_configs:
+             - url: 'http://querynode.{{ .Release.Namespace }}.svc.cluster.local:9681/api/v2/metrictarget/be_metrics'
+               refresh_interval: 30s # How often Prometheus queries this endpoint
           - job_name: sys_metrics
             scrape_interval: 90s
             scrape_timeout: 30s
@@ -1451,9 +1409,9 @@ extraManifests:
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
-            file_sd_configs:
-              - files:
-                - /etc/prometheus-community/discovery/sys_metrictargets.json
+            http_sd_configs:
+             - url: 'http://querynode.{{ .Release.Namespace }}.svc.cluster.local:9681/api/v2/metrictarget/sys_metrics'
+               refresh_interval: 30s # How often Prometheus queries this endpoint
           - job_name: ems_metrics
             scrape_interval: 60s
             scrape_timeout: 30s
@@ -1464,9 +1422,9 @@ extraManifests:
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
-            file_sd_configs:
-              - files:
-                - /etc/prometheus-community/discovery/ems_metrictargets.json
+            http_sd_configs:
+             - url: 'http://querynode.{{ .Release.Namespace }}.svc.cluster.local:9681/api/v2/metrictarget/ems_metrics'
+               refresh_interval: 30s # How often Prometheus queries this endpoint
           - job_name: otel
             # scrape the finops otel collector
             scheme: http

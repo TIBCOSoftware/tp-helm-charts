@@ -1,11 +1,7 @@
-#
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
 
-#
 # Default values for o11y service.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -36,7 +32,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 4.2.3
+          tag: 5.0.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -83,7 +79,7 @@ probes:
 image:
   name: "o11y-service"
   pullPolicy: IfNotPresent
-  tag: 3965
+  tag: 4207
 
 tibcoRouter:
   path: /o11y
@@ -97,6 +93,17 @@ o11yservice:
     limits:
       cpu: 500m
       memory: 1024Mi
+  psql:
+    # Maximum number of open connections to the database.
+    # Prevents unbounded connection growth under load (Go default: 0 = unlimited).
+    maxOpenConnections: "25"
+    # Maximum number of idle connections kept in the pool.
+    # Should be <= maxOpenConnections (Go default: 2).
+    maxIdleConnections: "10"
+    # Maximum time (seconds) a connection may be reused before being closed and
+    # replaced. Forces periodic recycling so stale/leaked connections are evicted.
+    # (Go default: 0 = never recycle — root cause of the DB pool exhaustion issue).
+    connMaxLifetime: "3600"
 
 capabilities:
   o11y:
@@ -111,13 +118,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.16.10"
+        version: "1.17.16"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.140.3"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.40"
+        version: "0.72.41"
     withResources:
       # if set to true then existing recipe will be overwritten by latest recipe.
       overwriteRecipe: "false"
@@ -129,13 +136,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.16.10"
+        version: "1.17.16"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
         version: "0.140.3"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.40"
+        version: "0.72.41"
 
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -174,7 +181,7 @@ o11ymcpserver:
   enabled: false
   image:
     name: o11y-mcp-service
-    tag: "186"
+    tag: "502"
   resources:
     requests:
       cpu: 100m

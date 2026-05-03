@@ -1,11 +1,9 @@
-#
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
-#
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -173,6 +171,12 @@ spec:
               value: "80"
             - name: AUDITTRAIL_ENABLED
               value: {{ .Values.audittrail.enabled | quote }}
+            - name: PSQL_MAX_OPEN_CONNECTIONS
+              value: {{ .Values.o11yservice.psql.maxOpenConnections | quote }}
+            - name: PSQL_MAX_IDLE_CONNECTIONS
+              value: {{ .Values.o11yservice.psql.maxIdleConnections | quote }}
+            - name: PSQL_CONNECTION_MAX_LIFE_TIME
+              value: {{ .Values.o11yservice.psql.connMaxLifetime | quote }}
           livenessProbe:
             httpGet:
               scheme: HTTP
@@ -303,7 +307,7 @@ spec:
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10
@@ -313,7 +317,7 @@ spec:
           readinessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10
@@ -323,7 +327,7 @@ spec:
           startupProbe:
             failureThreshold: 5
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             periodSeconds: 10

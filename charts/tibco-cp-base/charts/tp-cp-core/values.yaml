@@ -1,8 +1,7 @@
-#
-# Copyright © 2026 Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
+
 cp:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
   ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
@@ -11,6 +10,7 @@ cp:
 # Global section will apply to this chart and all of its subcharts.
 global:
   tibco:
+    useSingleNamespace: true
     region: "global"
     region_to_prefix: '{"TSC":{"global":""},"ADMIN":{"global":""}}'
     adminHostPrefix: "admin"      # Configurable admin hostname prefix (e.g., "admin", "platform")
