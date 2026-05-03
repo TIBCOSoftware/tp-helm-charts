@@ -1,7 +1,6 @@
-/**
- * Copyright (c) 2020-2025. Cloud Software Group, Inc.
- * All Rights Reserved. Confidential & Proprietary.
- */
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
 
 CREATE SCHEMA IF NOT EXISTS redtail_ct_info
 AUTHORIZATION :AUTHUSER;

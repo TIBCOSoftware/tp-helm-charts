@@ -1,6 +1,12 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # TIBCO Control Plane - Master Upgrade Script
 
-> **Note**: This master upgrade script has been tested and validated for sequential upgrades across multiple versions (1.10.0 → 1.11.0 → 1.12.0 → 1.13.0 → 1.14.0 -> 1.15.0 -> 1.16.0). The script handles both pre-1.13.0 (separate bootstrap/base charts) and post-1.13.0 (unified tibco-cp-base chart) deployments with intelligent file naming based on version.
+> **Note**: This master upgrade script has been tested and validated for sequential upgrades across multiple versions (1.10.0 → 1.11.0 → 1.12.0 and so on). The script handles both pre-1.13.0 (separate bootstrap/base charts) and post-1.13.0 (unified tibco-cp-base chart) deployments with intelligent file naming based on version.
 
 ## Quick Start
 
@@ -22,7 +28,7 @@ This script automatically upgrades your TIBCO Control Plane from the current ver
 ### 🎯 Smart Version Detection & Selection
 
 The script **automatically discovers** all available versions by scanning the `scripts/` directory:
-- Finds all version folders (e.g., `1.10.0/`, `1.11.0/`, `1.12.0/`, `1.13.0/`, `1.14.0/`, `1.15.0/`, `1.16.0/`)
+- Finds all version folders (e.g., `1.10.0/`, `1.11.0/`, `1.12.0/`, and so on)
 - Identifies the **highest version** as the latest
 - **Numbered Selection Menu**: Choose from numbered list (1, 2, 3...)
 - **Auto-Select Latest**: Press Enter without input to automatically select latest version

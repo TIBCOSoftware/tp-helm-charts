@@ -1,7 +1,9 @@
 #!/bin/bash
 #
-# Copyright (c) 2025 TIBCO Software Inc.
-# All Rights Reserved. Confidential & Proprietary.
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 # TIBCO Control Plane Master Upgrade Script
 # Automatically detects current chart versions and performs sequential upgrades

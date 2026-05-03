@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # Partial listing of third party software and licenses
 
 This table displays a partial listing of some core third party software components that are used in this project.
