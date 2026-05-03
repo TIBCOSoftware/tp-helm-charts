@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 [dp-configure-namespace](charts/dp-configure-namespace) is used to create the following objects in dataplane namespace
 * ClusterRoles
 * ClusterRoleBinding

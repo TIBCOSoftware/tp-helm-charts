@@ -1,8 +1,9 @@
 {{/*
-    Copyright © 2025. Cloud Software Group, Inc.
-    This file is subject to the license terms contained
-    in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
+
 {{ include "dp-configure-namespace.validate-namespace" . }}
 {{- if .Values.networkPolicy.create -}}
 {{"\n"}}Node CIDR: {{ include "dp-configure-namespace.nodeCidr" . }}

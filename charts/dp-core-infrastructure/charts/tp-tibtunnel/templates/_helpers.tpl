@@ -1,9 +1,7 @@
-{{/* 
-
-Copyright © 2023 - 2024. Cloud Software Group, Inc.
-This file is subject to the license terms contained
-in the license file that is distributed with this file.
-
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{/* Generate tibtunnel configure command using values params. Ex: tp-tibtunnel configure --tibcoDataPlaneId abcd -a accessKey --config-dir /opt/config/tibtunnel */}}

@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # dp-config-es Helm Chart
 
 This repository hosts the official **dp-config-es Helm Charts** for deploying **elastic search configuration** products to [Kubernetes](https://kubernetes.io/)
