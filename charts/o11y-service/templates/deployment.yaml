@@ -1,8 +1,9 @@
-#
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -150,7 +151,7 @@ spec:
           readinessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10
@@ -160,7 +161,7 @@ spec:
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             initialDelaySeconds: 10
@@ -170,7 +171,7 @@ spec:
           startupProbe:
             failureThreshold: 5
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/uptime
               port: 2020
               scheme: HTTP
             periodSeconds: 10

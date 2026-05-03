@@ -1,9 +1,8 @@
-#
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
-
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -117,10 +116,6 @@ spec:
           timeoutSeconds: 5
           initialDelaySeconds: 10
           periodSeconds: 10
-        lifecycle:
-          preStop:
-            exec:
-              command: ["/busybox/sleep", "300"]  # allow some time to complete in-flight API calls
         volumeMounts:
         {{- if .Values.global.tibco.helmRepo.certificateSecret }}
         - name: cp-helmrepo-certs
@@ -179,7 +174,7 @@ spec:
         livenessProbe:
           failureThreshold: 3
           httpGet:
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
             scheme: HTTP
           initialDelaySeconds: 10
@@ -189,7 +184,7 @@ spec:
         readinessProbe:
           failureThreshold: 3
           httpGet:
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
             scheme: HTTP
           initialDelaySeconds: 10
@@ -199,7 +194,7 @@ spec:
         startupProbe:
           failureThreshold: 5
           httpGet:
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
             scheme: HTTP
           periodSeconds: 10

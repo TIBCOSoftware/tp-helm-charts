@@ -1,8 +1,9 @@
-#
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -66,6 +67,7 @@ data:
 {{- $appLogExpESOpt := false }}
 {{- $appLogExpOSOpt := false }}
 {{- $svcLogExpESOpt := false }}
+{{- $svcLogExpOSOpt := false }}
 {{- $auditsafeExpESOpt := false }}
 {{- $auditsafeExpOSOpt := false }}
 ##logsserver:userapp exporter
@@ -144,6 +146,13 @@ data:
   LOGS_EXPORTER_SVC_ES_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.username }}
   {{- $svcLogExpESOpt = true -}}
   {{- $svcLogExp = "'[elasticsearch/svclog]'" -}}
+  {{- end }}
+  {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "openSearch" }}
+  LOGS_EXPORTER_SVC_OS_INDEX_NAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.logIndex }}
+  LOGS_EXPORTER_SVC_OS_ENDPOINT: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.endpoint }}
+  LOGS_EXPORTER_SVC_OS_USERNAME: {{ .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.elasticSearch.username }}
+  {{- $svcLogExpOSOpt = true -}}
+  {{- $svcLogExp = "'[opensearch/svclog]'" -}}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "kafka" }}
   LOGS_EXPORTER_SVC_KAFKA_BROKERS: '{{ include "logs.exporters.services.kafka.brokers" . }}'
@@ -291,10 +300,8 @@ data:
 {{- end }}
 ##traceserver:exporter
 {{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled }}
-  {{- if or (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch") (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "localStore") }}
+  {{- if or (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch") (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch") (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "localStore") }}
   {{- $traceExp = "'[otlp/trace]'" -}}
-  {{- end }}
-  {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch" }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "kafka" }}
   TRACES_EXPORTER_KAFKA_BROKERS: '{{ include "traces.exporters.kafka.brokers" . }}'
@@ -342,6 +349,9 @@ data:
 {{- end }}
 {{- if not $svcLogExpESOpt }}
   LOGS_EXPORTER_SVC_ES_ENDPOINT: {{ $esEndpoint }}
+{{- end }}
+{{- if not $svcLogExpOSOpt }}
+  LOGS_EXPORTER_SVC_OS_ENDPOINT: {{ $osEndpoint }}
 {{- end }}
 {{- if not $auditsafeExpESOpt }}
   LOGS_EXPORTER_AUDITSAFE_ES_ENDPOINT: {{ $esEndpoint }}

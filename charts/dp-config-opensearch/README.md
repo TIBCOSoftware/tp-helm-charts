@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # dp-config-opensearch
 
 Helm chart to configure OpenSearch cluster and OpenSearch Dashboards for TIBCO Data Plane.
@@ -126,6 +132,9 @@ helm uninstall dp-config-opensearch -n <namespace>
 
 ## License
 
-Copyright © 2023 - 2026. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
 
 Licensed under the Apache License, Version 2.0.
