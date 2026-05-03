@@ -1,13 +1,11 @@
 #!/bin/bash
 #
-#
 # Copyright (c) 2023-2026. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# All Rights Reserved. Confidential & Proprietary.
 #
 # Tested with: GNU bash, version 5.2.21(1)-release
 #
-# TIBCO Control Plane Helm Values Generation Script for Platform Upgrade FROM 1.15.0 TO 1.16.0
+# TIBCO Control Plane Helm Values Generation Script for Platform Upgrade FROM 1.16.0 TO 1.17.0
 # Works with the unified tibco-cp-base chart (single chart deployment)
 
 #
@@ -27,8 +25,8 @@ init_common_variables
 # ============================================================================
 
 # Version configuration
-FROM_VERSION="${FROM_VERSION:-1.15.0}"  # TODO: Update this (must be 1.13.0+)
-TO_VERSION="1.16.0"    # TODO: Update this
+FROM_VERSION="${FROM_VERSION:-1.16.0}"
+TO_VERSION="1.17.0"
 DEFAULT_VERSION="${TO_VERSION}"
 
 # Dependency requirements
@@ -252,60 +250,19 @@ process_files() {
     validate_file "${CONTROL_PLANE_FILE}" "Control plane values file" || exit 1
     
     # ========================================================================
-    # Version-specific transformation logic for 1.15.0 to 1.16.0
+    # Version-specific transformation logic for 1.16.0 to 1.17.0
     # ========================================================================
     
     # Start with current values as base
     cp "${CONTROL_PLANE_FILE}" "${CONTROL_PLANE_OUTPUT_FILE}"
     
-    print_info "Removing deprecated flags and sections for 1.16.0..."
+    print_info "Removing deprecated flags and sections for 1.17.0..."
     
-    # Remove tp-cp-prometheus.enabled flag
-    yq eval 'del(.tp-cp-prometheus.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
+    # Remove tp-cp-cli.enabled flag
+    yq eval 'del(.tp-cp-cli.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
     
-    # Remove tp-cp-o11y.enabled flag  
-    yq eval 'del(.tp-cp-o11y.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove tp-cp-auditsafe.enabled flag
-    yq eval 'del(.tp-cp-auditsafe.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove hybrid-proxy.enabled flag
-    yq eval 'del(.hybrid-proxy.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove resource-set-operator.enabled flag
-    yq eval 'del(.resource-set-operator.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove entire tp-dp-proxy section
-    yq eval 'del(.tp-dp-proxy)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove router-operator.enabled flag
-    yq eval 'del(.router-operator.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove entire tp-cp-prometheus section
-    yq eval 'del(.tp-cp-prometheus)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove db_ssl_root_cert flag under global.external
-    yq eval 'del(.global.external.db_ssl_root_cert)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove entire proxy section (httpProxy, httpsProxy, noProxy)
-    yq eval 'del(.global.tibco.proxy)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove rbac section under global.tibco if present
-    yq eval 'del(.global.tibco.rbac)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove deprecated logging configuration
-    yq eval 'del(.global.tibco.logging.fluentbit.image.name)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    yq eval 'del(.global.tibco.logging.fluentbit.image.pullPolicy)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    yq eval 'del(.global.tibco.logging.fluentbit.image.registry)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    yq eval 'del(.global.tibco.logging.fluentbit.image.repo)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    yq eval 'del(.global.tibco.logging.repository)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove deprecated tp-cp-infra configuration
-    yq eval 'del(.tp-cp-infra.enabled)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    yq eval 'del(.tp-cp-infra.dpMetadata)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Remove deprecated finops configuration
-    yq eval 'del(.global.tibco.finops)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
+    # Remove useSingleNamespace flag under global.tibco
+    yq eval 'del(.global.tibco.useSingleNamespace)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
     
     print_success "Deprecated flags and sections removed successfully"
     

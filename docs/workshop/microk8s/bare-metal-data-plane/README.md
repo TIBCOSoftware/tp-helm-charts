@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # Setting up a Control Tower Data Plane with a Single-Cluster Kubernetes Cluster on MicroK8s
 
 This workshop guides you through setting up a single-cluster Kubernetes cluster on MicroK8s in preparation for provisioning a Control Tower Data Plane on TIBCO Platform. We will create a single MicroK8s cluster on your machine with host storage for persistence and provision Observability backend servers for collecting OpenTelemetry data including Prometheus and ElasticSearch if not already available or configured. It provisions an ingress controller (Traefik by default; Nginx as an alternative) in preparation for receiving incoming requests from non-Kubernetes workloads such as metrics and traces from BusinessWorks User Apps running outside the Kubernetes cluster. It also also allows you to monitor and manage EMS servers running outside the Kuberbetes cluster.

@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # PostgreSQL Database Management Script
 
 This script provides PostgreSQL database management for TIBCO Platform deployments. It handles database initialization and schema upgrades.

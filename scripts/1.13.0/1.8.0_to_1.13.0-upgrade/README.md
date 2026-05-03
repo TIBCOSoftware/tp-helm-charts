@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # TIBCO Control Plane Upgrade Assistant (1.8.0 ➜ 1.13.0)
 
 This directory contains an interactive Bash script to assist with upgrading the TIBCO Control Plane from version 1.8.0 to 1.13.0.

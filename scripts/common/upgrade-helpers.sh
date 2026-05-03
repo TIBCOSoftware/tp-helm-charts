@@ -1,7 +1,9 @@
 #!/bin/bash
 #
-# Copyright (c) 2025 TIBCO Software Inc.
-# All Rights Reserved. Confidential & Proprietary.
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 # Common Helper Functions for TIBCO Control Plane Upgrade Scripts
 # This library provides reusable functions for chart upgrade scripts (1.13.0+)
@@ -332,7 +334,7 @@ validate_helm_release_for_upgrade() {
     local expected_status="${4:-deployed}"
     local target_version="${5:-${expected_version}}"
     local allow_retry="${6:-false}"
-
+    
     # Check if release exists
     if ! helm status "${release_name}" -n "${namespace}" >/dev/null 2>&1; then
         print_error "Release '${release_name}' not found in namespace '${namespace}'"

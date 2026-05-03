@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 
 _storage_class_efs="${1}"
 _cluster_name="${2}"

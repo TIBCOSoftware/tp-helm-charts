@@ -1,3 +1,7 @@
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
 -- =====================================================
 -- Application Locking Mechanism Setup
 -- This script sets up proper support for the TAS_INIT_LOCK table

@@ -1,7 +1,9 @@
 #!/bin/bash
 #
-# Copyright (c) 2025 TIBCO Software Inc.
-# All Rights Reserved. Confidential & Proprietary.
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
 #
 # Tested on: Ubuntu 24.04 LTS; Bash 5.2.21
 #
@@ -87,12 +89,12 @@ interactive_mode() {
     print_info "TIBCO Control Plane Upgrade Script - 1.10.0 to 1.11.0"
     print_info "=================================================="
     echo ""
-
+    
     echo "Please select your operation mode:"
     echo "1) Generate 1.11.0 values.yaml files from current 1.10.0 setup"
     echo "2) Perform Helm upgrade using existing 1.11.0 compatible values.yaml files"
     echo ""
-
+    
     while true; do
         read -p "Enter your choice (1 or 2): " choice
         case $choice in
@@ -123,7 +125,7 @@ interactive_values_generation() {
     echo "1) I have existing 1.10.0 values.yaml files"
     echo "2) Extract values from running Helm deployments"
     echo ""
-
+    
     while true; do
         read -p "Enter your choice (1 or 2): " choice
         case $choice in
@@ -157,7 +159,7 @@ interactive_file_input() {
             PLATFORM_BOOTSTRAP_FILE=""
         fi
     done
-
+    
     while [[ -z "${PLATFORM_BASE_FILE}" ]]; do
         read -p "Enter file name of platform-base values.yaml file: " PLATFORM_BASE_FILE
         if [[ ! -f "${PLATFORM_BASE_FILE}" ]]; then
@@ -165,15 +167,15 @@ interactive_file_input() {
             PLATFORM_BASE_FILE=""
         fi
     done
-
+    
     print_success "Input files validated successfully"
-
+    
     # Ask for custom output file names
     echo ""
     print_info "Output File Configuration"
     print_info "========================"
     echo ""
-
+    
     read -p "Custom output file for platform-base (default: platform-base-1.11.0.yaml): " custom_base_output
     if [[ -n "${custom_base_output}" ]]; then
         PLATFORM_OUTPUT_BASE_FILE="${custom_base_output}"
@@ -181,7 +183,7 @@ interactive_file_input() {
     else
         print_info "Using default platform-base output: platform-base-1.11.0.yaml"
     fi
-
+    
     read -p "Custom output file for platform-bootstrap (default: platform-bootstrap-1.11.0.yaml): " custom_bootstrap_output
     if [[ -n "${custom_bootstrap_output}" ]]; then
         PLATFORM_OUTPUT_BOOTSTRAP_FILE="${custom_bootstrap_output}"
@@ -189,7 +191,7 @@ interactive_file_input() {
     else
         print_info "Using default platform-bootstrap output: platform-bootstrap-1.11.0.yaml"
     fi
-
+    
     print_success "Configuration completed successfully"
 }
 
@@ -204,13 +206,13 @@ interactive_helm_input() {
     while [[ -z "${NAMESPACE}" ]]; do
         read -p "Enter Kubernetes namespace containing your deployments: " NAMESPACE
     done
-
+    
     read -p "Platform Bootstrap release name (default: platform-bootstrap): " input_bootstrap
     [[ -n "${input_bootstrap}" ]] && PLATFORM_BOOTSTRAP_RELEASE_NAME="${input_bootstrap}"
-
+    
     read -p "Platform Base release name (default: platform-base): " input_base
     [[ -n "${input_base}" ]] && PLATFORM_BASE_RELEASE_NAME="${input_base}"
-
+    
     print_success "Helm extraction configuration set successfully"
 
     # Ask for custom output file names
@@ -218,7 +220,7 @@ interactive_helm_input() {
     print_info "Output File Configuration"
     print_info "========================"
     echo ""
-
+    
     read -p "Custom output file for platform-base (default: platform-base-1.11.0.yaml): " custom_base_output
     if [[ -n "${custom_base_output}" ]]; then
         PLATFORM_OUTPUT_BASE_FILE="${custom_base_output}"
@@ -226,7 +228,7 @@ interactive_helm_input() {
     else
         print_info "Using default platform-base output: platform-base-1.11.0.yaml"
     fi
-
+    
     read -p "Custom output file for platform-bootstrap (default: platform-bootstrap-1.11.0.yaml): " custom_bootstrap_output
     if [[ -n "${custom_bootstrap_output}" ]]; then
         PLATFORM_OUTPUT_BOOTSTRAP_FILE="${custom_bootstrap_output}"
@@ -234,7 +236,7 @@ interactive_helm_input() {
     else
         print_info "Using default platform-bootstrap output: platform-bootstrap-1.11.0.yaml"
     fi
-
+    
     print_success "Configuration completed successfully"
 }
 
@@ -244,22 +246,22 @@ interactive_helm_upgrade() {
     print_info "Helm Upgrade Setup"
     print_info "=================="
     echo ""
-
+    
     # Validate mode-specific dependencies right away (helm/jq)
     print_info "Validating Helm/jq requirements for upgrade..."
     # Set upgrade mode early so check_dependencies enforces helm/jq
     HELM_UPGRADE_MODE=true
     check_dependencies
-
+    
     print_info "This mode will perform actual Helm upgrades on your cluster using 1.11.0 values.yaml files."
     echo ""
-
+    
     # Chart selection
     echo "Which chart would you like to upgrade?"
     echo "1) platform-bootstrap"
     echo "2) platform-base"
     echo ""
-
+    
     while true; do
         read -p "Enter your choice (1 or 2): " chart_choice
         case $chart_choice in
@@ -280,7 +282,7 @@ interactive_helm_upgrade() {
                 ;;
         esac
     done
-
+    
     # Get values.yaml files based on selection
     if [[ "${UPGRADE_BOOTSTRAP}" == "true" ]]; then
         while [[ -z "${PLATFORM_BOOTSTRAP_FILE}" ]]; do
@@ -291,7 +293,7 @@ interactive_helm_upgrade() {
             fi
         done
     fi
-
+    
     if [[ "${UPGRADE_BASE}" == "true" ]]; then
         while [[ -z "${PLATFORM_BASE_FILE}" ]]; do
             read -p "Enter file name of 1.11.0 platform-base values.yaml file: " PLATFORM_BASE_FILE
@@ -301,29 +303,29 @@ interactive_helm_upgrade() {
             fi
         done
     fi
-
+    
     # Get cluster information
     while [[ -z "${NAMESPACE}" ]]; do
         read -p "Enter target namespace for upgrade: " NAMESPACE
     done
-
+    
     # Get release names based on selection
     if [[ "${UPGRADE_BOOTSTRAP}" == "true" ]]; then
         read -p "Platform Bootstrap release name (default: platform-bootstrap): " input_bootstrap
         [[ -n "${input_bootstrap}" ]] && PLATFORM_BOOTSTRAP_RELEASE_NAME="${input_bootstrap}"
     fi
-
+    
     if [[ "${UPGRADE_BASE}" == "true" ]]; then
         read -p "Platform Base release name (default: platform-base): " input_base
         [[ -n "${input_base}" ]] && PLATFORM_BASE_RELEASE_NAME="${input_base}"
     fi
-
+    
     # Get Helm repository name
     read -p "Enter Helm repository name (default: tibco-platform): " TP_HELM_REPO_NAME
     [[ -z "${TP_HELM_REPO_NAME}" ]] && TP_HELM_REPO_NAME="tibco-platform"
-
+    
     print_success "Helm upgrade configuration complete"
-
+    
     # Set mode to indicate upgrade
     HELM_UPGRADE_MODE=true
     OPERATION_MODE="file"  # We're using files for the upgrade
@@ -364,18 +366,18 @@ upgrade_base_chart() {
 perform_helm_upgrade() {
     print_info "Starting Helm upgrade process"
     print_info "============================="
-
+    
     # Show environment variable status only when enabled
     if [[ "${UPGRADE_MINOR_VERSIONS}" == "true" ]]; then
         print_info "Environment: UPGRADE_MINOR_VERSIONS=true (1.11.x minor version upgrades enabled with confirmation prompts)"
     fi
-
+    
     # Validate current deployment versions and states for selected charts
     print_info "Validating current deployment versions..."
-
+    
     # Helper for status classification
     local FAILED_STATES="failed pending-install pending-rollback pending-upgrade superseded"
-
+    
     if [[ "${UPGRADE_BOOTSTRAP}" == "true" ]]; then
         if ! helm status "${PLATFORM_BOOTSTRAP_RELEASE_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
             print_error "Platform Bootstrap release '${PLATFORM_BOOTSTRAP_RELEASE_NAME}' not found in namespace '${NAMESPACE}'"
@@ -429,7 +431,7 @@ perform_helm_upgrade() {
             fi
         fi
     fi
-
+    
     if [[ "${UPGRADE_BASE}" == "true" ]]; then
         if ! helm status "${PLATFORM_BASE_RELEASE_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
             print_error "Platform Base release '${PLATFORM_BASE_RELEASE_NAME}' not found in namespace '${NAMESPACE}'"
@@ -483,12 +485,12 @@ perform_helm_upgrade() {
             fi
         fi
     fi
-
+    
     # Update Helm repository
     print_info "Updating TP Helm charts repository..."
     helm repo update "${TP_HELM_REPO_NAME}"
     print_success "Repository updated successfully"
-
+    
     # Upgrade platform-bootstrap (if selected)
     if [[ "${UPGRADE_BOOTSTRAP}" == "true" ]]; then
         upgrade_bootstrap_chart
@@ -496,7 +498,7 @@ perform_helm_upgrade() {
             return 1
         fi
     fi
-
+    
     # Upgrade platform-base (if selected)
     if [[ "${UPGRADE_BASE}" == "true" ]]; then
         upgrade_base_chart
@@ -504,7 +506,7 @@ perform_helm_upgrade() {
             return 1
         fi
     fi
-
+    
     # Verify upgrades
     verify_helm_upgrades
 }
@@ -515,7 +517,7 @@ verify_helm_upgrades() {
     echo ""
     # Hard-coded expected appVersion after upgrade
     local EXPECTED_POST_APP_VERSION="1.11.0"
-
+    
     # Check if releases exist and are deployed (only for selected charts)
     if [[ "${UPGRADE_BOOTSTRAP}" == "true" ]]; then
         if helm status "${PLATFORM_BOOTSTRAP_RELEASE_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
@@ -532,7 +534,7 @@ verify_helm_upgrades() {
             print_error "Platform Bootstrap chart upgrade failed or release not found"
         fi
     fi
-
+    
     if [[ "${UPGRADE_BASE}" == "true" ]]; then
         if helm status "${PLATFORM_BASE_RELEASE_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
             local pb_app=$(helm list -n "${NAMESPACE}" -f "^${PLATFORM_BASE_RELEASE_NAME}$" -o json | jq -r '.[0].app_version // "unknown"')
@@ -548,7 +550,7 @@ verify_helm_upgrades() {
             print_error "Platform Base chart upgrade failed or release not found"
         fi
     fi
-
+    
     echo ""
     # Check pod status
     print_info "Checking pod readiness in namespace ${NAMESPACE}..."
@@ -558,7 +560,7 @@ verify_helm_upgrades() {
     else
         print_success "All pods are in Running/Completed state"
     fi
-
+    
     # Runtime note after upgrade and checks
     print_info "NOTE: This script does NOT perform application-level or functional tests of the upgraded charts."
     print_info "It assumes all chart values are correct, performs the configured chart upgrades,"
@@ -584,7 +586,7 @@ check_dependencies() {
         echo "Dependency check failed: yq not found"
         exit 1
     fi
-
+    
     local yq_version=$(yq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
     if [[ -n "${yq_version}" ]]; then
         local yq_major=$(echo "${yq_version}" | cut -d. -f1)
@@ -596,7 +598,7 @@ check_dependencies() {
     else
         print_warning "Could not determine yq version. Proceeding with caution..."
     fi
-
+    
     # Check helm availability and version    # Helm/jq required only for Helm flows
     if [[ "${OPERATION_MODE}" == "helm" || "${HELM_UPGRADE_MODE}" == "true" ]]; then
         if ! command -v helm >/dev/null 2>&1; then
@@ -604,12 +606,12 @@ check_dependencies() {
             echo "Dependency check failed: helm not found"
             exit 1
         fi
-
+        
         local helm_version=$(helm version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | head -1 | sed 's/v//')
         if [[ -n "${helm_version}" ]]; then
             local helm_major=$(echo "${helm_version}" | cut -d. -f1)
             local helm_minor=$(echo "${helm_version}" | cut -d. -f2)
-
+            
             # Check for Helm 3.17+
             if [[ ${helm_major} -lt 3 ]] || [[ ${helm_major} -eq 3 && ${helm_minor} -lt 17 ]]; then
                 print_error "Helm version ${helm_version} detected. Required: Helm v3.17 or higher"
@@ -621,14 +623,14 @@ check_dependencies() {
         else
             print_warning "Could not determine Helm version. Proceeding with caution..."
         fi
-
+        
         # Check jq availability and version
         if ! command -v jq >/dev/null 2>&1; then
             print_error "jq is required for helm operations. Install with: sudo apt-get install jq or brew install jq"
             echo "Dependency check failed: jq not found"
             exit 1
         fi
-
+        
         local jq_version=$(jq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
         if [[ -n "${jq_version}" ]]; then
             local jq_major=$(echo "${jq_version}" | cut -d. -f1)
@@ -655,11 +657,11 @@ check_dependencies() {
 # Extract Helm values
 extract_helm_values() {
     print_info "Extracting Helm values from namespace: ${NAMESPACE}"
-
+    
     # Ensure helm/jq are available (in case dependencies were checked before mode selection)
     command -v helm >/dev/null 2>&1 || { print_error "helm is required for Helm extraction. Install from: https://helm.sh/docs/intro/install/"; exit 1; }
     command -v jq >/dev/null 2>&1   || { print_error "jq is required for Helm extraction. Install with: sudo apt-get install jq or brew install jq"; exit 1; }
-
+    
     # Ensure releases exist before attempting version checks
     if ! helm status "${PLATFORM_BOOTSTRAP_RELEASE_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
         print_error "Platform Bootstrap release '${PLATFORM_BOOTSTRAP_RELEASE_NAME}' not found in namespace '${NAMESPACE}'"
@@ -683,7 +685,7 @@ extract_helm_values() {
         print_error "Cannot extract values: Platform Base status is '${base_status}'. Please resolve (e.g., rollback or complete install) and try again."
         exit 1
     fi
-
+    
     # Validate current deployed app_version is 1.10.0 for both releases before extracting values
     local bs_ver="unknown"; local base_ver="unknown"
     bs_ver=$(helm list -n "${NAMESPACE}" -f "^${PLATFORM_BOOTSTRAP_RELEASE_NAME}$" -o json 2>/dev/null | jq -r '.[0].app_version // "unknown"' || echo "unknown")
@@ -698,14 +700,14 @@ extract_helm_values() {
     fi
     print_success "Pre-check passed: Platform Bootstrap Chart Version=${bs_ver}, Platform Base Chart Version=${base_ver}"
     echo ""
-
+    
     # Extract bootstrap values
     helm get values -n "${NAMESPACE}" "${PLATFORM_BOOTSTRAP_RELEASE_NAME}" > "${TEMP_DIR}/temp-bootstrap-raw.yaml"
     if [[ $? -ne 0 ]]; then
         print_error "Failed to extract values from release: ${PLATFORM_BOOTSTRAP_RELEASE_NAME}"
         exit 1
     fi
-
+    
     # Remove header if present and create clean bootstrap file
     if head -1 "${TEMP_DIR}/temp-bootstrap-raw.yaml" | grep -q "USER-SUPPLIED VALUES"; then
         tail -n +2 "${TEMP_DIR}/temp-bootstrap-raw.yaml" > "${TEMP_DIR}/temp-bootstrap.yaml"
@@ -713,14 +715,14 @@ extract_helm_values() {
         cp "${TEMP_DIR}/temp-bootstrap-raw.yaml" "${TEMP_DIR}/temp-bootstrap.yaml"
     fi
     [[ ! -s "${TEMP_DIR}/temp-bootstrap.yaml" ]] && echo "{}" > "${TEMP_DIR}/temp-bootstrap.yaml"
-
+    
     # Extract base values
     helm get values -n "${NAMESPACE}" "${PLATFORM_BASE_RELEASE_NAME}" > "${TEMP_DIR}/temp-base-raw.yaml"
     if [[ $? -ne 0 ]]; then
         print_error "Failed to extract values from release: ${PLATFORM_BASE_RELEASE_NAME}"
         exit 1
     fi
-
+    
     # Remove header if present and create clean base file
     if head -1 "${TEMP_DIR}/temp-base-raw.yaml" | grep -q "USER-SUPPLIED VALUES"; then
         tail -n +2 "${TEMP_DIR}/temp-base-raw.yaml" > "${TEMP_DIR}/temp-base.yaml"
@@ -728,14 +730,14 @@ extract_helm_values() {
         cp "${TEMP_DIR}/temp-base-raw.yaml" "${TEMP_DIR}/temp-base.yaml"
     fi
     [[ ! -s "${TEMP_DIR}/temp-base.yaml" ]] && echo "{}" > "${TEMP_DIR}/temp-base.yaml"
-
+    
     PLATFORM_BOOTSTRAP_FILE="${TEMP_DIR}/temp-bootstrap.yaml"
     PLATFORM_BASE_FILE="${TEMP_DIR}/temp-base.yaml"
-
+    
     # Ensure files are fully written (potential timing fix)
     sync 2>/dev/null || true
     sleep 1
-
+    
     print_success "Helm values extracted successfully"
 }
 
@@ -750,7 +752,7 @@ generate_output_filenames() {
 # Main processing function - combines extract, validate, transform, and merge
 process_files() {
     print_info "Processing files for upgrade generation (no schema changes for 1.11.0)..."
-
+    
     # Validate files
     for f in "${PLATFORM_BOOTSTRAP_FILE}" "${PLATFORM_BASE_FILE}"; do
         if [[ ! -f "${f}" ]]; then
@@ -762,10 +764,10 @@ process_files() {
             exit 1
         fi
     done
-
+    
     # Direct copy: no transformations between 1.10.x and 1.11.0
     cp "${PLATFORM_BASE_FILE}" "${PLATFORM_OUTPUT_BASE_FILE}" && cp "${PLATFORM_BOOTSTRAP_FILE}" "${PLATFORM_OUTPUT_BOOTSTRAP_FILE}"
-
+    
     print_success "Values copied without modification"
     print_info "Values generation summary:"
     print_info "  [+] platform-base copied -> ${PLATFORM_OUTPUT_BASE_FILE} (version: ${PLATFORM_BASE_CHART_VERSION})"
@@ -777,36 +779,36 @@ process_files() {
 main() {
     print_info "TIBCO Control Plane Upgrade Script - 1.10.0 to 1.11.0"
     print_info "=================================================="
-
+    
     # Handle help request
     if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
         show_usage
         exit 0
     fi
-
+    
     # Always run in interactive mode
     setup_temp_dir
     # Initial generic checks (yq)
     check_dependencies
     # Determine operation mode
     interactive_mode
-
+    
     # Handle Helm upgrade mode
     if [[ "${HELM_UPGRADE_MODE}" == "true" ]]; then
         echo ""
         print_warning "WARNING: This will perform actual Helm upgrades on your cluster!"
         print_info "Target namespace: ${NAMESPACE}"
-
+        
         # Show only selected chart details
         if [[ "${UPGRADE_BOOTSTRAP}" == "true" ]]; then
             print_info "Platform Bootstrap release: ${PLATFORM_BOOTSTRAP_RELEASE_NAME} (version: ${PLATFORM_BOOTSTRAP_CHART_VERSION})"
         fi
-
+        
         if [[ "${UPGRADE_BASE}" == "true" ]]; then
             print_info "Platform Base release: ${PLATFORM_BASE_RELEASE_NAME} (version: ${PLATFORM_BASE_CHART_VERSION})"
         fi
         echo ""
-
+        
         read -p "Do you want to proceed with the upgrade? (yes/no): " confirm
         if [[ "${confirm}" == "yes" ]]; then
             perform_helm_upgrade
@@ -819,17 +821,17 @@ main() {
     else
         # Standard values generation mode
         [[ "${OPERATION_MODE}" == "helm" ]] && extract_helm_values
-
+        
         generate_output_filenames
         process_files
-
+        
         echo ""
         print_success "Values.yaml generation completed successfully!"
         print_info "Generated values.yaml files for upgrade:"
         print_info "  - platform-base: ${PLATFORM_OUTPUT_BASE_FILE}"
         print_info "  - platform-bootstrap: ${PLATFORM_OUTPUT_BOOTSTRAP_FILE}"
     fi
-
+    
     print_success "All operations completed successfully!"
 }
 

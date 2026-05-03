@@ -1,3 +1,7 @@
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
 -- Database schema changes for 1.8.0
 
 -- PCP-11796 [CP Backend] Enhance mat view v3_view_apps_on_subscriptions to include more columns

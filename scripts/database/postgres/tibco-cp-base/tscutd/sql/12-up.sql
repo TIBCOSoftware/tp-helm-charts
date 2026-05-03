@@ -1,3 +1,7 @@
+-- Copyright (c) 2023-2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
 -- Database schema changes for 1.9.0
 
 -- PCP-12191 [o11y] Update o11yv3 resource template to include the new secondary exporters
