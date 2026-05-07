@@ -77,6 +77,9 @@ spec:
         {{- range $ip := $paramValue }}
         - cidrIp: {{ $ip | quote }}
         {{- end }}
+    {{- else if (eq $paramKey "enableCloudwatchLogsExports") }}
+    enableCloudwatchLogsExports:
+      {{- toYaml $paramValue | nindent 4 }}
     {{- else if (eq $paramKey "restoreFrom") }}
     restoreFrom:
       {{- toYaml $paramValue | nindent 6 }}
