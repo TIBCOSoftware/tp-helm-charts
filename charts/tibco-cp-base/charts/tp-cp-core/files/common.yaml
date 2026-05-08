@@ -4,13 +4,13 @@
 
 global:
   allInternalTenantsDnsDomains: ${TSC_ADMIN_DNS_DOMAIN}, ${TSC_DNS_DOMAIN}
-  psqlMaxOpenConnections: "100"
   INTERNAL_NGINXAGENT_ELB_DNS: "10.245.1.2"
-  psqlMaxIdleConnections: "100"
   mandatoryInfraCapabilityLists: "{'k8s':['MONITORINGAGENT', 'CPPROXY', 'O11Y'],'control-tower':['MONITORINGAGENT', 'CPPROXY', 'O11Y', 'HAWKCONSOLE', 'BWADAPTER']}"
   
 ########################################  IDM common vars  #############################################
 identity-management:
+  psqlMaxOpenConnections: "100"
+  psqlMaxIdleConnections: "25"
   cookieName: "tsc"
   corsAllowOrigins: "http://localhost, https://localhost, capacitor://localhost, vscode://tibco.flogo https://vscode.dev" # localhost is for native apps, ex. Spotfire's; capacitor for mobile apps; vscode is for Flogo vscode extension.
   tibcoaccountKeystoreKeyAlias: "cic_cloud"
@@ -22,9 +22,9 @@ orchestrator:
   dataplaneCheckStatusTimeoutInSeconds: "30s"
   enableBannedEmailDomainsCheck: "false"
   enableTibcoTrials: "true"
-  psqlConnectionMaxLifeTime: "3600"
-  psqlMaxOpenConnections: "100"
-  psqlMaxIdleConnections: "100"
+  psqlConnectionMaxLifeTime: "300"
+  psqlMaxOpenConnections: "30"
+  psqlMaxIdleConnections: "7"
   enableArn: "true"
 
 ####################################     CP WEB server env variables      ##############################################
@@ -45,13 +45,13 @@ web-server:
 
 user-subscriptions:
   appNameMaxLength: "63"
-  psqlMaxOpenConnections: "150"
-  psqlMaxIdleConnections: "150"
-  psqlConnectionMaxLifeTime: "3600"
+  psqlMaxOpenConnections: "200"
+  psqlMaxIdleConnections: "50"
+  psqlConnectionMaxLifeTime: "300"
 
 ####################################      CP cronjobs env variables     #################################################
 cronjobs:
-  psqlConnectionMaxLifeTime: "3600"
+  psqlConnectionMaxLifeTime: "300"
   timeToScheduleJobsAt: "0 00 04 * * *"
   scheduleFrequencyForProvisionInfraCapabilitiesJob: "@every 1m"
 
@@ -61,9 +61,9 @@ cronjobs:
 #################################### TP CP Permissions Engine env variables ############################################
 
 pengine:
-  psqlMaxOpenConnections: "100"
-  psqlMaxIdleConnections: "100"
-  psqlConnectionMaxLifeTime: "3600"
+  psqlMaxOpenConnections: "50"
+  psqlMaxIdleConnections: "12"
+  psqlConnectionMaxLifeTime: "300"
   notificationPayloadThresholdSizeInBytes: "8000"
 
 ########################################################################################################################

@@ -365,7 +365,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
-              key: global.psqlMaxOpenConnections
+              key: {{ .Chart.Name }}.psqlMaxOpenConnections
         - name: IDENTITY_MANAGEMENT_DEFAULTIDP_HOSTNAME
           valueFrom:
             configMapKeyRef:

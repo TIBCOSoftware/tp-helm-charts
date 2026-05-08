@@ -16,7 +16,6 @@
   {{- .Values.global.tibco.hybridConnectivity.enabled -}}
 {{- end }}
 
-{{- define "tp-control-plane-env-configmap" }}tp-cp-core-env{{ end -}}
 {{- define "tp-control-plane-dnsdomain-configmap" }}tp-cp-core-dnsdomains{{ end -}}
 
 {{- define "cp-core-configuration.pvc-name" }}
@@ -74,8 +73,8 @@
 {{- define "tp-cp-cronjobs.consts.tscConfigurationLocationScheduler" }}file:///tmp/private/tsc/config/tp-cp-cronjobs/cpcronjobsapi.json{{ end -}}
 {{- define "tp-cp-cronjobs.consts.disableConfigurationRefresh" }}false{{ end -}}
 
-{{- define "tp-cp-cronjobs.consts.psqlMaxOpenConnections" }}100{{ end -}}
-{{- define "tp-cp-cronjobs.consts.psqlMaxIdleConnections" }}100{{ end -}}
+{{- define "tp-cp-cronjobs.consts.psqlMaxOpenConnections" }}30{{ end -}}
+{{- define "tp-cp-cronjobs.consts.psqlMaxIdleConnections" }}7{{ end -}}
 
 {{- define "tp-cp-cronjobs.consts.tscConfigLocation" }}/tmp/private/tsc{{ end -}}
 {{- define "tp-cp-cronjobs.consts.tscConfigLocationCommon" }}file:///tmp/private/tsc/config/common/tsc-config.json{{ end -}}

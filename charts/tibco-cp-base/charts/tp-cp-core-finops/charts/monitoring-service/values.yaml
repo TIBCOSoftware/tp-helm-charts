@@ -57,6 +57,7 @@ global:
   finops:
     svcloglevel: "info"
 monitoringservice:
+  syncDpStatusOnStartup: "true"
   resources:
     requests:
       cpu: "200m"
@@ -65,9 +66,9 @@ monitoringservice:
       cpu: "1000m"
       memory: "2048Mi"
   psql:
-    maxopenconnections: "100"
-    maxidleconnections: "100"
-    maxconnectionlifetime: "3600"
+    maxopenconnections: "150"
+    maxidleconnections: "35"
+    maxconnectionlifetime: "300"
 fluentbit:
   resources:
     requests:

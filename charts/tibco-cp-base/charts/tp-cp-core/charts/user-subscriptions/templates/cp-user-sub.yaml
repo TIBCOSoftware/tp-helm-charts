@@ -232,11 +232,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-cp-user-subscriptions.consts.cp.db.configuration" . }}
-              {{- if eq .Values.global.tibco.is_replica_region true }}
               key: LocalReaderHost
-              {{- else }}
-              key: DBHost
-              {{- end }}
         - name: READ_PGPORT
           valueFrom:
             configMapKeyRef:

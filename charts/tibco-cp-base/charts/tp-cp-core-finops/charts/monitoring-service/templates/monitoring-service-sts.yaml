@@ -135,6 +135,8 @@ spec:
         env:
         - name: LOG_LEVEL
           value: {{ .Values.global.finops.svcloglevel }}
+        - name: SYNC_DP_STATUS_ON_STARTUP
+          value: {{ .Values.monitoringservice.syncDpStatusOnStartup | quote }}
         - name: CP_ENCRYPTION_SECRET
           valueFrom:
             secretKeyRef:
