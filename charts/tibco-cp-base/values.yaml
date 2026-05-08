@@ -1,9 +1,9 @@
-#
-# Copyright © 2026 Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
+
 # global values used by the chart. These values gets propagated to all sub-charts.
+
 global:
   tibco:
     adminHostPrefix: "admin"
@@ -78,10 +78,12 @@ global:
             port: 53
           - protocol: TCP
             port: 53
+      dpEgress:
+        CIDR: ""
+        port: ""
     # control plane instance Id. Ex: prod, stag, p01, s01. This is to identify multiple cp installation in same cluster.
     # lowercase alphanumeric string of max 5 chars
     controlPlaneInstanceId: ""
-    useSingleNamespace: true
     enableResourceConstraints: true
     self_hosted_deployment: true
     # Session timeout in seconds for idle session redirect and cookie timeout
@@ -105,11 +107,11 @@ global:
     # Common images
     commonImages:
       distrolessDebug:
-        tag: 13.3
+        tag: 13.4
       cpScripts:
-        tag: "9203"
+        tag: "9328"
       fluentbit:
-        tag: 4.2.3
+        tag: 5.0.2
 
   external:
     db_host: ""
@@ -169,10 +171,7 @@ global:
       # volumeName: "123"
       # storageClassName: "gp2"
 
-# Default values for tp-cp-cli.
-tp-cp-cli:
-  enabled: true
-
+# Default values for tp-cp-o11y
 tp-cp-o11y:
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
@@ -185,6 +184,7 @@ tp-cp-o11y:
       cpu: 500m  # Maximum CPU allowed
       memory: 1024Mi  # Maximum memory allowed
 
+# Default values for tp-cp-configuration
 tp-cp-configuration:
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
@@ -197,7 +197,7 @@ tp-cp-configuration:
       cpu: 100m  # Maximum CPU allowed
       memory: 60Mi  # Maximum memory allowed
 
-# Default values for tp-cp-infra.
+# Default values for tp-cp-infra
 tp-cp-infra:
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
@@ -211,6 +211,7 @@ tp-cp-infra:
         cpu: 500m  # Maximum CPU allowed
         memory: 1024Mi  # Maximum memory allowed
 
+# Default values for tp-cp-auditsafe
 tp-cp-auditsafe:
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
@@ -223,6 +224,7 @@ tp-cp-auditsafe:
       cpu: 500m  # Maximum CPU allowed
       memory: 1024Mi  # Maximum memory allowed
 
+# Default values for hybrid-proxy
 hybrid-proxy:
   # HPO replica count
   # replicaCount: "1"  # Commented out - HPA manages replicas dynamically
@@ -264,6 +266,7 @@ hybrid-proxy:
   #   annotations:
   #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-tunnel.localhost.dataplanes.pro"
 
+# Default values for router-operator
 router-operator:
   # SecretNames for environment variables TSC_SESSION_KEY and DOMAIN_SESSION_KEY.
   # These secrets are used to store session keys securely.
@@ -313,6 +316,7 @@ router-operator:
   #   annotations:
   #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-my.localhost.dataplanes.pro"
 
+# Default values for resource-set-operator
 resource-set-operator:
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
@@ -325,6 +329,7 @@ resource-set-operator:
       cpu: 500m  # Maximum CPU allowed
       memory: 1024Mi  # Maximum memory allowed
 
+# Default values for otel-collector
 otel-collector:
   # switch to true to enable otel-collector
   enabled: false
@@ -339,5 +344,6 @@ otel-collector:
       cpu: 500m  # Maximum CPU allowed
       memory: 1024Mi  # Maximum memory allowed
 
+# Default values for tp-cp-integration-common
 tp-cp-integration-common:
   enabled: true

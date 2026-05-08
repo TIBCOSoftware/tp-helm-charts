@@ -1,9 +1,8 @@
 {{/*
-   Copyright © 2024. Cloud Software Group, Inc.
-   This file is subject to the license terms contained
-   in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
-
 
 {{- define "tp-cp-user-subscriptions.shared.labels.chartLabelValue" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}

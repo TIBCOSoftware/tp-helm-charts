@@ -1,8 +1,9 @@
-#
-# Copyright © 2024-2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -67,6 +68,23 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       terminationGracePeriodSeconds: 10
+      initContainers:
+      - name: check-pod-dependencies
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/common-distroless-base-debian-debug"}}:{{ .Values.global.tibco.commonImages.distrolessDebug.tag }}
+        {{- if .Values.global.containerSecurityContext.monitoringInitJob }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext.monitoringInitJob | nindent 10 }}
+        {{- end }}
+        command: [ 'sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for user-subscription to be running;
+             sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_USER_SUB_HOST:9832/v2/monitor/ping" 2>&1 | grep "HTTP/"); done' ]
+        env:
+          - name: TP_CP_USER_SUB_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_USER_SUB_HOST
       {{- if (include "cp-core-configuration.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
@@ -117,6 +135,8 @@ spec:
         env:
         - name: LOG_LEVEL
           value: {{ .Values.global.finops.svcloglevel }}
+        - name: SYNC_DP_STATUS_ON_STARTUP
+          value: {{ .Values.monitoringservice.syncDpStatusOnStartup | quote }}
         - name: CP_ENCRYPTION_SECRET
           valueFrom:
             secretKeyRef:
@@ -180,11 +200,6 @@ spec:
               key: SYSTEM_INTERNAL_COMPUTE_SERVICE_HOST
         - name: SYSTEM_INTERNAL_COMPUTE_SERVICE_PORT
           value: "80"
-        - name: SYSTEM_INTERNAL_MONITOR_AGENT_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "monitoring-service.tp-finops-dnsdomains-configmap" . }}
-              key: SYSTEM_INTERNAL_MONITOR_AGENT_HOST
         - name: SYSTEM_INTERNAL_MONITOR_AGENT_PORT
           value: "80"
         - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
@@ -218,6 +233,8 @@ spec:
           value: {{ .Values.monitoringtibtunnel.schedule | quote }}
         - name: CAPRESOURCES_SCHEDULE
           value: {{ .Values.monitoringcapresources.schedule | quote }}
+        - name: DP_STATUS_SYNC_SCHEDULE
+          value: {{ .Values.monitoringdataplanestatussync.schedule | quote }}
         - name: DP_SYNC_SCHEDULE
           value: {{ .Values.monitoringdataplanesync.schedule | quote }}
         - name: NON_REPORTING_SCHEDULE
@@ -328,7 +345,7 @@ spec:
         startupProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           initialDelaySeconds: 0
           periodSeconds: 1
@@ -338,7 +355,7 @@ spec:
         livenessProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           periodSeconds: 10
           timeoutSeconds: 2
@@ -348,7 +365,7 @@ spec:
         readinessProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           periodSeconds: 10
           timeoutSeconds: 2
@@ -400,38 +417,6 @@ spec:
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "cp-core-configuration.pvc-name" . }}
----
-
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: {{ include "monitoring-service.consts.appName" . }}
-  namespace: {{ include "monitoring-service.consts.namespace" . }}
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: StatefulSet
-    name: {{ include "monitoring-service.consts.appName" . }}
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300  # Wait 5 min before scaling down
-    scaleUp:
-      stabilizationWindowSeconds: 60   # More responsive scale up
-  minReplicas: {{ .Values.replicaCount | default 1 }}
-  maxReplicas: {{ add 2 (.Values.replicaCount | default 1) }}
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.hpa.cpu }}
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.hpa.memory }}
 ---
 
 kind: TibcoRoute

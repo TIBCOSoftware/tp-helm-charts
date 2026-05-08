@@ -1,9 +1,8 @@
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
-
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 apiVersion: v1
 kind: ConfigMap
@@ -15,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.16.0",
+      "capabilityVersion": "1.17.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.cpproxy.releaseDate | quote }},
@@ -110,7 +109,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.16.0"
+          value: "1.17.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

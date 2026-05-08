@@ -1,2 +1,8 @@
-{{- define "identity-provider.generated.buildNumber" }}1068{{end -}}
-{{- define "identity-provider.generated.buildTimestamp" }}03-12-26_11.00.00_AM{{end -}}
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{- define "identity-provider.generated.buildNumber" }}1078{{end -}}
+{{- define "identity-provider.generated.buildTimestamp" }}04-09-26_02.45.00_PM{{end -}}

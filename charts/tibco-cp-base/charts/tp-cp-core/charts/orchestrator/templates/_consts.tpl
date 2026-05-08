@@ -1,7 +1,7 @@
 {{/*
-   Copyright © 2024. Cloud Software Group, Inc.
-   This file is subject to the license terms contained
-   in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{- define "tp-cp-orchestrator.consts.appName" }}tp-cp-orchestrator{{ end -}}
@@ -56,10 +56,6 @@
 
 {{- define "tp-cp-orchestrator.consts.enableHybridConnectivity" }}
   {{- .Values.global.tibco.hybridConnectivity.enabled -}}
-{{- end }}
-
-{{- define "cp-core-configuration.isSingleNamespace" }}
-  {{- .Values.global.tibco.useSingleNamespace | quote -}}
 {{- end }}
 
 {{- define "cp-core-configuration.container-registry-image-pull-secret-name" }}tibco-container-registry-credentials{{ end }}
