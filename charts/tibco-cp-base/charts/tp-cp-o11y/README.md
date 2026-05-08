@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # O11Y Service Helm Chart
 
 This repository hosts the official **O11Y Service Helm Charts** for deploying **O11Y Service** products to [Kubernetes](https://kubernetes.io/)

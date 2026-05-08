@@ -1,7 +1,7 @@
 {{/*
-Copyright © 2025. Cloud Software Group, Inc.
-This file is subject to the license terms contained
-in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{/* from community chart */}}
@@ -230,3 +230,4 @@ Define prometheus.server.remoteRead producing a list of remoteRead configuration
 {{- define "tp-cp-prometheus.otelServiceName" -}}
 {{- .Values.global.otelServiceName | default "" }}
 {{- end }}
+

@@ -1,8 +1,6 @@
-#
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
-#
 
 # Global section will apply to this chart and all of its subcharts.
 global:
@@ -113,6 +111,16 @@ checkPodDependencies:
 hpa:
   cpu: 70
   memory: 70
+
+capabilityEmailTemplates:
+  - capabilityId: ems
+    configMapName: ems-email-template
+  - capabilityId: bw5ce
+    configMapName: bw5ce-email-template
+  - capabilityId: flogo
+    configMapName: flogo-email-template
+  - capabilityId: bwce
+    configMapName: bwce-email-template
 
 # no of replicas
 # replicaCount: "1"  # Commented out - HPA manages replicas dynamically

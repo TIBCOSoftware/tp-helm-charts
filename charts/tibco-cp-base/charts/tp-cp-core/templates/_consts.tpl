@@ -1,7 +1,7 @@
 {{/*
- Copyright © 2025. Cloud Software Group, Inc.
- This file is subject to the license terms contained
- in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{- define "tp-control-plane.consts.appName" }}tp-cp-core{{ end -}}
@@ -46,7 +46,7 @@
 {{- define "tpcontrol-plane.consts.tpCpFLOGOServiceName" }}tp-cp-flogo-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpEMSServiceName" }}msg-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.16.0/doc/html{{ end -}}
+{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.17.0/doc/html{{ end -}}
 
 {{- define "cp-core-configuration.service-account-name" }}
 {{- if empty .Values.global.tibco.serviceAccount -}}
@@ -104,7 +104,7 @@
 
 {{- define "cp-core-configuration.isSingleNamespace" }}
   {{- $isSubscriptionSingleNamespace := "" -}}
-    {{- if eq "true" ( .Values.global.tibco.useSingleNamespace | quote) -}}
+    {{- if eq true ( .Values.global.tibco.useSingleNamespace ) -}}
         {{- $isSubscriptionSingleNamespace = "1" -}}
     {{- end -}}
   {{ $isSubscriptionSingleNamespace }}

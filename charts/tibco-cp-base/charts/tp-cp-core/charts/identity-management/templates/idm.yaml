@@ -1,8 +1,8 @@
-#
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 ---
 apiVersion: v1
@@ -365,7 +365,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
-              key: global.psqlMaxOpenConnections
+              key: {{ .Chart.Name }}.psqlMaxOpenConnections
         - name: IDENTITY_MANAGEMENT_DEFAULTIDP_HOSTNAME
           valueFrom:
             configMapKeyRef:
@@ -437,7 +437,7 @@ spec:
         startupProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           initialDelaySeconds: 0
           periodSeconds: 1
@@ -447,7 +447,7 @@ spec:
         livenessProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           periodSeconds: 10
           timeoutSeconds: 2
@@ -457,7 +457,7 @@ spec:
         readinessProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           periodSeconds: 10
           timeoutSeconds: 2

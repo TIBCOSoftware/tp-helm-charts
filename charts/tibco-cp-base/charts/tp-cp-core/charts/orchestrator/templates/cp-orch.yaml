@@ -1,8 +1,8 @@
-#
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
 
 ---
 apiVersion: v1
@@ -121,7 +121,7 @@ spec:
           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
         {{- end }}
         command: ['sh', '-c', 'until [[ "$wget_result" == *"200"* ]]; do echo waiting for user-subscription to be running;
-         sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_USER_SUB_HOST:9832/v1/monitor/ping" 2>&1 | grep "HTTP/"); done']
+         sleep 3; wget_result=$(wget --spider -S "http://$TP_CP_USER_SUB_HOST:9832/v2/monitor/ping" 2>&1 | grep "HTTP/"); done']
         env:
           - name: TP_CP_USER_SUB_HOST
             valueFrom:
@@ -567,6 +567,11 @@ spec:
             subPath: tsc/config
           - name: cp-core-config
             mountPath: /tmp/private/tsc/config
+          # Dynamic capability email template mounts (from values.yaml)
+          {{- range .Values.capabilityEmailTemplates }}
+          - name: email-template-{{ .capabilityId }}
+            mountPath: /tmp/private/tsc/capability-email-templates/{{ .capabilityId }}
+          {{- end }}
 {{- if ne .Values.global.external.db_ssl_mode "disable" }}
           - name: db-ssl-cert-vol
             mountPath: /private/tsc/certificates
@@ -594,7 +599,7 @@ spec:
         startupProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           initialDelaySeconds: 0
           periodSeconds: 1
@@ -604,7 +609,7 @@ spec:
         livenessProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           periodSeconds: 10
           timeoutSeconds: 2
@@ -614,7 +619,7 @@ spec:
         readinessProbe:
           httpGet:
             scheme: HTTP
-            path: /api/v1/health
+            path: /api/v1/uptime
             port: 2020
           periodSeconds: 10
           timeoutSeconds: 2
@@ -687,6 +692,16 @@ spec:
                 path: common/email-domains.json
               - key: files__tsc__config__common__tsc-config.json
                 path: common/tsc-config.json
+        # Dynamic capability email template ConfigMap volumes (from values.yaml)
+        {{- range .Values.capabilityEmailTemplates }}
+        - name: email-template-{{ .capabilityId }}
+          configMap:
+            name: {{ .configMapName }}
+            optional: true
+            items:
+              - key: template
+                path: template
+        {{- end }}
 
 ---
 
