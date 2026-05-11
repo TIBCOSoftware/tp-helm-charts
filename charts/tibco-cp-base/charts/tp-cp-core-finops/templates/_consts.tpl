@@ -1,7 +1,7 @@
 {{/*
-   Copyright © 2024-2025. Cloud Software Group, Inc.
-   This file is subject to the license terms contained
-   in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{/* A fixed short name for the application. Can be different than the chart name */}}
@@ -23,13 +23,6 @@
 {{- define "tp-cp-core-finops.consts.finopsServiceName" }}tp-cp-finops-service.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.cpUserSubscriptionsServiceName" }}tp-cp-user-subscriptions.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.cpOrchestratorServiceName" }}tp-cp-orchestrator.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tp-cp-core-finops.consts.monitorAgentHost" -}}
-    {{- if (include "cp-core-configuration.isSingleNamespace" .) }}
-        {{- "dp-%[1]s."}}{{ .Release.Namespace }}{{".svc.cluster.local" -}}
-    {{- else }}
-        {{- "dp-%s."}}{{include "cp-core-configuration.cp-instance-id" .}}{{"-tibco-sub-%s.svc.cluster.local" -}}
-    {{- end -}}
-{{ end -}}
 {{- define "tp-cp-core-finops.consts.hawkQueryNodeHost" }}querynode.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.finopsPrometheusHost" }}prometheus-service.{{ include "tp-cp-core-finops.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tp-cp-core-finops.consts.provisonerAgentHost" }}dp-%s.{{ .Release.Namespace }}.svc.cluster.local{{ end -}}
@@ -55,10 +48,6 @@
 
 {{- define "cp-core-configuration.container-registry" }}
 {{- .Values.global.tibco.containerRegistry.url | default "csgprdusw2reposaas.jfrog.io" }}
-{{- end }}
-
-{{- define "cp-core-configuration.isSingleNamespace" }}
-{{- if eq .Values.global.tibco.useSingleNamespace true -}}1{{- end }}
 {{- end }}
 
 {{- define "tp-cp-core-finops.consts.cp.db.configuration" }}provider-cp-database-config{{ end -}}

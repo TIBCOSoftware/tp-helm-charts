@@ -1,7 +1,7 @@
 {{/*
- Copyright © 2024. Cloud Software Group, Inc.
- This file is subject to the license terms contained
- in the license file that is distributed with this file.
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
 */}}
 
 {{/* A fixed short name for the application. Can be different than the chart name */}}
@@ -110,22 +110,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{/* Control plane OTEL service. default value otel-services */}}
 {{- define "tp-cp-auditsafe-web-server.cp-otel-services" -}}
    {{- "otel-services."}}{{ .Release.Namespace }}{{".svc.cluster.local" }}
-{{- end }}
-
-{{- define "tp-cp-auditsafe-web-server.cp-dp-url" -}}
-  {{- if (include "tp-cp-auditsafe-web-server.isSingleNamespace" .) }}
-    {{- "dp-%s."}}{{ .Release.Namespace }}{{".svc.cluster.local" -}}
-  {{- else }}
-    {{- "dp-%s."}}{{include "tp-cp-auditsafe-web-server.cp-instance-id" .}}{{"-tibco-sub-%s.svc.cluster.local" -}}
-  {{- end -}}
-{{ end -}}
-
-{{- define "tp-cp-auditsafe-web-server.isSingleNamespace" }}
-  {{- $isSubscriptionSingleNamespace := "" -}}
-    {{- if .Values.global.tibco.useSingleNamespace -}}
-        {{- $isSubscriptionSingleNamespace = "1" -}}
-    {{- end -}}
-  {{ $isSubscriptionSingleNamespace }}
 {{- end }}
 
 {{- define "tp-cp-auditsafe-web-server.CPCustomerEnv" }}

@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 # Collector Chart Contributing Guide
 
 All changes to the chart require a bump to the version in `chart.yaml`. See the [Contributing Guide](https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/CONTRIBUTING.md#versioning) for our versioning requirements.

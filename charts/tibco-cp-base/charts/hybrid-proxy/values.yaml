@@ -1,3 +1,7 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
 ## CONTEXT
 
 # to enable the chart
@@ -40,7 +44,7 @@ hpa:
 
 image:
   name: infra-hybrid-proxy
-  tag: 111-distroless
+  tag: 115-distroless
   pullPolicy: IfNotPresent
 
 ports:
@@ -189,6 +193,7 @@ securityContext:
         
 global:
   tibco:
+    useSingleNamespace: true
     serviceAccount: ""
     containerRegistry:
       url: ""

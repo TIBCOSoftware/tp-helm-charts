@@ -1,3 +1,9 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
 {{- if not .Values.image.repository }}
 {{ fail "[ERROR] 'image.repository' must be set. See https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/UPGRADING.md for instructions." }}
 {{ end }}

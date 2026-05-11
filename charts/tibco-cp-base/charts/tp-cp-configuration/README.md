@@ -1,3 +1,9 @@
+<!-- 
+ Copyright (c) 2023-2026. Cloud Software Group, Inc.
+ This file is subject to the license terms contained
+ in the license file that is distributed with this file. 
+-->
+
 ## Cp core configuration
 
 Configure and setup the ground work for control plane. Manages resources set templates for subscription and dataplane. These templates creates infra resources required for a control plane subscription and dataplane. 
