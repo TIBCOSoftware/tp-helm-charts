@@ -4,8 +4,8 @@
 
 apiVersion: v2
 name: dp-config-aws
-version: 1.17.2
-appVersion: "1.17.0"
+version: 1.18.1
+appVersion: "1.18.0"
 description: Helm chart to configure pre-requisites on AWS
 type: application
 dependencies:
@@ -47,9 +47,14 @@ dependencies:
     repository: https://charts.crossplane.io/stable
     condition: crossplane.enabled
   - name: crossplane-components
-    version: "1.17.*"
+    version: "1.18.*"
     repository: file://charts/crossplane-components
     condition: crossplane-components.enabled
+  # netscaler cpx gateway
+  - name: netscaler-cpx-with-gateway-controller
+    version: 2.0.0
+    repository: https://netscaler.github.io/netscaler-helm-charts
+    condition: netscaler-cpx-with-gateway-controller.enabled
 annotations:
   artifacthub.io/changes: |
     - kind: changed

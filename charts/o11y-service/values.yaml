@@ -450,6 +450,13 @@ global:
         fqdn: ""
         ingressClassName: "my-nginx-ingress"
         ingressController: "nginx"
+      # Gateway API configuration - used when ingressController is set to "gateway"
+      gatewayapi:
+        gatewayAPIControllerName: ""  # valid values are GKE/nginx
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""  # This is optional
 
     logging:
       # The fluentbit configuration section.
@@ -461,7 +468,7 @@ global:
         enabled: true
         image:
           name: "common-fluentbit"
-          tag: 5.0.2
+          tag: 5.0.6
         resources:
           requests:
             cpu: 10m
@@ -480,10 +487,10 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 4207
+      tag: 4723
     job:
       image:
-        tag: 9328
+        tag: 9474
 
 
 replicaCount: 1

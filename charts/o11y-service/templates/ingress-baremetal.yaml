@@ -16,7 +16,7 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-logs-rewrite
+  name: bm-logs-rewrite
   namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
 spec:
   # Static rewrite to /v1/logs (equivalent to nginx rewrite-target: /v1/logs)
@@ -25,11 +25,48 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
 ---
 {{- end }}
-{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+{{- if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bm-logs
+  namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    {{- end }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
+    backendRefs:
+    - name: otel-userapp-logs
+      port: 4318
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /v1/logs
+---
+{{- else if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: bm-openshift-route-logs
+  name: bm-logs
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
@@ -65,7 +102,7 @@ apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-logs
+  name: bm-logs
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
@@ -76,8 +113,14 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /v1/logs
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    {{- end }}
-    {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    haproxy.org/request-set-header: |
+      X-Forwarded-Host %[req.hdr(host)]
+      X-Forwarded-Port 443
+      X-Forwarded-Proto https
+      X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs/(.*) /\1
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-logs-rewrite@kubernetescrd
     {{- end }}
 spec:
@@ -123,7 +166,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces-rewrite
+  name: bm-traces-rewrite
   namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
 spec:
   # Static rewrite to /v1/traces (equivalent to nginx rewrite-target: /v1/traces)
@@ -132,11 +175,48 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
 ---
 {{- end }}
-{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+{{- if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bm-traces
+  namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    {{- end }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
+    backendRefs:
+    - name: otel-userapp-traces
+      port: 4318
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /v1/traces
+---
+{{- else if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: bm-openshift-route-traces
+  name: bm-traces
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
@@ -172,20 +252,26 @@ apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces
+  name: bm-traces
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
-    {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces-rewrite@kubernetescrd
-    {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "nginx" }}
     nginx.ingress.kubernetes.io/rewrite-target: /v1/traces
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    haproxy.org/request-set-header: |
+      X-Forwarded-Host %[req.hdr(host)]
+      X-Forwarded-Port 443
+      X-Forwarded-Proto https
+      X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces/(.*) /\1
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces-rewrite@kubernetescrd
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -230,7 +316,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-rewrite
+  name: bm-metrics-rewrite
   namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
 spec:
   # Static rewrite to /v1/metrics (equivalent to nginx rewrite-target: /v1/metrics)
@@ -239,11 +325,48 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
 ---
 {{- end }}
-{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+{{- if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bm-metrics
+  namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    {{- end }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
+    backendRefs:
+    - name: otel-userapp-metrics
+      port: 4318
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /v1/metrics
+---
+{{- else if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: bm-openshift-route-metrics
+  name: bm-metrics
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
@@ -279,20 +402,26 @@ apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics
+  name: bm-metrics
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
-    {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-rewrite@kubernetescrd
-    {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "nginx" }}
     nginx.ingress.kubernetes.io/rewrite-target: /v1/metrics
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    haproxy.org/request-set-header: |
+      X-Forwarded-Host %[req.hdr(host)]
+      X-Forwarded-Port 443
+      X-Forwarded-Proto https
+      X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics/(.*) /\1
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-rewrite@kubernetescrd
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -346,11 +475,48 @@ spec:
     regex: ^/tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
 ---
 {{- end }}
-{{- if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
+{{- if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bm-metrics-export
+  namespace: {{ .Values.global.cp.resources.serviceaccount.namespace | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    {{- end }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics
+    backendRefs:
+    - name: otel-userapp-metrics
+      port: 4319
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /metrics
+---
+{{- else if eq .Values.global.cp.resources.ingress.ingressController "openshiftRouter" }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: bm-openshift-route-metrics-export
+  name: bm-metrics-export
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
@@ -386,20 +552,26 @@ apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
-  name: bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-export
+  name: bm-metrics-export
   labels:
     app.kubernetes.io/component: load-balancer
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
-    {{- if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-export-rewrite@kubernetescrd
-    {{- end }}
     {{- if eq .Values.global.cp.resources.ingress.ingressController "nginx" }}
     nginx.ingress.kubernetes.io/rewrite-target: /metrics
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    haproxy.org/request-set-header: |
+      X-Forwarded-Host %[req.hdr(host)]
+      X-Forwarded-Port 443
+      X-Forwarded-Proto https
+      X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics/(.*) /\1
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-export-rewrite@kubernetescrd
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
