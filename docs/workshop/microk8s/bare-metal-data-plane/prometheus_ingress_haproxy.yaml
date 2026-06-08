@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    haproxy.org/request-set-header: |
+      X-Forwarded-Host %[req.hdr(host)]
+      X-Forwarded-Port 443
+      X-Forwarded-Proto https
+      X-Forwarded-Prefix /o11y/metrics-server
+    haproxy.org/path-rewrite: /o11y/metrics-server/(.*) /\1
+  name: haproxy-prometheus
+  namespace: prometheus
+spec:
+  ingressClassName: %%REPLACE_WITH_YOUR_INGRESS_CLASS_NAME%%
+  rules:
+  - host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+    http:
+      paths:
+      - backend:
+          service:
+            name: prometheus-server
+            port:
+              number: 80
+        path: /o11y/metrics-server/
+        pathType: Prefix

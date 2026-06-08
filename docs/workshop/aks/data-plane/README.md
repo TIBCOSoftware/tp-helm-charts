@@ -12,8 +12,7 @@ Table of Contents
   * [Export required variables](#export-required-variables)
   * [Install External DNS](#install-external-dns)
   * [Install Ingress Controller, Storage class](#install-ingress-controllers-storage-classes)
-    * [Nginx Ingress Controller](#install-nginx-ingress-controller)
-    * [Traefik Ingress Controller [OPTIONAL]](#install-traefik-ingress-controller-optional)
+    * [Traefik Ingress Controller](#install-traefik-ingress-controller)
     * [Kong Ingress Controller [OPTIONAL]](#install-and-configure-kong-ingress-controller-for-user-apps)
       * [Create Certificate User-Apps Domain](#create-certificate-user-apps-domain-optional)
       * [Install Kong for User-Apps Domain](#install-kong-for-user-apps-domain)
@@ -141,78 +140,7 @@ It will create the following resources:
 * storage class for Azure Disks
 * storage class for Azure Files
 
-### Install Nginx Ingress Controller
-You can choose to install Nginx or Traefik as the ingress controller for routing traffic to Data Plane services using Azure load balancer.
-> [!Note]
-> If you want to use Traefik Ingress Controller instead of Nginx, Please skip this and proceed to [Traefik Ingress Controller ](#install-traefik-ingress-controller-optional) Section
-```bash
-## following section is required to send traces using nginx
-## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
-export DP_NAMESPACE="ns"
-
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aks-ingress dp-config-aks \
-  --labels layer=1 \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
-clusterIssuer:
-  create: false
-httpIngress:
-  enabled: false
-ingress-nginx:
-  enabled: true
-  controller:
-    service:
-      type: LoadBalancer
-      annotations:
-        external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
-        service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
-      enableHttp: false # disable http 80 port on service and load balancer
-    config:
-      # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/configmap.md to know more about the following configuration options
-      # to support passing the incoming X-Forwarded-* headers to upstreams (required by apps swagger)
-      use-forwarded-headers: "true"
-      # to support large file upload from Control Plane
-      proxy-body-size: "150m"
-      # to set the size of the buffer used for reading the first part of the response received
-      proxy-buffer-size: 16k
-    extraArgs:
-      # set the certificate you have created in ingress-system or Control Plane namespace
-      default-ssl-certificate: ingress-system/tp-certificate-main-ingress
-## following section is required to send traces using nginx
-## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
-    # enable-opentelemetry: "true"
-    # log-level: debug
-    # opentelemetry-config: /etc/nginx/opentelemetry.toml
-    # opentelemetry-operation-name: HTTP $request_method $service_name $uri
-    # opentelemetry-trust-incoming-span: "true"
-    # otel-max-export-batch-size: "512"
-    # otel-max-queuesize: "2048"
-    # otel-sampler: AlwaysOn
-    # otel-sampler-parent-based: "false"
-    # otel-sampler-ratio: "1.0"
-    # otel-schedule-delay-millis: "5000"
-    # otel-service-name: nginx-proxy
-    # otlp-collector-host: otel-userapp-traces.${DP_NAMESPACE}.svc
-    # otlp-collector-port: "4317"
-  # opentelemetry:
-    # enabled: true
-EOF
-```
-
-Use the following command to get the ingress class name.
-```bash
-$ kubectl get ingressclass
-NAME                        CONTROLLER                  PARAMETERS   AGE
-nginx                       k8s.io/ingress-nginx        <none>       2m18s
-```
-
-The `nginx` ingress class is the main ingress that DP will use.
-
-> [!IMPORTANT]
-> You will need to provide this ingress class name i.e. nginx to TIBCO® Control Plane when you deploy capability.
-
-
-### Install Traefik Ingress Controller [OPTIONAL]
+### Install Traefik Ingress Controller
 
 ```bash
 ## following variable is required to send traces using traefik

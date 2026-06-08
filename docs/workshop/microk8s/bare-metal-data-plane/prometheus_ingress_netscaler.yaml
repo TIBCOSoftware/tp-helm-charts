@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    # NetScaler CPX specific annotations for X-Forwarded headers
+    netscaler.com/rewrite-policy: |
+      # Rewrite path prefix
+      rewrite_action: replace_prefix_match
+      rewrite_path: /o11y/metrics-server/(.*) /\1
+    # Set X-Forwarded headers
+    netscaler.com/client-side:
+      - "X-Forwarded-Host: %[req.hdr(host)]"
+      - "X-Forwarded-Port: 443"
+      - "X-Forwarded-Proto: https"
+      - "X-Forwarded-Prefix: /o11y/metrics-server"
+  name: netscaler-prometheus
+  namespace: prometheus
+spec:
+  ingressClassName: netscaler-gateway-class
+  rules:
+  - host: %%REPLACE_ME_WITH_MACHINE_HOST_NAME%%
+    http:
+      paths:
+      - backend:
+          service:
+            name: prometheus-server
+            port:
+              number: 80
+        path: /o11y/metrics-server/
+        pathType: Prefix

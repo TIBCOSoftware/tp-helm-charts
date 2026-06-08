@@ -19,9 +19,13 @@ This workshop guides you through setting up a single-cluster Kubernetes cluster 
    - CPU architecture: x86_64
 - kubectl binary (for EC2 VM)
    - Install using: `sudo snap install kubectl --classic`
-- Ingress Controller ([install steps](#install-ingress-controller))
+- Ingress Controller or Gateway Controller ([install steps](#install-ingress-controller-or-gateway-controller))
    - Traefik (default ingress controller)
-   - Nginx
+   - Nginx (ingress controller)
+   - HAProxy (ingress controller)
+   - NGINX Gateway Fabric (gateway controller)
+   - Istio Gateway (gateway controller)
+   - NetScaler CPX Gateway (gateway controller)
    - OpenShift Routes (for OpenShift/OKD clusters)
    - Used for inbound OpenTelemetry data and TEA agent leader election
 - Host Storage Class
@@ -39,10 +43,15 @@ This **`readme`** covers the prerequisites to get you started with a single-clus
 ## Steps
 1. [Installation of MicroK8s](#installation-of-microk8s)
 2. [Setting Up Storage Class](#setting-up-storage-class)
-3. [Install Ingress Controller](#install-ingress-controller)
+3. [Install Ingress Controller or Gateway Controller](#install-ingress-controller-or-gateway-controller)
    - [Install Traefik Ingress Controller (default)](#install-traefik-ingress-controller)
    - [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
-   - [OpenShift Routes (for OpenShift/OKD)](#openshift-routes-for-opensiftoktd)
+   - [Install HAProxy Ingress Controller](#install-haproxy-ingress-controller)
+   - [Install NGINX Gateway Fabric](#install-nginx-gateway-fabric)
+   - [Install Istio Gateway Controller](#install-istio-gateway-controller)
+   - [Install Traefik Gateway Controller](#install-traefik-gateway-controller)
+   - [Install NetScaler CPX Gateway Controller](#install-netscaler-cpx-gateway-controller)
+   - [OpenShift Routes (for OpenShift/OKD)](#openshift-routes-for-openshiftokd)
 4. [Install Prometheus for Metrics](#install-prometheus-for-metrics)
 5. [Install ElasticSearch for Traces](#install-elasticsearch-for-traces)
 6. [Create ElasticSearch Index Template for Traces](#create-elasticsearch-index-template-for-traces)
@@ -136,21 +145,30 @@ For example, you can setup to use NFS for persistence volumes on MicroK8s, refer
 
 ---
 
-## Install Ingress Controller
+## Install Ingress Controller or Gateway Controller
 
-The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
+The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller or Gateway Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
 
 The incoming requests include:
 - OpenTelemtry data like traces and metrics from BW5 applications
 - TEA Agent leader election notification for BW6 applications
 
-In the current release, Control Tower Data Plane supports Traefik (default), Nginx ingress controllers, and OpenShift Routes (for OpenShift/OKD clusters).
+In the current release, Control Tower Data Plane supports:
+- **Traefik** (default ingress controller)
+- **Nginx** (ingress controller) 
+- **HAProxy** (ingress controller)
+- **NGINX Gateway Fabric** (gateway controller)
+- **Traefik Gateway Controller** (gateway controller)
+- **OpenShift Routes** (for OpenShift/OKD clusters)
 
 > [!IMPORTANT]
 >
-> Choose exactly one ingress option for your setup:
-> - **Traefik** - Recommended as the default for vanilla Kubernetes
-> - **Nginx** - Alternative for vanilla Kubernetes
+> Choose exactly one routing option for your setup:
+> - **Traefik** - Recommended as the default for vanilla Kubernetes (Ingress Controller)
+> - **Nginx** - Alternative for vanilla Kubernetes (Ingress Controller)
+> - **HAProxy** - High-performance load balancer for production environments (Ingress Controller)
+> - **NGINX Gateway Fabric** - Modern Gateway API-based controller (Gateway Controller)
+> - **Traefik Gateway Controller** - Modern Gateway API-based controller (Gateway Controller)
 > - **OpenShift Routes** - For OpenShift or OKD clusters (uses native Route resources)
 
 ### Install Traefik Ingress Controller
@@ -241,6 +259,458 @@ In current release, Control Tower Data Plane supports the Nginx Ingress Controll
 
 ---
 
+### Install NGINX Gateway Fabric
+
+NGINX Gateway Fabric is a modern Gateway API-based controller that provides advanced routing capabilities using Kubernetes Gateway API resources. It offers better performance and more features compared to traditional ingress controllers.
+
+> [!NOTE]
+>
+> - NGINX Gateway Fabric uses Gateway API resources (Gateway, HTTPRoute) instead of Ingress resources
+> - The gateway class name is `nginx` and the gateway name is configurable (default: `nginx-gateway`)
+
+1. Install Gateway API CRDs:
+
+   ```bash
+   kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+   ```
+
+2. Install NGINX Gateway Fabric:
+
+   ```bash
+   DATAPLANE_NAME=<dpname>
+   MACHINE_IP=<your-machine-private-ip>
+   GATEWAY_NS=nginx-gateway
+   GATEWAY_NAME=nginx-gateway
+   
+   helm upgrade --install nginx-gateway-fabric oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
+   --namespace ${GATEWAY_NS} \
+   --create-namespace
+   ```
+
+3. Create Gateway resource with external IP:
+
+   ```bash
+   kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${GATEWAY_NAME}
+  namespace: ${GATEWAY_NS}
+spec:
+  gatewayClassName: nginx
+  addresses:
+  - type: IPAddress
+    value: ${MACHINE_IP}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+EOF
+   ```
+
+   - Validate your gateway
+
+      ```
+      $ kubectl get gateway ${GATEWAY_NAME} -n ${GATEWAY_NS}
+      NAME             CLASS   ADDRESS          PROGRAMMED   AGE
+      nginx-gateway    nginx   172.31.20.117    True         2m
+      ```
+
+4. Validate the installation:
+
+   ```bash
+   # Check services
+   kubectl get svc -n ${GATEWAY_NS} -o wide
+   ```
+
+   Expected output:
+   ```
+   $ kubectl get svc -n nginx-gateway
+   NAME                       TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)                      AGE
+   nginx-gateway-fabric       LoadBalancer   10.152.183.112   172.31.20.117   80:30768/TCP,443:30744/TCP   3m
+   ```
+
+> [!NOTE]
+>
+> - Please note down the **Gateway name: `nginx-gateway`** (example above); you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - When using NGINX Gateway Fabric, the Control Tower Data Plane will automatically generate HTTPRoute resources instead of Ingress resources
+
+---
+
+### Install Istio Gateway Controller
+
+Istio Gateway Controller is a modern Gateway API-based controller that provides advanced routing capabilities using Kubernetes Gateway API resources. It offers better performance and more features compared to traditional ingress controllers.
+
+The incoming requests include:
+- OpenTelemetry data like traces and metrics from BW5 applications
+- TEA Agent leader election notification for BW6 applications
+
+In current release, Control Tower Data Plane supports the Istio Gateway Controller.
+
+> [!NOTE]
+>
+> - Please note down the name of the Gateway name `<dpname>-istio-gateway` (example below); you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform.
+> - Make sure a host name is assigned to the `MACHINE_IP` or create a DNS record for the IP; you will need the host name to set as the `FQDN` name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform.
+
+1. Install Gateway API CRDs:
+   
+   ```bash
+   kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+   ```
+
+2. Add the Istio Helm repository and update:
+   
+   ```bash
+   helm repo add istio https://istio-release.storage.googleapis.com/charts
+   helm repo update
+   ```
+
+3. Install Istio base components:
+
+   ```bash
+   helm upgrade --install istio-base istio/base \
+     --namespace istio-system \
+     --create-namespace \
+     --wait \
+     --timeout=1h
+   ```
+
+4. Install Istio control plane (istiod):
+
+   ```bash
+   helm upgrade --install istiod istio/istiod \
+     --namespace istio-system \
+     --wait \
+     --timeout=1h
+   ```
+
+5. Create gateway namespace:
+
+   ```bash
+   kubectl create namespace istio-gateway
+   ```
+
+6. Install the Istio gateway with a fixed name and external IP:
+
+   ```bash
+   DATAPLANE_NAME=<dpname>
+   MACHINE_IP=<your-machine-private-ip>
+   GATEWAY_NS=istio-gateway
+   GATEWAY_NAME=${DATAPLANE_NAME}-istio-gateway
+   
+   # Create Gateway resource
+   kubectl apply -f - <<EOF
+   apiVersion: gateway.networking.k8s.io/v1
+   kind: Gateway
+   metadata:
+     name: ${GATEWAY_NAME}
+     namespace: ${GATEWAY_NS}
+   spec:
+     gatewayClassName: istio
+     addresses:
+     - type: IPAddress
+       value: ${MACHINE_IP}
+     listeners:
+     - name: http
+       port: 80
+       protocol: HTTP
+       allowedRoutes:
+         namespaces:
+           from: All
+   EOF
+   
+   # Patch service for external IP (Baremetal)
+   sleep 10
+   kubectl patch svc ${GATEWAY_NAME}-istio -n ${GATEWAY_NS} \
+     -p '{"spec":{"externalIPs":["'${MACHINE_IP}'"]}}'
+   ```
+
+   - Validate your gateway
+
+      ```
+      $ kubectl get gateway ${GATEWAY_NAME} -n ${GATEWAY_NS}
+      NAME                     CLASS   ADDRESS          PROGRAMMED   AGE
+      <dpname>-istio-gateway   istio   172.31.20.117    True         2m
+      ```
+
+7. Validate the installation:
+
+   ```bash
+   # Check services
+   kubectl get svc -n ${GATEWAY_NS} -o wide
+   ```
+
+   Expected output:
+   ```
+   $ kubectl get svc -n istio-gateway
+   NAME                     TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)                      AGE
+   <dpname>-istio-gateway   LoadBalancer   10.152.183.112   172.31.20.117   80:30768/TCP,443:30744/TCP   3m
+   ```
+
+8. Verify Istio components:
+
+   ```bash
+   # Check GatewayClass
+   kubectl get gatewayclass istio
+   
+   # Check pods in istio-system
+   kubectl get pods -n istio-system
+   
+   # Check pods in istio-gateway
+   kubectl get pods -n ${GATEWAY_NS}
+   ```
+
+> [!NOTE]
+>
+> - Please note down the **Gateway name: `<dpname>-istio-gateway`** (example above); you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - When using Istio Gateway Controller, the Control Tower Data Plane will automatically generate HTTPRoute resources instead of Ingress resources
+
+---
+
+### Install Traefik Gateway Controller
+
+Traefik Gateway Controller is a modern Gateway API-based controller that provides advanced routing capabilities using Kubernetes Gateway API resources. It offers better performance and more features compared to traditional ingress controllers.
+
+> [!NOTE]
+>
+> - Traefik Gateway Controller uses Gateway API resources (Gateway, HTTPRoute) instead of Ingress resources
+> - The gateway class name is `traefik` and the gateway name is configurable (default: `traefik-gateway`)
+
+1. Install Gateway API CRDs:
+
+   ```bash
+   kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+   ```
+
+2. Install Traefik Gateway Controller:
+
+   ```bash
+   DATAPLANE_NAME=<dpname>
+   MACHINE_IP=<your-machine-private-ip>
+   GATEWAY_NS=traefik-gateway
+   GATEWAY_NAME=traefik-gateway
+   
+   helm repo add traefik https://traefik.github.io/charts
+   helm repo update
+   
+   helm upgrade --install traefik-gateway traefik/traefik \
+   --namespace ${GATEWAY_NS} \
+   --create-namespace \
+   --set providers.kubernetesGateway.enabled=true \
+   --set gateway.enabled=false \
+   --set ingressClass.enabled=false \
+   --set service.spec.externalIPs[0]="${MACHINE_IP}" \
+   --set providers.kubernetesGateway.statusAddress.ip=${MACHINE_IP}
+   ```
+
+3. Create Gateway resource with external IP:
+
+   ```bash
+   kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${GATEWAY_NAME}
+  namespace: ${GATEWAY_NS}
+spec:
+  gatewayClassName: traefik
+  addresses:
+  - type: IPAddress
+    value: ${MACHINE_IP}
+  listeners:
+  - name: http
+    port: 8000
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+EOF
+   ```
+
+   > [!NOTE]
+   >
+   > - We use port **8000** in the Gateway listener because it matches the default Traefik `web` EntryPoint inside the pod. Traffic hits the VM on port 80, and the Kubernetes Service forwards it to this 8000 listener.
+
+   - Validate your gateway
+
+      ```
+      $ kubectl get gateway ${GATEWAY_NAME} -n ${GATEWAY_NS}
+      NAME              CLASS     ADDRESS          PROGRAMMED   AGE
+      traefik-gateway   traefik   172.31.20.117    True         2m
+      ```
+
+4. Validate the installation:
+
+   ```bash
+   # Check services
+   kubectl get svc -n ${GATEWAY_NS} -o wide
+   ```
+
+   Expected output:
+   ```
+   $ kubectl get svc -n traefik-gateway
+   NAME              TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)                      AGE
+   traefik-gateway   LoadBalancer   10.152.183.112   172.31.20.117   80:30768/TCP,443:30744/TCP   3m
+   ```
+
+> [!NOTE]
+>
+> - Please note down the **Gateway name: `traefik-gateway`** (example above); you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - When using Traefik Gateway Controller, the Control Tower Data Plane will automatically generate HTTPRoute resources instead of Ingress resources
+
+---
+
+### Install NetScaler CPX Gateway Controller
+
+NetScaler CPX Gateway Controller is a powerful Gateway API-based controller that provides enterprise-grade load balancing and traffic management capabilities. It offers advanced features including WebSocket support, X-Forwarded headers handling, and TLS termination.
+
+> [!NOTE]
+>
+> - NetScaler CPX Gateway Controller uses Gateway API resources (Gateway, HTTPRoute) instead of Ingress resources
+> - The gateway class name is `netscaler-gateway-class` and the gateway name is configurable (default: `netscaler-gateway`)
+> - NetScaler CPX automatically configures X-Forwarded headers for HTTP traffic
+> - The Gateway is configured with HTTP listener (port 80) for consistency with other gateway controllers
+> - For production deployments with HTTPS, you can modify the Gateway listener to use port 443 with TLS termination
+
+1. Install Gateway API CRDs:
+
+   ```bash
+   kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+   ```
+
+2. Install NetScaler CPX Gateway Controller:
+
+   ```bash
+   DATAPLANE_NAME=<dpname>
+   MACHINE_IP=<your-machine-private-ip>
+   GATEWAY_NS=ingress
+   GATEWAY_NAME=netscaler-gateway
+   TP_NETSCALER_ENTITY_PREFIX=gwy
+   TP_NETSCALER_GATEWAY_CONTROLLER_NAME=citrix.com/nscpxgw-controller
+   
+   helm repo add netscaler https://netscaler.github.io/netscaler-helm-charts/
+   helm repo update
+   
+   helm upgrade --install cpx-gateway-controller netscaler/netscaler-cpx-with-gateway-controller \
+   --namespace ${GATEWAY_NS} \
+   --create-namespace \
+   --set license.accept=yes \
+   --set gatewayController.entityPrefix="${TP_NETSCALER_ENTITY_PREFIX}" \
+   --set gatewayController.gatewayControllerName="${TP_NETSCALER_GATEWAY_CONTROLLER_NAME}" \
+   --set netscalerCpx.resources.requests.cpu=250m \
+   --set netscalerCpx.resources.requests.memory=512Mi \
+   --set netscalerCpx.resources.limits.cpu=1 \
+   --set netscalerCpx.resources.limits.memory=1Gi \
+   --set netscalerCpx.service.type=LoadBalancer \
+   --set netscalerCpx.service.spec.externalIPs[0]="${MACHINE_IP}" \
+   --set netscalerCpx.service.ports[0].port=80 \
+   --set netscalerCpx.service.ports[0].targetPort=80 \
+   --set netscalerCpx.service.ports[0].protocol=TCP \
+   --set netscalerCpx.service.ports[0].name=http \
+   --set netscalerCpx.service.ports[1].port=443 \
+   --set netscalerCpx.service.ports[1].targetPort=443 \
+   --set netscalerCpx.service.ports[1].protocol=TCP \
+   --set netscalerCpx.service.ports[1].name=https
+   ```
+
+3. Create GatewayClass for NetScaler:
+
+   ```bash
+   kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: netscaler-gateway-class
+spec:
+  controllerName: ${TP_NETSCALER_GATEWAY_CONTROLLER_NAME}
+EOF
+   ```
+
+4. Wait for GatewayClass to be accepted:
+
+   ```bash
+   kubectl wait --timeout=2m gatewayclass/netscaler-gateway-class --for=condition=Accepted
+   ```
+
+5. Create Gateway resource with external IP:
+
+   ```bash
+   kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${GATEWAY_NAME}
+  namespace: ${GATEWAY_NS}
+spec:
+  gatewayClassName: netscaler-gateway-class
+  addresses:
+  - type: IPAddress
+    value: ${MACHINE_IP}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+EOF
+   ```
+
+6. Wait for Gateway to be programmed:
+
+   ```bash
+   kubectl wait --timeout=5m -n ${GATEWAY_NS} gateway/${GATEWAY_NAME} --for=condition=Programmed
+   ```
+
+   - Validate your gateway
+
+      ```
+      $ kubectl get gateway ${GATEWAY_NAME} -n ${GATEWAY_NS}
+      NAME                CLASS                    ADDRESS          PROGRAMMED   AGE
+      netscaler-gateway   netscaler-gateway-class   172.31.20.117    True         2m
+      ```
+
+7. Validate the installation:
+
+   ```bash
+   # Check services
+   kubectl get svc -n ${GATEWAY_NS} -o wide
+   ```
+
+   Expected output:
+   ```
+   $ kubectl get svc -n ingress
+   NAME                    TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)                      AGE
+   cpx-gateway-controller   LoadBalancer   10.152.183.112   172.31.20.117   80:30768/TCP,443:30744/TCP   3m
+   ```
+
+   Check GatewayClass:
+   ```bash
+   kubectl get gatewayclass netscaler-gateway-class
+   ```
+
+   Expected output:
+   ```
+   NAME                       CONTROLLER                         ACCEPTED   AGE
+   netscaler-gateway-class   citrix.com/nscpxgw-controller   True       2m
+   ```
+
+> [!NOTE]
+>
+> - Please note down the **Gateway name: `netscaler-gateway`** and **GatewayClass: `netscaler-gateway-class`**; you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - When using NetScaler CPX Gateway Controller, the Control Tower Data Plane will automatically generate HTTPRoute resources instead of Ingress resources
+> - NetScaler CPX automatically configures X-Forwarded-Proto and X-Forwarded-Port headers for HTTP traffic
+> - WebSocket support is automatically enabled for tibtunnel connections
+
+---
+
 ### OpenShift Routes (for OpenShift/OKD)
 
 If you are running on an OpenShift or OKD cluster, you can use native OpenShift Routes instead of standard Kubernetes Ingress resources. OpenShift Routes provide built-in HAProxy-based routing without requiring additional ingress controller installation.
@@ -258,6 +728,62 @@ If you are running on an OpenShift or OKD cluster, you can use native OpenShift 
 > - The route files are referenced in the [Install Prometheus for Metrics](#install-prometheus-for-metrics) and [Install ElasticSearch for Traces](#install-elasticsearch-for-traces) sections
 > - Follow the same pattern as NGINX and Traefik by selecting the OpenShift route file when applying ingress manifests
 > - Ensure the `host` placeholder `%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%` is updated in the route files before applying
+
+---
+
+### Install HAProxy Ingress Controller
+
+HAProxy is a high-performance, open-source load balancer that can be used as an ingress controller for Kubernetes clusters. It provides advanced load balancing capabilities and is well-suited for production environments.
+
+> [!NOTE]
+>
+> - HAProxy Ingress Controller uses Ingress resources for routing
+> - The ingress class name is configurable (default: `haproxy`)
+> - This setup uses LoadBalancer service type with external IP for bare metal deployments
+
+1. Install kubectl and helm
+2. Ensure Kubernetes cluster is running
+3. Have cluster admin permissions
+
+4. Set your external IP (replace 172.31.20.117 with your actual IP):
+   ```bash
+   export EXTERNAL_IP="172.31.20.117"
+   ```
+
+5. Add Helm Repository and Install HAProxy Ingress Controller:
+   ```bash
+   helm repo add haproxy https://haproxytech.github.io/helm-charts
+   helm repo update
+   ```
+
+2. Install the HAProxy ingress controller with a fixed class name on its own namespace (exposes a LoadBalancer with your host IP via externalIPs on bare metal):
+
+   ```bash
+   DATAPLANE_NAME=<dpname>
+   MACHINE_IP=<your-machine-private-ip>
+   INGRESS_NS=ingress
+   INGRESS_CLASS_NAME=${DATAPLANE_NAME}-haproxy-ingress
+   helm upgrade --install haproxy-ingress haproxy/kubernetes-ingress \
+     --set controller.ingressClassResource.name=${INGRESS_CLASS_NAME} \
+     --set controller.ingressClassResource.isDefaultClass=false \
+     --set controller.service.type=LoadBalancer \
+     --set controller.service.externalIPs[0]=${MACHINE_IP} \
+     --namespace ${INGRESS_NS} \
+     --create-namespace
+   ```
+
+   - Validate your ingress class
+
+      ```
+      $ kubectl get ingressclass
+      NAME                      CONTROLLER                     PARAMETERS   AGE
+      <dpname>-haproxy-ingress   haproxy.org/ingress-controller   <none>       26s
+      ```
+
+> [!NOTE]
+>
+> - Please note down the name of the Ingress Controller class name **`<dpname>-haproxy-ingress`** (example above); you will need this during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
+> - Make sure a host name is assigned to the **`MACHINE_IP`** or create a DNS record for the IP, you will need the host name to set as the **`FQDN`** name during the provisioning wizard of the Control Tower Data Plane on TIBCO Platform
 
 ---
 
@@ -323,7 +849,12 @@ Alternatively, you can also install Prometheus on another machine that allows yo
    - Install an Ingress Controller for exposing the metrics query service of the target Control Tower Data Plane
      - For Nginx, use [prometheus_ingress.yaml](./prometheus_ingress.yaml)
      - For Traefik, use [prometheus_ingress_traefik.yaml](./prometheus_ingress_traefik.yaml)
+     - For HAProxy, use [prometheus_ingress_haproxy.yaml](./prometheus_ingress_haproxy.yaml)
      - For OpenShift, use [prometheus_ingress_openshift.yaml](./prometheus_ingress_openshift.yaml)
+     - For NGINX Gateway Fabric, use [prometheus_httproute.yaml](./prometheus_httproute.yaml)
+     - For Traefik Gateway Controller, use [prometheus_httproute.yaml](./prometheus_httproute.yaml)
+     - For Istio Gateway Controller, use [prometheus_httproute_istio.yaml](./prometheus_httproute_istio.yaml)
+     - For NetScaler CPX Gateway, use [prometheus_httproute_netscaler.yaml](./prometheus_httproute_netscaler.yaml) or [prometheus_ingress_netscaler.yaml](./prometheus_ingress_netscaler.yaml)
      - Ensure `ingressClassName`, `namespace` and `host` placeholders are updated accordingly
         - The ingress for Prometheus allows other Control Tower Data Planes running outside the cluster to query
         - This may create a public endpoint with no authentication required, depending on your ingress controller and machine network configuration
@@ -332,9 +863,41 @@ Alternatively, you can also install Prometheus on another machine that allows yo
         # Choose one manifest matching your ingress controller
         PROM_INGRESS_FILE=prometheus_ingress.yaml               # Nginx
         # PROM_INGRESS_FILE=prometheus_ingress_traefik.yaml     # Traefik
+        # PROM_INGRESS_FILE=prometheus_ingress_haproxy.yaml     # HAProxy
         # PROM_INGRESS_FILE=prometheus_ingress_openshift.yaml   # OpenShift
         kubectl apply -f ${PROM_INGRESS_FILE}
         ```
+
+   > [!NOTE]
+   >
+   > **For Gateway Controllers (NGINX Gateway Fabric, Traefik Gateway Controller, or Istio Gateway Controller):**
+   > - Use HTTPRoute resources instead of Ingress
+   > - Apply with placeholder replacement:
+   >   ```bash
+   >   # NGINX Gateway Fabric
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/nginx-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/nginx-gateway/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       prometheus_httproute.yaml | kubectl apply -f -
+   >   
+   >   # Traefik Gateway Controller  
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/traefik-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/traefik-gateway/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       prometheus_httproute.yaml | kubectl apply -f -
+   >   
+   >   # Istio Gateway Controller
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/<dpname>-istio-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/istio-gateway/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       prometheus_httproute_istio.yaml | kubectl apply -f -
+   >   
+   >   # NetScaler CPX Gateway Controller
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/netscaler-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/ingress/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       prometheus_httproute_netscaler.yaml | kubectl apply -f -
+   >   ```
 
    - Check the connectivity with the following:
 
@@ -400,18 +963,55 @@ If you do not have an existing ElasticSearch server server already installed in 
       ```
 
    - Apply the appropriate ingress manifest to ensure the `ingressClassName`, `namespace` and `host` are set properly
-      - For Nginx, use [elasticsearch_ingress.yaml](./elasticsearch_ingress.yaml)
-      - For Traefik, use [elasticsearch_ingress_traefik.yaml](./elasticsearch_ingress_traefik.yaml)
-      - For OpenShift, use [elasticsearch_ingress_openshift.yaml](./elasticsearch_ingress_openshift.yaml)
+     - For Nginx, use [elasticsearch_ingress.yaml](./elasticsearch_ingress.yaml)
+     - For Traefik, use [elasticsearch_ingress_traefik.yaml](./elasticsearch_ingress_traefik.yaml)
+     - For HAProxy, use [elasticsearch_ingress_haproxy.yaml](./elasticsearch_ingress_haproxy.yaml)
+     - For OpenShift, use [elasticsearch_ingress_openshift.yaml](./elasticsearch_ingress_openshift.yaml)
+     - For NGINX Gateway Fabric, use [elasticsearch_httproute.yaml](./elasticsearch_httproute.yaml)
+     - For Traefik Gateway Controller, use [elasticsearch_httproute.yaml](./elasticsearch_httproute.yaml)
+     - For Istio Gateway Controller, use [elasticsearch_httproute_istio.yaml](./elasticsearch_httproute_istio.yaml)
+     - For NetScaler CPX Gateway, use [elasticsearch_httproute_netscaler.yaml](./elasticsearch_httproute_netscaler.yaml) or [elasticsearch_ingress_netscaler.yaml](./elasticsearch_ingress_netscaler.yaml)
       - The ingress for ElasticSearch allows other Control Tower Data Planes running outside the cluster to query
 
       ```bash
       # Choose one manifest matching your ingress controller
       ES_INGRESS_FILE=elasticsearch_ingress.yaml                 # Nginx
       # ES_INGRESS_FILE=elasticsearch_ingress_traefik.yaml       # Traefik
+      # ES_INGRESS_FILE=elasticsearch_ingress_haproxy.yaml       # HAProxy
       # ES_INGRESS_FILE=elasticsearch_ingress_openshift.yaml     # OpenShift
       kubectl apply -f ${ES_INGRESS_FILE}
       ```
+
+   > [!NOTE]
+   >
+   > **For Gateway Controllers (NGINX Gateway Fabric, Traefik Gateway Controller, or Istio Gateway Controller):**
+   > - Use HTTPRoute resources instead of Ingress
+   > - Apply with placeholder replacement:
+   >   ```bash
+   >   # NGINX Gateway Fabric
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/nginx-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/nginx-gateway/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       elasticsearch_httproute.yaml | kubectl apply -f -
+   >   
+   >   # Traefik Gateway Controller  
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/traefik-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/traefik-gateway/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       elasticsearch_httproute.yaml | kubectl apply -f -
+   >   
+   >   # Istio Gateway Controller
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/<dpname>-istio-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/istio-gateway/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       elasticsearch_httproute_istio.yaml | kubectl apply -f -
+   >   
+   >   # NetScaler CPX Gateway Controller
+   >   sed -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAME%%/netscaler-gateway/g' \
+   >       -e 's/%%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%/ingress/g' \
+   >       -e 's/%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%/your-hostname/g' \
+   >       elasticsearch_httproute_netscaler.yaml | kubectl apply -f -
+   >   ```
    
    - Check the ElasticSearch connectivity with the following:
    
