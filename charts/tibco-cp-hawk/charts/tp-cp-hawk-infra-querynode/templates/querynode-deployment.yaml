@@ -127,6 +127,8 @@ spec:
               value: {{ include "tp-hawk-infra-querynode.consts.hawkDbPrefix" . }}rtmonadm
             - name: HAWK_QUERYNODE_DATABASE_ENDPOINT_URL
               value: "$(PGHOST):$(PGPORT)"
+            - name: CP_MONITORING_SERVICE_HOST_PORT
+              value: {{ include "tp-hawk-infra-querynode.consts.monitoringService" . }}  
             {{- if eq .Values.global.external.db_ssl_mode "verify-full" }}
             - name: datasource_tls_cacert_file
               value: {{ .Values.global.external.db_ssl_root_cert }}
@@ -150,7 +152,7 @@ spec:
               name: rest-querynode
           readinessProbe:
             httpGet:
-              path: /docs
+              path: /api/v2/health
               port: rest-querynode
               scheme: HTTP
             initialDelaySeconds: {{ .Values.querynode.readinessInitialDelaySeconds }}
@@ -160,7 +162,7 @@ spec:
             successThreshold: {{ .Values.querynode.readinessSuccessThreshold }}
           livenessProbe:
             httpGet:
-              path: /docs
+              path: /api/v2/health
               port: rest-querynode
               scheme: HTTP
             initialDelaySeconds: {{ .Values.querynode.livenessInitialDelaySeconds }}
