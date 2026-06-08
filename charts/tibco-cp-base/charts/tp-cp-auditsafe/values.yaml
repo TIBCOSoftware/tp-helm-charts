@@ -185,7 +185,25 @@ probes:
 
 image:
   pullPolicy: IfNotPresent
-  tag: 683
+  tag: 778
 
 tibcoRouter:
   create: true
+
+checkPermissionEngine:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"
+
+securityContext:
+  # It specifies that privilege escalation is not allowed for security reasons.
+  # Additionally, it drops all capabilities, which is a common security practice to minimize potential risks.
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

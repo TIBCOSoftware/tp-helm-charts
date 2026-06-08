@@ -4,5 +4,5 @@
   in the license file that is distributed with this file.
 */}}
 
-{{- define "identity-management.generated.buildNumber" }}3334{{end -}}
-{{- define "identity-management.generated.buildTimestamp" }}04-09-26_11.34.00_AM{{end -}}
+{{- define "identity-management.generated.buildNumber" }}3560{{end -}}
+{{- define "identity-management.generated.buildTimestamp" }}06-03-26_10.30.00_AM{{end -}}

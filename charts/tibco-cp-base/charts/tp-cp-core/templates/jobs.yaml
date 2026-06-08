@@ -45,6 +45,12 @@ spec:
         {{- end }}
         image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
         imagePullPolicy: IfNotPresent
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with (index .Values.resources "db-schema-management") }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
         env:
         - name: DB_PREFIX
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
@@ -172,6 +178,12 @@ spec:
         {{- end }}
         image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
         imagePullPolicy: IfNotPresent
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        {{- with (index .Values.resources "security-certs") }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
         workingDir: /tmp # Use tmp folder which is mounted to this container and is writable
         env:
         - name: TSC_CONFIG_LOCATION

@@ -69,16 +69,6 @@
 {{- define "tp-cp-email-service.consts.component" }}cp{{ end -}}
 {{/* Team we're a part of. */}}
 {{- define "tp-cp-email-service.consts.team" }}tp-cp{{ end -}}
-
-{{- define "tp-cp-email-service.consts.emailServerConfig" -}}
-  {{- $emailServerConfig := "" }}
-  {{- $emailServerType := .Values.global.external.emailServerType -}}
-  {{- if $emailServerType }}
-    {{- $emailServerConfig = get .Values.global.external.emailServer $emailServerType | toJson }}
-  {{- end }}
-  {{ $emailServerConfig }}
-{{- end -}}
-
 {{- define "cp-core-configuration.service-account-name" }}
 {{- if empty .Values.global.tibco.serviceAccount -}}
    {{- "control-plane-sa" }}

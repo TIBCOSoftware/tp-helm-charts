@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.17.0",
+      "capabilityVersion": "1.18.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
@@ -227,6 +227,9 @@ data:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
                             from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
                         labels:
                           - tag_name: app_id
                             key: platform.tibco.com/app-id
@@ -266,6 +269,9 @@ data:
                         annotations:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
                             from: pod
                         labels:
                           - tag_name: app_id
@@ -654,6 +660,9 @@ data:
                         - from: pod
                           key: platform.tibco.com/connectors
                           tag_name: connectors
+                        - from: pod
+                          key: platform.tibco.com/tags
+                          tag_name: app_tags
                         labels:
                         - from: pod
                           key: platform.tibco.com/app-id
@@ -694,6 +703,9 @@ data:
                         - from: pod
                           key: platform.tibco.com/connectors
                           tag_name: connectors
+                        - from: pod
+                          key: platform.tibco.com/tags
+                          tag_name: app_tags
                         labels:
                         - from: pod
                           key: platform.tibco.com/app-id
@@ -750,6 +762,9 @@ data:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
                             from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
                         labels:
                           - tag_name: app_id
                             key: platform.tibco.com/app-id
@@ -796,6 +811,9 @@ data:
                         annotations:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
                             from: pod
                         labels:
                           - tag_name: app_id
@@ -1024,7 +1042,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.17.0"
+          value: "1.18.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

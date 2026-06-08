@@ -6,8 +6,8 @@ apiVersion: v2
 name: tibco-cp-base
 description: TIBCO Platform base chart
 type: application
-version: 1.17.0
-appVersion: "1.17.0"
+version: 1.18.0-alpha.101
+appVersion: "1.18.0"
 keywords:
   - tibco-platform
   - platform
@@ -17,29 +17,29 @@ annotations:
   app.helm.sh/name: tibco-cp-base
 dependencies:
   - name: tp-cp-infra
-    version: "1.17.*"
+    version: "1.18.*"
   - name: hybrid-proxy
-    version: "1.17.*"
+    version: "1.18.*"
     condition: global.tibco.hybridConnectivity.enabled
   - name: resource-set-operator
-    version: "1.17.*"
+    version: "1.18.*"
     condition: global.tibco.hybridConnectivity.enabled
   - name: router-operator
-    version: "1.17.*"
+    version: "1.18.*"
   - name: otel-collector
     version: "0.116.*"
     condition: otel-collector.enabled
   - name: tp-cp-configuration
-    version: "1.17.*"
+    version: "1.18.*"
   - name: tp-cp-core
-    version: "1.17.*"
+    version: "1.18.*"
   - name: tp-cp-core-finops
-    version: "1.17.*"
+    version: "1.18.*"
   - name: tp-cp-o11y
-    version: "1.17.*"
+    version: "1.18.*"
     condition: tp-cp-o11y.enabled
   - name: tp-cp-integration-common
-    version: "1.17.*"
+    version: "1.18.*"
     condition: tp-cp-integration-common.enabled
   - name: tp-cp-cli
     version: "1.17.*"
@@ -48,6 +48,6 @@ dependencies:
   - name: tp-cp-prometheus
     version: "1.17.*"
   - name: tp-cp-auditsafe
-    version: "1.17.*"
+    version: "1.18.*"
   - name: tp-dp-proxy
-    version: "1.17.*"
+    version: "1.18.*"
