@@ -194,6 +194,7 @@ haproxy:
     ingressClass: tibco-dp-{{ .Values.global.tibco.dataPlaneId }}
     extraArgs:
     - --namespace-whitelist={{ .Release.Namespace }}
+    - --disable-ipv6
     service:
       type: ClusterIP
       enabled: true
