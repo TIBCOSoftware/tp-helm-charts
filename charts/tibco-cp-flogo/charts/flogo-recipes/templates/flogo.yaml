@@ -13,13 +13,13 @@ data:
   version.json: |
     {
       "capabilityVersion": {{ .Chart.AppVersion | quote }},
-      "minCPVersion": "1.15.0",
+      "minCPVersion": "1.18.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.15.0",
+        "dp-core-infrastructure": "1.18.0",
         "dp-configure-namespace": "1.15.0"
       }
     }
@@ -73,7 +73,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.17.11"
+          version: "1.18.4"
           repository:
             chartMuseum:
               host: ${HELM_REPO}

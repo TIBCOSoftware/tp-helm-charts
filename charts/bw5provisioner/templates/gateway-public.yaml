@@ -37,7 +37,11 @@ spec:
           replacePrefixMatch: /
     - type: RequestHeaderModifier
       requestHeaderModifier:
+      {{- if eq .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName "NetScaler" }}
+        add:
+      {{- else }}
         set:
+      {{- end }}
         - name: X-Forwarded-Prefix
           value: {{ .Values.publicApi.config.pathPrefix }}
         - name: X-Forwarded-Host
