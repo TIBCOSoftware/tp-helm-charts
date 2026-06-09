@@ -217,7 +217,14 @@ spec:
                  echo "Backing up data from PostgreSQL version $CUR_VERSION before upgrade to {{ .Values.postgresql.image.tag }}"; \
                  kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'rm /bitnami/postgresql/data_backup.sql; rm -rf /bitnami/postgresql/restore_running; rm -rf {{ .Values.postgresql.postgresqlDataDir }}; PGPASSWORD=$PGPASSWORD pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql;'; \
               else \
+                 CUR_TAG_POSTGRES=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.containers[0].image}' | awk -F: '{print $NF}'); \
+                 if [ "$CUR_TAG_POSTGRES" != "{{ .Values.postgresql.image.tag }}" ]; then \
+                   echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.version }}, but tag $CUR_TAG_POSTGRES does not match target tag {{ .Values.postgresql.image.tag }}."; \
+                   DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
+                   kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
+                 else \
                  echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}. No backup needed."; \
+                 fi; \
               fi; \
           {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.backupJob.resources }}
