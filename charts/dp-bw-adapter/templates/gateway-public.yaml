@@ -3,7 +3,7 @@
 # in the license file that is distributed with this file.
 
 {{ if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) -}}
-{{- $fullName := include "bwprovisioner.fullname" . -}}
+{{- $fullName := include "bwadapter.fullname" . -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -28,31 +28,16 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: {{ .Values.publicApi.config.pathPrefix }}/
+        value: {{ .Values.global.cp.resources.gatewayapi.pathPrefix }}/
     filters:
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-      {{- if eq .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName "NetScaler" }}
-        add:
-      {{- else }}
-        set:
-      {{- end }}
-        - name: X-Forwarded-Prefix
-          value: {{ .Values.publicApi.config.pathPrefix }}
-        - name: X-Forwarded-Host
-          value: {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
-        - name: X-Forwarded-Port
-          value: "443"
-        - name: X-Forwarded-Proto
-          value: "https"
     backendRefs:
     - name: {{ $fullName }}
-      port: {{ $.Values.publicApiService.targetPort }}
+      port: {{ $.Values.service.targetPort }}
       weight: 100
 
 ---
@@ -60,15 +45,15 @@ spec:
 apiVersion: networking.gke.io/v1
 kind: HealthCheckPolicy
 metadata:
-  name: {{ include "bwprovisioner.fullname" . }}
+  name: {{ include "bwadapter.fullname" . }}
 spec:
-  {{- with $.Values.publicApi.gke.healthCheckPolicy }}
+  {{- with $.Values.global.cp.resources.gatewayapi.gke.healthCheckPolicy }}
     {{- toYaml . | nindent 2 }}
   {{- end }}
   targetRef:
     group: ""
     kind: Service
-    name: {{ include "bwprovisioner.fullname" . }}
+    name: {{ include "bwadapter.fullname" . }}
 
 {{- end }}
 {{- end }}

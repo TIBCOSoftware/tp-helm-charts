@@ -12,14 +12,14 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.17.0",
-      "minCPVersion": "1.15.0",
+      "capabilityVersion": "1.18.0",
+      "minCPVersion": "1.18.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwadapter.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwadapter.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.15.0",
+        "dp-core-infrastructure": "1.18.0",
         "dp-configure-namespace": "1.15.0"
       }
     }
@@ -43,7 +43,15 @@ data:
             "type": "Ingress Controller",
             "required": true,
             "resourceId": "INGRESS",
-            "resourceType": "PLATFORM"
+            "resourceType": "PLATFORM",
+            "otherResourceIds": ["GATEWAYAPI"]
+          },
+          {
+            "type": "GatewayAPI Controller",
+            "required": true,
+            "resourceId": "GATEWAYAPI",
+            "resourceType": "PLATFORM",
+            "otherResourceIds": ["INGRESS"]
           }
         ]
       }
@@ -53,7 +61,7 @@ data:
       helmCharts:
         - name: dp-bw-adapter
           namespace: ${NAMESPACE}
-          version: "1.17.3"
+          version: "1.18.4"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -62,7 +70,7 @@ data:
                 global:
                   bwadapter:
                     image:
-                      tag: 78
+                      tag: 83
           flags:
             install: true
             createNamespace: false
@@ -115,7 +123,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.17.0"
+          value: "1.18.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

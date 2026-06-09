@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.2
+          tag: 5.0.6
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -48,7 +48,7 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 170-distroless
+  tag: 175-distroless
   pullPolicy: IfNotPresent
 
 debug:
@@ -277,13 +277,13 @@ bwPluginsJobB:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bc:
     tags:
-      - tag: 6.3.1.v12.1-tci-2.0
+      - tag: 6.4.0.v25.2-tci-2.0
         metadata:
-          displayVersion: "6.3.1"
+          displayVersion: "6.4.0"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-businessconnect"
-          releaseDate: "January 2023"
-          supportedBWVersions: ""
-          supportedBWCEVersions: ""
+          releaseDate: "April 2026"
+          supportedBWVersions: "6.12.0 - 6.12.x"
+          supportedBWCEVersions: "2.9.2 - 2.9.x"
           endOfSupportDate: ""
   tci-bw-plugin-amazons3:
     tags:
@@ -543,11 +543,11 @@ bwPluginsJobE:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-firefly:
     tags:
-      - tag: 8.1.1.v5.0.1-tci-2.0
+      - tag: 8.1.1.v9.1-tci-2.0
         metadata:
-          displayVersion: "8.1.1"
+          displayVersion: "8.1.1 HF1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-activespaces"
-          releaseDate: "August 2025"
+          releaseDate: "April 2026"
           supportedBWVersions: "6.8.0 - 6.12.0"
           supportedBWCEVersions: "2.7.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
@@ -799,7 +799,7 @@ buildtypeImages:
 - name: tp-bwce-buildtype
   extract_image: true
   path: /var/lib/bwce/buildtypes
-  tag: 6.12.0-HF2
+  tag: 6.12.0-HF3
   target_location: bwce/buildtypes
 - name: tp-bwce-buildtype
   extract_image: true
