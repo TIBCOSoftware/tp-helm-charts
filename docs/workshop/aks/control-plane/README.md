@@ -12,7 +12,6 @@ Table of Contents
   * [Export required variables](#export-required-variables)
   * [Install Ingress Controller, Storage classes](#install-ingress-controller-storage-classes)
     * [Install Ingress Controller](#install-ingress-controller)
-      * [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
       * [Install Traefik Ingress Controller](#install-traefik-ingress-controller)
       * [Verify Ingress Class Creation](#verify-ingress-class-creation)
     * [Install Storage Classes](#install-storage-classes)
@@ -112,51 +111,14 @@ It will create the following resources:
 
 ### Install Ingress Controller
 
-You can choose to install Nginx or Traefik as the ingress controller for routing traffic to Control Plane services using Azure load balancer.
-
+Install Traefik as the ingress controller for routing traffic to Control Plane services using Azure load balancer.
 
 > [!IMPORTANT]
 > If you know the DNS domains for Control Plane in advance, rather than creating certificates for the domain 
 > *.${TP_DOMAIN}, you can choose to create the certificates for Control Plane `my` and `tunnel` domains.
 > You can use the same certificate for ingress controller as default certificate.
 > Follow the steps [Pre-requisites to create namespace and service account](#pre-requisites-to-create-namespace-and-service-account) and then [Configure DNS records, Certificates](#configure-dns-records-certificates).
-> Once the certificates are created, please follow with the steps to [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
-
-#### Install Nginx Ingress Controller
-
-The following deployment of Nginx ingress controller creates Azure load balancer.
-
-```bash
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aks-ingress dp-config-aks \
-  --labels layer=1 \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
-clusterIssuer:
-  create: false
-httpIngress:
-  enabled: false
-ingress-nginx:
-  enabled: true
-  controller:
-    service:
-      type: LoadBalancer
-      annotations:
-        external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
-        service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
-      enableHttp: false # disable http 80 port on service and load balancer
-    config:
-      # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/configmap.md to know more about the following configuration options
-      # to support passing the incoming X-Forwarded-* headers to upstreams
-      use-forwarded-headers: "true"
-      # to support large file upload from Control Plane
-      proxy-body-size: "150m"
-      # to set the size of the buffer used for reading the first part of the response received
-      proxy-buffer-size: 16k
-    extraArgs:
-      # set the certificate you have created in ingress-system or Control Plane namespace
-      default-ssl-certificate: ingress-system/tp-certificate-main-ingress
-EOF
-```
+> Once the certificates are created, please follow with the steps to [Install Traefik Ingress Controller](#install-traefik-ingress-controller)
 
 #### Install Traefik Ingress Controller
 
@@ -207,7 +169,7 @@ Use the following command to get the ingress class names.
 ```bash
 $ kubectl get ingressclass
 NAME                                    CONTROLLER                      PARAMETER        AGE
-nginx                            k8s.io/ingress-nginx                      <none>       2m18s
+traefik                            traefik.io/ingress-controller             <none>       2m18s
 ```
 
 > [!IMPORTANT]

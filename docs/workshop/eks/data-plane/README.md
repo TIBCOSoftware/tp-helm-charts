@@ -17,8 +17,7 @@ Table of Contents
       * [If you want to use different domain for services and user apps [OPTIONAL]](#if-you-want-to-use-different-domain-for-services-and-user-apps-optional)
     * [Create Amazon EFS](#create-amazon-efs)
     * [Create Storage Class](#create-storage-class)
-    * [Install Nginx Ingress Controller](#install-nginx-ingress-controller)
-    * [Install Traefik Ingress Controller [OPTIONAL]](#install-traefik-ingress-controller-optional)
+    * [Install Traefik Ingress Controller](#install-traefik-ingress-controller)
     * [Install Kong Ingress Controller [OPTIONAL]](#install-kong-ingress-controller-optional)
       * [Following extra configuration is required to send traces using Kong](#following-extra-configuration-is-required-to-send-traces-using-kong)
   * [Install Observability tools](#install-observability-tools)
@@ -71,7 +70,7 @@ export TP_EBS_ENABLED=true # to enable ebs storage class
 export TP_STORAGE_CLASS=ebs-gp3 # name of ebs storge class
 export TP_EFS_ENABLED=true # to enable efs storage class
 export TP_STORAGE_CLASS_EFS=efs-sc # name of efs storge class
-export TP_INGRESS_CLASS=nginx # name of main ingress class used by capabilities, use 'traefik' for traefik ingress controller
+export TP_INGRESS_CLASS=traefik # name of main ingress class used by capabilities
 export TP_ES_RELEASE_NAME="dp-config-es" # name of dp-config-es release name
 ```
 
@@ -192,79 +191,7 @@ We have some scripts in the recipe to create and setup EFS. The `dp-config-aws` 
 > [!IMPORTANT]
 > You will need to provide this storage class name to TIBCO® Control Plane when you deploy capability.
 
-### Install Nginx Ingress Controller
-* This can be used for both Data Plane Services and Apps
-* Optionally, Nginx Ingress Controller can be used for Data Plane Services and Kong Ingress Controller for App Endpoints
-> [!Note]
-> If you want to use Traefik Ingress Controller instead of Nginx, Please skip this and procceed to [Traefik Ingress Controller ](#install-traefik-ingress-controller-optional) Section 
-```bash
-## following variable is required to send traces using nginx
-## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
-export DP_NAMESPACE="ns" # Replace with your Data Plane namespace
-
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aws-nginx dp-config-aws \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" \
-  --labels layer=1 \
-  --version "^1.0.0" -f - <<EOF
-dns:
-  domain: "${TP_DOMAIN}"
-httpIngress:
-  enabled: true
-  name: nginx
-  backend:
-    serviceName: dp-config-aws-nginx-ingress-nginx-controller
-  annotations:
-    alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
-    # this will be used for external-dns annotation filter
-    kubernetes.io/ingress.class: alb
-ingress-nginx:
-  enabled: true
-  controller:
-    config:
-      # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/configmap.md to know more about the following configuration options
-      # to support passing the incoming X-Forwarded-* headers to upstreams (required by apps swagger)
-      use-forwarded-headers: "true"
-      # to support large file upload from Control Plane
-      proxy-body-size: "150m"
-      # to set the size of the buffer used for reading the first part of the response received
-      proxy-buffer-size: 16k
-## following section is required to send traces using nginx
-## uncomment the below commented section to run/re-run the command, once DP_NAMESPACE is available
-#       enable-opentelemetry: "true"
-#       log-level: debug
-#       opentelemetry-config: /etc/nginx/opentelemetry.toml
-#       opentelemetry-operation-name: HTTP $request_method $service_name $uri
-#       opentelemetry-trust-incoming-span: "true"
-#       otel-max-export-batch-size: "512"
-#       otel-max-queuesize: "2048"
-#       otel-sampler: AlwaysOn
-#       otel-sampler-parent-based: "false"
-#       otel-sampler-ratio: "1.0"
-#       otel-schedule-delay-millis: "5000"
-#       otel-service-name: nginx-proxy
-#       otlp-collector-host: otel-userapp-traces.${DP_NAMESPACE}.svc
-#       otlp-collector-port: "4317"
-#     opentelemetry:
-#       enabled: true
-EOF
-```
-Use the following command to get the ingress class name.
-```bash
-$ kubectl get ingressclass
-NAME    CONTROLLER             PARAMETERS   AGE
-alb     ingress.k8s.aws/alb    <none>       7h12m
-nginx   k8s.io/ingress-nginx   <none>       7h11m
-```
-
-The `nginx` ingress class is the main ingress that DP will use. The `alb` ingress class is used by AWS ALB ingress controller.
-
-> [!IMPORTANT]
-> You will need to provide this ingress class name i.e. nginx to TIBCO® Control Plane when you deploy capability.
-
-
-### Install Traefik Ingress Controller [OPTIONAL]
+### Install Traefik Ingress Controller
 * This can be used for both Data Plane Services and Apps
 * Optionally, Traefik Ingress Controller can be used for Data Plane Services and Kong Ingress Controller for App Endpoints
 ```bash
@@ -580,22 +507,21 @@ kubectl get ingress -n prometheus-system kube-prometheus-stack-grafana -oyaml | 
 The username is `admin`. And Prometheus Operator use fixed password: `prom-operator`.
 
 ###
-> [!IMPORTTANT]
-> Please re-visit the sections [using Nginx](#install-nginx-ingress-controller) or [using Kong]
-> (#following-extra-configuration-is-required-to-send-traces-using-kong), if you want to
-> configure your Ingress Controllers to send traces
+> [!IMPORTANT]
+> Please re-visit the section [using Kong](#following-extra-configuration-is-required-to-send-traces-using-kong), if you want to
+> configure your Ingress Controller to send traces
 
 ## Information needed to be set on TIBCO® Data Plane
 
 You can get BASE_FQDN (fully qualified domain name) by running the following command:
 ```bash
-kubectl get ingress -n ingress-system nginx |  awk 'NR==2 { print $3 }'
+kubectl get ingress -n ingress-system traefik |  awk 'NR==2 { print $3 }'
 ```
 
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
 | VPC_CIDR             | 10.200.0.0/16                                                                    | from EKS recipe                                         |
-| Ingress class name   | nginx                                                                            | used for TIBCO BusinessWorks™ Container Edition                                                     |
+| Ingress class name   | traefik                                                                          | used for TIBCO BusinessWorks™ Container Edition                                                     |
 | Ingress class name (Optional)   | kong                                                                            | used for User App Endpoints                                            |
 | EFS storage class    | efs-sc                                                                           | used for TIBCO BusinessWorks™ Container Edition and TIBCO Enterprise Message Service™ (EMS) EFS storage                                         |
 | EBS storage class    | ebs-gp3                                                                          | used for TIBCO Enterprise Message Service™ (EMS)|

@@ -23,7 +23,6 @@ Table of Contents
 * [TIBCO® Control Plane Deployment](#tibco-control-plane-deployment)
   * [Configure Route53 records, Certificates](#configure-route53-records-certificates)
   * [Install Additional Ingress Controller [OPTIONAL]](#install-additional-ingress-controller-optional)
-    * [Nginx Ingress Controller](#install-nginx-ingress-controller)
     * [Traefik Ingress Controller](#install-traefik-ingress-controller)
   * [Information needed to be set on TIBCO® Control Plane](#information-needed-to-be-set-on-tibco-control-plane)
   * [Export additional variables required for chart values](#export-additional-variables-required-for-chart-values)
@@ -87,7 +86,7 @@ export TP_RDS_PORT="5432" # replace with desired db port
 
 ## Required by external-dns chart
 export TP_MAIN_INGRESS_CONTROLLER=alb
-export TP_INGRESS_CONTROLLER=nginx # This value can be same as TP_MAIN_INGRESS_CONTROLLER, nginx if you're using nginx, or traefik if you're using traefik
+export TP_INGRESS_CONTROLLER=traefik # This value can be same as TP_MAIN_INGRESS_CONTROLLER, traefik if you're using traefik
 
 ## Required for configuring Logserver for TIBCO Control Plane services
 export TP_LOGSERVER_ENDPOINT="" # logserver endpoint
@@ -385,81 +384,6 @@ It will create the following resources:
 * a main ingress object which will be able to create AWS Application Load Balancer (ALB) and act as an ingress controller for TIBCO Control Plane cluster
 * annotation for external-dns to create DNS record for the main ingress [external-dns chart is already deployed while installing [Install External DNS](#install-external-dns)]
 
-### Install Nginx Ingress Controller
-```bash
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aws-nginx dp-config-aws \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" \
-  --labels layer=1 \
-  --version "^1.0.0" -f - <<EOF
-dns:
-  domain: "${TP_MY_DOMAIN}"
-httpIngress:
-  enabled: true
-  name: nginx
-  backend:
-    serviceName: dp-config-aws-nginx-ingress-nginx-controller
-  annotations:
-    alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
-    # this is to support 1.3 TLS for ALB, Please refer AWS doc: https://aws.amazon.com/about-aws/whats-new/2023/03/application-load-balancer-tls-1-3/
-    alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
-    # this will be used for external-dns annotation filter
-    kubernetes.io/ingress.class: alb
-ingress-nginx:
-  enabled: true
-  controller:
-    config:
-      # refer: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/configmap.md to know more about the following configuration options
-      # to support passing the incoming X-Forwarded-* headers to upstreams
-      use-forwarded-headers: "true"
-      # to support large file upload from Control Plane
-      proxy-body-size: "150m"
-      # to set the size of the buffer used for reading the first part of the response received
-      proxy-buffer-size: 16k
-EOF
-```
-
-You can optionally use the same ingress controller for tunnel traffic, as well. To do so, you will need to create another ingress object which sends the traffic to nginx service. This means, the helm chart `dp-config-aws` needs to be re-deployed with different release-name. This is to ensure that the ingress for tunnel domain is created. (The alternative to this is using a load balancer service)
-
-```bash
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ingress-system dp-config-aws-tunnel dp-config-aws \
-  --repo "${TP_TIBCO_HELM_CHART_REPO}" \
-  --labels layer=1 \
-  --version "^1.0.0" -f - <<EOF
-dns:
-  domain: "${TP_TUNNEL_DOMAIN}"
-httpIngress:
-  enabled: true
-  name: nginx-tun
-  backend:
-    serviceName: dp-config-aws-ingress-nginx-controller
-  annotations:
-    # keeping the same group.name ensures only one ALB is created
-    alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
-    # this is to support 1.3 TLS for ALB, Please refer AWS doc: https://aws.amazon.com/about-aws/whats-new/2023/03/application-load-balancer-tls-1-3/
-    alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
-    # this will be used for external-dns annotation filter
-    kubernetes.io/ingress.class: alb
-# you don't need to deploy the ingress controller again
-ingress-nginx:
-  enabled: false
-EOF
-```
-
-
-Use the following command to get the ingress class name.
-```bash
-$ kubectl get ingressclass
-NAME    CONTROLLER             PARAMETERS   AGE
-alb     ingress.k8s.aws/alb    <none>       7h12m
-nginx   k8s.io/ingress-nginx   <none>       7h11m
-```
-
-> [!IMPORTANT]
-> You will need to provide this ingress class name i.e. nginx to TIBCO Control Plane.
 
 ### Install Traefik Ingress Controller
 ```bash
@@ -536,7 +460,7 @@ traefik   traefik.io/ingress-controller   <none>       7h11m
 | Name                 | Sample value                                                                     | Notes                                                                     |
 |:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
 | VPC_CIDR             | 10.180.0.0/16                                                                    | from EKS recipe                                                                                 |
-| Ingress class name   | alb / nginx / traefik                                                                         | used for TIBCO Control Plane                                                 |
+| Ingress class name   | alb / traefik                                                                         | used for TIBCO Control Plane                                                 |
 | EFS storage class    | efs-sc                                                                           | used for TIBCO Control Plane                                                                   |
 | EKS Default storage class    | gp2                                                                           | Not recommended for TIBCO Control Plane                                                                |
 | RDS DB instance resource arn (if created using script) | arn:aws:rds:\<TP_CLUSTER_REGION\>:\<AWS_ACCOUNT_ID\>:db:${TP_CLUSTER_NAME}-db   | used for TIBCO Control Plane |

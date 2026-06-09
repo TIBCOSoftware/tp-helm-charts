@@ -1,0 +1,26 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: prometheus-httproute
+  namespace: prometheus
+spec:
+  parentRefs:
+  - name: %%REPLACE_WITH_YOUR_GATEWAY_NAME%%
+    namespace: %%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%
+    sectionName: http
+  hostnames:
+  - "%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+          value: /o11y/metrics-server
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: prometheus-server
+      port: 80

@@ -1,0 +1,37 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: istio-elastic
+  namespace: elastic
+spec:
+  parentRefs:
+  - name: %%REPLACE_WITH_YOUR_GATEWAY_NAME%%
+    namespace: %%REPLACE_WITH_YOUR_GATEWAY_NAMESPACE%%
+    sectionName: http
+  hostnames:
+  - "%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /o11y/traces-server/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Forwarded-Host
+          value: "%%REPLACE_ME_WITH_MACHINE_HOST_NAME%%"
+        - name: X-Forwarded-Port
+          value: "443"
+        - name: X-Forwarded-Proto
+          value: "https"
+        - name: X-Forwarded-Prefix
+          value: "/o11y/traces-server"
+    backendRefs:
+    - name: elasticsearch-master
+      port: 9200
