@@ -28,7 +28,11 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        {{- if eq .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName "nginx" }}
+        value: {{ .Values.ingress.pathPrefix }}
+        {{- else }}
         value: {{ .Values.ingress.pathPrefix }}/
+        {{- end }}
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -37,7 +41,11 @@ spec:
           replacePrefixMatch: /
     - type: RequestHeaderModifier
       requestHeaderModifier:
+      {{- if eq .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName "NetScaler" }}
+        add:
+      {{- else }}
         set:
+      {{- end }}
         - name: X-Forwarded-Prefix
           value: {{ .Values.ingress.pathPrefix }}
         - name: X-Forwarded-Host
