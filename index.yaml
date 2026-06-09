@@ -8955,6 +8955,24 @@ entries:
     version: 1.13.0-alpha.26
   tibco-cp-devhub:
   - apiVersion: v2
+    appVersion: 1.18.0
+    created: "2026-06-09T08:09:17.942152783Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.18.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.18.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: 63187fda7dbdd60184d036909da83d7452481b5768af779497d078076e51b553
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.18.0-alpha.13/tibco-cp-devhub-1.18.0-alpha.13.tgz
+    version: 1.18.0-alpha.13
+  - apiVersion: v2
     appVersion: 1.17.0
     created: "2026-05-11T10:25:19.784129802Z"
     dependencies:
@@ -9846,6 +9864,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-messaging-1.11.15/tibco-cp-messaging-1.11.15.tgz
     version: 1.11.15
   tibco-developer-hub:
+  - apiVersion: v2
+    appVersion: 1.18.0
+    created: "2026-06-09T08:09:18.88305854Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 18.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: e3f5c43e50087ee03af515f376e739c9d529067dd91b23add33065beec00e124
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.18.12/tibco-developer-hub-1.18.12.tgz
+    version: 1.18.12
   - apiVersion: v2
     appVersion: 1.17.0
     created: "2026-04-30T12:39:04.353181634Z"
@@ -16993,4 +17031,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2026-06-09T04:34:05.991262817Z"
+generated: "2026-06-09T08:09:18.88431403Z"
