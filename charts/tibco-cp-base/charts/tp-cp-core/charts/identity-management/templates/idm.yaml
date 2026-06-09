@@ -780,44 +780,6 @@ spec:
       config: basicauth
       methods:
       - POST
-  - path: /idm/v1/login-oauth
-    internalPath: /v1/login-oauth
-    port: 7831
-    protocol: http
-    proxies:
-    - listener: virtual
-      config: insecure
-      fqdn: ${TSC_DNS_DOMAIN}
-      methods:
-      - POST
-      enableRedirects: true
-  - path: /idm/v2/login-oauth
-    internalPath: /v2/login-oauth
-    port: 7831
-    protocol: http
-    proxies:
-    - listener: virtual
-      config: insecure
-      fqdn: ${TSC_DNS_DOMAIN}
-      methods:
-      - POST
-      enableRedirects: true
-  - path: /idm/v3/login-oauth
-    internalPath: /v3/login-oauth
-    port: 7831
-    protocol: http
-    proxies:
-    - listener: virtual
-      config: insecure
-      fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS},${TP_CP_WILDCARD_DNS_DOMAIN}
-      methods:
-      - POST
-      enableRedirects: true
-    - listener: intercom
-      config: empty
-      fqdn: ""
-      methods:
-      - POST
   - path: /idm/v1/oauth2/jwks-uri
     internalPath: /v1/oauth2/jwks-uri
     port: 7831
