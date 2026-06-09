@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.17.0",
+      "capabilityVersion": "1.18.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -305,6 +305,9 @@ data:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
                             from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
                         labels:
                           - tag_name: app_id
                             key: platform.tibco.com/app-id
@@ -345,6 +348,9 @@ data:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
                             from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
                         labels:
                           - tag_name: app_id
                             key: platform.tibco.com/app-id
@@ -375,9 +381,9 @@ data:
                       - context: log
                         statements:
                         - set(resource.attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
-                        - set(resource.attributes["pod_namespace"], "") where IsMatch(resource.attributes["app_type"], "bw5")
+                        - set(resource.attributes["pod_namespace"], "") where resource.attributes["app_type"] == "bw5"
                         - set(resource.attributes["pod_name"], resource.attributes["k8s.pod.name"])
-                        - set(resource.attributes["pod_name"], "") where IsMatch(resource.attributes["app_type"], "bw5")
+                        - set(resource.attributes["pod_name"], "") where resource.attributes["app_type"] == "bw5"
                         - set(resource.attributes["pod_uid"], resource.attributes["k8s.pod.uid"])
                         - set(resource.attributes["pod_start_time"], resource.attributes["k8s.pod.start_time"])
                         - set(resource.attributes["workload_type"], "user-app") where IsMatch(resource.attributes["app_type"], "msg-*") or IsMatch(body["host_cloud_type"], "control-tower")
@@ -980,6 +986,9 @@ data:
                         - from: pod
                           key: platform.tibco.com/connectors
                           tag_name: connectors
+                        - from: pod
+                          key: platform.tibco.com/tags
+                          tag_name: app_tags
                         labels:
                         - from: pod
                           key: platform.tibco.com/app-id
@@ -1020,6 +1029,9 @@ data:
                         - from: pod
                           key: platform.tibco.com/connectors
                           tag_name: connectors
+                        - from: pod
+                          key: platform.tibco.com/tags
+                          tag_name: app_tags
                         labels:
                         - from: pod
                           key: platform.tibco.com/app-id
@@ -1076,6 +1088,9 @@ data:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
                             from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
+                            from: pod
                         labels:
                           - tag_name: app_id
                             key: platform.tibco.com/app-id
@@ -1122,6 +1137,9 @@ data:
                         annotations:
                           - tag_name: connectors
                             key: platform.tibco.com/connectors
+                            from: pod
+                          - tag_name: app_tags
+                            key: platform.tibco.com/tags
                             from: pod
                         labels:
                           - tag_name: app_id
@@ -1405,7 +1423,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.17.0"
+          value: "1.18.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

@@ -45,6 +45,16 @@ spec:
     - path:
         type: PathPrefix
         value: /
+    {{- if eq .Values.gatewayRoute.controllerName "netscalercpx" }}
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Forwarded-Proto
+          value: https
+        - name: X-Forwarded-Port
+          value: "443"
+    {{- end }}
     backendRefs:
     - name: {{ include "hybrid-proxy.consts.appName" . }}
       port: 105

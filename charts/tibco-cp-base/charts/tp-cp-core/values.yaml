@@ -67,30 +67,10 @@ global:
     db_secret_name: ""
     environment: "production"
     db_ssl_mode: "disable"
-    fromAndReplyToEmailAddress: "not-set-yet"
-    cronJobReportsEmailAlias: ""
-    platformEmailNotificationCcAddresses: ""
     externalIdpRequestToAddresses: ""
     externalIdpRequestCcAddresses: ""
     cpEncryptionSecretName: "cporch-encryption-secret"
     cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
-    emailServerType: ""
-    emailServer:
-      ses:
-        arn: ""
-      smtp:
-        server: ""
-        port: "25"
-        username: ""
-        password: ""
-      sendgrid:
-        apiKey: ""
-      graph:
-        # Secret should contain all configuration details as either key-value pairs or as a single key containing configuration as a JSON map.
-        # Expected keys: tenant_id, client_id, client_secret (alternative to private_key), private_key (alternative to client_secret), x509_cert (required if private_key provided).
-        clientDetailsSecretName: "client-details-secret"
-        # skipSentFolder: set to true, t, or 1 for even non-sensitive emails to skip the Sent folder.
-        skipSentFolder: "false"
     adminInitialPassword: ""
     storage:
       pvcName: "control-plane-pvc"
@@ -136,3 +116,19 @@ checkPodDependencies:
     limits:
       cpu: "30m"
       memory: "40Mi"
+      
+resources:
+  db-schema-management:
+    requests:
+      cpu: 25m
+      memory: 20Mi
+    limits:
+      cpu: 50m
+      memory: 40Mi
+  security-certs:
+    requests:
+      cpu: 25m
+      memory: 20Mi
+    limits:
+      cpu: 50m
+      memory: 40Mi

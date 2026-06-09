@@ -315,6 +315,8 @@ spec:
               key: TP_CP_ORCH_HOST
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
+        - name: DB_STATEMENT_TIMEOUT_IN_MILLISECONDS
+          value: "{{ .Values.global.tibco.dbStatementTimeoutInMilliseconds }}"
         volumeMounts:
         - name: cp-core-config
           mountPath: /tmp/private/tsc/config

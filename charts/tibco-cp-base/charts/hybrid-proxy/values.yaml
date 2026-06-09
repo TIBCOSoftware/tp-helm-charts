@@ -44,7 +44,7 @@ hpa:
 
 image:
   name: infra-hybrid-proxy
-  tag: 115-distroless
+  tag: 121-distroless
   pullPolicy: IfNotPresent
 
 ports:
@@ -141,14 +141,17 @@ ingress:
 # IMPORTANT: Gateway API CRDs must be installed in the cluster before enabling this feature
 # Install with: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
 #
-# Example configuration for control plane  with NGINX Gateway Fabric:
+# Example configuration for control plane with NGINX Gateway Fabric:
 gatewayRoute:
   enabled: false
+  # controllerName specifies the gateway controller type for controller-specific behavior (e.g. header injection).
+  # Supported values: netscalercpx (adds X-Forwarded-Proto/X-Forwarded-Port headers), traefik, nginx
+  # controllerName: ""
 #   parentRefs:
 #     - name: gateway
-#       namespace: cp1-ns
+#       namespace: <gateway-namespace>
 #   hostnames:
-#     - "*.hybrid-proxy.example.com"
+#     - "hybrid-proxy.example.com"
 #   rules:
 #   - matches:
 #     - path:
