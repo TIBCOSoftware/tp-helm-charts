@@ -1,0 +1,29 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if eq .Values.global.cp.resources.ingress.ingressController "haProxy" -}}
+{{- $fullName := include "bwadapter.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/path-rewrite: {{ .Values.global.cp.resources.ingress.pathPrefix }}/(.*) /\1
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $fullName }}-public-haproxy
+spec:
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ $.Values.service.targetPort }}
+        path: {{ .Values.global.cp.resources.ingress.pathPrefix }}/
+        pathType: Prefix
+{{- end }}

@@ -30,6 +30,25 @@ global:
         ingressClassName: ""
         ingressController: ""
         pathPrefix: /teaa
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
+        pathPrefix: /teaa
+        gke:
+          healthCheckPolicy:
+            default:
+              checkIntervalSec: 20
+              timeoutSec: 10
+              healthyThreshold: 1
+              unhealthyThreshold: 3
+              config:
+                type: HTTP
+                httpHealthCheck:
+                  port: 7814
+                  requestPath: /v1/readiness
 
     logging:
       # The fluentbit configuration section.
@@ -42,7 +61,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 5.0.2
+          tag: 5.0.6
         resources:
           requests:
             cpu: 10m

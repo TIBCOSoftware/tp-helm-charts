@@ -272,6 +272,8 @@ spec:
           value: {{ .Values.bwmcpserver.logLevel }}
         - name: LOG_FILE_PATH
           value: "/tmp/logs/tp-cp-bw-mcpserver.log"
+        - name: CHART_APP_VERSION
+          value: {{ .Chart.AppVersion }}
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:

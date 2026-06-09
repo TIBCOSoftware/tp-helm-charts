@@ -38,7 +38,15 @@ spec:
   - matches:
     - path:
         type: {{ $path.pathType }}
+      {{- if eq $.Values.gateway.controllerName "NetScaler" }}
+        {{- if ne $path.path "/" }}
+        value: {{ $path.path }}/
+        {{- else }}
         value: {{ $path.path }}
+        {{- end }}
+      {{- else }}
+        value: {{ $path.path }}
+      {{- end }}
     filters:
     {{- if $path.filters }}
     {{- toYaml $path.filters | nindent 4 }}
@@ -50,6 +58,19 @@ spec:
           replacePrefixMatch: /
     - type: RequestHeaderModifier
       requestHeaderModifier:
+      {{- if eq $.Values.gateway.controllerName "traefik" }}
+        set:
+        {{- if ne $path.path "/" }}
+        - name: X-Forwarded-Prefix
+          value: {{ $path.path }}
+        {{- end }}
+        - name: X-Forwarded-Host
+          value: {{ $rule.host | quote }}
+        - name: X-Forwarded-Proto
+          value: "https"
+        - name: X-Forwarded-Port
+          value: "443"
+      {{- else }}
         remove:
         - X-Forwarded-Prefix
         - X-Forwarded-Host
@@ -66,6 +87,7 @@ spec:
           value: "https"
         - name: X-Forwarded-Port
           value: "443"
+      {{- end }}
     {{- end }}
     backendRefs:
     - name: {{ include "dp-bw5ce-app.fullname" $dot }}

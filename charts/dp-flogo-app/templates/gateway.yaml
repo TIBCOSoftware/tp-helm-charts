@@ -38,7 +38,15 @@ spec:
   - matches:
     - path:
         type: {{ $path.pathType }}
+      {{- if eq $.Values.gateway.controllerName "NetScaler" }}
+        {{- if ne $path.path "/" }}
+        value: {{ $path.path }}/
+        {{- else }}
         value: {{ $path.path }}
+        {{- end }}
+      {{- else }}
+        value: {{ $path.path }}
+      {{- end }}
     filters:
     {{- if $path.filters }}
     {{- toYaml $path.filters | nindent 4 }}
@@ -50,7 +58,11 @@ spec:
           replacePrefixMatch: /
     - type: RequestHeaderModifier
       requestHeaderModifier:
+      {{- if eq $.Values.gateway.controllerName "NetScaler" }}
+        add:
+      {{- else }}
         set:
+      {{- end }}
         - name: X-Forwarded-Prefix
           value: {{ $path.path }}
         - name: X-Forwarded-Host
