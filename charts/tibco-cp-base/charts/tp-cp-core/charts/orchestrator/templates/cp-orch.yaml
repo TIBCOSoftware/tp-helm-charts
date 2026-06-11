@@ -92,9 +92,6 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
     {{- end }}
-      {{- if ne .Values.global.external.emailServerType "ses" }}
-      automountServiceAccountToken: false
-      {{- end }}
       nodeSelector:
         kubernetes.io/os: linux
       topologySpreadConstraints:
@@ -221,13 +218,6 @@ spec:
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 1
-        {{- if eq  .Values.global.external.emailServerType "graph" }}
-        envFrom:
-        - prefix: GRAPH_
-          secretRef:
-            name: {{ .Values.global.external.emailServer.graph.clientDetailsSecretName }}
-            optional: true
-        {{- end }}
         env:
         - name: IS_CIC2_ENV
           value: "true"
@@ -459,13 +449,22 @@ spec:
               key: {{ .Chart.Name }}.psqlConnectionMaxLifeTime
         - name: POSTGRES_USERNAME
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscorchuser
+        - name: POSTGRES_USER_SUBSCRIPTION_USERNAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: tscorch-postgres-credential
               key: PGPASSWORD
+        - name: POSTGRES_USER_SUBSCRIPTION_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tscutd-postgres-credential
+              key: PGPASSWORD
         - name: POSTGRES_DATABASE_NAME
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscorchdb
+        - name: POSTGRES_USER_SUBSCRIPTION_DATABASE_NAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutdb
         - name: POSTGRES_DATABASE_DRIVER
           value: postgres
         - name: WRITE_POSTGRES_DATABASE_SSL_MODE
@@ -484,10 +483,6 @@ spec:
           value: ""
         - name: READ_POSTGRES_DATABASE_SSL_ROOT_CERT
           value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
-        - name: TSC_BILLING_EMAIL_ALIAS
-          value: {{ (.Values.global.external.cronJobReportsEmailAlias) }}
-        - name: TRANSACTIONAL_EMAIL_CC_ADDRESSES
-          value: {{ (.Values.global.external.platformEmailNotificationCcAddresses) }}
         - name: EXTERNAL_IDP_REQUEST_TO_ADDRESSES
           value: {{ (.Values.global.external.externalIdpRequestToAddresses) }}
         - name: EXTERNAL_IDP_REQUEST_CC_ADDRESSES
@@ -508,8 +503,6 @@ spec:
           value: debug
         - name: EMAIL_SERVICE_SERVICE_TEMPLATE_FOLDER
           value: /usr/tcc/cp-email-service/templates/
-        - name: EMAIL_SERVICE_REPLYTO_ADDRESS
-          value: {{ .Values.global.external.fromAndReplyToEmailAddress | quote }}
         - name: EMAIL_SERVICE_CC_ADDRESS
           value: ""
         - name: TASKRUNNER_TIME_INTERVAL_FOR_EMAIL_SERVICE
@@ -520,17 +513,6 @@ spec:
           value: "2"
         - name: TASKRUNNER_CONCURRENCY_FOR_AWS_SESEMAIL
           value: "2"
-        - name: EMAIL_SERVICE_FROM_ADDRESS
-          value: {{ .Values.global.external.fromAndReplyToEmailAddress | quote }}
-        - name: EMAIL_SERVER_TYPE
-          value: {{ .Values.global.external.emailServerType | quote }}
-        {{- if eq  .Values.global.external.emailServerType "graph" }}
-        - name: SKIP_SENT_FOLDER
-          value: {{ .Values.global.external.emailServer.graph.skipSentFolder | quote }}
-        {{- else }}
-        - name: EMAIL_SERVER_CONFIGURATION
-          value: {{ include "tp-cp-email-service.consts.emailServerConfig" . | quote }}
-        {{- end }}
         - name: EMAIL_SERVICE_ENABLE_ARN
           valueFrom:
             configMapKeyRef:
@@ -540,28 +522,15 @@ spec:
           value: file:///private/tsc/config/emails-templates
         - name: CONFIGURATION_REFRESH_INTERVAL_IN_SECONDS
           value: "3000"
-        {{- if eq  .Values.global.external.emailServerType "sendgrid" }}
-        - name: SENDGRID_SERVICE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: sendgrid-service-api-key
-              key: SENDGRID_SERVICE_API_KEY
-        {{- end }}
         - name: DISABLE_CONFIGURATION_REFRESH
           value: "false"
         - name: CP_CONFIG_LOCATION
           value: /tmp/private/tsc
         - name: TSC_CONFIGURATION_LOCATION_EMAIL_SERVICE
           value: file:///private/tsc/config/emailservice/emailservice.json
-        - name: EMAIL_SERVICE_SMTP_INSECURE_SKIP_VERIFY_TLS
-          value: {{ .Values.global.external.emailServer.smtp.insecureSkipVerifyTls | quote }}
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         volumeMounts:
-        {{- if .Values.global.external.emailServer.smtp.customCertsSecretName }} 
-          - name: smtp-certs
-            mountPath: /etc/tibco/smtp_ssl/
-        {{- end }}
           - name: store-vol
             mountPath: /private/tsc/config
             subPath: tsc/config
@@ -660,13 +629,6 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "tp-cp-orchestrator.consts.appName" . }}-fluentbit-config
-{{- end }}
-{{- if .Values.global.external.emailServer.smtp.customCertsSecretName }}
-        - name: smtp-certs
-          secret:
-            defaultMode: 420
-            secretName: {{ .Values.global.external.emailServer.smtp.customCertsSecretName }}
-            optional: true
 {{- end }}
         - name: logs
           emptyDir: {}
@@ -1001,3 +963,16 @@ spec:
        allowClientCache: false
        allowXFrameOptions: false
        enableRedirects: false
+  - path: /cp-orchestrator/v1/dataplanes/([^/]+)/capabilities/([^/]+)/user-namespaces
+    internalPath: /v1/dataplanes/$1/capabilities/$2/user-namespaces
+    port: 7833
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - GET
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false

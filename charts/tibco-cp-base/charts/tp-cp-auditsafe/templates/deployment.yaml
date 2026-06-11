@@ -51,6 +51,43 @@ spec:
       serviceAccountName: {{ include "tp-cp-auditsafe-web-server.service-account-name" . }}
       securityContext:
         {{- toYaml .Values.auditsafe.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: check-sql-schema-version
+          image: '{{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}/core-cp-scripts:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.checkPermissionEngine.resources | nindent 12 }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_PREFIX
+              value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  {{- if eq .Values.global.tibco.is_replica_region true }}
+                  key: MasterWriterHost
+                  {{- else }}
+                  key: DBHost
+                  {{- end }}
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.global.tibco.tcta.TCTA_DB_CONFIGURATION }}
+                  key: DBPort
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tasdataserver-postgres-credential
+                  key: PGPASSWORD
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              /opt/tibco/tsc/scripts/postgres-helper.bash check-schema-version tasdataserver
       containers:
         - name: auditsafe
           image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}o11y-tas-web-server:{{ .Values.image.tag }}

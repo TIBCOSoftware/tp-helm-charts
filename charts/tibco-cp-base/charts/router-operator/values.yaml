@@ -29,7 +29,7 @@ additionalLabels: {}
 
 image:
   name: infra-router
-  tag: 830-distroless
+  tag: 836-distroless
   pullPolicy: IfNotPresent
 
 ports:
@@ -125,11 +125,14 @@ ingress:
 # Example configuration for control plane instance "cp1" with NGINX Gateway Fabric:
 gatewayRoute:
   enabled: false
+  # controllerName specifies the gateway controller type for controller-specific behavior (e.g. header injection).
+  # Supported values: netscalercpx (adds X-Forwarded-Proto/X-Forwarded-Port headers), traefik, nginx
+  # controllerName: ""
 #   parentRefs:
 #     - name: gateway
-#       namespace: cp1-ns
+#       namespace: <gateway-namespace>
 #   hostnames:
-#     - "*.cp1-my.localhost.dataplanes.pro"
+#     - "router.example.com"
 #   rules:
 #   - matches:
 #     - path:

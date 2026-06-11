@@ -171,6 +171,11 @@ spec:
           successThreshold: 1
           failureThreshold: 1
         env:
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
         - name: TP_CP_USER_SUB_HOST
           valueFrom:
             configMapKeyRef:
@@ -209,8 +214,6 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.scheduleFrequencyForProvisionInfraCapabilitiesJob
-        - name: TSC_BILLING_EMAIL_ALIAS
-          value: {{ (.Values.global.external.cronJobReportsEmailAlias) }}
         - name: TSC_SCHEDULER_AWS_REGION
           valueFrom:
             configMapKeyRef:

@@ -281,6 +281,12 @@ spec:
           value: {{ .Values.monitoringservice.psql.maxidleconnections | quote }}
         - name: PSQL_CONNECTION_MAX_LIFE_TIME
           value: {{ .Values.monitoringservice.psql.maxconnectionlifetime | quote }}
+        - name: DB_STATEMENT_TIMEOUT_IN_MILLISECONDS
+          value: {{ .Values.monitoringservice.psql.statementtimeoutms | quote }}
+        - name: DP_CONNECTIVITY_CACHE_TTL_DURATION
+          value: {{ .Values.monitoringservice.dpConnectivityCacheTtlDuration | quote }}
+        - name: DP_CONNECTIVITY_CACHE_ENABLED
+          value: {{ .Values.monitoringservice.dpConnectivityCacheEnabled | quote }}
         - name: POSTGRES_USERNAME
           value: {{ include "cp-core-configuration.cp-instance-id" . }}_monitoringuser
         - name: POSTGRES_DATABASE_NAME

@@ -109,9 +109,9 @@ global:
       distrolessDebug:
         tag: 13.4
       cpScripts:
-        tag: "9328"
+        tag: "9474"
       fluentbit:
-        tag: 5.0.2
+        tag: 5.0.6
 
   external:
     db_host: ""
@@ -124,22 +124,8 @@ global:
     db_secret_name: "provider-cp-database-credentials"
     environment: "production"
     db_ssl_mode: "disable"
-    fromAndReplyToEmailAddress: ""
-    cronJobReportsEmailAlias: ""
-    platformEmailNotificationCcAddresses: ""
     cpEncryptionSecretName: "cporch-encryption-secret"
     cpEncryptionSecretKey: "CP_ENCRYPTION_SECRET"
-    emailServerType: ""
-    emailServer:
-      ses:
-        arn: "arn:aws:ses:us-east1:123456789012:identity/user@example.com"
-      smtp:
-        server: ""
-        port: "25"
-        username: ""
-        password: ""
-      sendgrid:
-        apiKey: ""
     admin:
       email: ""
       firstname: ""
@@ -258,13 +244,16 @@ hybrid-proxy:
   # Requires Gateway API CRDs: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
   # gatewayRoute:
   #   enabled: true
+  #   # controllerName specifies the gateway controller type for controller-specific behavior (e.g. header injection).
+  #   # Supported values: netscalercpx (adds X-Forwarded-Proto/X-Forwarded-Port headers), traefik, nginx
+  #   # controllerName: ""
   #   parentRefs:
   #     - name: gateway
-  #       namespace: cp1-ns
+  #       namespace: <gateway-namespace>
   #   hostnames:
-  #     - "*.cp1-tunnel.localhost.dataplanes.pro"
+  #     - "hybrid-proxy.example.com"
   #   annotations:
-  #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-tunnel.localhost.dataplanes.pro"
+  #     external-dns.alpha.kubernetes.io/hostname: "hybrid-proxy.example.com"
 
 # Default values for router-operator
 router-operator:
@@ -308,13 +297,16 @@ router-operator:
   # Requires Gateway API CRDs: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
   # gatewayRoute:
   #   enabled: true
+  #   # controllerName specifies the gateway controller type for controller-specific behavior (e.g. header injection).
+  #   # Supported values: netscalercpx (adds X-Forwarded-Proto/X-Forwarded-Port headers), traefik, nginx
+  #   # controllerName: ""
   #   parentRefs:
   #     - name: gateway
-  #       namespace: cp1-ns
+  #       namespace: <gateway-namespace>
   #   hostnames:
-  #     - "*.cp1-my.localhost.dataplanes.pro"
+  #     - "router.example.com"
   #   annotations:
-  #     external-dns.alpha.kubernetes.io/hostname: "*.cp1-my.localhost.dataplanes.pro"
+  #     external-dns.alpha.kubernetes.io/hostname: "router.example.com"
 
 # Default values for resource-set-operator
 resource-set-operator:
