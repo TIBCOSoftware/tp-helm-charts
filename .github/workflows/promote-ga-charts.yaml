@@ -18,6 +18,7 @@ on:
           - tibco-cp-bw
           - tibco-cp-flogo
           - tibco-cp-devhub
+          - tibco-cp-addon-eventprocessing
       pr:
         description: 'PR number or full PR link (e.g. 123 or https://github.com/TIBCOSoftware/tp-helm-charts/pull/123)'
         required: true
@@ -69,7 +70,9 @@ jobs:
           repositories: tp-helm-charts
 
       - name: Export App token to GH_TOKEN
-        run: echo "GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: echo "GH_TOKEN=$TOKEN" >> $GITHUB_ENV
 
       # ── Record start time ────────────────────────────────────────────────
       # Captured immediately after the authorization gate so the audit summary
@@ -200,13 +203,6 @@ jobs:
           fi
 
           STABLE="${BASH_REMATCH[1]}"
-          echo "Target stable (GA) version: $STABLE"
-
-          # Validate derived stable version
-          if ! [[ "$STABLE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Derived stable version '$STABLE' is not valid x.y.z format"
-            exit 1
-          fi
           echo "✅ Version format valid: $ALPHA → $STABLE"
 
           # Alpha release must already exist in GitHub Releases
