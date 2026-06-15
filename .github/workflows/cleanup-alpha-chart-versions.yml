@@ -1,0 +1,700 @@
+name: Cleanup Alpha Chart Versions
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Manual trigger only — restricted to users in CLEANUP_ALLOWED_USERS.
+#
+# Three modes (controlled by input combination):
+#   inventory_only=true  → list all alpha versions across all 5 charts, no changes
+#   dry_run=true         → show what would be deleted for the given scope, no changes
+#   dry_run=false        → delete releases, tags, and gh-pages index.yaml entries
+#
+# Three accepted version input formats:
+#   x.y.z           — all x.y.z-alpha.* versions, one or more charts
+#   x.y.z-a.b.c     — range (both inclusive, start strictly < end), one or more charts
+#   x.y.z-alpha.N   — exact alpha version, exactly one chart
+#
+# Authorization: only users listed in the CLEANUP_ALLOWED_USERS repository
+# variable (comma-separated logins) may trigger this workflow.
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+    inputs:
+      inventory_only:
+        description: 'Show all alpha versions across all charts — ignores all other inputs'
+        type: boolean
+        default: false
+      version_input:
+        description: 'Version scope (not required if inventory_only)  •  1.17.0  •  1.12.0-1.18.0  •  1.17.0-alpha.5 (one chart only)'
+        required: false
+        type: string
+      chart_tibco_cp_base:
+        description: 'Clean up → tibco-cp-base'
+        type: boolean
+        default: false
+      chart_tibco_cp_bw:
+        description: 'Clean up → tibco-cp-bw'
+        type: boolean
+        default: false
+      chart_tibco_cp_flogo:
+        description: 'Clean up → tibco-cp-flogo'
+        type: boolean
+        default: false
+      chart_tibco_cp_devhub:
+        description: 'Clean up → tibco-cp-devhub'
+        type: boolean
+        default: false
+      chart_tibco_cp_addon_eventprocessing:
+        description: 'Clean up → tibco-cp-addon-eventprocessing'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Dry run — show what would be deleted, make no changes  (default: true)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ github.repository }}
+
+    steps:
+
+      # ── 0. Authorization gate ─────────────────────────────────────────────
+      # Checks the triggering actor against the comma-separated list stored in
+      # the CLEANUP_ALLOWED_USERS repository variable. Fails immediately if the
+      # actor is not on the list, preventing any further steps from running.
+      - name: Check authorized actor
+        run: |
+          IFS=',' read -ra ALLOWED <<< "${{ vars.CLEANUP_ALLOWED_USERS }}"
+          for user in "${ALLOWED[@]}"; do
+            [[ "${user// /}" == "${{ github.actor }}" ]] && {
+              echo "✅ ${{ github.actor }} is authorized to run this workflow"
+              exit 0
+            }
+          done
+          echo "❌ ${{ github.actor }} is not authorized to trigger this workflow"
+          echo "   Contact a repository admin to be added to the CLEANUP_ALLOWED_USERS variable"
+          exit 1
+
+      # ── Generate GitHub App token ─────────────────────────────────────────
+      # Reuses the same GitHub App as promote-ga-charts.yaml so that pushes
+      # and PR merges trigger downstream workflows (GITHUB_TOKEN pushes are
+      # suppressed from triggering other workflows).
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.PROMOTE_APP_ID }}
+          private-key: ${{ secrets.PROMOTE_APP_PRIVATE_KEY }}
+          repositories: tp-helm-charts
+
+      - name: Export App token to GH_TOKEN
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: echo "GH_TOKEN=$TOKEN" >> $GITHUB_ENV
+
+      # ── Record start time ─────────────────────────────────────────────────
+      - name: Record start time
+        id: timing
+        run: echo "started_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+      # ── 1. Validate inputs ────────────────────────────────────────────────
+      # inventory_only: exits immediately after setting mode — all other inputs
+      # are ignored.
+      # Three version formats checked in order (specific_alpha first because it
+      # also contains '-', so it must be distinguished from the range format):
+      #   specific_alpha  d.e.f-alpha.N  → exactly one chart required
+      #   range           a.b.c-l.m.n   → start must be strictly less than end
+      #   single_base     x.y.z         → stored as range with FROM==TO
+      - name: Validate inputs
+        id: validate
+        run: |
+          if [[ "${{ inputs.inventory_only }}" == "true" ]]; then
+            echo "mode=inventory" >> $GITHUB_OUTPUT
+            echo "ℹ️  Inventory-only mode — version input and chart selection ignored"
+            exit 0
+          fi
+
+          VERSION="${{ inputs.version_input }}"
+          if [[ -z "$VERSION" ]]; then
+            echo "❌ version_input is required when inventory_only is false"
+            exit 1
+          fi
+
+          VERSION_MODE_LOCAL=""
+
+          if [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-alpha\.([0-9]+)$ ]]; then
+            # ── Format: d.e.f-alpha.N ─────────────────────────────────────────
+            echo "✅ Specific alpha version: $VERSION"
+            VERSION_MODE_LOCAL="specific_alpha"
+            echo "version_mode=specific_alpha"  >> $GITHUB_OUTPUT
+            echo "version_specific=$VERSION"    >> $GITHUB_OUTPUT
+            echo "version_display=$VERSION"     >> $GITHUB_OUTPUT
+
+          elif [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            # ── Format: a.b.c-l.m.n ──────────────────────────────────────────
+            FROM="${BASH_REMATCH[1]}"
+            TO="${BASH_REMATCH[2]}"
+
+            if [[ "$FROM" == "$TO" ]]; then
+              echo "❌ Range start and end are identical ($FROM)"
+              echo "   For a single base version use: $FROM"
+              exit 1
+            fi
+
+            # Strict less-than: FROM must be strictly less than TO
+            SORTED_FIRST=$(printf '%s\n' "$FROM" "$TO" | sort -V | head -n1)
+            if [[ "$SORTED_FIRST" != "$FROM" ]]; then
+              IFS='.' read -r fa fb fc <<< "$FROM"
+              IFS='.' read -r ta tb tc <<< "$TO"
+              if   (( fa > ta )); then echo "❌ Range invalid: major $fa > $ta  ($FROM → $TO)"
+              elif (( fb > tb )); then echo "❌ Range invalid: minor $fb > $tb  ($FROM → $TO)"
+              else                     echo "❌ Range invalid: patch $fc > $tc  ($FROM → $TO)"
+              fi
+              exit 1
+            fi
+
+            echo "✅ Range: $FROM → $TO (inclusive)"
+            VERSION_MODE_LOCAL="range"
+            echo "version_mode=range"               >> $GITHUB_OUTPUT
+            echo "version_from=$FROM"               >> $GITHUB_OUTPUT
+            echo "version_to=$TO"                   >> $GITHUB_OUTPUT
+            echo "version_display=${FROM} – ${TO}"  >> $GITHUB_OUTPUT
+
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # ── Format: x.y.z ────────────────────────────────────────────────
+            # Stored as range with FROM==TO so in_range() matches only x.y.z
+            echo "✅ Single base version: $VERSION  (targets all $VERSION-alpha.* versions)"
+            VERSION_MODE_LOCAL="range"
+            echo "version_mode=range"       >> $GITHUB_OUTPUT
+            echo "version_from=$VERSION"    >> $GITHUB_OUTPUT
+            echo "version_to=$VERSION"      >> $GITHUB_OUTPUT
+            echo "version_display=$VERSION" >> $GITHUB_OUTPUT
+
+          else
+            echo "❌ Invalid format: '$VERSION'"
+            echo "   Accepted formats:"
+            echo "     Single base:    x.y.z           e.g.  1.17.0          (all 1.17.0-alpha.* versions)"
+            echo "     Range:          x.y.z-a.b.c     e.g.  1.12.0-1.18.0   (both inclusive, start < end)"
+            echo "     Specific alpha: x.y.z-alpha.N   e.g.  1.17.0-alpha.5  (exact version, one chart only)"
+            exit 1
+          fi
+
+          SELECTED=""
+          [[ "${{ inputs.chart_tibco_cp_base }}"                   == "true" ]] && SELECTED="$SELECTED tibco-cp-base"
+          [[ "${{ inputs.chart_tibco_cp_bw }}"                     == "true" ]] && SELECTED="$SELECTED tibco-cp-bw"
+          [[ "${{ inputs.chart_tibco_cp_flogo }}"                  == "true" ]] && SELECTED="$SELECTED tibco-cp-flogo"
+          [[ "${{ inputs.chart_tibco_cp_devhub }}"                 == "true" ]] && SELECTED="$SELECTED tibco-cp-devhub"
+          [[ "${{ inputs.chart_tibco_cp_addon_eventprocessing }}"  == "true" ]] && SELECTED="$SELECTED tibco-cp-addon-eventprocessing"
+          SELECTED="${SELECTED# }"
+
+          if [[ -z "$SELECTED" ]]; then
+            echo "❌ No charts selected — check at least one chart checkbox"
+            exit 1
+          fi
+
+          CHART_COUNT=$(echo "$SELECTED" | wc -w)
+          if [[ "$VERSION_MODE_LOCAL" == "specific_alpha" && "$CHART_COUNT" -gt 1 ]]; then
+            echo "❌ Specific alpha version requires exactly one chart selection"
+            echo "   '$VERSION' targets a single exact version — deselect all but one chart"
+            exit 1
+          fi
+
+          echo "✅ Selected charts: $SELECTED"
+          echo "selected_charts=$SELECTED" >> $GITHUB_OUTPUT
+
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "mode=dry_run" >> $GITHUB_OUTPUT
+          else
+            echo "mode=delete" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Fetch shared data ─────────────────────────────────────────────────
+      # Downloads all tags, all releases, and the gh-pages index.yaml into
+      # /tmp once. Both the inventory scan and the scoped scan read from these
+      # files, avoiding redundant API calls.
+      - name: Fetch tags, releases, and index.yaml
+        run: |
+          echo "Fetching all tags..."
+          gh api --paginate "repos/$REPO/tags" --jq '.[].name' | sort > /tmp/all_tags.txt
+          echo "  $(wc -l < /tmp/all_tags.txt) tags"
+
+          echo "Fetching all releases..."
+          gh api --paginate "repos/$REPO/releases" --jq '.[].tag_name' | sort > /tmp/all_releases.txt
+          echo "  $(wc -l < /tmp/all_releases.txt) releases"
+
+          echo "Fetching gh-pages index.yaml..."
+          gh api "repos/$REPO/contents/index.yaml?ref=gh-pages" --jq '.content' \
+            | base64 -d > /tmp/index.yaml
+          echo "  $(wc -l < /tmp/index.yaml) lines in index.yaml"
+
+      # ── 2a. Full inventory scan ───────────────────────────────────────────
+      # Scans all 5 charts regardless of chart selection or version input.
+      # Produces a structured markdown table written to the job summary.
+      # Uses yq to extract versions from index.yaml per chart.
+      # No changes are made.
+      - name: Full inventory scan
+        if: inputs.inventory_only == true
+        run: |
+          ALL_CHARTS="tibco-cp-base tibco-cp-bw tibco-cp-flogo tibco-cp-devhub tibco-cp-addon-eventprocessing"
+          GRAND_TOTAL=0
+
+          {
+            echo "## Alpha Version Inventory"
+            echo ""
+            echo "_All 5 charts · tags, releases, and index.yaml · No version filter applied_"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for CHART in $ALL_CHARTS; do
+            # Alpha versions from tags
+            grep "^${CHART}-" /tmp/all_tags.txt | grep -- "-alpha\." \
+              | sed "s/^${CHART}-//" | sort -V > /tmp/tag_vers.txt
+
+            # Alpha versions from index.yaml (yq env() avoids quoting issues with hyphens)
+            export YQ_CHART="$CHART"
+            yq '.entries[env(YQ_CHART)] // [] | .[].version | select(test("-alpha\\."))' \
+              /tmp/index.yaml 2>/dev/null | sort -V > /tmp/idx_vers.txt
+
+            # Union of both sources
+            sort -uV /tmp/tag_vers.txt /tmp/idx_vers.txt > /tmp/all_vers.txt
+            COUNT=$(wc -l < /tmp/all_vers.txt | tr -d ' ')
+
+            if [[ "$COUNT" -eq 0 ]]; then
+              { echo "### $CHART"; echo "_No alpha versions found_"; echo ""; } >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            GRAND_TOTAL=$(( GRAND_TOTAL + COUNT ))
+            {
+              echo "### $CHART  ($COUNT alpha versions)"
+              echo ""
+              echo "| Version | Tag | Release | index.yaml | Notes |"
+              echo "|---|:---:|:---:|:---:|---|"
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            while read -r VER; do
+              TAG="${CHART}-${VER}"
+              T="❌"; R="❌"; I="❌"; NOTES=""
+              grep -qxF "$TAG" /tmp/all_tags.txt     && T="✅"
+              grep -qxF "$TAG" /tmp/all_releases.txt && R="✅"
+              grep -qxF "$VER" /tmp/idx_vers.txt     && I="✅"
+              [[ "$T" == "✅" && "$R" == "❌" ]] && NOTES="⚠️ tag without release"
+              [[ "$I" == "✅" && "$T" == "❌" ]] && NOTES="${NOTES:+$NOTES · }⚠️ index entry without tag"
+              echo "| \`$VER\` | $T | $R | $I | $NOTES |" >> "$GITHUB_STEP_SUMMARY"
+            done < /tmp/all_vers.txt
+
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          {
+            echo "---"
+            echo "**Total: $GRAND_TOTAL alpha version(s) across all charts**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 2b. Scoped scan ───────────────────────────────────────────────────
+      # Filters to the selected charts and version scope, then checks all
+      # three locations (tag, release, index.yaml) for each version found.
+      # Results are written to /tmp/scan.txt (pipe-separated) and
+      # /tmp/mismatches.txt for use by subsequent steps.
+      #
+      # Format of /tmp/scan.txt:
+      #   chart|version|tag_name|has_tag|has_release|has_index
+      #
+      # specific_alpha mode fails immediately if the version is not found in
+      # any of the three locations — nothing to delete.
+      - name: Scoped scan
+        if: inputs.inventory_only == false
+        id: scan
+        env:
+          VERSION_MODE:     ${{ steps.validate.outputs.version_mode }}
+          VERSION_SPECIFIC: ${{ steps.validate.outputs.version_specific }}
+          VERSION_FROM:     ${{ steps.validate.outputs.version_from }}
+          VERSION_TO:       ${{ steps.validate.outputs.version_to }}
+          SELECTED_CHARTS:  ${{ steps.validate.outputs.selected_charts }}
+        run: |
+          > /tmp/scan.txt
+          > /tmp/mismatches.txt
+
+          # ── in_range: true if base version of $1 is within [VERSION_FROM, VERSION_TO]
+          version_le() {
+            [[ "$1" == "$2" ]] || \
+              [[ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" == "$1" ]]
+          }
+          in_range() {
+            local base="${1%-alpha.*}"
+            version_le "$VERSION_FROM" "$base" && version_le "$base" "$VERSION_TO"
+          }
+
+          # ── Record one entry in scan.txt ──────────────────────────────────
+          record() {
+            local chart="$1" ver="$2"
+            local tag="${chart}-${ver}"
+            local has_tag=false has_release=false has_index=false
+            grep -qxF "$tag"  /tmp/all_tags.txt     && has_tag=true
+            grep -qxF "$tag"  /tmp/all_releases.txt && has_release=true
+            grep -qxF "$ver"  "/tmp/idx_${chart}.txt" 2>/dev/null && has_index=true
+            echo "${chart}|${ver}|${tag}|${has_tag}|${has_release}|${has_index}" >> /tmp/scan.txt
+            [[ "$has_tag" == "true"  && "$has_release" == "false" ]] && \
+              echo "⚠️  ${tag}: tag exists but no release"      >> /tmp/mismatches.txt
+            [[ "$has_index" == "true" && "$has_tag" == "false" ]] && \
+              echo "⚠️  ${chart} ${ver}: in index.yaml but no tag found" >> /tmp/mismatches.txt
+          }
+
+          # Pre-build per-chart index version files for fast lookup
+          for CHART in $SELECTED_CHARTS; do
+            export YQ_CHART="$CHART"
+            yq '.entries[env(YQ_CHART)] // [] | .[].version | select(test("-alpha\\."))' \
+              /tmp/index.yaml 2>/dev/null | sort -V > "/tmp/idx_${CHART}.txt"
+          done
+
+          if [[ "$VERSION_MODE" == "specific_alpha" ]]; then
+            # ── Exact version lookup ──────────────────────────────────────────
+            CHART="$SELECTED_CHARTS"   # validated to be exactly one chart
+            VER="$VERSION_SPECIFIC"
+            TAG="${CHART}-${VER}"
+
+            HAS_TAG=false; HAS_REL=false; HAS_IDX=false
+            grep -qxF "$TAG" /tmp/all_tags.txt                        && HAS_TAG=true
+            grep -qxF "$TAG" /tmp/all_releases.txt                    && HAS_REL=true
+            grep -qxF "$VER" "/tmp/idx_${CHART}.txt" 2>/dev/null      && HAS_IDX=true
+
+            if [[ "$HAS_TAG" == "false" && "$HAS_REL" == "false" && "$HAS_IDX" == "false" ]]; then
+              echo "❌ No records found for $TAG"
+              echo "   Checked $(wc -l < /tmp/all_tags.txt | tr -d ' ') tags," \
+                   "$(wc -l < /tmp/all_releases.txt | tr -d ' ') releases, and index.yaml"
+              echo "   Verify the version exists in the public repo"
+              exit 1
+            fi
+
+            echo "${CHART}|${VER}|${TAG}|${HAS_TAG}|${HAS_REL}|${HAS_IDX}" >> /tmp/scan.txt
+            [[ "$HAS_TAG" == "true"  && "$HAS_REL" == "false" ]] && \
+              echo "⚠️  ${TAG}: tag exists but no release"         >> /tmp/mismatches.txt
+            [[ "$HAS_IDX" == "true"  && "$HAS_TAG" == "false" ]] && \
+              echo "⚠️  ${CHART} ${VER}: in index.yaml but no tag found" >> /tmp/mismatches.txt
+
+          else
+            # ── Range / single-base filter ────────────────────────────────────
+            for CHART in $SELECTED_CHARTS; do
+              # Versions from tags in range
+              grep "^${CHART}-" /tmp/all_tags.txt | grep -- "-alpha\." \
+                | sed "s/^${CHART}-//" | while read -r VER; do
+                  in_range "$VER" && echo "$VER"
+                done | sort -V > /tmp/range_tag_vers.txt
+
+              # Versions from index.yaml in range
+              while read -r VER; do
+                in_range "$VER" && echo "$VER"
+              done < "/tmp/idx_${CHART}.txt" | sort -V > /tmp/range_idx_vers.txt
+
+              # Union
+              sort -uV /tmp/range_tag_vers.txt /tmp/range_idx_vers.txt \
+                | while read -r VER; do
+                    record "$CHART" "$VER"
+                  done
+            done
+          fi
+
+          TOTAL=$(wc -l < /tmp/scan.txt | tr -d ' ')
+          if [[ "$TOTAL" -eq 0 ]]; then
+            echo "ℹ️  No alpha versions found in the specified scope"
+          else
+            echo "Found $TOTAL alpha version(s):"
+            echo ""
+            while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+              T=$([[ "$has_tag" == "true" ]]     && echo "✅" || echo "❌")
+              R=$([[ "$has_release" == "true" ]] && echo "✅" || echo "❌")
+              I=$([[ "$has_index" == "true" ]]   && echo "✅" || echo "❌")
+              echo "  $chart  $ver  tag:$T  release:$R  index:$I"
+            done < /tmp/scan.txt
+          fi
+
+          if [[ -s /tmp/mismatches.txt ]]; then
+            echo ""
+            echo "Mismatches:"
+            cat /tmp/mismatches.txt
+          fi
+
+      # ── 3. Dry-run report ─────────────────────────────────────────────────
+      # Renders the scan results as a markdown preview table and writes it to
+      # the job summary. No changes are made.
+      - name: Dry-run report
+        if: inputs.inventory_only == false && inputs.dry_run == true
+        env:
+          VERSION_DISPLAY: ${{ steps.validate.outputs.version_display }}
+        run: |
+          TOTAL=$(wc -l < /tmp/scan.txt | tr -d ' ')
+
+          if [[ "$TOTAL" -eq 0 ]]; then
+            {
+              echo "## Dry Run — No alpha versions found"
+              echo ""
+              echo "No alpha versions match scope: \`$VERSION_DISPLAY\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Dry Run — Alpha Cleanup Preview"
+            echo ""
+            echo "**Version scope:** \`$VERSION_DISPLAY\`  |  **Would delete:** $TOTAL version(s)"
+            echo ""
+            echo "| Chart | Version | Tag | Release | index.yaml | Notes |"
+            echo "|---|---|:---:|:---:|:---:|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+            T=$([[ "$has_tag" == "true" ]]     && echo "🗑️" || echo "—")
+            R=$([[ "$has_release" == "true" ]] && echo "🗑️" || echo "—")
+            I=$([[ "$has_index" == "true" ]]   && echo "🗑️" || echo "—")
+            NOTES=""
+            [[ "$has_tag" == "true"  && "$has_release" == "false" ]] && NOTES="⚠️ tag without release"
+            [[ "$has_index" == "true" && "$has_tag" == "false" ]]   && NOTES="${NOTES:+$NOTES · }⚠️ index only"
+            echo "| \`$chart\` | \`$ver\` | $T | $R | $I | $NOTES |" >> "$GITHUB_STEP_SUMMARY"
+          done < /tmp/scan.txt
+
+          if [[ -s /tmp/mismatches.txt ]]; then
+            {
+              echo ""
+              echo "### Mismatches"
+              echo ""
+              sed 's/^/- /' /tmp/mismatches.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Re-run with **dry_run = false** to execute deletion." >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 4a. Delete GitHub releases ────────────────────────────────────────
+      # Releases must be deleted before their tags — GitHub enforces this order.
+      - name: Delete GitHub releases
+        if: inputs.inventory_only == false && inputs.dry_run == false
+        run: |
+          while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+            [[ "$has_release" != "true" ]] && continue
+            if gh release delete "$tag" --repo "$REPO" --yes; then
+              echo "✅ Deleted release: $tag"
+            else
+              echo "⚠️  Failed to delete release: $tag"
+            fi
+          done < /tmp/scan.txt
+
+      # ── 4b. Delete GitHub tags ────────────────────────────────────────────
+      - name: Delete GitHub tags
+        if: inputs.inventory_only == false && inputs.dry_run == false
+        run: |
+          while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+            [[ "$has_tag" != "true" ]] && continue
+            if gh api -X DELETE "repos/$REPO/git/refs/tags/$tag"; then
+              echo "✅ Deleted tag: $tag"
+            else
+              echo "⚠️  Failed to delete tag: $tag"
+            fi
+          done < /tmp/scan.txt
+
+      # ── 4c. Checkout gh-pages ─────────────────────────────────────────────
+      # Uses the GitHub App token so the push triggers downstream workflows.
+      # /tmp/scan.txt is preserved across this checkout (lives outside
+      # $GITHUB_WORKSPACE).
+      - uses: actions/checkout@v5
+        if: inputs.inventory_only == false && inputs.dry_run == false
+        with:
+          ref: gh-pages
+          token: ${{ steps.app-token.outputs.token }}
+
+      # ── 4d. Remove alpha entries from index.yaml ───────────────────────────
+      # Uses yq for surgical in-place deletion — only the matching version
+      # entries are removed; all other content (formatting, dates, ordering)
+      # is preserved exactly. All index.yaml entries across all selected charts
+      # are collected and removed in a single pass before the PR is created.
+      # Also removes any matching .tgz package files if present in gh-pages.
+      - name: Remove alpha entries from index.yaml
+        if: inputs.inventory_only == false && inputs.dry_run == false
+        run: |
+          REMOVED=0
+          while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+            [[ "$has_index" != "true" ]] && continue
+            export YQ_CHART="$chart"
+            export YQ_VER="$ver"
+            yq -i 'del(.entries[env(YQ_CHART)][] | select(.version == env(YQ_VER)))' index.yaml
+            echo "✅ Removed $chart $ver from index.yaml"
+            REMOVED=$(( REMOVED + 1 ))
+          done < /tmp/scan.txt
+
+          if [[ "$REMOVED" -eq 0 ]]; then
+            echo "ℹ️  No index.yaml entries to remove"
+          else
+            echo "Removed $REMOVED entr$([ "$REMOVED" -eq 1 ] && echo 'y' || echo 'ies') from index.yaml"
+          fi
+
+          # Remove .tgz package files if stored directly in gh-pages
+          while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+            TGZ="${chart}-${ver}.tgz"
+            if [[ -f "$TGZ" ]]; then
+              rm "$TGZ"
+              echo "✅ Deleted: $TGZ"
+            fi
+          done < /tmp/scan.txt
+
+      # ── 4e. Create and merge gh-pages cleanup PR ───────────────────────────
+      # Creates a branch off gh-pages, commits the index.yaml changes, opens a
+      # PR, and immediately merges it (squash). The PR number and merge
+      # timestamp are captured for the audit summary. If nothing changed in
+      # index.yaml (all matching versions were already absent), this step exits
+      # cleanly without creating a PR.
+      - name: Create and merge gh-pages cleanup PR
+        if: inputs.inventory_only == false && inputs.dry_run == false
+        id: ghpages_pr
+        env:
+          VERSION_DISPLAY: ${{ steps.validate.outputs.version_display }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "ℹ️  No changes to gh-pages — index.yaml already clean for this scope"
+            echo "pr_number=n/a" >> "$GITHUB_OUTPUT"
+            echo "pr_merged=n/a" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BRANCH="cleanup/alpha-${GITHUB_RUN_ID}"
+          git checkout -b "$BRANCH"
+          git add index.yaml
+          git add -u  # stages any deleted .tgz files
+
+          # Build list of removed versions for the commit message body
+          VERSIONS=$(
+            while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+              [[ "$has_index" == "true" ]] && echo "  - $chart $ver"
+            done < /tmp/scan.txt
+          )
+
+          git commit -m "chore: remove alpha versions from index.yaml (${{ env.VERSION_DISPLAY }})
+
+          Triggered by: ${{ github.actor }}
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Versions removed:
+          ${VERSIONS}"
+
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --repo "$REPO" \
+            --base gh-pages \
+            --head "$BRANCH" \
+            --title "chore: remove alpha versions from index.yaml (${{ env.VERSION_DISPLAY }})" \
+            --body "**Triggered by:** @${{ github.actor }}
+          **Workflow run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          Removes alpha chart versions: \`${{ env.VERSION_DISPLAY }}\`
+
+          ---
+          *Created and merged automatically by the cleanup-alpha-chart-versions workflow.*")
+
+          PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "✅ PR #${PR_NUM} created: ${PR_URL}"
+
+          gh pr merge "$PR_NUM" \
+            --repo "$REPO" \
+            --squash \
+            --subject "chore: remove alpha versions from index.yaml (${{ env.VERSION_DISPLAY }})"
+
+          MERGED_AT=$(gh pr view "$PR_NUM" --repo "$REPO" --json mergedAt --jq '.mergedAt')
+          echo "✅ PR #${PR_NUM} merged at ${MERGED_AT}"
+
+          echo "pr_number=$PR_NUM"        >> "$GITHUB_OUTPUT"
+          echo "pr_merged=true"           >> "$GITHUB_OUTPUT"
+          echo "pr_merged_at=$MERGED_AT"  >> "$GITHUB_OUTPUT"
+
+      # ── 5. Audit summary ─────────────────────────────────────────────────
+      # Runs unconditionally (if: always()) to capture the full audit trail
+      # even when earlier steps fail. Writes a rendered markdown table to the
+      # GitHub Actions Job Summary — visible under the "Summary" tab without
+      # opening individual step logs.
+      - name: Audit summary
+        if: always()
+        env:
+          VERSION_DISPLAY:  ${{ steps.validate.outputs.version_display }}
+          VERSION_MODE:     ${{ steps.validate.outputs.version_mode }}
+          SELECTED_CHARTS:  ${{ steps.validate.outputs.selected_charts }}
+          MODE:             ${{ steps.validate.outputs.mode }}
+          PR_NUMBER:        ${{ steps.ghpages_pr.outputs.pr_number }}
+          PR_MERGED:        ${{ steps.ghpages_pr.outputs.pr_merged }}
+          PR_MERGED_AT:     ${{ steps.ghpages_pr.outputs.pr_merged_at }}
+          STARTED_AT:       ${{ steps.timing.outputs.started_at }}
+          RUN_NUMBER:       ${{ github.run_number }}
+          SERVER_URL:       ${{ github.server_url }}
+          REPOSITORY:       ${{ github.repository }}
+          RUN_ID:           ${{ github.run_id }}
+          JOB_STATUS:       ${{ job.status }}
+          ACTOR:            ${{ github.actor }}
+        run: |
+          FINISHED_AT=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          RUN_LINK="[#${RUN_NUMBER}](${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID})"
+          [[ "$JOB_STATUS" == "success" ]] \
+            && STATUS="✅ **Success**" \
+            || STATUS="❌ **Failed** — review step logs for details"
+
+          {
+            echo "## 🧹 Alpha Cleanup Audit"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| **Triggered by** | \`${ACTOR}\` |"
+            echo "| **Triggered at** | \`${STARTED_AT}\` |"
+            echo "| **Finished at**  | \`${FINISHED_AT}\` |"
+            echo "| **Workflow run** | ${RUN_LINK} |"
+            echo "| **Mode** | \`${MODE:-n/a}\` |"
+
+            if [[ -n "$VERSION_DISPLAY" && "$MODE" != "inventory" ]]; then
+              echo "| **Version scope** | \`${VERSION_DISPLAY}\` |"
+              echo "| **Version format** | \`${VERSION_MODE}\` |"
+              echo "| **Charts selected** | \`${SELECTED_CHARTS}\` |"
+            fi
+
+            if [[ "$MODE" == "delete" ]]; then
+              if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "n/a" ]]; then
+                echo "| **gh-pages PR** | [#${PR_NUMBER}](${SERVER_URL}/${REPOSITORY}/pull/${PR_NUMBER}) |"
+                echo "| **PR merged** | ${PR_MERGED} |"
+                [[ -n "$PR_MERGED_AT" ]] && echo "| **PR merged at** | \`${PR_MERGED_AT}\` |"
+              else
+                echo "| **gh-pages PR** | ℹ️ No index.yaml changes required |"
+              fi
+            fi
+
+            echo "| **Result** | ${STATUS} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Deleted versions table (delete mode only, if scan data exists)
+          if [[ "$MODE" == "delete" && -s /tmp/scan.txt ]]; then
+            {
+              echo ""
+              echo "### Deleted versions"
+              echo ""
+              echo "| Chart | Version | Tag | Release | index.yaml |"
+              echo "|---|---|:---:|:---:|:---:|"
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            while IFS='|' read -r chart ver tag has_tag has_release has_index; do
+              T=$([[ "$has_tag" == "true" ]]     && echo "🗑️" || echo "—")
+              R=$([[ "$has_release" == "true" ]] && echo "🗑️" || echo "—")
+              I=$([[ "$has_index" == "true" ]]   && echo "🗑️" || echo "—")
+              echo "| \`$chart\` | \`$ver\` | $T | $R | $I |" >> "$GITHUB_STEP_SUMMARY"
+            done < /tmp/scan.txt
+
+            if [[ -s /tmp/mismatches.txt ]]; then
+              {
+                echo ""
+                echo "### Mismatches found"
+                echo ""
+                sed 's/^/- /' /tmp/mismatches.txt
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
