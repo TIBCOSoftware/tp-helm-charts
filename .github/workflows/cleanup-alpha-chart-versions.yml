@@ -254,7 +254,7 @@ jobs:
           for CHART in $ALL_CHARTS; do
             # Alpha versions from tags
             grep "^${CHART}-" /tmp/all_tags.txt | grep -- "-alpha\." \
-              | sed "s/^${CHART}-//" | sort -V > /tmp/tag_vers.txt
+              | sed "s/^${CHART}-//" | sort -V > /tmp/tag_vers.txt || true
 
             # Alpha versions from index.yaml (yq env() avoids quoting issues with hyphens)
             export YQ_CHART="$CHART"
@@ -385,7 +385,7 @@ jobs:
               grep "^${CHART}-" /tmp/all_tags.txt | grep -- "-alpha\." \
                 | sed "s/^${CHART}-//" | while read -r VER; do
                   in_range "$VER" && echo "$VER"
-                done | sort -V > /tmp/range_tag_vers.txt
+                done | sort -V > /tmp/range_tag_vers.txt || true
 
               # Versions from index.yaml in range
               while read -r VER; do
