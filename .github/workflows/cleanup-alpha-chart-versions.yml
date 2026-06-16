@@ -470,30 +470,32 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "> Re-run with **dry_run = false** to execute deletion." >> "$GITHUB_STEP_SUMMARY"
 
-      # ── 4a. Delete GitHub releases ────────────────────────────────────────
-      # Releases must be deleted before their tags — GitHub enforces this order.
-      - name: Delete GitHub releases
+      # ── 4a. Delete GitHub releases and tags ──────────────────────────────────
+      # Processed together per version: the tag is only deleted after its release
+      # is confirmed deleted, preventing a release from pointing to a missing tag.
+      # Releases must be deleted before tags — GitHub enforces this order.
+      - name: Delete GitHub releases and tags
         if: inputs.inventory_only == false && inputs.dry_run == false
         run: |
           while IFS='|' read -r chart ver tag has_tag has_release has_index; do
-            [[ "$has_release" != "true" ]] && continue
-            if gh release delete "$tag" --repo "$REPO" --yes; then
-              echo "✅ Deleted release: $tag"
-            else
-              echo "⚠️  Failed to delete release: $tag"
-            fi
-          done < /tmp/scan.txt
+            release_ok=true
 
-      # ── 4b. Delete GitHub tags ────────────────────────────────────────────
-      - name: Delete GitHub tags
-        if: inputs.inventory_only == false && inputs.dry_run == false
-        run: |
-          while IFS='|' read -r chart ver tag has_tag has_release has_index; do
-            [[ "$has_tag" != "true" ]] && continue
-            if gh api -X DELETE "repos/$REPO/git/refs/tags/$tag"; then
-              echo "✅ Deleted tag: $tag"
-            else
-              echo "⚠️  Failed to delete tag: $tag"
+            if [[ "$has_release" == "true" ]]; then
+              if gh release delete "$tag" --repo "$REPO" --yes; then
+                echo "✅ Deleted release: $tag"
+              else
+                echo "⚠️  Failed to delete release: $tag — skipping tag deletion to avoid inconsistent state"
+                release_ok=false
+                echo "${chart}|${ver}" >> /tmp/failed.txt
+              fi
+            fi
+
+            if [[ "$has_tag" == "true" && "$release_ok" == "true" ]]; then
+              if gh api -X DELETE "repos/$REPO/git/refs/tags/$tag"; then
+                echo "✅ Deleted tag: $tag"
+              else
+                echo "⚠️  Failed to delete tag: $tag"
+              fi
             fi
           done < /tmp/scan.txt
 
@@ -676,17 +678,22 @@ jobs:
           if [[ "$MODE" == "delete" && -s /tmp/scan.txt ]]; then
             {
               echo ""
-              echo "### Deleted versions"
+              echo "### Deletion results"
               echo ""
-              echo "| Chart | Version | Tag | Release | index.yaml |"
-              echo "|---|---|:---:|:---:|:---:|"
+              echo "| Chart | Version | Tag | Release | index.yaml | Notes |"
+              echo "|---|---|:---:|:---:|:---:|---|"
             } >> "$GITHUB_STEP_SUMMARY"
 
             while IFS='|' read -r chart ver tag has_tag has_release has_index; do
               T=$([[ "$has_tag" == "true" ]]     && echo "🗑️" || echo "—")
               R=$([[ "$has_release" == "true" ]] && echo "🗑️" || echo "—")
               I=$([[ "$has_index" == "true" ]]   && echo "🗑️" || echo "—")
-              echo "| \`$chart\` | \`$ver\` | $T | $R | $I |" >> "$GITHUB_STEP_SUMMARY"
+              NOTES=""
+              if [[ -s /tmp/failed.txt ]] && grep -qxF "${chart}|${ver}" /tmp/failed.txt; then
+                R="❌"; T="—"
+                NOTES="⚠️ release deletion failed; tag skipped — re-run to retry"
+              fi
+              echo "| \`$chart\` | \`$ver\` | $T | $R | $I | $NOTES |" >> "$GITHUB_STEP_SUMMARY"
             done < /tmp/scan.txt
 
             if [[ -s /tmp/mismatches.txt ]]; then
