@@ -568,7 +568,7 @@ jobs:
             exit 0
           fi
 
-          BRANCH="cleanup/alpha-${GITHUB_RUN_ID}"
+          BRANCH="alpha-versions-cleanup-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
           git checkout -b "$BRANCH"
           git add index.yaml
           git add -u  # stages any deleted .tgz files
@@ -609,6 +609,7 @@ jobs:
           gh pr merge "$PR_NUM" \
             --repo "$REPO" \
             --squash \
+            --delete-branch \
             --subject "chore: remove alpha versions from index.yaml (${{ env.VERSION_DISPLAY }})"
 
           MERGED_AT=$(gh pr view "$PR_NUM" --repo "$REPO" --json mergedAt --jq '.mergedAt' || true)
