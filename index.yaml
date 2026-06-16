@@ -7532,31 +7532,6 @@ entries:
       urls:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-addon-eventprocessing-1.12.0/tibco-cp-addon-eventprocessing-1.12.0.tgz
       version: 1.12.0
-    - annotations:
-        app.helm.sh/component: control-plane
-        app.helm.sh/name: tibco-cp-addon-eventprocessing
-      apiVersion: v2
-      appVersion: 1.12.0
-      created: "2025-10-23T17:31:11.183017431Z"
-      dependencies:
-        - condition: tp-cp-eventprocessing-be.enabled
-          name: tp-cp-eventprocessing-be
-          repository: ""
-          tags:
-            - be
-          version: 1.12.*
-      description: TIBCO Platform chart for BE addon
-      digest: e2bb40a6c3b0e90c4e420d0f8e188f461e6dd423d71bfcf6d7fc474ceb642acf
-      keywords:
-        - tibco-platform
-        - platform
-        - eventprocessing
-        - addon
-      name: tibco-cp-addon-eventprocessing
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-addon-eventprocessing-1.12.0-alpha.2/tibco-cp-addon-eventprocessing-1.12.0-alpha.2.tgz
-      version: 1.12.0-alpha.2
   tibco-cp-base:
     - annotations:
         app.helm.sh/component: control-plane
@@ -8255,144 +8230,6 @@ entries:
         app.helm.sh/component: control-plane
         app.helm.sh/name: tibco-cp-base
       apiVersion: v2
-      appVersion: 1.14.0
-      created: "2025-12-23T14:57:23.253980263Z"
-      dependencies:
-        - condition: tp-cp-infra.enabled
-          name: tp-cp-infra
-          repository: ""
-          version: 1.14.*
-        - condition: hybrid-proxy.enabled
-          name: hybrid-proxy
-          repository: ""
-          version: 1.14.*
-        - condition: resource-set-operator.enabled
-          name: resource-set-operator
-          repository: ""
-          version: 1.14.*
-        - condition: router-operator.enabled
-          name: router-operator
-          repository: ""
-          version: 1.14.*
-        - condition: otel-collector.enabled
-          name: otel-collector
-          repository: ""
-          version: 0.116.*
-        - condition: tp-cp-o11y.enabled
-          name: tp-cp-o11y
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-configuration
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-core
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-core-finops
-          repository: ""
-          version: 1.14.*
-        - condition: tp-cp-integration-common.enabled
-          name: tp-cp-integration-common
-          repository: ""
-          version: 1.13.*
-        - condition: tp-cp-cli.enabled
-          name: tp-cp-cli
-          repository: ""
-          version: 1.4.*
-        - name: tp-cp-alertmanager
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-prometheus
-          repository: ""
-          version: 1.13.1
-        - condition: tp-cp-auditsafe.enabled
-          name: tp-cp-auditsafe
-          repository: ""
-          version: 1.13.*
-      description: TIBCO Platform base chart
-      digest: 0c4433d56971eaf05f6585b58abcc4f3e06ba5ec1b9638b0e4497aaee2d42cd6
-      keywords:
-        - tibco-platform
-        - platform
-        - base
-      name: tibco-cp-base
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.14.0-alpha.60/tibco-cp-base-1.14.0-alpha.60.tgz
-      version: 1.14.0-alpha.60
-    - annotations:
-        app.helm.sh/component: control-plane
-        app.helm.sh/name: tibco-cp-base
-      apiVersion: v2
-      appVersion: 1.14.0
-      created: "2025-12-23T09:04:02.899664836Z"
-      dependencies:
-        - condition: tp-cp-infra.enabled
-          name: tp-cp-infra
-          repository: ""
-          version: 1.14.*
-        - condition: hybrid-proxy.enabled
-          name: hybrid-proxy
-          repository: ""
-          version: 1.14.*
-        - condition: resource-set-operator.enabled
-          name: resource-set-operator
-          repository: ""
-          version: 1.14.*
-        - condition: router-operator.enabled
-          name: router-operator
-          repository: ""
-          version: 1.14.*
-        - condition: otel-collector.enabled
-          name: otel-collector
-          repository: ""
-          version: 0.116.*
-        - condition: tp-cp-o11y.enabled
-          name: tp-cp-o11y
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-configuration
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-core
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-core-finops
-          repository: ""
-          version: 1.14.*
-        - condition: tp-cp-integration-common.enabled
-          name: tp-cp-integration-common
-          repository: ""
-          version: 1.13.*
-        - condition: tp-cp-cli.enabled
-          name: tp-cp-cli
-          repository: ""
-          version: 1.4.*
-        - name: tp-cp-alertmanager
-          repository: ""
-          version: 1.14.*
-        - name: tp-cp-prometheus
-          repository: ""
-          version: 1.13.1
-        - condition: tp-cp-auditsafe.enabled
-          name: tp-cp-auditsafe
-          repository: ""
-          version: 1.13.*
-      description: TIBCO Platform base chart
-      digest: 06864f30613e0b8b43fcbe2d7d9f261b63cbdf03a337a74f901d092db3b6aea6
-      keywords:
-        - tibco-platform
-        - platform
-        - base
-      name: tibco-cp-base
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.14.0-alpha.59/tibco-cp-base-1.14.0-alpha.59.tgz
-      version: 1.14.0-alpha.59
-    - annotations:
-        app.helm.sh/component: control-plane
-        app.helm.sh/name: tibco-cp-base
-      apiVersion: v2
       appVersion: 1.13.0
       created: "2025-11-27T08:09:30.775114385Z"
       dependencies:
@@ -8458,75 +8295,6 @@ entries:
       urls:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.13.0/tibco-cp-base-1.13.0.tgz
       version: 1.13.0
-    - annotations:
-        app.helm.sh/component: control-plane
-        app.helm.sh/name: tibco-cp-base
-      apiVersion: v2
-      appVersion: 1.13.0
-      created: "2025-11-24T09:32:20.765492377Z"
-      dependencies:
-        - condition: tp-cp-infra.enabled
-          name: tp-cp-infra
-          repository: ""
-          version: 1.13.*
-        - condition: hybrid-proxy.enabled
-          name: hybrid-proxy
-          repository: ""
-          version: 1.13.*
-        - condition: resource-set-operator.enabled
-          name: resource-set-operator
-          repository: ""
-          version: 1.13.*
-        - condition: router-operator.enabled
-          name: router-operator
-          repository: ""
-          version: 1.13.*
-        - condition: otel-collector.enabled
-          name: otel-collector
-          repository: ""
-          version: 0.116.*
-        - condition: tp-cp-o11y.enabled
-          name: tp-cp-o11y
-          repository: ""
-          version: 1.13.*
-        - name: tp-cp-configuration
-          repository: ""
-          version: 1.13.*
-        - name: tp-cp-core
-          repository: ""
-          version: 1.13.*
-        - name: tp-cp-core-finops
-          repository: ""
-          version: 1.13.*
-        - condition: tp-cp-integration-common.enabled
-          name: tp-cp-integration-common
-          repository: ""
-          version: 1.13.*
-        - condition: tp-cp-cli.enabled
-          name: tp-cp-cli
-          repository: ""
-          version: 1.4.*
-        - name: tp-cp-alertmanager
-          repository: ""
-          version: 1.13.*
-        - name: tp-cp-prometheus
-          repository: ""
-          version: 1.13.1
-        - condition: tp-cp-auditsafe.enabled
-          name: tp-cp-auditsafe
-          repository: ""
-          version: 1.13.*
-      description: TIBCO Platform base chart
-      digest: 43f4570be205ec1a98d4b9fecb589ab929750b137dc662f9f7e9e5c51338e07e
-      keywords:
-        - tibco-platform
-        - platform
-        - base
-      name: tibco-cp-base
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.13.0-alpha.95/tibco-cp-base-1.13.0-alpha.95.tgz
-      version: 1.13.0-alpha.95
   tibco-cp-bw:
     - apiVersion: v2
       appVersion: 1.18.0
@@ -9049,32 +8817,6 @@ entries:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.14.0/tibco-cp-bw-1.14.0.tgz
       version: 1.14.0
     - apiVersion: v2
-      appVersion: 1.14.0
-      created: "2025-12-22T07:31:03.000922173Z"
-      dependencies:
-        - condition: bw-recipes.enabled
-          name: bw-recipes
-          repository: ""
-          version: 1.14.*
-        - condition: bw-webserver.enabled
-          name: bw-webserver
-          repository: ""
-          version: 1.14.*
-        - condition: bwce-utilities.enabled
-          name: bwce-utilities
-          repository: ""
-          version: 1.14.*
-        - condition: bw5ce-utilities.enabled
-          name: bw5ce-utilities
-          repository: ""
-          version: 1.14.*
-      description: TIBCO Controlplane chart for BW Capability
-      digest: 4b641447dccb6ef4608749392c0f2a1cd724c6a5409b7dcac291dc4156d8e1e3
-      name: tibco-cp-bw
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.14.0-alpha.24/tibco-cp-bw-1.14.0-alpha.24.tgz
-      version: 1.14.0-alpha.24
-    - apiVersion: v2
       appVersion: 1.13.0
       created: "2025-11-27T07:58:47.082766679Z"
       dependencies:
@@ -9100,32 +8842,6 @@ entries:
       urls:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.13.0/tibco-cp-bw-1.13.0.tgz
       version: 1.13.0
-    - apiVersion: v2
-      appVersion: 1.13.0
-      created: "2025-11-21T11:11:52.03253235Z"
-      dependencies:
-        - condition: bw-recipes.enabled
-          name: bw-recipes
-          repository: ""
-          version: 1.13.*
-        - condition: bw-webserver.enabled
-          name: bw-webserver
-          repository: ""
-          version: 1.13.*
-        - condition: bwce-utilities.enabled
-          name: bwce-utilities
-          repository: ""
-          version: 1.13.*
-        - condition: bw5ce-utilities.enabled
-          name: bw5ce-utilities
-          repository: ""
-          version: 1.13.*
-      description: TIBCO Controlplane chart for BW Capability
-      digest: 1e4cd0f0096911d4034f34eae9e094f43272c13b8ce32b58b05c3c86281ce4ac
-      name: tibco-cp-bw
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.13.0-alpha.26/tibco-cp-bw-1.13.0-alpha.26.tgz
-      version: 1.13.0-alpha.26
   tibco-cp-devhub:
     - apiVersion: v2
       appVersion: 1.18.0
@@ -9416,24 +9132,6 @@ entries:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.14.0/tibco-cp-devhub-1.14.0.tgz
       version: 1.14.0
     - apiVersion: v2
-      appVersion: 1.14.0
-      created: "2025-12-22T08:39:24.410140944Z"
-      dependencies:
-        - condition: tibcohub-recipes.enabled
-          name: tibcohub-recipes
-          repository: ""
-          version: 1.14.*
-        - condition: tibcohub-contrib.enabled
-          name: tibcohub-contrib
-          repository: ""
-          version: 1.14.*
-      description: TIBCO Platform base for Developer Hub Capability
-      digest: dfbf15f34153cbb3a3586ebf43a07e6f1169dc0ac78fd715e469b6397469cb61
-      name: tibco-cp-devhub
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.14.0-alpha.6/tibco-cp-devhub-1.14.0-alpha.6.tgz
-      version: 1.14.0-alpha.6
-    - apiVersion: v2
       appVersion: 1.13.0
       created: "2025-11-27T08:36:03.554817127Z"
       dependencies:
@@ -9451,24 +9149,6 @@ entries:
       urls:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.13.0/tibco-cp-devhub-1.13.0.tgz
       version: 1.13.0
-    - apiVersion: v2
-      appVersion: 1.13.0
-      created: "2025-11-24T15:29:58.155311807Z"
-      dependencies:
-        - condition: tibcohub-recipes.enabled
-          name: tibcohub-recipes
-          repository: ""
-          version: 1.13.*
-        - condition: tibcohub-contrib.enabled
-          name: tibcohub-contrib
-          repository: ""
-          version: 1.13.*
-      description: TIBCO Platform base for Developer Hub Capability
-      digest: 43f5fd71f860e0973d9da13d03ec8af82f36bc21cc87477ca3b6b1cd9f6610b3
-      name: tibco-cp-devhub
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.13.0-alpha.8/tibco-cp-devhub-1.13.0-alpha.8.tgz
-      version: 1.13.0-alpha.8
   tibco-cp-flogo:
     - apiVersion: v2
       appVersion: 1.18.0
@@ -9911,28 +9591,6 @@ entries:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.14.0/tibco-cp-flogo-1.14.0.tgz
       version: 1.14.0
     - apiVersion: v2
-      appVersion: 1.14.0
-      created: "2025-12-22T07:31:03.197138232Z"
-      dependencies:
-        - condition: flogo-recipes.enabled
-          name: flogo-recipes
-          repository: ""
-          version: 1.14.*
-        - condition: flogo-webserver.enabled
-          name: flogo-webserver
-          repository: ""
-          version: 1.14.*
-        - condition: flogo-utilities.enabled
-          name: flogo-utilities
-          repository: ""
-          version: 1.14.*
-      description: TIBCO Controlplane chart for FLOGO Capability
-      digest: 95fc43d61de98ab09ee044f282594d6b305cba13fd02fb638d7dc3a312143937
-      name: tibco-cp-flogo
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.14.0-alpha.16/tibco-cp-flogo-1.14.0-alpha.16.tgz
-      version: 1.14.0-alpha.16
-    - apiVersion: v2
       appVersion: 1.13.0
       created: "2025-11-27T07:58:47.264070931Z"
       dependencies:
@@ -9954,28 +9612,6 @@ entries:
       urls:
         - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.13.0/tibco-cp-flogo-1.13.0.tgz
       version: 1.13.0
-    - apiVersion: v2
-      appVersion: 1.13.0
-      created: "2025-11-21T11:11:52.237643168Z"
-      dependencies:
-        - condition: flogo-recipes.enabled
-          name: flogo-recipes
-          repository: ""
-          version: 1.13.*
-        - condition: flogo-webserver.enabled
-          name: flogo-webserver
-          repository: ""
-          version: 1.13.*
-        - condition: flogo-utilities.enabled
-          name: flogo-utilities
-          repository: ""
-          version: 1.13.*
-      description: TIBCO Controlplane chart for FLOGO Capability
-      digest: 2afebff634f254da6b3fc8fbaaa43ff080556ea5f86af035a566afd97d7361ae
-      name: tibco-cp-flogo
-      urls:
-        - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.13.0-alpha.17/tibco-cp-flogo-1.13.0-alpha.17.tgz
-      version: 1.13.0-alpha.17
   tibco-cp-hawk:
     - apiVersion: v2
       appVersion: 1.18.0
