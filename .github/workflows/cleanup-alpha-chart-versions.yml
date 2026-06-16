@@ -59,6 +59,7 @@ permissions:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     env:
       REPO: ${{ github.repository }}
 
@@ -341,9 +342,9 @@ jobs:
             grep -qxF "$ver"  "/tmp/idx_${chart}.txt" 2>/dev/null && has_index=true
             echo "${chart}|${ver}|${tag}|${has_tag}|${has_release}|${has_index}" >> /tmp/scan.txt
             [[ "$has_tag" == "true"  && "$has_release" == "false" ]] && \
-              echo "⚠️  ${tag}: tag exists but no release"      >> /tmp/mismatches.txt
+              echo "⚠️  ${tag}: tag exists but no release"      >> /tmp/mismatches.txt || true
             [[ "$has_index" == "true" && "$has_tag" == "false" ]] && \
-              echo "⚠️  ${chart} ${ver}: in index.yaml but no tag found" >> /tmp/mismatches.txt
+              echo "⚠️  ${chart} ${ver}: in index.yaml but no tag found" >> /tmp/mismatches.txt || true
           }
 
           # Pre-build per-chart index version files for fast lookup
@@ -374,29 +375,31 @@ jobs:
 
             echo "${CHART}|${VER}|${TAG}|${HAS_TAG}|${HAS_REL}|${HAS_IDX}" >> /tmp/scan.txt
             [[ "$HAS_TAG" == "true"  && "$HAS_REL" == "false" ]] && \
-              echo "⚠️  ${TAG}: tag exists but no release"         >> /tmp/mismatches.txt
+              echo "⚠️  ${TAG}: tag exists but no release"         >> /tmp/mismatches.txt || true
             [[ "$HAS_IDX" == "true"  && "$HAS_TAG" == "false" ]] && \
-              echo "⚠️  ${CHART} ${VER}: in index.yaml but no tag found" >> /tmp/mismatches.txt
+              echo "⚠️  ${CHART} ${VER}: in index.yaml but no tag found" >> /tmp/mismatches.txt || true
 
           else
             # ── Range / single-base filter ────────────────────────────────────
             for CHART in $SELECTED_CHARTS; do
-              # Versions from tags in range
-              grep "^${CHART}-" /tmp/all_tags.txt | grep -- "-alpha\." \
-                | sed "s/^${CHART}-//" | while read -r VER; do
-                  in_range "$VER" && echo "$VER"
-                done | sort -V > /tmp/range_tag_vers.txt || true
+              # Tags in range — process substitution keeps grep's exit code
+              # (1 = no alpha tags for this chart) out of the while loop
+              > /tmp/range_tag_vers.txt
+              while IFS= read -r VER; do
+                in_range "$VER" && echo "$VER" >> /tmp/range_tag_vers.txt || true
+              done < <(grep "^${CHART}-" /tmp/all_tags.txt \
+                         | grep -- "-alpha\." | sed "s/^${CHART}-//" | sort -V || true)
 
-              # Versions from index.yaml in range
-              while read -r VER; do
-                in_range "$VER" && echo "$VER"
-              done < "/tmp/idx_${CHART}.txt" | sort -V > /tmp/range_idx_vers.txt
+              # Index.yaml versions in range
+              > /tmp/range_idx_vers.txt
+              while IFS= read -r VER; do
+                in_range "$VER" && echo "$VER" >> /tmp/range_idx_vers.txt || true
+              done < "/tmp/idx_${CHART}.txt"
 
-              # Union
-              sort -uV /tmp/range_tag_vers.txt /tmp/range_idx_vers.txt \
-                | while read -r VER; do
-                    record "$CHART" "$VER"
-                  done
+              # Union → record each
+              while IFS= read -r VER; do
+                record "$CHART" "$VER"
+              done < <(sort -uV /tmp/range_tag_vers.txt /tmp/range_idx_vers.txt)
             done
           fi
 
@@ -573,7 +576,7 @@ jobs:
           # Build list of removed versions for the commit message body
           VERSIONS=$(
             while IFS='|' read -r chart ver tag has_tag has_release has_index; do
-              [[ "$has_index" == "true" ]] && echo "  - $chart $ver"
+              [[ "$has_index" == "true" ]] && echo "  - $chart $ver" || true
             done < /tmp/scan.txt
           )
 
@@ -608,7 +611,7 @@ jobs:
             --squash \
             --subject "chore: remove alpha versions from index.yaml (${{ env.VERSION_DISPLAY }})"
 
-          MERGED_AT=$(gh pr view "$PR_NUM" --repo "$REPO" --json mergedAt --jq '.mergedAt')
+          MERGED_AT=$(gh pr view "$PR_NUM" --repo "$REPO" --json mergedAt --jq '.mergedAt' || true)
           echo "✅ PR #${PR_NUM} merged at ${MERGED_AT}"
 
           echo "pr_number=$PR_NUM"        >> "$GITHUB_OUTPUT"
