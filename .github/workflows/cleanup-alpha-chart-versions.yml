@@ -514,10 +514,12 @@ jobs:
 
       # ── 4d. Remove alpha entries from index.yaml ───────────────────────────
       # Uses an inline Python script for surgical line-based deletion — only
-      # the matching version entry block is removed; all other content
-      # (formatting, dates, ordering) is preserved byte-for-byte. Runs once
-      # per (chart, version) pair. Also removes any matching .tgz package
-      # files if present in gh-pages.
+      # the matching version entry block(s) are removed (handles duplicates);
+      # all other content is preserved byte-for-byte. Runs once per
+      # (chart, version) pair. Auto-detects indentation from the actual file
+      # so it works regardless of whether the file uses 2-space or 4-space
+      # YAML indentation. Also removes any matching .tgz package files if
+      # present in gh-pages.
       - name: Remove alpha entries from index.yaml
         if: inputs.inventory_only == false && inputs.dry_run == false
         run: |
@@ -526,39 +528,79 @@ jobs:
             [[ "$has_index" != "true" ]] && continue
             export CHART_NAME="$chart"
             export CHART_VER="$ver"
-            python3 - << 'PYEOF'
+            RESULT=$(python3 - << 'PYEOF'
           import re, os
           chart = os.environ['CHART_NAME']
           ver   = os.environ['CHART_VER']
           with open('index.yaml') as f:
               lines = f.readlines()
-          out, buf, buf_is_match, in_chart = [], [], False, False
+          # Auto-detect chart key indent and entry list-item indent from file
+          chart_indent = 2
+          entry_indent = 4
+          in_ent = False
+          saw_chart = False
+          for ln in lines:
+              ls = ln.rstrip('\n\r')
+              if ls == 'entries:':
+                  in_ent = True; continue
+              if in_ent:
+                  if not ls.strip(): continue
+                  if ls and not ls[0].isspace(): break
+                  stripped = ls.lstrip()
+                  if not saw_chart and re.match(r'[-\w.]+:\s*$', stripped):
+                      chart_indent = len(ls) - len(stripped)
+                      saw_chart = True; continue
+                  if saw_chart and stripped.startswith('- '):
+                      entry_indent = len(ls) - len(stripped); break
+          indent_str = ' ' * chart_indent
+          entry_pfx  = ' ' * entry_indent + '- '
+          field_pfx  = ' ' * (entry_indent + 2)
+          chart_re   = re.compile(r'^' + re.escape(indent_str) + r'[-\w.]+:\s*$')
+          ver_re     = re.compile(r'^' + re.escape(field_pfx) + r'version:\s+' + re.escape(ver) + r'\s*$')
+          out, buf, buf_is_match, in_chart, removed = [], [], False, False, False
           for line in lines:
               s = line.rstrip('\n\r')
-              if re.match(r'^  [-\w.]+:\s*$', s):
-                  if buf and not buf_is_match: out.extend(buf)
+              if chart_re.match(s):
+                  if buf:
+                      if buf_is_match: removed = True
+                      else: out.extend(buf)
                   buf, buf_is_match = [], False
                   in_chart = s.strip().rstrip(':') == chart
                   out.append(line)
-              elif not s.startswith(' '):
-                  if buf and not buf_is_match: out.extend(buf)
+              elif s and not s.startswith(' '):
+                  if buf:
+                      if buf_is_match: removed = True
+                      else: out.extend(buf)
                   buf, buf_is_match, in_chart = [], False, False
                   out.append(line)
-              elif in_chart and s.startswith('  - '):
-                  if buf and not buf_is_match: out.extend(buf)
+              elif in_chart and s.startswith(entry_pfx):
+                  if buf:
+                      if buf_is_match: removed = True
+                      else: out.extend(buf)
                   buf, buf_is_match = [line], False
               elif buf:
                   buf.append(line)
-                  if re.match(rf'^\s+version:\s+{re.escape(ver)}\s*$', s):
+                  if ver_re.match(s):
                       buf_is_match = True
               else:
                   out.append(line)
-          if buf and not buf_is_match: out.extend(buf)
-          with open('index.yaml', 'w') as f:
-              f.writelines(out)
+          if buf:
+              if buf_is_match: removed = True
+              else: out.extend(buf)
+          if removed:
+              with open('index.yaml', 'w') as f:
+                  f.writelines(out)
+              print('REMOVED')
+          else:
+              print('NOT_FOUND')
           PYEOF
-            echo "✅ Removed $chart $ver from index.yaml"
-            REMOVED=$(( REMOVED + 1 ))
+          )
+            if [[ "$RESULT" == "REMOVED" ]]; then
+              echo "✅ Removed $chart $ver from index.yaml"
+              REMOVED=$(( REMOVED + 1 ))
+            else
+              echo "⚠️  $chart $ver: entry not found in index.yaml"
+            fi
           done < /tmp/scan.txt
 
           if [[ "$REMOVED" -eq 0 ]]; then
