@@ -260,7 +260,7 @@ jobs:
             # Alpha versions from index.yaml (yq env() avoids quoting issues with hyphens)
             export YQ_CHART="$CHART"
             yq '.entries[env(YQ_CHART)] // [] | .[].version | select(test("-alpha\\."))' \
-              /tmp/index.yaml 2>/dev/null | sort -V > /tmp/idx_vers.txt
+              /tmp/index.yaml 2>/dev/null | sort -V > /tmp/idx_vers.txt || true
 
             # Union of both sources
             sort -uV /tmp/tag_vers.txt /tmp/idx_vers.txt > /tmp/all_vers.txt
@@ -351,7 +351,7 @@ jobs:
           for CHART in $SELECTED_CHARTS; do
             export YQ_CHART="$CHART"
             yq '.entries[env(YQ_CHART)] // [] | .[].version | select(test("-alpha\\."))' \
-              /tmp/index.yaml 2>/dev/null | sort -V > "/tmp/idx_${CHART}.txt"
+              /tmp/index.yaml 2>/dev/null | sort -V > "/tmp/idx_${CHART}.txt" || true
           done
 
           if [[ "$VERSION_MODE" == "specific_alpha" ]]; then
@@ -513,23 +513,23 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       # ── 4d. Remove alpha entries from index.yaml ───────────────────────────
-      # Uses yq for surgical in-place deletion — only the matching version
-      # entries are removed; all other content (formatting, dates, ordering)
-      # is preserved exactly. All index.yaml entries across all selected charts
-      # are collected and removed in a single pass before the PR is created.
-      # Also removes any matching .tgz package files if present in gh-pages.
+      # Uses an inline Python script for surgical line-based deletion — only
+      # the matching version entry block is removed; all other content
+      # (formatting, dates, ordering) is preserved byte-for-byte. Runs once
+      # per (chart, version) pair. Also removes any matching .tgz package
+      # files if present in gh-pages.
       - name: Remove alpha entries from index.yaml
         if: inputs.inventory_only == false && inputs.dry_run == false
         run: |
           REMOVED=0
           while IFS='|' read -r chart ver tag has_tag has_release has_index; do
             [[ "$has_index" != "true" ]] && continue
-            export YQ_CHART="$chart"
-            export YQ_VER="$ver"
+            export CHART_NAME="$chart"
+            export CHART_VER="$ver"
             python3 - << 'PYEOF'
           import re, os
-          chart = os.environ['YQ_CHART']
-          ver   = os.environ['YQ_VER']
+          chart = os.environ['CHART_NAME']
+          ver   = os.environ['CHART_VER']
           with open('index.yaml') as f:
               lines = f.readlines()
           out, buf, buf_is_match, in_chart = [], [], False, False
@@ -598,7 +598,7 @@ jobs:
             exit 0
           fi
 
-          BRANCH="cleanup/alpha-${GITHUB_RUN_ID}"
+          BRANCH="alpha-versions-cleanup-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
           git checkout -b "$BRANCH"
           git add index.yaml
           git add -u  # stages any deleted .tgz files
@@ -639,6 +639,7 @@ jobs:
           gh pr merge "$PR_NUM" \
             --repo "$REPO" \
             --squash \
+            --delete-branch \
             --subject "chore: remove alpha versions from index.yaml (${{ env.VERSION_DISPLAY }})"
 
           MERGED_AT=$(gh pr view "$PR_NUM" --repo "$REPO" --json mergedAt --jq '.mergedAt' || true)
