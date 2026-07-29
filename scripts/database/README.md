@@ -167,7 +167,7 @@ export POD_NAMESPACE="<your-cp-namespace>"
 export DB_PREFIX="cp1_"  # controlPlaneInstanceId + underscore
 
 # Create or upgrade all databases and users for the default chart (tibco-cp-base)
-./postgres-helper.bash upgrade
+./postgres-helper.bash upgradeDbSchema <chart-version>
 ```
 
 #### Running for a Specific Chart (e.g., `tibco-cp-hawk`)
@@ -220,6 +220,22 @@ ls -1 postgres/tibco-cp-hawk/    # For tibco-cp-hawk chart
 # Example: Skip processing of idm and tscorch services
 export SKIP_SERVICES="idm tscorch"
 ./postgres-helper.bash upgrade
+```
+### Rollback
+
+Revert control-plane databases and users to the previous stable state. Use this when a Helm upgrade fails or rollback to a known good schema is required.
+
+```bash
+# Set required environment variables
+export PGHOST="<postgres-host>"
+export PGPORT="5432"
+export MASTER_PGUSER="postgres"
+export MASTER_PGPASSWORD="<master-password>"
+export POD_NAMESPACE="<your-cp-namespace>"
+export DB_PREFIX="cp1_"  # controlPlaneInstanceId + underscore
+
+# Rollback all databases and users for the default chart (tibco-cp-base)
+./postgres-helper.bash rollbackDbSchema  <chart-version>
 ```
 
 ### Delete

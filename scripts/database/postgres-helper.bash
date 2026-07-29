@@ -18,7 +18,12 @@
 # For detailed documentation, see README.md
 ################################################################################
 
-set -e
+# NOTE: `set -e` is intentionally NOT enabled. This script's error-handling model
+# relies on the `fn; rc=$?` pattern (capture exit code, then branch on it).
+# Under `set -e`, any function returning non-zero — even legitimately, e.g. a
+# probe like verifyExistingUser or doesDatabaseExist returning 1 to signal
+# "not found" — would abort the script before the `rc=$?` line executes.
+# All error paths in this script are handled explicitly via __exit_code checks.
 
 ################################################################################
 # Configuration
@@ -43,6 +48,152 @@ export PAGER=""
 get-random-password() {
   local _password=$(openssl rand -base64 24)
   echo ${_password}
+}
+
+# Returns 0 if this chart ships a version-map.yaml (i.e. opts in to the new
+# YAML-driven upgrade/rollback path). Returns 1 otherwise (legacy chart).
+has_version_map() {
+  resolve_version_map_file >/dev/null 2>&1
+}
+
+# ---------------------------------------------------------------------------
+# Pure-bash YAML helpers for version-map.yaml (no yq dependency)
+# These work on the simple two-level structure:
+#   versions:
+#     "X.Y.Z":
+#       service_name: N
+# ---------------------------------------------------------------------------
+
+# List all chart version keys from version-map.yaml (one per line).
+_yaml_get_version_keys() {
+  local map_file="$1"
+  grep -E '^\s+"[0-9]+\.[0-9]+\.[0-9]+"' "${map_file}" | sed 's/[[:space:]]*"\(.*\)":.*/\1/'
+}
+
+# Get the schema version for a specific service under a specific chart version.
+# Prints the integer value, or empty string if not found.
+#   $1 - map file path
+#   $2 - chart version (e.g. 1.16.0)
+#   $3 - service name (e.g. tscutd)
+_yaml_get_service_version() {
+  local map_file="$1" target="$2" service="$3"
+  local in_target=false line
+  while IFS= read -r line; do
+    # Detect version block start: '  "X.Y.Z":'
+    if echo "${line}" | grep -qE '^\s+"[0-9]+\.[0-9]+\.[0-9]+"'; then
+      local ver
+      ver=$(echo "${line}" | sed 's/[[:space:]]*"\(.*\)":.*/\1/')
+      if [ "${ver}" = "${target}" ]; then
+        in_target=true
+        continue
+      else
+        # If we were inside target block and hit the next version, stop
+        if [ "${in_target}" = "true" ]; then
+          break
+        fi
+        continue
+      fi
+    fi
+    if [ "${in_target}" = "true" ]; then
+      # Lines inside the version block look like: '    service_name: N'
+      local svc val
+      svc=$(echo "${line}" | awk -F: '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1}')
+      val=$(echo "${line}" | awk -F: '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}')
+      if [ "${svc}" = "${service}" ]; then
+        echo "${val}"
+        return 0
+      fi
+    fi
+  done < "${map_file}"
+  echo ""
+  return 0
+}
+
+# Check if a chart version key exists in version-map.yaml
+#   $1 - map file path
+#   $2 - chart version to check
+_yaml_has_version() {
+  local map_file="$1" target="$2"
+  _yaml_get_version_keys "${map_file}" | grep -qx "${target}"
+}
+
+# Locate version-map.yaml. Honors VERSION_MAP_FILE override; otherwise resolves
+resolve_version_map_file() {
+  if [ -n "${VERSION_MAP_FILE}" ]; then
+    echo "${VERSION_MAP_FILE}"
+    return 0
+  fi
+  if [ -n "${PSQL_SCRIPTS_LOCATION}" ] && [ -f "${PSQL_SCRIPTS_LOCATION}/version-map.yaml" ]; then
+    echo "${PSQL_SCRIPTS_LOCATION}/version-map.yaml"
+    return 0
+  fi
+  return 1
+}
+
+# Resolve the expected schema version for a service at a given target chart version.
+# Walks the version list newest -> oldest starting from target, first hit wins.
+# Prints the resolved schema version on stdout, or empty string if none found.
+#   $1 - service name (e.g. pengine)
+#   $2 - target chart version (e.g. 1.16.0)
+resolve_target_schema_version() {
+  local service="$1"
+  local target="$2"
+  local map_file
+
+  map_file=$(resolve_version_map_file) || {
+    echo "******* ERROR: version-map.yaml not found (set VERSION_MAP_FILE or PSQL_SCRIPTS_LOCATION)" >&2
+    return 1
+  }
+
+  # Get all chart versions defined in the map, descending semver order,
+  # then keep only those <= target.
+  local versions
+  versions=$(_yaml_get_version_keys "${map_file}" \
+    | awk -v t="${target}" 'BEGIN{FS="."} {
+        split(t, tt, ".");
+        split($0, vv, ".");
+        if (vv[1] <  tt[1]) {print; next}
+        if (vv[1] >  tt[1]) {next}
+        if (vv[2] <  tt[2]) {print; next}
+        if (vv[2] >  tt[2]) {next}
+        if (vv[3] <= tt[3]) {print}
+      }' \
+    | sort -rV)
+
+  if [ -z "${versions}" ]; then
+    return 0
+  fi
+
+  local v val
+  while IFS= read -r v; do
+    [ -z "${v}" ] && continue
+    val=$(_yaml_get_service_version "${map_file}" "${v}" "${service}")
+    if [ -n "${val}" ] && [ "${val}" != "null" ]; then
+      echo "${val}"
+      return 0
+    fi
+  done <<< "${versions}"
+
+  # Not found at target or earlier
+  echo ""
+  return 0
+}
+
+# Validate that the given chart version exists as a top-level key in version-map.yaml
+validate_target_chart_version() {
+  local target="$1"
+  local map_file
+  map_file=$(resolve_version_map_file) || {
+    echo "******* ERROR: version-map.yaml not found"
+    return 1
+  }
+  if ! _yaml_has_version "${map_file}" "${target}"; then
+    echo "******* ERROR: Target chart version '${target}' is not defined in ${map_file}"
+    echo "Available versions:"
+    _yaml_get_version_keys "${map_file}" | sed 's/^/  - /'
+    return 1
+  fi
+  return 0
 }
 
 ################################################################################
@@ -323,8 +474,14 @@ createTables() {
         echo "SET search_path TO ${schema_name};" >> "${TEMP_SQL_FILE}"
         cat "${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/sql/${DDLFILE}" >> "${TEMP_SQL_FILE}"
         
-        # Execute using master credentials with SET ROLE to service user
-        psql --set=AWS_REGION=${AWS_REGION} --set=IAAS_VENDOR=${IAAS_VENDOR} --set=AUTHUSER=${PGUSER} -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -f "${TEMP_SQL_FILE}" -v ON_ERROR_STOP=1
+        # Execute using master credentials with SET ROLE to service user.
+        # PCP-20008: --single-transaction wraps the whole 1-up.sql in one transaction so
+        # (with ON_ERROR_STOP=1) any failure or kill rolls the WHOLE script back. This makes
+        # the setupPostgreSQLForService SCHEMA_VERSION gate's invariant actually hold
+        # (SCHEMA_VERSION present <=> all objects present): a failed/OOMKilled attempt leaves
+        # NO partial tables, so a Job retry (backoffLimit) re-runs from a clean slate and
+        # converges -- without per-service DDL having to be individually idempotent.
+        psql --single-transaction --set=AWS_REGION=${AWS_REGION} --set=IAAS_VENDOR=${IAAS_VENDOR} --set=AUTHUSER=${PGUSER} -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -f "${TEMP_SQL_FILE}" -v ON_ERROR_STOP=1
         __exit_code=$?
         
         # Clean up temporary file
@@ -347,14 +504,60 @@ createTables() {
 createDatabaseSchemaUser() {
     local __exit_code=0
 
-    # Check if user already exists
-    verifyExistingUser
-    user_exists=$?
-    
+    # Check if user already exists.
+    # Wrap in if-test so `set -e` does not abort on a non-zero (user-missing) return.
+    local user_exists=1
+    if verifyExistingUser; then
+        user_exists=0
+    fi
+
     if [ ${user_exists} -eq 0 ]; then
         echo "...User '${PGUSER}' already exists, skipping password generation"
         # User exists, skip password generation and creation
         __exit_code=0
+        # PCP-20008: self-heal a partially-provisioned service. A prior run can create the
+        # DB user but die (e.g. OOMKilled) before its Kubernetes credential secret is written.
+        # Because the secret is only written in the new-user branch below, every subsequent
+        # run then took THIS path and left the secret missing forever -> downstream pods stuck
+        # on the missing secret. Repair it here: when the user exists but its secret is absent,
+        # (re)set the password (Postgres keeps no recoverable plaintext, so a reset is the only
+        # heal) and write the secret. Guarded so it ONLY fires on a confirmed not-found with
+        # kubectl read access -- never rotate a secret that is present (and possibly in use by a
+        # running pod), and never rotate on a transient/RBAC kubectl error. `--ignore-not-found`
+        # makes a genuine not-found return rc 0 with empty output, distinct from a real error
+        # (rc != 0), so the three cases are unambiguous.
+        if [ "${NO_KUBECTL_ACCESS}" != "true" ]; then
+            # Capture STDOUT only: with --ignore-not-found a genuine not-found is rc 0 + empty
+            # stdout, while a present secret is rc 0 + the name on stdout. kubectl may print
+            # non-fatal warnings to STDERR on a successful (rc 0) call, so merging stderr here
+            # (2>&1) would make a real not-found look non-empty and SILENTLY skip the repair --
+            # re-introducing the bug. Let stderr flow to the Job log for debugging instead.
+            secret_lookup=$(kubectl get secret "${SERVICE_NAME}-postgres-credential" --namespace "${POD_NAMESPACE}" --ignore-not-found --output name)
+            secret_lookup_rc=$?
+            if [ ${secret_lookup_rc} -ne 0 ]; then
+                echo "******* WARNING: Could not verify secret '${SERVICE_NAME}-postgres-credential' (kubectl exited ${secret_lookup_rc}, not a clean not-found; see stderr above). Skipping credential repair to avoid rotating a secret that may be in use."
+            elif [ -z "${secret_lookup}" ]; then
+                echo "...User '${PGUSER}' exists but secret '${SERVICE_NAME}-postgres-credential' is missing - repairing credential"
+                # Generate a fresh password (same policy as the new-user branch).
+                if [ -z "${GENERATE_PASSWORD}" ]; then
+                    export DB_USER_PWD=`get-random-password`
+                    echo "...Generated random password for existing user => ${PGUSER}"
+                else
+                    export DB_USER_PWD="postgres"
+                    echo "...Using default password for existing user => ${PGUSER}"
+                fi
+                PGPASSWORD=${MASTER_PGPASSWORD} psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" \
+                    -c "ALTER USER \"${PGUSER}\" WITH PASSWORD '${DB_USER_PWD}'" 2>/dev/null
+                __exit_code=$?
+                if [ ${__exit_code} -eq 0 ]; then
+                    echo "...Reset password for existing user '${PGUSER}'"
+                    # Create/update Kubernetes secret with the reset password
+                    createUpdateUserKubernetesSecret "${DB_USER_PWD}" || __exit_code=$?
+                else
+                    echo "******* ERROR: Failed to reset password for existing user '${PGUSER}' during secret repair. Exit code: ${__exit_code}"
+                fi
+            fi
+        fi
     else
         # Generate password for the service user only when creating new user
         if [ -z ${GENERATE_PASSWORD} ]; then
@@ -476,8 +679,54 @@ createExtensionUuidOssp() {
     return ${__exit_code}
 }
 
-# Execute incremental database schema upgrades
-# Runs upgrade scripts sequentially from current version to target version
+persist_down_sql_to_efs() {
+   # EFS persistence is only meaningful when the script is invoked by the
+   # chart-managed Job (manageDbSchemaCommand sets MANAGE_DB_SCHEMA=true).
+   # In manual mode (operator-driven upgradeDbCommand / rollbackDbCommand),
+   # the EFS volume is not mounted, so skip silently.
+   if [ "${MANAGE_DB_SCHEMA}" != "true" ]; then
+       return 0
+   fi
+
+   local version="$1"
+    local EFS_BASE_PATH="${EFS_BASE_PATH:-"/private/tsc/config/db-scripts/tibco-cp-base"}"
+
+   local SRC="${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/sql/${version}-down.sql"
+    local DEST_DIR="${EFS_BASE_PATH}/${SERVICE_NAME}"
+   local DEST="${DEST_DIR}/${version}-down.sql"
+
+   if [ ! -f "${SRC}" ]; then
+       echo "...No down.sql for version ${version}"
+       return 0
+   fi
+
+   mkdir -p "${DEST_DIR}" || {
+       echo "...WARNING: Cannot create EFS directory ${DEST_DIR}, skipping down.sql persistence"
+       return 0
+   }
+   cp "${SRC}" "${DEST}"
+
+   echo "...Stored down.sql in EFS: ${DEST}"
+}
+
+# Persist all available down.sql files from the container image to EFS
+# This ensures rollback scripts are available even when no upgrade step occurred
+# (e.g., a new down.sql was added retroactively for an existing version)
+persist_all_down_sql_to_efs() {
+    # Only run under the chart-managed Job (manageDbSchema=true).
+    if [ "${MANAGE_DB_SCHEMA}" != "true" ]; then
+        echo "...Skipping EFS sync for ${SERVICE_NAME} (manageDbSchema=false / manual mode)"
+        return 0
+    fi
+
+    echo "...Syncing all available down.sql files to EFS for ${SERVICE_NAME}"
+
+    local version=1
+    while [[ ${version} -le ${CURRENT_VERSION} ]]; do
+        persist_down_sql_to_efs "${version}"
+        (( version++ ))
+    done
+}
 upgradeDatabase() {
     local __exit_code=0
     
@@ -569,6 +818,213 @@ upgradeDatabase() {
     return ${__exit_code}
 }
 
+
+# Execute incremental database schema upgrades
+# Runs upgrade scripts sequentially from current version to target version
+upgradeDBSchema() {
+    local __exit_code=0
+    
+    # Check if the database and schema_version table exist
+    local schema_name=${PGSCHEMA:-${PGDATABASE}}
+    table_exists=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE UPPER(table_name) = 'SCHEMA_VERSION' AND table_schema = '${schema_name}');" 2>/dev/null | sed -e 's/[  ]*//g')
+    
+    if [ "$table_exists" != "t" ]; then
+        echo "...SCHEMA_VERSION table does not exist, skipping upgrade for ${SERVICE_NAME}"
+        return 0
+    fi
+
+    # select from version table to get current schema version in db
+    statement="SELECT VERSION FROM ${schema_name}.SCHEMA_VERSION"
+
+    # Use master user for version check
+    PREVIOUS_VERSION=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "${statement}" 2>/dev/null | sed -e 's/[  ]*//g')
+    OLD_VERSION=${PREVIOUS_VERSION}
+    echo "...Previous DB version is ${PREVIOUS_VERSION}. Required version is ${CURRENT_VERSION}."
+
+    # Handle empty PREVIOUS_VERSION
+    if [ -z "${PREVIOUS_VERSION}" ]; then
+        PREVIOUS_VERSION=1
+        echo "...No previous version found, starting from version 1"
+    fi
+
+    
+    if [[ ${PREVIOUS_VERSION} -gt ${CURRENT_VERSION} ]] ; then
+        echo "...Database version (${PREVIOUS_VERSION}) is higher than required version (${CURRENT_VERSION})"
+        echo "...Cannot upgrade forward. Use rollbackDbSchema to go to a lower version."
+        return 1
+    else
+        if [ "${RERUN_CURRENT_UPGRADE}" = "true" ] && [ "${PREVIOUS_VERSION}" -eq "${CURRENT_VERSION}" ]; then
+           echo "...Re-running existing upgrade script"
+        elif [ "${PREVIOUS_VERSION}" -eq "${CURRENT_VERSION}" ]; then
+           echo "...Database is already at the required version ${CURRENT_VERSION}. No upgrade needed."
+           return 0
+        else
+            (( PREVIOUS_VERSION++ ))
+        fi
+
+        # Execute the SQL script on the DB to create the schema and tables
+        while [[ ${PREVIOUS_VERSION} -le ${CURRENT_VERSION} ]]; do
+            NEXT_VERSION=$((PREVIOUS_VERSION))
+            if [ "${RERUN_CURRENT_UPGRADE}" = "true" ] && [ "${PREVIOUS_VERSION}" -eq "${CURRENT_VERSION}" ]; then
+                echo "...Re-running upgrade script for version: ${NEXT_VERSION}"
+            else
+                echo "...Upgrading from version: $((PREVIOUS_VERSION-1)) to ${NEXT_VERSION}"
+            fi
+            
+            DBPREFIX=${DB_PREFIX}
+            SQL_FILE_PATH="${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/sql/${PREVIOUS_VERSION}-up.sql"
+            echo "...Executing SQL script: ${SQL_FILE_PATH}"
+            # Execute upgrade using master user with SET ROLE to service user
+            # This maintains proper ownership while using master credentials
+            echo "...Executing upgrade as master user with role ${PGUSER}"
+            if [ -f "${SQL_FILE_PATH}" ]; then
+                # Create a temporary file that combines SET ROLE and search_path with the SQL script
+                TEMP_SQL_FILE=$(mktemp)
+                echo "SET ROLE ${PGUSER};" > "${TEMP_SQL_FILE}"
+                echo "SET search_path TO ${schema_name};" >> "${TEMP_SQL_FILE}"
+                cat "${SQL_FILE_PATH}" >> "${TEMP_SQL_FILE}"
+                
+                psql --set=AWS_REGION=${AWS_REGION} --set=IAAS_VENDOR=${IAAS_VENDOR} --set=PGDATABASE=${PGDATABASE} --set=PGUSER=${PGUSER} --set=DBPREFIX=${DBPREFIX} --set=AUTHUSER=${PGUSER} -f "${TEMP_SQL_FILE}" -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -v ON_ERROR_STOP=1
+                __exit_code=$?
+                
+                # Clean up temporary file
+                rm -f "${TEMP_SQL_FILE}"
+            else
+                __exit_code=1
+            fi
+            if [ ${__exit_code} -eq 0 ]; then
+                echo "...Upgrade success for ${NEXT_VERSION}"
+                persist_down_sql_to_efs "${NEXT_VERSION}"
+                (( PREVIOUS_VERSION++ ))
+            else
+                echo "******* ERROR: Failed to execute DDL statements in '${SQL_FILE_PATH}' against ${PGDATABASE} with authorization for '${PGUSER}'"
+                break
+            fi
+        done
+
+        if [ ${__exit_code} -eq 0 ]; then
+            # Verify final version using master user
+            UPGRADED_VERSION=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "$statement" | sed -e 's/[  ]*//g')
+            echo "...Successfully upgraded '${SERVICE_NAME}' from version: ${OLD_VERSION} to version: ${UPGRADED_VERSION}"
+        else
+            echo "...Failed to Upgrade database '${SERVICE_NAME}' from version: ${OLD_VERSION} to version: ${CURRENT_VERSION}"
+        fi
+    fi
+    
+    return ${__exit_code}
+}
+
+################################################################################
+# Database Schema Downgrade
+################################################################################
+
+downgradeDBSchema() {
+
+    local __exit_code=0
+    local schema_name=${PGSCHEMA:-${PGDATABASE}}
+    local EFS_BASE_PATH="${EFS_BASE_PATH:-"/private/tsc/config/db-scripts/tibco-cp-base"}"
+
+    echo "...Starting database rollback from version ${PREVIOUS_VERSION} to ${CURRENT_VERSION}"
+
+    while [[ ${PREVIOUS_VERSION} -gt ${CURRENT_VERSION} ]]; do
+
+        echo "...Rolling back schema version ${PREVIOUS_VERSION}"
+
+        # Check PSQL_SCRIPTS_LOCATION first (works for both manageDbSchema=true from image and manageDbSchema=false from local scripts)
+        SQL_FILE_PATH="${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/sql/${PREVIOUS_VERSION}-down.sql"
+
+        if [ ! -f "${SQL_FILE_PATH}" ]; then
+            # Fall back to EFS (for manageDbSchema=true when rolling back to older image that doesn't have the newer down.sql)
+            SQL_FILE_PATH="${EFS_BASE_PATH}/${SERVICE_NAME}/${PREVIOUS_VERSION}-down.sql"
+        fi
+
+        if [ -f "${SQL_FILE_PATH}" ]; then
+
+            echo "...Executing rollback script: ${SQL_FILE_PATH}"
+
+            TEMP_SQL_FILE=$(mktemp)
+
+            echo "SET ROLE ${PGUSER};" > "${TEMP_SQL_FILE}"
+            echo "SET search_path TO ${schema_name};" >> "${TEMP_SQL_FILE}"
+            cat "${SQL_FILE_PATH}" >> "${TEMP_SQL_FILE}"
+
+            psql \
+                --set=PGDATABASE=${PGDATABASE} \
+                --set=PGUSER=${PGUSER} \
+                -f "${TEMP_SQL_FILE}" \
+                -h ${PGHOST} \
+                -p ${PGPORT} \
+                -d ${PGDATABASE} \
+                -U ${MASTER_PGUSER} \
+                -v ON_ERROR_STOP=1
+
+            __exit_code=$?
+
+            rm -f "${TEMP_SQL_FILE}"
+
+            if [ ${__exit_code} -ne 0 ]; then
+                echo "******* ERROR: Rollback failed for version ${PREVIOUS_VERSION}"
+                return ${__exit_code}
+            fi
+
+            PREVIOUS_VERSION=$((PREVIOUS_VERSION - 1))
+
+        else
+            echo "...WARNING: Rollback script not found for version ${PREVIOUS_VERSION}"
+            echo "...Checked: ${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/sql/${PREVIOUS_VERSION}-down.sql"
+            echo "...Checked: ${EFS_BASE_PATH}/${SERVICE_NAME}/${PREVIOUS_VERSION}-down.sql"
+            echo "...Skipping rollback for version ${PREVIOUS_VERSION} (no down.sql available)"
+            PREVIOUS_VERSION=$((PREVIOUS_VERSION - 1))
+        fi
+
+    done
+
+    echo "...Successfully rolled back database to version ${CURRENT_VERSION}"
+
+    return ${__exit_code}
+}
+
+# Public rollback wrapper. Backward-only schema downgrade.
+# Expects PREVIOUS_VERSION (current DB version) and CURRENT_VERSION (target) to be set.
+# Refuses to run for charts without a version-map.yaml (no rollback supported).
+rollbackDBSchema() {
+    if ! has_version_map; then
+        echo "******* ERROR: Rollback is not supported for this service (no version-map.yaml found)"
+        return 1
+    fi
+
+    local __exit_code=0
+    local schema_name=${PGSCHEMA:-${PGDATABASE}}
+
+    # Skip if this service has no SCHEMA_VERSION table (uninitialized / unmanaged DB) - nothing to roll back.
+    table_exists=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE UPPER(table_name) = 'SCHEMA_VERSION' AND table_schema = '${schema_name}');" 2>/dev/null | sed -e 's/[  ]*//g')
+    if [ "$table_exists" != "t" ]; then
+        echo "...SCHEMA_VERSION table does not exist, skipping rollback for ${SERVICE_NAME}"
+        return 0
+    fi
+
+    PREVIOUS_VERSION=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT VERSION FROM ${schema_name}.SCHEMA_VERSION" 2>/dev/null | sed -e 's/[  ]*//g')
+
+    if [ -z "${PREVIOUS_VERSION}" ]; then
+        echo "...No current version found in SCHEMA_VERSION table; skipping rollback for ${SERVICE_NAME}"
+        return 0
+    fi
+
+    if [[ ${PREVIOUS_VERSION} -lt ${CURRENT_VERSION} ]]; then
+        echo "******* ERROR: Current DB version (${PREVIOUS_VERSION}) is lower than target (${CURRENT_VERSION}) for ${SERVICE_NAME}; refusing to roll back forward"
+        return 1
+    fi
+
+    if [[ ${PREVIOUS_VERSION} -eq ${CURRENT_VERSION} ]]; then
+        echo "...${SERVICE_NAME} already at target version ${CURRENT_VERSION}; nothing to roll back"
+        return 0
+    fi
+
+    downgradeDBSchema
+    __exit_code=$?
+    return ${__exit_code}
+}
+
 ################################################################################
 # Environment Setup
 ################################################################################
@@ -619,18 +1075,35 @@ setupPostgreSQLEnvironment() {
 }
 
 # Upgrade database objects (extensions and schema)
+# Routes based on whether the chart ships a version-map.yaml:
+#   - present (e.g. tibco-cp-base): upgradeDBSchema (forward + auto-rollback + EFS persistence)
+#   - absent  (e.g. tibco-cp-hawk): legacy forward-only upgradeDatabase (no rollback support)
 upgradeDatabaseObjects() {
     local __exit_code=0
     echo "...Upgrading database objects"
 
     createExtensionUuidOssp
-    
-    upgradeDatabase $*
-    __exit_code=$?
-    if [ ${__exit_code} -eq 0 ]; then
-        echo "...Successfully upgraded database objects"
+
+    if has_version_map; then
+        upgradeDBSchema $*
+        __exit_code=$?
+        if [ ${__exit_code} -eq 0 ]; then
+            echo "...Successfully upgraded database objects"
+            # Persist all available down.sql files to EFS unconditionally
+            # This covers: retroactively added down.sql, fresh installs, and no-op upgrades
+            persist_all_down_sql_to_efs
+        else
+            echo "******* ERROR: Failed to upgrade database objects"
+        fi
     else
-        echo "******* ERROR: Failed to upgrade database objects"
+        echo "...No version-map.yaml found; using legacy forward-only upgrade path"
+        upgradeDatabase $*
+        __exit_code=$?
+        if [ ${__exit_code} -eq 0 ]; then
+            echo "...Successfully upgraded database objects"
+        else
+            echo "******* ERROR: Failed to upgrade database objects"
+        fi
     fi
 
     return ${__exit_code}
@@ -641,13 +1114,13 @@ doesDatabaseExist() {
     ## Check Database connectivity with master credentials
     cnt=1
     until [ "$cnt" -ge 20 ]; do
-      psql -h ${PGHOST} -d ${MASTER_PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT datname FROM pg_database WHERE datistemplate = false" > /dev/null 2>&1 && break
+      psql -h ${PGHOST} -p ${PGPORT} -d ${MASTER_PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT datname FROM pg_database WHERE datistemplate = false" > /dev/null 2>&1 && break
       echo "Database is not ready yet..Retrying....Attempt $cnt/20...sleep 30s..."
       cnt=$((cnt+1))
       sleep 30
     done
 
-    dbname=$(psql -h ${PGHOST} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "SELECT datname FROM pg_database WHERE datistemplate = false" -t | grep ${PGDATABASE} )
+    dbname=$(psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "SELECT datname FROM pg_database WHERE datistemplate = false" -t | grep ${PGDATABASE} )
     if [ -n "$dbname" ]; then
         return 0
     fi
@@ -967,14 +1440,19 @@ delete() {
 ################################################################################
 
 # Set flag to re-run current schema version upgrade
-# Enabled in non-production environments for testing
+# Enabled in non-production environments for testing, or when overridden externally
 setRerunCurrentUpgrade() {
-  local _environment=${ENVIRONMENT_TYPE}
-  if [[ ! "${_environment}" =~ "prod" ]]; then
-    export RERUN_CURRENT_UPGRADE=true
-  else
-    export RERUN_CURRENT_UPGRADE=false
+  if [ -n "${RERUN_CURRENT_UPGRADE}" ]; then
+    echo "...Using externally provided RERUN_CURRENT_UPGRADE: ${RERUN_CURRENT_UPGRADE}"
+    return 0
   fi
+  export RERUN_CURRENT_UPGRADE=false
+#  local _environment=${ENVIRONMENT_TYPE}
+#  if [[ ! "${_environment}" =~ "prod" ]]; then
+#    export RERUN_CURRENT_UPGRADE=true
+#  else
+#    export RERUN_CURRENT_UPGRADE=false
+#  fi
 }
 
 ################################################################################
@@ -1063,6 +1541,325 @@ upgrade() {
 }
 
 ################################################################################
+# Manual YAML-driven Upgrade / Rollback (managedDbSchema=false)
+################################################################################
+
+# Shared orchestrator for manual upgradeDb / rollbackDb flows.
+#   $1 - action: "upgrade" or "rollback"
+#   $2 - target chart version (e.g. 1.16.0)
+runManualSchemaAction() {
+    local action="$1"
+    local target_version="$2"
+    local __exit_code=0
+
+    setRerunCurrentUpgrade
+    setupPostgreSQLEnvironment
+    __exit_code=$?
+    if [ ${__exit_code} -ne 0 ]; then
+        echo "******* ERROR: Failed to setup Postgres environment. Exit code: ${__exit_code}"
+        return ${__exit_code}
+    fi
+
+    # Check version-map.yaml availability AFTER environment setup so
+    # PSQL_SCRIPTS_LOCATION has been defaulted if not exported by caller.
+    if [[ "${action}" == "rollback" ]] && ! has_version_map; then
+        echo "******* ERROR: rollbackDbSchema is not supported for this chart (no version-map.yaml found)"
+        return 1
+    fi
+
+    validate_target_chart_version "${target_version}" || return 1
+
+    echo "...Setting up master credentials"
+    export-master-credentials
+
+    echo "...Processing database services for manual ${action} to chart version ${target_version}"
+    local __db_services
+    __db_services=$( ls -l ${PSQL_SCRIPTS_LOCATION} | grep ^d | awk '{print $9}' )
+
+    if [ -n "${SKIP_SERVICES}" ]; then
+        echo "...Skipping services: ${SKIP_SERVICES}"
+        local __filtered_services=""
+        local __service __skip __skip_service
+        for __service in ${__db_services}; do
+            __skip_service=false
+            for __skip in ${SKIP_SERVICES}; do
+                if [ "${__service}" = "${__skip}" ]; then
+                    __skip_service=true
+                    break
+                fi
+            done
+            if [ "${__skip_service}" = "false" ]; then
+                __filtered_services="${__filtered_services} ${__service}"
+            fi
+        done
+        __db_services="${__filtered_services}"
+    fi
+
+    echo "...Services to be processed: ${__db_services}"
+
+    local __service resolved_version
+    for __service in ${__db_services}; do
+        export SERVICE_NAME="${__service}"
+
+        echo ""
+        echo "=========================================="
+        echo "Manual ${action}: ${SERVICE_NAME} -> chart ${target_version}"
+        echo "=========================================="
+
+        if [ ! -f "${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/scripts/metadata.bash" ]; then
+            echo "******* ERROR: metadata.bash not found for service '${SERVICE_NAME}'"
+            __exit_code=1
+            break
+        fi
+
+        # Reset CURRENT_VERSION so a missing override is detectable.
+        unset CURRENT_VERSION
+        source "${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/scripts/metadata.bash"
+
+        resolved_version=$(resolve_target_schema_version "${SERVICE_NAME}" "${target_version}")
+        if [ -z "${resolved_version}" ]; then
+            echo "...No version-map entry for '${SERVICE_NAME}' at or before ${target_version}; skipping"
+            continue
+        fi
+
+        echo "...Resolved target schema version for ${SERVICE_NAME}: ${resolved_version}"
+        export CURRENT_VERSION="${resolved_version}"
+
+        if [[ "${action}" == "upgrade" ]]; then
+            # Bootstrap first if the DB / SCHEMA_VERSION table is missing, mirroring legacy
+            # `upgrade` semantics so manageDbSchema=false from day 0 (no managed Job ever ran)
+            # still works end-to-end via this command.
+            # Wrap in if-test so `set -e` does not abort on a non-zero (DB-missing) return.
+            if doesDatabaseExist; then
+                local schema_name=${PGSCHEMA:-${PGDATABASE}}
+                local table_exists
+                table_exists=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE UPPER(table_name) = 'SCHEMA_VERSION' AND table_schema = '${schema_name}');" 2>/dev/null | sed -e 's/[  ]*//g')
+                if [ "${table_exists}" != "t" ]; then
+                    echo "...SCHEMA_VERSION table missing - running initial table creation for ${SERVICE_NAME}"
+                    export CREATE_DB_TABLES="true"
+                    createDatabaseObjects
+                    __exit_code=$?
+                else
+                    # Validate direction: upgradeDbSchema must not go backward
+                    local current_db_version
+                    current_db_version=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT VERSION FROM ${schema_name}.SCHEMA_VERSION" 2>/dev/null | sed -e 's/[  ]*//g')
+                    if [ -n "${current_db_version}" ] && [[ ${current_db_version} -gt ${CURRENT_VERSION} ]]; then
+                        echo "******* ERROR: Current DB schema version (${current_db_version}) is higher than target version (${CURRENT_VERSION}) for ${SERVICE_NAME}"
+                        echo "******* upgradeDbSchema only supports forward upgrades. To go to a lower version, use: $0 rollbackDbSchema ${target_version}"
+                        __exit_code=1
+                        break
+                    fi
+                    __exit_code=0
+                fi
+            else
+                echo "...Database does not exist, creating database objects for ${SERVICE_NAME}"
+                createDatabaseObjects
+                __exit_code=$?
+            fi
+
+            if [ ${__exit_code} -eq 0 ]; then
+                upgradeDBSchema
+                __exit_code=$?
+                if [ ${__exit_code} -eq 0 ]; then
+                    persist_all_down_sql_to_efs
+                fi
+            fi
+        else
+            # Validate direction: rollbackDbSchema must not go forward
+            if doesDatabaseExist; then
+                local schema_name=${PGSCHEMA:-${PGDATABASE}}
+                local table_exists
+                table_exists=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE UPPER(table_name) = 'SCHEMA_VERSION' AND table_schema = '${schema_name}');" 2>/dev/null | sed -e 's/[  ]*//g')
+                if [ "${table_exists}" == "t" ]; then
+                    local current_db_version
+                    current_db_version=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT VERSION FROM ${schema_name}.SCHEMA_VERSION" 2>/dev/null | sed -e 's/[  ]*//g')
+                    if [ -n "${current_db_version}" ] && [[ ${current_db_version} -lt ${CURRENT_VERSION} ]]; then
+                        echo "******* ERROR: Current DB schema version (${current_db_version}) is lower than target version (${CURRENT_VERSION}) for ${SERVICE_NAME}"
+                        echo "******* rollbackDbSchema only supports backward rollbacks. To go to a higher version, use: $0 upgradeDbSchema ${target_version}"
+                        __exit_code=1
+                        break
+                    fi
+                fi
+            fi
+            rollbackDBSchema
+            __exit_code=$?
+        fi
+
+        if [ ${__exit_code} -ne 0 ]; then
+            echo "******* ERROR: Manual ${action} failed for '${SERVICE_NAME}'. Exit code: ${__exit_code}"
+            break
+        fi
+        echo "...Completed manual ${action} for ${SERVICE_NAME}"
+    done
+
+    if [ ${__exit_code} -eq 0 ]; then
+        echo -e "\n\n...Successfully completed manual ${action} for all eligible services"
+    else
+        echo "******* ERROR: Manual ${action} aborted - at least one service failed. Exit code: ${__exit_code}"
+    fi
+
+    return ${__exit_code}
+}
+
+# Manual forward-only upgrade entry point: upgradeDbSchema <target_chart_version>
+upgradeDbCommand() {
+    runManualSchemaAction "upgrade" "$1"
+}
+
+# Manual backward-only rollback entry point: rollbackDbSchema <target_chart_version>
+rollbackDbCommand() {
+    runManualSchemaAction "rollback" "$1"
+}
+
+# Chart-managed entry point: manageDbSchema <target_chart_version>
+# Used by the helm job when manageDbSchema=true. Auto-detects direction
+# (upgrade or rollback) based on current DB version vs target — no
+# direction validation so helm upgrade/rollback both work seamlessly.
+manageDbSchemaCommand() {
+    local target_version="$1"
+    local __exit_code=0
+
+    # Mark this invocation as the chart-managed (manageDbSchema=true) path.
+    # The EFS persistence helpers gate on this flag and remain no-ops when
+    # the script is invoked manually (upgradeDbCommand / rollbackDbCommand).
+    export MANAGE_DB_SCHEMA=true
+
+    setRerunCurrentUpgrade
+    setupPostgreSQLEnvironment
+    __exit_code=$?
+    if [ ${__exit_code} -ne 0 ]; then
+        echo "******* ERROR: Failed to setup Postgres environment. Exit code: ${__exit_code}"
+        return ${__exit_code}
+    fi
+
+    validate_target_chart_version "${target_version}" || return 1
+
+    echo "...Setting up master credentials"
+    export-master-credentials
+
+    echo "...Processing database services for managed schema action to chart version ${target_version}"
+    local __db_services
+    __db_services=$( ls -l ${PSQL_SCRIPTS_LOCATION} | grep ^d | awk '{print $9}' )
+
+    # Filter out skipped services if SKIP_SERVICES is set
+    if [ -n "${SKIP_SERVICES}" ]; then
+        echo "...Skipping services: ${SKIP_SERVICES}"
+        local __filtered_services=""
+        local __service __skip __skip_service
+        for __service in ${__db_services}; do
+            __skip_service=false
+            for __skip in ${SKIP_SERVICES}; do
+                if [ "${__service}" = "${__skip}" ]; then
+                    __skip_service=true
+                    break
+                fi
+            done
+            if [ "${__skip_service}" = "false" ]; then
+                __filtered_services="${__filtered_services} ${__service}"
+            fi
+        done
+        __db_services="${__filtered_services}"
+    fi
+
+    echo "...Services to be processed: ${__db_services}"
+
+    local __service resolved_version
+    for __service in ${__db_services}; do
+        export SERVICE_NAME="${__service}"
+
+        echo ""
+        echo "=========================================="
+        echo "Managed schema action: ${SERVICE_NAME} -> chart ${target_version}"
+        echo "=========================================="
+
+        if [ ! -f "${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/scripts/metadata.bash" ]; then
+            echo "******* ERROR: metadata.bash not found for service '${SERVICE_NAME}'"
+            __exit_code=1
+            break
+        fi
+
+        unset CURRENT_VERSION
+        source "${PSQL_SCRIPTS_LOCATION}/${SERVICE_NAME}/scripts/metadata.bash"
+
+        resolved_version=$(resolve_target_schema_version "${SERVICE_NAME}" "${target_version}")
+        if [ -z "${resolved_version}" ]; then
+            echo "...No version-map entry for '${SERVICE_NAME}' at or before ${target_version}; skipping"
+            continue
+        fi
+
+        echo "...Resolved target schema version for ${SERVICE_NAME}: ${resolved_version}"
+        export CURRENT_VERSION="${resolved_version}"
+
+        # Bootstrap DB if needed (same as upgrade path)
+        if doesDatabaseExist; then
+            local schema_name=${PGSCHEMA:-${PGDATABASE}}
+            local table_exists
+            table_exists=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE UPPER(table_name) = 'SCHEMA_VERSION' AND table_schema = '${schema_name}');" 2>/dev/null | sed -e 's/[  ]*//g')
+            if [ "${table_exists}" != "t" ]; then
+                echo "...SCHEMA_VERSION table missing - running initial table creation for ${SERVICE_NAME}"
+                export CREATE_DB_TABLES="true"
+                createDatabaseObjects
+                __exit_code=$?
+            else
+                __exit_code=0
+            fi
+        else
+            echo "...Database does not exist, creating database objects for ${SERVICE_NAME}"
+            createDatabaseObjects
+            __exit_code=$?
+        fi
+
+        # Detect direction and route to appropriate schema action
+        if [ ${__exit_code} -eq 0 ]; then
+            local schema_name=${PGSCHEMA:-${PGDATABASE}}
+            local current_db_version
+            current_db_version=$(psql -t -h ${PGHOST} -p ${PGPORT} -d ${PGDATABASE} -U ${MASTER_PGUSER} -c "SELECT VERSION FROM ${schema_name}.SCHEMA_VERSION" 2>/dev/null | sed -e 's/[  ]*//g')
+
+            if [ -z "${current_db_version}" ]; then
+                current_db_version=0
+            fi
+
+            if [[ ${current_db_version} -lt ${CURRENT_VERSION} ]]; then
+                echo "...DB version (${current_db_version}) < target (${CURRENT_VERSION}) — upgrading schema"
+                upgradeDBSchema
+                __exit_code=$?
+            elif [[ ${current_db_version} -gt ${CURRENT_VERSION} ]]; then
+                echo "...DB version (${current_db_version}) > target (${CURRENT_VERSION}) — rolling back schema"
+                export PREVIOUS_VERSION="${current_db_version}"
+                downgradeDBSchema
+                __exit_code=$?
+            else
+                if [ "${RERUN_CURRENT_UPGRADE}" = "true" ]; then
+                    echo "...DB version (${current_db_version}) at target (${CURRENT_VERSION}) — re-running upgrade (RERUN_CURRENT_UPGRADE=true)"
+                    upgradeDBSchema
+                    __exit_code=$?
+                else
+                    echo "...DB version (${current_db_version}) already at target (${CURRENT_VERSION}) — no action needed"
+                fi
+            fi
+
+            if [ ${__exit_code} -eq 0 ]; then
+                persist_all_down_sql_to_efs
+            fi
+        fi
+
+        if [ ${__exit_code} -ne 0 ]; then
+            echo "******* ERROR: Managed schema action failed for '${SERVICE_NAME}'. Exit code: ${__exit_code}"
+            break
+        fi
+        echo "...Completed managed schema action for ${SERVICE_NAME}"
+    done
+
+    if [ ${__exit_code} -eq 0 ]; then
+        echo -e "\n\n...Successfully completed managed schema action for all eligible services"
+    else
+        echo "******* ERROR: Managed schema action aborted - at least one service failed. Exit code: ${__exit_code}"
+    fi
+
+    return ${__exit_code}
+}
+
+################################################################################
 # Main Execution
 ################################################################################
 
@@ -1128,7 +1925,35 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
     case $inputCommand in
         upgrade)
+            if [ -n "$2" ]; then
+                echo "******* ERROR: 'upgrade' takes no arguments. Use 'upgradeDbSchema <target_chart_version>' for manual per-version upgrades."
+                exit 1
+            fi
             upgrade
+            ;;
+        manageDbSchema)
+            if [ -z "$2" ]; then
+                echo "Usage: $0 manageDbSchema <target_chart_version>"
+                echo "Example: $0 manageDbSchema 1.16.0"
+                exit 1
+            fi
+            manageDbSchemaCommand "$2"
+            ;;
+        upgradeDbSchema)
+            if [ -z "$2" ]; then
+                echo "Usage: $0 upgradeDbSchema <target_chart_version>"
+                echo "Example: $0 upgradeDbSchema 1.16.0"
+                exit 1
+            fi
+            upgradeDbCommand "$2"
+            ;;
+        rollbackDbSchema)
+            if [ -z "$2" ]; then
+                echo "Usage: $0 rollbackDbSchema <target_chart_version>"
+                echo "Example: $0 rollbackDbSchema 1.15.0"
+                exit 1
+            fi
+            rollbackDbCommand "$2"
             ;;
         delete)
             delete
@@ -1153,11 +1978,13 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             exit ${schema_check_result}
             ;;
         *)
-            echo "Usage: $0 {upgrade|delete|check-schema-version}"
+            echo "Usage: $0 {upgrade|upgradeDbSchema|rollbackDbSchema|delete|check-schema-version}"
             echo "Available commands:"
-            echo "  upgrade                          - Install or upgrade database schema to latest version for all services"
-            echo "  delete                           - Delete database schemas, users, and secrets for all services"
-            echo "  check-schema-version <service>   - Check if database schema matches expected version (for init containers)"
+            echo "  upgrade                                  - Install or upgrade database schema to latest version for all services"
+            echo "  upgradeDbSchema <target_chart_version>   - Manually upgrade schema forward to the version mapped for the given chart version (managedDbSchema=false)"
+            echo "  rollbackDbSchema <target_chart_version>  - Manually roll back schema to the version mapped for the given chart version (charts shipping version-map.yaml only)"
+            echo "  delete                                   - Delete database schemas, users, and secrets for all services"
+            echo "  check-schema-version <service>           - Check if database schema matches expected version (for init containers)"
             exit 1
             ;;
     esac

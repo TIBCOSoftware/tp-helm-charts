@@ -16,6 +16,11 @@ Table of Contents
   * [Tools Required](#tools-required)
   * [JFrog Credentials](#jfrog-credentials)
 * [Download TIBCO® Platform Container Images](#download-tibco-platform-container-images)
+  * [Source Registry Authentication](#source-registry-authentication)
+  * [Option 1: Sync using sync-images.sh (Recommended)](#option-1-sync-using-sync-imagessh-recommended)
+  * [Option 2: Sync using skopeo (not validated)](#option-2-sync-using-skopeo-not-validated)
+  * [Option 3: Sync using other tools](#option-3-sync-using-other-tools)
+  * [Verifying Image Integrity After Transfer](#verifying-image-integrity-after-transfer)
 * [Download Helm Charts](#download-helm-charts)
   * [Push to Chart Museum](#push-to-chart-museum)
     * [Using cURL Command](#using-curl-command)
@@ -63,9 +68,11 @@ From this Virtual Machine with internet connectivity, you should:
 The following tools are required to be installed on:
 
 **Virtual Machine with Internet Connectivity:**
-- Docker cli
+- Docker CLI
+- Docker Buildx (required for Option 1; bundled with Docker Desktop and Docker Engine 19.03+)
 - Helm
 - Kubectl / OpenShift client (oc)
+- skopeo (optional, required for Option 2 if not using Docker Buildx)
 
 **air-gapped Virtual Machine:**
 - Helm
@@ -77,43 +84,126 @@ As an end-user, you must create a subscription and obtain the Username, Password
 
 # Download TIBCO® Platform Container Images
 
+The complete list of images for your release is available under [TIBCO Platform Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/pushing-images-to-registry.htm?TocPath=Installation%257CDeploying%2520TIBCO%2520Control%2520Plane%2520in%2520a%2520Kubernetes%2520Cluster%257C_____2). Images are also enumerated per capability in the [`artifacts/`](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/artifacts) directory of the tp-helm-charts repository as `*-<RELEASE_VERSION>-images.txt` files.
+
+## Source Registry Authentication
+
 Log in to TIBCO's JFrog Registry using details obtained from Subscription Account Details.
 
 Depending on your subscription region, choose one of the following:
+
 For EU Region:
 ```bash
-docker login csgprdeuwrepoedge.jfrog.io -u tibco-platform-sub-<id> -p "xxxxxxxxxxxxxx" ## For EU Region
+docker login csgprdeuwrepoedge.jfrog.io -u tibco-platform-sub-<id> -p "xxxxxxxxxxxxxx"
 ```
 
 For US Region:
 ```bash
-docker login csgprduswrepoedge.jfrog.io -u tibco-platform-sub-<id> -p "xxxxxxxxxxxxxx" ## For US Region
+docker login csgprduswrepoedge.jfrog.io -u tibco-platform-sub-<id> -p "xxxxxxxxxxxxxx"
 ```
 
-This command logs your Docker client into TIBCO's container image registry using the provided username and password. This authentication is required to pull proprietary TIBCO® Platform container images.
+## Option 1: Sync using sync-images.sh (Recommended)
 
-The list of images is available under [TIBCO Platform Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/pushing-images-to-registry.htm?TocPath=Installation%257CDeploying%2520TIBCO%2520Control%2520Plane%2520in%2520a%2520Kubernetes%2520Cluster%257C_____2)
+The [`scripts/sync-artifacts/sync-images.sh`](../../../scripts/sync-artifacts/sync-images.sh) script copies images **directly between registries** using `docker buildx imagetools create`. It reads the `*-images.txt` [`artifact files`](../../../artifacts) and handles all images for a given release in a single automated pass.
 
-> [!IMPORTANT]
-> Please take a note of the architecture of the machine with internet connectivity used for pulling container images and that of the air-gapped Virtual Machine.
-> This is important since you need to pull the image which can run on the air-gapped Virtual Machine.
-
-There can be multiple approaches to copy over the images to your custom container registry.
-In the example, we are using following 3 steps:
-1. Pull the images from TIBCO® Platform container registry (for example, csgprdeuwrepoedge.jfrog.io)
-2. Tag the images with your custom registry (for example, x.x.x.x:5000)
-3. Push the images to your custom registry
-
-You can simply run the following commands from the Virtual Machine which can access the TIBCO® Platform container registry:
+### Sample Usage
 
 ```bash
-docker pull csgprdeuwrepoedge.jfrog.io/tibco-platform-docker-prod/core-cp-scripts:8707 --platform linux/amd64
+# From the cloned repo, switch to the sync-artifacts directory
+cd scripts/sync-artifacts
 
-docker tag csgprdeuwrepoedge.jfrog.io/tibco-platform-docker-prod/core-cp-scripts:8707 x.x.x.x:5000/tibco-platform-docker-prod/core-cp-scripts:8707
+export SOURCE_REGISTRY="csgprdeuwrepoedge.jfrog.io"   # or US endpoint
+export SOURCE_REGISTRY_USERNAME="tibco-platform-sub-<id>"
+export SOURCE_REGISTRY_PASSWORD="xxxxxxxxxxxxxx"
+export RELEASE_VERSION="1.18.0"                        # adjust to your version
+export TARGET_REGISTRY="your-registry.example.com"
+export TARGET_REGISTRY_USERNAME="your-username"        # optional
+export TARGET_REGISTRY_PASSWORD="your-password"        # optional
+export TARGET_REGISTRY_REPO="tibco-platform"           # optional
 
-docker push x.x.x.x:5000/tibco-platform-docker-prod/core-cp-scripts:8707
+./sync-images.sh
 ```
-Please make sure to adjust the Docker engine configuration to allow insecure registries, if you are using one.
+
+To sync images for a single capability only, set `CAPABILITY_NAME`:
+
+```bash
+export CAPABILITY_NAME="control-plane"
+./sync-images.sh
+```
+
+## Option 2: Sync using skopeo (not validated)
+
+If Docker Buildx is unavailable in your environment, skopeo can also perform a direct registry-to-registry copy.
+
+[`skopeo`](https://github.com/containers/skopeo) is purpose-built for registry-to-registry image operations. The `--all` flag copies every architecture variant in a single command, preserving the full multi-arch manifest list. The `--preserve-digests` flag keeps the copied image digests identical to the source and fails the copy if a digest cannot be preserved — this avoids the layer re-encoding described in [Verifying Image Integrity After Transfer](#verifying-image-integrity-after-transfer) and is recommended for OpenShift/Podman environments.
+
+```bash
+# Copy a single image (all architectures)
+skopeo copy --all --preserve-digests \
+  --src-creds  "tibco-platform-sub-<id>:xxxxxxxxxxxxxx" \
+  --dest-creds "your-username:your-password" \
+  docker://csgprdeuwrepoedge.jfrog.io/tibco-platform-docker-prod/core-cp-scripts:9474 \
+  docker://your-registry.example.com/tibco-platform/core-cp-scripts:9474
+```
+
+To bulk-copy all images listed in a release file:
+
+```bash
+SOURCE_REGISTRY="csgprdeuwrepoedge.jfrog.io"
+SOURCE_REPO="tibco-platform-docker-prod"
+TARGET_REGISTRY="your-registry.example.com"
+TARGET_REPO="tibco-platform"
+
+while IFS= read -r image || [[ -n "$image" ]]; do
+  [[ -z "$image" || "$image" == \#* ]] && continue
+  skopeo copy --all --preserve-digests \
+    --src-creds  "tibco-platform-sub-<id>:xxxxxxxxxxxxxx" \
+    --dest-creds "your-username:your-password" \
+    "docker://${SOURCE_REGISTRY}/${SOURCE_REPO}/${image}" \
+    "docker://${TARGET_REGISTRY}/${TARGET_REPO}/${image}"
+done < ../../artifacts/control-plane/control-plane-1.18.0-images.txt
+```
+
+## Option 3: Sync using other tools
+
+Please note that other tools like `oc mirror` and `podman` may also be used for image synchronization, depending on your 
+environment and requirements, but our testing and validation is limited to the above [Option 1](#option-1-sync-using-sync-imagessh-recommended). 
+If you choose to use other tools, please ensure that you verify the integrity of the images after transfer.
+
+
+## Verifying Image Integrity After Transfer
+
+> [!CAUTION]
+> A `docker pull` + `docker push` cycle re-encodes gzip layers, producing images that appear valid but may fail at runtime. Spot-check at least one image after mirroring.
+
+Set your registry details and run the following snippet to inspect the first layer's gzip header directly from the registry (no image pull needed):
+
+```bash
+REGISTRY="your-registry.example.com"
+REPO="tibco-platform"
+IMAGE="core-cp-scripts"
+TAG="9474"
+
+TOKEN=$(curl -s -u "username:password" \
+  "https://$REGISTRY/v2/token?service=$REGISTRY&scope=repository:$REPO/$IMAGE:pull" \
+  | jq -r '.token')
+
+DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  "https://$REGISTRY/v2/$REPO/$IMAGE/manifests/$TAG" | jq -r '.layers[0].digest')
+
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://$REGISTRY/v2/$REPO/$IMAGE/blobs/$DIGEST" -o /tmp/check_header.tar.gz
+
+xxd /tmp/check_header.tar.gz | head -1
+```
+
+**Expected output (intact image):**
+```
+00000000: 1f8b 0800 0000 0000 00ff ecf2 638c 2f40  ................
+```
+
+Bytes 10–11 should be non-zero (e.g. `ec f2`). If you see `00 ff`, the layer was re-encoded — re-mirror using `sync-images.sh` or `skopeo copy --all --preserve-digests` before proceeding.
 
 # Download Helm Charts
 

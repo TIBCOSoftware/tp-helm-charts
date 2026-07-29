@@ -34,6 +34,35 @@
 # - Target: copies images directly to TARGET_REGISTRY using docker buildx imagetools
 # - Summary: provides detailed summary of operations
 
+# =============================================================================
+# ALTERNATIVE: skopeo (community tool — NOT validated)
+#
+# If Docker Buildx is unavailable, skopeo can copy images directly between
+# registries while preserving multi-arch manifests. Use --all to copy every
+# architecture variant in a single command, and --preserve-digests to keep
+# image digests identical to the source (recommended for OpenShift/Podman).
+#
+# Single image:
+#   skopeo copy --all --preserve-digests \
+#     --src-creds  "$SOURCE_REGISTRY_USERNAME:$SOURCE_REGISTRY_PASSWORD" \
+#     --dest-creds "$TARGET_REGISTRY_USERNAME:$TARGET_REGISTRY_PASSWORD" \
+#     docker://$SOURCE_REGISTRY/$SOURCE_REGISTRY_REPO/<image>:<tag> \
+#     docker://$TARGET_REGISTRY/$TARGET_REGISTRY_REPO/<image>:<tag>
+#
+# Bulk copy (reading from an images.txt file):
+#   while IFS= read -r image || [[ -n "$image" ]]; do
+#     [[ -z "$image" || "$image" == \#* ]] && continue
+#     skopeo copy --all --preserve-digests \
+#       --src-creds  "$SOURCE_REGISTRY_USERNAME:$SOURCE_REGISTRY_PASSWORD" \
+#       --dest-creds "$TARGET_REGISTRY_USERNAME:$TARGET_REGISTRY_PASSWORD" \
+#       "docker://$SOURCE_REGISTRY/$SOURCE_REGISTRY_REPO/$image" \
+#       "docker://$TARGET_REGISTRY/$TARGET_REGISTRY_REPO/$image"
+#   done < ../../artifacts/<capability>/<capability>-<RELEASE_VERSION>-images.txt
+#
+# After mirroring with any tool, verify layer integrity by inspecting the gzip
+# header of a sample image blob. See the air-gapped workshop README for details.
+# =============================================================================
+
 set -e  # Exit on any error
 
 # Color codes for output

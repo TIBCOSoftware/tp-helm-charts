@@ -12,7 +12,8 @@
 #   2. Register an OAuth2 client for the ADMIN subscription
 #   3. Revoke the ADMIN IAT (Initial Access Token)
 #   4. Exchange client credentials for an ADMIN access token
-#   5. (Manual) Generate a self-signed certificate if needed before providing --idp-config
+#   5. (Manual) Provision an SP certificate if needed before providing --idp-config
+#      (generate self-signed, or upload/delete a customer-provided PKCS12 keystore)
 #   6. Configure external IdP (skipped if --idp-config not provided)
 #   7. Create a CP subscription and verify its details
 #   8. Register an OAuth2 client for the CP subscription
@@ -450,13 +451,14 @@ main() {
 
 
     # ------------------------------------------------------------------
-    # Step 5: Generate self-signed certificate
-    # Step 6: Configure external IdP
-    # (Both steps require --idp-config; skipped if not provided)
+    # Step 5: Provision SP certificate (generate / upload / delete)
+    #         — independent of --idp-config; the script does not call these
+    #           APIs, provision the cert separately (see --help) if needed.
+    # Step 6: Configure external IdP — requires --idp-config; skipped if not provided.
     # ------------------------------------------------------------------
     if [[ -n "$IDP_CONFIG" ]]; then
-        log_step "Step 5/9: Generate self-signed certificate"
-        log_warn "Skipped — use the generate SP certificate API separately if needed"
+        log_step "Step 5/9: Provision SP certificate"
+        log_warn "Skipped — use the generate/upload/delete SP certificate API separately if needed"
 
 
         log_step "Step 6/9: Configuring external IdP"
@@ -490,7 +492,7 @@ main() {
             -H "Content-Type: application/json")
         print_response "ADMIN IdP details" "$admin_idp_response"
     else
-        log_step "Step 5/9: Generate self-signed certificate"
+        log_step "Step 5/9: Provision SP certificate"
         log_warn "Skipped — no --idp-config provided, IdP configuration is skipped"
 
 
@@ -676,12 +678,29 @@ main() {
     echo ""
     echo -e "${BOLD}External IdP Configuration${RESET}"
     echo ""
-    echo "  1. Generate a self-signed SP certificate:"
+    echo "  1. Provision an SP certificate (choose one):"
+    echo ""
+    echo "     a. Generate a self-signed SP certificate:"
     echo ""
     echo "    curl -s -X POST '$BASE_URL/platform-console/api/v1/idps/sp-certs/generate' \\"
     echo "         -H 'Content-Type: application/json' \\"
     echo "         -H 'Authorization: Bearer <ADMIN_ACCESS_TOKEN>' \\"
     echo "         -d '{\"expiryTime\": <EPOCH>, \"hostPrefix\": \"$ADMIN_HOST_PREFIX\"}'"
+    echo ""
+    echo "     b. Upload a customer-provided PKCS12 keystore (returns alias, HTTP 201):"
+    echo ""
+    echo "    KS_B64=\$(base64 sp.p12 | tr -d '\\n')   # portable across GNU + BSD/macOS"
+    echo "    curl -s -X POST '$BASE_URL/platform-console/api/v1/idps/sp-certs/upload' \\"
+    echo "         -H 'Content-Type: application/json' \\"
+    echo "         -H 'Authorization: Bearer <ADMIN_ACCESS_TOKEN>' \\"
+    echo "         -d \"{\\\"keystore\\\": \\\"\$KS_B64\\\", \\\"password\\\": \\\"<KEYSTORE_PWD>\\\"}\""
+    echo "       Caution: an inline password is exposed in shell history / process args;"
+    echo "       prefer an env var or a protected file (e.g. build the body with jq)."
+    echo ""
+    echo "     c. Delete an SP certificate by alias (HTTP 200):"
+    echo ""
+    echo "    curl -s -X DELETE '$BASE_URL/platform-console/api/v1/idps/sp-certs/<ALIAS>' \\"
+    echo "         -H 'Authorization: Bearer <ADMIN_ACCESS_TOKEN>'"
     echo ""
     echo "  2. Configure external IdP (pass as --idp-config or call directly):"
     echo ""
