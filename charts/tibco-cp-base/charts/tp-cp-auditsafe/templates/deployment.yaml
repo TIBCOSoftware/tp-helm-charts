@@ -25,11 +25,6 @@ spec:
     metadata:
       labels:
         {{- include "tp-cp-auditsafe-web-server.shared.labels.standard" . | nindent 8 }}
-        egress.networking.platform.tibco.com/internet-all: enable
-        egress.networking.platform.tibco.com/internet-web: enable
-        ingress.networking.platform.tibco.com/cluster-access: enable
-        egress.networking.platform.tibco.com/cluster-all: enable
-        ingress.networking.platform.tibco.com/internet-access: enable
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/database-egress: enable
@@ -90,7 +85,7 @@ spec:
               /opt/tibco/tsc/scripts/postgres-helper.bash check-schema-version tasdataserver
       containers:
         - name: auditsafe
-          image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}o11y-tas-web-server:{{ .Values.image.tag }}
+          image: {{ include "tp-cp-auditsafe-web-server.image.registry" .}}{{"/"}}{{ include "tp-cp-auditsafe-web-server.image.repository" .}}{{"/"}}o11y-tas-server:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.auditsafe.securityContext }}
           securityContext:

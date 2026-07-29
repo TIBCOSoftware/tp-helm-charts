@@ -44,6 +44,24 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /infra/tunnel
+    {{- if eq .Values.gatewayRoute.controllerName "netscalercpx" }}
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Forwarded-Proto
+          value: https
+        - name: X-Forwarded-Port
+          value: "443"
+    {{- end }}
+    backendRefs:
+    - name: {{ include "hybrid-proxy.consts.appName" . }}
+      port: 105
+  {{- if ne .Values.global.external.dnsDomain .Values.global.external.dnsTunnelDomain }}
+  - matches:
+    - path:
+        type: PathPrefix
         value: /
     {{- if eq .Values.gatewayRoute.controllerName "netscalercpx" }}
     filters:
@@ -58,4 +76,5 @@ spec:
     backendRefs:
     - name: {{ include "hybrid-proxy.consts.appName" . }}
       port: 105
+  {{- end }}
 {{- end }}
