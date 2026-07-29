@@ -27,8 +27,6 @@ global:
     hybridConnectivity:
       enabled: true
     networkPolicy:
-      # Create deprecated network policies
-      createDeprecatedPolicies: true
       # Enable or disable the creation of cluster-wide network policies
       createClusterScopePolicies: true
       # Enable or disable the creation of internet-facing network policies
@@ -107,11 +105,11 @@ global:
     # Common images
     commonImages:
       distrolessDebug:
-        tag: 13.4
+        tag: 13.5
       cpScripts:
-        tag: "9474"
+        tag: "9590"
       fluentbit:
-        tag: 5.0.6
+        tag: 5.0.9
 
   external:
     db_host: ""
@@ -324,7 +322,7 @@ resource-set-operator:
 # Default values for otel-collector
 otel-collector:
   # switch to true to enable otel-collector
-  enabled: false
+  enabled: true
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.

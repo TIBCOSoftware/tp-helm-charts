@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.18.0",
+      "capabilityVersion": "1.19.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -35,18 +35,8 @@ data:
             "monitoringPriority": "essential"
           },
           {
-            "name": "jaeger-collector",
-            "description": "jaeger collector",
-            "monitoringPriority": "optional"
-          },
-          {
-            "name": "jaeger-query",
-            "description": "jaeger query",
-            "monitoringPriority": "optional"
-          },
-          {
-            "name": "jaeger-allinone",
-            "description": "jaeger allinone",
+            "name": "jaeger",
+            "description": "jaeger",
             "monitoringPriority": "optional"
           },
           {
@@ -80,7 +70,14 @@ data:
           values:
             - content: |
                 global:
+                  o11yservice:
+                    job:
+                      image:
+                        tag: {{ .Values.global.tibco.commonImages.cpScripts.tag | quote }}
                   cp:
+                    logging:
+                      fluentbit:
+                        tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
                     resources:
                       o11y:
                         logsServer:
@@ -261,6 +258,8 @@ data:
                               - http://*
                               - https://*
                           endpoint: 0.0.0.0:24318
+                    k8s_events:
+                      namespaces: ["${env:app_namespace}"]
                   processors:
                     memory_limiter:
                       check_interval: 5s
@@ -292,6 +291,11 @@ data:
                       traces:
                         span:
                           - 'name != ""'
+                    filter/health-traces:
+                      error_mode: ignore
+                      traces:
+                        span:
+                          - 'IsMatch(attributes["http.route"], ".*actuator/*") and IsMatch(resource.attributes["service.name"], "sb-app\\..*")'
                     k8sattributes/general:
                       auth_type: "serviceAccount"
                       passthrough: false
@@ -401,7 +405,7 @@ data:
                       - context: log
                         statements:
                         - set(body["@timestamp"], body["log_time"])
-                        - set(body["app_id"], resource.attributes["app_id"])
+                        - set(body["app_id"], resource.attributes["app_id"]) where body["app_id"] == nil
                         - set(body["app_name"], resource.attributes["app_name"])
                         - set(body["app_tags"], resource.attributes["app_tags"])
                         - set(body["app_type"], resource.attributes["app_type"])
@@ -414,7 +418,7 @@ data:
                         - set(body["pod_uid"], resource.attributes["pod_uid"])
                         - set(body["pod_start_time"], resource.attributes["pod_start_time"])
                         - set(body["workload_type"], resource.attributes["workload_type"])
-                        - set(body["server_name"], resource.attributes["server_name"])
+                        - set(body["server_name"], resource.attributes["server_name"]) where body["server_name"] == nil
                     transform/svclogs-ext:
                       log_statements:
                       - context: log
@@ -433,10 +437,16 @@ data:
                       - context: log
                         statements:
                         - set(resource.attributes["workload_type"], "user-app") where IsMatch(resource.attributes["app_type"], "msg-*") or IsMatch(body["host_cloud_type"], "control-tower")
+                    transform/es-bodymap:
+                      log_statements:
+                      - context: scope
+                        statements:
+                        - set(attributes["elastic.mapping.mode"], "bodymap")
                     transform/traces:
                       trace_statements:
                       - context: span
                         statements:
+                          - delete_key(attributes, "error") where attributes["error"] == "false"
                           - set(attributes["pod_name"], resource.attributes["k8s.pod.name"])
                           - set(attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
                           - set(attributes["app_id"], resource.attributes["app_id"])
@@ -476,8 +486,170 @@ data:
                         - set(body["extra_props"][Int(cache["len"]+Int(3))], cache["ep3"])
                         - set(body["extra_props"][Int(cache["len"]+Int(4))], cache["ep4"])
                         - set(body["extra_props"][Int(cache["len"]+Int(5))], cache["ep5"])
+                    filter/pod-warnings:
+                      error_mode: ignore
+                      logs:
+                        log_record:
+                          - 'severity_text != "Warning"'
+                          - 'resource.attributes["k8s.object.kind"] != "Pod"'
+                          - 'attributes["k8s.event.count"] != 1'
+                    filter/pod-reasons:
+                      error_mode: ignore
+                      logs:
+                        log_record:
+                          - 'not IsMatch(attributes["k8s.event.reason"], "^(BackOff|OOMKilled|Failed|ErrImagePull|ImagePullBackOff|FailedScheduling|FailedMount|FailedAttachVolume)$")'
+                    transform/pod-to-audit:
+                      error_mode: ignore
+                      log_statements:
+                        - context: log
+                          statements:
+                            - set(resource.attributes["k8s.pod.name"], resource.attributes["k8s.object.name"]) where resource.attributes["k8s.object.kind"] == "Pod"
+                            - set(resource.attributes["k8s.pod.uid"], resource.attributes["k8s.object.uid"]) where resource.attributes["k8s.object.kind"] == "Pod"
+                            - set(resource.attributes["k8s.namespace.name"], attributes["k8s.namespace.name"])
+                    k8sattributes/k8sevents:
+                      auth_type: "serviceAccount"
+                      passthrough: false
+                      filter:
+                        namespace: ${env:app_namespace}
+                      pod_association:
+                        - sources:
+                          - from: resource_attribute
+                            name: k8s.pod.uid
+                        - sources:
+                          - from: resource_attribute
+                            name: k8s.pod.name
+                          - from: resource_attribute
+                            name: k8s.namespace.name
+                      extract:
+                        metadata:
+                          - k8s.pod.name
+                          - k8s.pod.uid
+                          - k8s.namespace.name
+                          - k8s.pod.start_time
+                        labels:
+                          - tag_name: app_id
+                            key: platform.tibco.com/app-id
+                            from: pod
+                          - tag_name: app_type
+                            key: platform.tibco.com/app-type
+                            from: pod
+                          - tag_name: dataplane_id
+                            key: platform.tibco.com/dataplane-id
+                            from: pod
+                          - tag_name: workload_type
+                            key: platform.tibco.com/workload-type
+                            from: pod
+                          - tag_name: app_name
+                            key: platform.tibco.com/app-name
+                            from: pod
+                          - tag_name: app_version
+                            key: platform.tibco.com/app-version
+                            from: pod
+                          - tag_name: capability_instance_id
+                            key: platform.tibco.com/capability-instance-id
+                            from: pod
+                    transform/audit-body:
+                      error_mode: ignore
+                      log_statements:
+                        - context: log
+                          statements:
+                            - set(resource.attributes["audit.service_name"], "KubernetesEventNotify")
+                            - set(resource.attributes["audit.audit_status"], "FAILURE")
+                            # audit_status: WARNING for probe/volume events (lower priority than pod crash/image failures)
+                            - set(resource.attributes["audit.audit_status"], "WARNING") where attributes["k8s.event.reason"] == "FailedMount" or attributes["k8s.event.reason"] == "FailedAttachVolume"
+                            - set(resource.attributes["audit.app_id"], resource.attributes["app_id"])
+                            - set(resource.attributes["audit.app_type"], resource.attributes["app_type"])
+                            - set(resource.attributes["audit.dataplane_id"], resource.attributes["dataplane_id"])
+                            - set(resource.attributes["audit.instance"], resource.attributes["k8s.object.name"])
+                            - set(resource.attributes["audit.app_instance"], resource.attributes["k8s.object.name"])
+                            - set(resource.attributes["audit.severity"], "warning")
+                            - set(resource.attributes["audit.severity"], "critical") where attributes["k8s.event.reason"] == "BackOff" or attributes["k8s.event.reason"] == "OOMKilled" or attributes["k8s.event.reason"] == "ErrImagePull" or attributes["k8s.event.reason"] == "ImagePullBackOff" or attributes["k8s.event.reason"] == "FailedScheduling" or attributes["k8s.event.reason"] == "Failed"
+                            - set(resource.attributes["audit.scope"], "DP") where resource.attributes["workload_type"] == "infra"
+                            - set(resource.attributes["audit.scope"], "CAP") where resource.attributes["workload_type"] == "capability-service"
+                            - set(resource.attributes["audit.scope"], "APP") where resource.attributes["workload_type"] == "user-app"
+                            # Compose audit event body — only ES-mapped fields in cache
+                            - 'set(cache["trans_desp"], Concat([attributes["k8s.event.reason"], body], ": "))'
+                            - set(cache["trans_id"], UUID())
+                            - set(cache["service_name"], "KubernetesEventNotify")
+                            - set(cache["trans_status"], "FAILURE")
+                            - set(cache["trans_status"], "WARNING") where attributes["k8s.event.reason"] == "Unhealthy" or attributes["k8s.event.reason"] == "FailedMount" or attributes["k8s.event.reason"] == "FailedAttachVolume"
+                            - set(cache["trans_state"], attributes["k8s.event.reason"])
+                            - set(cache["trans_source"], "System")
+                            - set(cache["trans_destination"], attributes["k8s.namespace.name"])
+                            - set(cache["trans_ts"], FormatTime(log.time, "%Y-%m-%dT%H:%M:%S.%LZ"))
+                            - set(cache["create_ts"], FormatTime(log.time, "%Y-%m-%dT%H:%M:%S.%LZ"))
+                            - set(cache["user_trans_id"], resource.attributes["dataplane_id"]) where resource.attributes["workload_type"] == "infra"
+                            - set(cache["user_trans_id"], resource.attributes["capability_instance_id"]) where resource.attributes["workload_type"] == "capability-service"
+                            - set(cache["user_trans_id"], resource.attributes["app_id"]) where resource.attributes["workload_type"] == "user-app"
+                            - set(cache["user_id"], "System")
+                            - set(cache["entry_id"], "")
+                            - set(cache["parent_id"], "")
+                            # Build extra_props entries (matching Go collectExtraProps field names)
+                            - set(cache["ep0"]["prop_name"], "Scope")
+                            - set(cache["ep0"]["prop_value"], resource.attributes["audit.scope"])
+                            - set(cache["ep1"]["prop_name"], "UserId")
+                            - set(cache["ep1"]["prop_value"], "System")
+                            - set(cache["ep2"]["prop_name"], "DataPlaneId")
+                            - set(cache["ep2"]["prop_value"], resource.attributes["dataplane_id"])
+                            - set(cache["ep2"]["prop_value"], "") where resource.attributes["dataplane_id"] == nil
+                            - set(cache["ep3"]["prop_name"], "DataPlaneType")
+                            - set(cache["ep3"]["prop_value"], "k8s")
+                            - set(cache["ep4"]["prop_name"], "CapabilityInstanceId")
+                            - set(cache["ep4"]["prop_value"], resource.attributes["capability_instance_id"])
+                            - set(cache["ep4"]["prop_value"], "") where resource.attributes["capability_instance_id"] == nil
+                            - set(cache["ep5"]["prop_name"], "CapabilityName")
+                            - set(cache["ep5"]["prop_value"], resource.attributes["app_type"])
+                            - set(cache["ep5"]["prop_value"], "") where resource.attributes["app_type"] == nil
+                            - set(cache["ep6"]["prop_name"], "AppId")
+                            - set(cache["ep6"]["prop_value"], resource.attributes["app_id"])
+                            - set(cache["ep6"]["prop_value"], "") where resource.attributes["app_id"] == nil
+                            - set(cache["ep7"]["prop_name"], "AppName")
+                            - set(cache["ep7"]["prop_value"], resource.attributes["app_name"])
+                            - set(cache["ep7"]["prop_value"], "") where resource.attributes["app_name"] == nil
+                            - set(cache["ep8"]["prop_name"], "k8s.event.reason")
+                            - set(cache["ep8"]["prop_value"], attributes["k8s.event.reason"])
+                            - set(cache["ep9"]["prop_name"], "k8s.event.count")
+                            - set(cache["ep9"]["prop_value"], attributes["k8s.event.count"])
+                            - set(cache["ep10"]["prop_name"], "k8s.object.kind")
+                            - set(cache["ep10"]["prop_value"], resource.attributes["k8s.object.kind"])
+                            - set(cache["ep11"]["prop_name"], "severity")
+                            - set(cache["ep11"]["prop_value"], resource.attributes["audit.severity"])
+                            - set(cache["ep12"]["prop_name"], "PodName")
+                            - set(cache["ep12"]["prop_value"], resource.attributes["k8s.object.name"])
+                            # Set body from cache, then remove epN staging keys (not in ES mapping)
+                            - set(body, cache)
+                            - delete_key(body, "ep0")
+                            - delete_key(body, "ep1")
+                            - delete_key(body, "ep2")
+                            - delete_key(body, "ep3")
+                            - delete_key(body, "ep4")
+                            - delete_key(body, "ep5")
+                            - delete_key(body, "ep6")
+                            - delete_key(body, "ep7")
+                            - delete_key(body, "ep8")
+                            - delete_key(body, "ep9")
+                            - delete_key(body, "ep10")
+                            - delete_key(body, "ep11")
+                            - delete_key(body, "ep12")
+                            # Construct extra_props nested array (same pattern as transform/auditsafe)
+                            - append(body["extra_props"], values = ["el0", "el1", "el2", "el3", "el4", "el5", "el6", "el7", "el8", "el9", "el10", "el11", "el12"])
+                            - set(body["extra_props"][0], cache["ep0"])
+                            - set(body["extra_props"][1], cache["ep1"])
+                            - set(body["extra_props"][2], cache["ep2"])
+                            - set(body["extra_props"][3], cache["ep3"])
+                            - set(body["extra_props"][4], cache["ep4"])
+                            - set(body["extra_props"][5], cache["ep5"])
+                            - set(body["extra_props"][6], cache["ep6"])
+                            - set(body["extra_props"][7], cache["ep7"])
+                            - set(body["extra_props"][8], cache["ep8"])
+                            - set(body["extra_props"][9], cache["ep9"])
+                            - set(body["extra_props"][10], cache["ep10"])
+                            - set(body["extra_props"][11], cache["ep11"])
+                            - set(body["extra_props"][12], cache["ep12"])
                   exporters:
                     debug: {}
+                    otlphttp/cp-audit:
+                      endpoint: ${env:PLATFORM_POD_ALERT_EVENT_EXPORTER_OTLP_URL}
                     elasticsearch/log:
                       mapping:
                         mode: bodymap
@@ -530,28 +702,32 @@ data:
                         insecure_skip_verify: true
                     kafka/logs-export-auth:
                       brokers: ${env:LOGS_EXPORTER_APP_KAFKA_BROKERS}
-                      topic: ${env:LOGS_EXPORTER_APP_KAFKA_TOPIC}
                       protocol_version: ${env:LOGS_EXPORTER_APP_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_APP_KAFKA_TOPIC}
                       auth:
                         plain_text:
                           username: ${env:LOGS_EXPORTER_APP_KAFKA_USERNAME}
                           password: ${env:LOGS_EXPORTER_APP_KAFKA_PASSWORD}
                     kafka/logs-export:
                       brokers: ${env:LOGS_EXPORTER_APP_KAFKA_BROKERS}
-                      topic: ${env:LOGS_EXPORTER_APP_KAFKA_TOPIC}
                       protocol_version: ${env:LOGS_EXPORTER_APP_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_APP_KAFKA_TOPIC}
                     kafka/traces-export-auth:
                       brokers: ${env:TRACES_EXPORTER_KAFKA_BROKERS}
-                      topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
                       protocol_version: ${env:TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      traces:
+                        topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
                       auth:
                         plain_text:
                           username: ${env:TRACES_EXPORTER_KAFKA_USERNAME}
                           password: ${env:TRACES_EXPORTER_KAFKA_PASSWORD}
                     kafka/traces-export:
                       brokers: ${env:TRACES_EXPORTER_KAFKA_BROKERS}
-                      topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
                       protocol_version: ${env:TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      traces:
+                        topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
                     elasticsearch/svclog:
                       mapping:
                         mode: bodymap
@@ -577,16 +753,18 @@ data:
                         insecure_skip_verify: true
                     kafka/service-logs-export-auth:
                       brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
-                      topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
                       protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
                       auth:
                         plain_text:
                           username: ${env:LOGS_EXPORTER_SVC_KAFKA_USERNAME}
                           password: ${env:LOGS_EXPORTER_SVC_KAFKA_PASSWORD}
                     kafka/service-logs-export:
                       brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
-                      topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
                       protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
                     opensearch/log:
                       mapping:
                         mode: bodymap
@@ -663,6 +841,19 @@ data:
                         receivers: ${env:traces_receiver}
                         processors: ${env:traces_processor}
                         exporters: ${env:traces_exporter}
+                      logs/k8sevents:
+                        receivers:
+                          - k8s_events
+                        processors:
+                          - filter/pod-reasons
+                          - filter/pod-warnings
+                          - transform/pod-to-audit
+                          - k8sattributes/k8sevents
+                          - transform/audit-body
+                          - memory_limiter
+                          - batch
+                        exporters:
+                          - otlphttp/cp-audit
           flags:
             install: true
             createNamespace: false
@@ -1205,16 +1396,18 @@ data:
                         insecure_skip_verify: true
                     kafka/metrics-export-auth:
                       brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
-                      topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
                       protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      metrics:
+                        topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
                       auth:
                         plain_text:
                           username: ${env:METRICS_EXPORTER_KAFKA_USERNAME}
                           password: ${env:METRICS_EXPORTER_KAFKA_PASSWORD}
                     kafka/metrics-export:
                       brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
-                      topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
                       protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      metrics:
+                        topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
                   extensions:
                     health_check: {}
                   service:
@@ -1288,56 +1481,14 @@ data:
                       o11y:
                         tracesServer:
                           enabled: false
-                provisionDataStore:
-                  cassandra: false
-                  elasticsearch: false
+                fullnameOverride: jaeger
                 storage:
                   type: elasticsearch
                   elasticsearch:
-                    tags-as-fields:
-                      all: true
                     tls:
                       enabled: false
                       secretName: jaeger-elasticsearch
-                agent:
-                  enabled: false
-                query:
-                  enabled: true
-                  fullnameOverride: jaeger-query
-                  basePath: /o11y/v1/traceproxy/${DATAPLANE-ID}
-                  podLabels:
-                    networking.platform.tibco.com/kubernetes-api: enable
-                    networking.platform.tibco.com/logServer-egress: enable
-                    networking.platform.tibco.com/internet-egress: enable
-                    networking.platform.tibco.com/cluster-egress: enable
-                  resources:
-                    requests:
-                      cpu: 200m
-                      memory: 256Mi
-                    limits:
-                      cpu: 1000m
-                      memory: 1024Mi
-                  extraConfigmapMounts:
-                    - name: jaeger-config
-                      mountPath: /jaeger/config
-                      subPath: ""
-                      configMap: o11y-service
-                      readOnly: true
-                  serviceAccount:
-                    create: false
-                    name: ${SERVICE-ACCOUNT}
-                  oAuthSidecar:
-                    enabled: false
-                  agentSidecar:
-                    enabled: false
-                  cmdlineParams:
-                    es.version: 7
-                    es.tls.enabled: true
-                    es.tls.skip-host-verify: true
-                    query.ui-config: /jaeger/config/jaeger-ui-config.json
-                collector:
-                  enabled: true
-                  fullnameOverride: jaeger-collector
+                jaeger:
                   podLabels:
                     networking.platform.tibco.com/kubernetes-api: enable
                     networking.platform.tibco.com/logServer-egress: enable
@@ -1353,25 +1504,80 @@ data:
                   serviceAccount:
                     create: false
                     name: ${SERVICE-ACCOUNT}
-                  autoscaling:
-                    enabled: true
-                    minReplicas: 1
-                    maxReplicas: 3
-                    targetCPUUtilizationPercentage: 80
-                    targetMemoryUtilizationPercentage: 80
-                  cmdlineParams:
-                    es.version: 7
-                    es.create-index-templates: "false"
-                    es.tls.enabled: true
-                    es.tls.skip-host-verify: true
+                uiconfig:
+                  monitor:
+                    menuEnabled: false
+                  dependencies:
+                    menuEnabled: false
+                  menu:
+                    - label: "Control Panel"
+                      items:
+                        - label: "Home"
+                          url: "../../../../cp"
+                        - label: "Data Planes"
+                          url: "../../../../cp/app/subscription"
+                        - label: "Observability"
+                          url: "../../../../cp/metrics"
+                  linkPatterns:
+                    - type: "tags"
+                      key: "app_id"
+                      url: "../../../../cp/#{app_type}/appdetails/processes?dp_id=#{dataplane_id}&capability_instance_id=#{capability_instance_id}&app_id=#{app_id}"
+                      text: "Open app details #{app_name}"
+                userconfig:
                   service:
-                    otlp:
-                      grpc:
-                        name: otlp-grpc
-                        port: 4317
+                    extensions: [jaeger_storage, jaeger_query, healthcheckv2]
+                    pipelines:
+                      traces:
+                        receivers: [otlp]
+                        exporters: [jaeger_storage_exporter]
+                    telemetry:
+                      resource:
+                        service.name: jaeger
+                      metrics:
+                        level: detailed
+                        readers:
+                          - pull:
+                              exporter:
+                                prometheus:
+                                  host: 0.0.0.0
+                                  port: 8888
+                  extensions:
+                    healthcheckv2:
+                      use_v2: true
                       http:
-                        name: otlp-http
-                        port: 4318
+                        endpoint: 0.0.0.0:13133
+                    jaeger_query:
+                      base_path: /o11y/v1/traceproxy/${DATAPLANE-ID}
+                      storage:
+                        traces: primary_store
+                      ui:
+                        config_file: /etc/jaeger/ui-config.json
+                    jaeger_storage:
+                      backends:
+                        primary_store:
+                          elasticsearch:
+                            server_urls: ["${env:ES_SERVER_URLS}"]
+                            auth:
+                              basic:
+                                username: "${env:ES_USERNAME}"
+                                password: "${env:ES_PASSWORD}"
+                            tls:
+                              insecure_skip_verify: true
+                            # Index templates are pre-created in Elasticsearch (dp-config-es),
+                            # so Jaeger must not create them on startup. This also skips the
+                            # PUT _index_template request whose duplicate Authorization header
+                            # (go-elasticsearch v9.x) is rejected by AWS ELB with a 400. (PCP-21169)
+                            create_mappings: false
+                  receivers:
+                    otlp:
+                      protocols:
+                        grpc:
+                          endpoint: 0.0.0.0:4317
+                        http:
+                          endpoint: 0.0.0.0:4318
+                  exporters:
+                    jaeger_storage_exporter:
+                      trace_storage: primary_store
           flags:
             install: true
             createNamespace: false
@@ -1423,7 +1629,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.18.0"
+          value: "1.19.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

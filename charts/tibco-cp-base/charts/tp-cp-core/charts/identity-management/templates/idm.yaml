@@ -366,6 +366,27 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.psqlMaxOpenConnections
+        # PCP-18673: HikariCP pool tuning to evict idle/aged DB connections
+        - name: IDENTITY_MANAGEMENT_DATABASE_CONNECTION_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlConnectionTimeout
+        - name: IDENTITY_MANAGEMENT_DATABASE_IDLE_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlIdleTimeout
+        - name: IDENTITY_MANAGEMENT_DATABASE_MAX_LIFETIME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlMaxLifetime
+        - name: IDENTITY_MANAGEMENT_DATABASE_MINIMUM_IDLE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlMinimumIdle
         - name: IDENTITY_MANAGEMENT_DEFAULTIDP_HOSTNAME
           valueFrom:
             configMapKeyRef:
@@ -381,6 +402,17 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: ADMIN_HOST_PREFIX
+        # PCP-20085: IdM in-memory rate limiter — tunable via idm.rateLimit values
+        - name: IDENTITY_MANAGEMENT_RATE_LIMIT_ENABLED
+          value: {{ .Values.idm.rateLimit.enabled | quote }}
+        - name: IDENTITY_MANAGEMENT_RATE_LIMIT_MAX_REQUESTS
+          value: {{ .Values.idm.rateLimit.maxRequests | quote }}
+        - name: IDENTITY_MANAGEMENT_RATE_LIMIT_WINDOW_SECONDS
+          value: {{ .Values.idm.rateLimit.windowSeconds | quote }}
+        - name: IDENTITY_MANAGEMENT_RATE_LIMIT_EVICTION_TTL_SECONDS
+          value: {{ .Values.idm.rateLimit.evictionTtlSeconds | quote }}
+        - name: IDENTITY_MANAGEMENT_RATE_LIMIT_MAX_ENTRIES
+          value: {{ .Values.idm.rateLimit.maxEntries | quote }}
         volumeMounts:
         - name: store-vol
           mountPath: /mnt/heapdumps
@@ -977,14 +1009,6 @@ spec:
       fqdn: ""
       methods:
       - PUT
-  - path: /idm/v1/management/geoipcheck
-    internalPath: /v1/geoipcheck
-    port: 7831
-    protocol: http
-    proxies:
-    - listener: ops
-      config: empty
-      fqdn: ""
   - path: /idm/v1/management/invites
     internalPath: /v1/invites
     port: 7831

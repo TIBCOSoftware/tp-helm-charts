@@ -21,6 +21,9 @@ fullnameOverride: "otel-services"
 # Valid values are "daemonset", "deployment", and "statefulset".
 mode: "deployment"
 
+# Override the default apiVersion for custom controllers or for testing new API versions.
+apiVersion: "apps/v1"
+
 # Specify which namespace should be used to deploy the resources into
 namespaceOverride: ""
 
@@ -61,7 +64,7 @@ presets:
   # Best used with mode = daemonset.
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-attributes-processor for details on the receiver.
   kubernetesAttributes:
-    enabled: false
+    enabled: true
     # When enabled the processor will extra all labels for an associated pod and add them as resource attributes.
     # The label's exact name will be the key.
     extractAllPodLabels: false
@@ -81,7 +84,7 @@ presets:
   # Best used with mode = deployment or statefulset.
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-objects-receiver for details on the receiver.
   kubernetesEvents:
-    enabled: false
+    enabled: true
   # Configures the Kubernetes Cluster Receiver to collect cluster-level metrics.
   # Adds the k8s_cluster receiver to the metrics pipeline
   # and adds the necessary rules to ClusterRole.
@@ -89,6 +92,68 @@ presets:
   # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-cluster-receiver for details on the receiver.
   clusterMetrics:
     enabled: false
+  # Configures the collector to collect logs and metrics from pods with specific annotations.
+  # This preset can not be used together with the `logsCollection` preset.
+  annotationDiscovery:
+    logs:
+      enabled: false
+    metrics:
+      enabled: false
+  # Collects Kubernetes objects via the k8sobjects receiver in pull mode.
+  kubernetesObjects:
+    enabled: false
+    # disableLeaderElection: false
+    watch: false
+    core:
+      enabled: true
+    rbac:
+      enabled: true
+    storage:
+      enabled: true
+    networking:
+      enabled: true
+    autoscaling:
+      enabled: true
+      vpa:
+        enabled: false
+    policy:
+      enabled: true
+    apiExtensions:
+      enabled: true
+  # Configures the collector to collect profiling data.
+  profiling:
+    enabled: false
+  # Configures the collector to detect resource attributes using the resourcedetection processor.
+  resourceDetection:
+    enabled: false
+    env:
+      enabled: true
+    k8snode:
+      enabled: true
+    eks:
+      enabled: false
+    aks:
+      enabled: false
+    gcp:
+      enabled: false
+
+# When enabled, the chart will configure the collector to emit its traces, metrics, and logs over http via the OTLP using the Otel Go SDK.
+# THIS OPTION IS EXPERIMENTAL AND SUBJECT TO BREAKING CHANGES
+internalTelemetryViaOTLP:
+  endpoint: ""
+  headers: []
+  traces:
+    enabled: false
+    endpoint: ""
+    headers: []
+  metrics:
+    enabled: false
+    endpoint: ""
+    headers: []
+  logs:
+    enabled: false
+    endpoint: ""
+    headers: []
 
 configMap:
   # Specifies whether a configMap should be created (true by default)
@@ -107,6 +172,8 @@ configMap:
 config:
   exporters:
     elasticsearch/log:
+      mapping:
+        mode: bodymap
       endpoints:
         - ${env:CP_LOGSERVER_URL}
       logs_index: ${env:CP_LOGSERVER_INDEX}
@@ -130,6 +197,15 @@ config:
       tls:
         insecure: false
         insecure_skip_verify: true
+    otlphttp/prometheus:
+      endpoint: ${env:CP_PROMETHEUS_OTLP_ENDPOINT}
+      tls:
+        insecure: true
+    # nop acts as /dev/null. k8s events are routed here so they are not written
+    # to the audittrail index, which otherwise lets the ES/OS exporter auto-create
+    # a stray concrete `audittrail` index before the rollover index/alias exists
+    # (PCP-21523).
+    nop: {}
   extensions:
     # The health_check extension is mandatory for this chart.
     # Without the health_check extension the collector will fail the readiness and liveliness probes.
@@ -152,10 +228,16 @@ config:
 
   processors:
     batch: {}
+    deltatocumulative: {}
     memory_limiter:
       check_interval: 5s
       limit_percentage: 80
       spike_limit_percentage: 25
+    transform/es-bodymap:
+      log_statements:
+        - context: scope
+          statements:
+            - set(attributes["elastic.mapping.mode"], "bodymap")
 
     k8sattributes/general:
       auth_type: "serviceAccount"
@@ -166,6 +248,220 @@ config:
           - k8s.pod.uid
           - k8s.namespace.name
           - k8s.pod.ip
+    transform/audit-attrs:
+      error_mode: ignore
+      log_statements:
+        - context: log
+          statements:
+            # Copy resource attributes to log record attributes for count connector
+            - set(attributes["audit.scope"], resource.attributes["audit.scope"])
+            - set(attributes["audit.subscription_id"], resource.attributes["audit.subscription_id"])
+            - set(attributes["audit.dataplane_id"], resource.attributes["audit.dataplane_id"])
+            - set(attributes["audit.app_id"], resource.attributes["audit.app_id"])
+            - set(attributes["audit.app_type"], resource.attributes["audit.app_type"])
+            - set(attributes["audit.audit_event"], resource.attributes["audit.audit_event"])
+            - set(attributes["audit.audit_status"], resource.attributes["audit.audit_status"])
+            - set(attributes["audit.service_name"], resource.attributes["audit.service_name"])
+            - set(attributes["audit.instance"], resource.attributes["audit.instance"])
+            - set(attributes["audit.severity"], resource.attributes["audit.severity"])
+            - set(attributes["audit.app_instance"], resource.attributes["audit.app_instance"])
+            - set(attributes["audit.alert_name"], resource.attributes["audit.alert_name"])
+            # Derive event_type: "alert" if Alert event from AlertService, else "audit"
+            - set(attributes["event_type"], "audit")
+            - set(attributes["event_type"], "alert") where resource.attributes["audit.audit_event"] == "Alert" and resource.attributes["audit.service_name"] == "AlertService"
+
+    filter/k8s-warnings:
+      error_mode: ignore
+      logs:
+        log_record:
+          - 'severity_text != "Warning"'
+          - 'resource.attributes["k8s.object.kind"] != "Pod" and resource.attributes["k8s.object.kind"] != "Deployment" and resource.attributes["k8s.object.kind"] != "ReplicaSet"'
+          - 'attributes["k8s.event.count"] != 1'
+          - 'resource.attributes["k8s.object.kind"] == "Deployment" and attributes["k8s.event.reason"] != "ProgressDeadlineExceeded" and attributes["k8s.event.reason"] != "MinimumReplicasUnavailable"'
+          - 'resource.attributes["k8s.object.kind"] == "ReplicaSet" and attributes["k8s.event.reason"] != "FailedCreate"'
+
+    filter/pod-reasons:
+      error_mode: ignore
+      logs:
+        log_record:
+          - 'not IsMatch(attributes["k8s.event.reason"], "^(BackOff|OOMKilled|Failed|ErrImagePull|ImagePullBackOff|FailedScheduling|FailedMount|FailedAttachVolume|ProgressDeadlineExceeded|MinimumReplicasUnavailable|FailedCreate)$")'
+
+    transform/pod-to-audit:
+      error_mode: ignore
+      log_statements:
+        - context: log
+          statements:
+            - set(resource.attributes["k8s.pod.name"], resource.attributes["k8s.object.name"])
+              where resource.attributes["k8s.object.kind"] == "Pod"
+            - set(resource.attributes["k8s.pod.uid"], resource.attributes["k8s.object.uid"])
+              where resource.attributes["k8s.object.kind"] == "Pod"
+            - set(resource.attributes["k8s.namespace.name"], attributes["k8s.namespace.name"])
+
+    k8sattributes/k8sevents:
+      auth_type: serviceAccount
+      passthrough: false
+      filter:
+        namespace: ${env:MY_POD_NAMESPACE}
+      pod_association:
+        - sources:
+          - from: resource_attribute
+            name: k8s.pod.uid
+        - sources:
+          - from: resource_attribute
+            name: k8s.pod.name
+          - from: resource_attribute
+            name: k8s.namespace.name
+      extract:
+        metadata:
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.namespace.name
+          - k8s.pod.start_time
+        labels:
+          - tag_name: cp_component
+            key: app.kubernetes.io/name
+          - tag_name: cp_instance_id
+            key: platform.tibco.com/controlplane-instance-id
+
+    transform/audit-body-cp:
+      error_mode: ignore
+      log_statements:
+        - context: log
+          statements:
+            # Resource attributes for count connector
+            - set(resource.attributes["audit.service_name"], "KubernetesEventNotify")
+            - set(resource.attributes["audit.audit_event"], attributes["k8s.event.reason"])
+            - set(resource.attributes["audit.audit_status"], "FAILURE")
+            - set(resource.attributes["audit.audit_status"], "WARNING")
+              where attributes["k8s.event.reason"] == "Unhealthy"
+                or attributes["k8s.event.reason"] == "FailedMount"
+                or attributes["k8s.event.reason"] == "FailedAttachVolume"
+                or attributes["k8s.event.reason"] == "MinimumReplicasUnavailable"
+            - set(resource.attributes["audit.scope"], "CP")
+            - set(resource.attributes["audit.instance"], resource.attributes["k8s.object.name"])
+            - set(resource.attributes["audit.app_instance"], resource.attributes["k8s.object.name"])
+            - set(resource.attributes["audit.app_type"], resource.attributes["cp_component"])
+            - set(resource.attributes["audit.dataplane_id"], "")
+            - set(resource.attributes["audit.app_id"], "")
+            - set(resource.attributes["audit.subscription_id"], "")
+            # Severity
+            - set(resource.attributes["audit.severity"], "critical")
+              where attributes["k8s.event.reason"] == "BackOff"
+                or attributes["k8s.event.reason"] == "OOMKilled"
+                or attributes["k8s.event.reason"] == "ErrImagePull"
+                or attributes["k8s.event.reason"] == "ImagePullBackOff"
+                or attributes["k8s.event.reason"] == "FailedScheduling"
+                or attributes["k8s.event.reason"] == "Failed"
+                or attributes["k8s.event.reason"] == "ProgressDeadlineExceeded"
+                or attributes["k8s.event.reason"] == "FailedCreate"
+            - set(resource.attributes["audit.severity"], "warning")
+              where attributes["k8s.event.reason"] == "Unhealthy"
+                or attributes["k8s.event.reason"] == "FailedMount"
+                or attributes["k8s.event.reason"] == "FailedAttachVolume"
+                or attributes["k8s.event.reason"] == "MinimumReplicasUnavailable"
+            # Map k8s event reasons to descriptive trans_state identifiers
+            - set(cache["trans_state"], attributes["k8s.event.reason"])
+            # Compose audit event body via cache
+            - 'set(cache["trans_desp"], Concat([attributes["k8s.event.reason"], body], ": "))'
+            - set(cache["trans_id"], UUID())
+            - set(cache["service_name"], "KubernetesEventNotify")
+            - set(cache["trans_status"], "FAILURE")
+            - set(cache["trans_status"], "WARNING")
+              where attributes["k8s.event.reason"] == "Unhealthy"
+                or attributes["k8s.event.reason"] == "FailedMount"
+                or attributes["k8s.event.reason"] == "FailedAttachVolume"
+                or attributes["k8s.event.reason"] == "MinimumReplicasUnavailable"
+            - set(cache["trans_source"], "System")
+            - set(cache["trans_destination"], attributes["k8s.namespace.name"])
+            - set(cache["trans_ts"], FormatTime(log.time, "%Y-%m-%dT%H:%M:%S.%LZ"))
+            - set(cache["create_ts"], FormatTime(log.time, "%Y-%m-%dT%H:%M:%S.%LZ"))
+            - set(cache["user_trans_id"], resource.attributes["k8s.object.name"])
+            - set(cache["user_trans_id"], resource.attributes["cp_component"])
+              where resource.attributes["cp_component"] != nil
+            - set(cache["user_id"], "System")
+            - set(cache["entry_id"], "")
+            - set(cache["parent_id"], "")
+            # Build extra_props entries
+            - set(cache["ep0"]["prop_name"], "Scope")
+            - set(cache["ep0"]["prop_value"], "CP")
+            - set(cache["ep1"]["prop_name"], "UserId")
+            - set(cache["ep1"]["prop_value"], "System")
+            - set(cache["ep2"]["prop_name"], "CPComponent")
+            - set(cache["ep2"]["prop_value"], resource.attributes["cp_component"])
+            - set(cache["ep2"]["prop_value"], "") where resource.attributes["cp_component"] == nil
+            - set(cache["ep3"]["prop_name"], "CPInstanceId")
+            - set(cache["ep3"]["prop_value"], resource.attributes["cp_instance_id"])
+            - set(cache["ep3"]["prop_value"], "") where resource.attributes["cp_instance_id"] == nil
+            - set(cache["ep4"]["prop_name"], "k8s.event.reason")
+            - set(cache["ep4"]["prop_value"], attributes["k8s.event.reason"])
+            - set(cache["ep5"]["prop_name"], "k8s.event.count")
+            - set(cache["ep5"]["prop_value"], attributes["k8s.event.count"])
+            - set(cache["ep6"]["prop_name"], "k8s.object.kind")
+            - set(cache["ep6"]["prop_value"], resource.attributes["k8s.object.kind"])
+            - set(cache["ep7"]["prop_name"], "severity")
+            - set(cache["ep7"]["prop_value"], resource.attributes["audit.severity"])
+            - set(cache["ep8"]["prop_name"], "PodName")
+              where resource.attributes["k8s.object.kind"] == "Pod"
+            - set(cache["ep8"]["prop_name"], "DeploymentName")
+              where resource.attributes["k8s.object.kind"] == "Deployment"
+            - set(cache["ep8"]["prop_name"], "ReplicaSetName")
+              where resource.attributes["k8s.object.kind"] == "ReplicaSet"
+            - set(cache["ep8"]["prop_value"], resource.attributes["k8s.object.name"])
+            # Copy cache to body, then clean up staging keys
+            - set(body, cache)
+            - delete_key(body, "ep0")
+            - delete_key(body, "ep1")
+            - delete_key(body, "ep2")
+            - delete_key(body, "ep3")
+            - delete_key(body, "ep4")
+            - delete_key(body, "ep5")
+            - delete_key(body, "ep6")
+            - delete_key(body, "ep7")
+            - delete_key(body, "ep8")
+            # Construct extra_props nested array
+            - append(body["extra_props"], values = ["el0","el1","el2","el3","el4","el5","el6","el7","el8"])
+            - set(body["extra_props"][0], cache["ep0"])
+            - set(body["extra_props"][1], cache["ep1"])
+            - set(body["extra_props"][2], cache["ep2"])
+            - set(body["extra_props"][3], cache["ep3"])
+            - set(body["extra_props"][4], cache["ep4"])
+            - set(body["extra_props"][5], cache["ep5"])
+            - set(body["extra_props"][6], cache["ep6"])
+            - set(body["extra_props"][7], cache["ep7"])
+            - set(body["extra_props"][8], cache["ep8"])
+
+  connectors:
+    count/audit:
+      logs:
+        audit_event_count_total:
+          description: Count of audit and alert events
+          attributes:
+            - key: audit.scope
+              default_value: "none"
+            - key: audit.subscription_id
+              default_value: "none"
+            - key: audit.dataplane_id
+              default_value: "none"
+            - key: audit.app_id
+              default_value: "none"
+            - key: audit.app_type
+              default_value: "none"
+            - key: audit.audit_event
+              default_value: "none"
+            - key: audit.audit_status
+              default_value: "none"
+            - key: audit.service_name
+              default_value: "none"
+            - key: audit.instance
+              default_value: "none"
+            - key: event_type
+              default_value: "audit"
+            - key: audit.severity
+              default_value: "none"
+            - key: audit.app_instance
+              default_value: "none"
+            - key: audit.alert_name
+              default_value: "none"
 
   receivers:
     otlp:
@@ -180,7 +476,11 @@ config:
           endpoint: ${env:MY_POD_IP}:24317
         http:
           endpoint: ${env:MY_POD_IP}:24318
+    k8s_events:
+      namespaces: ["${env:MY_POD_NAMESPACE}"]
   service:
+    telemetry:
+      metrics: {}
     extensions:
       - health_check
     pipelines:
@@ -191,16 +491,46 @@ config:
           - k8sattributes/general
           - memory_limiter
           - batch
+          - transform/es-bodymap
         receivers:
           - otlp
       logs/audit:
         exporters:
           - elasticsearch/audit
+          - count/audit
         processors:
+          - transform/audit-attrs
+          - memory_limiter
+          - batch
+          - transform/es-bodymap
+        receivers:
+          - otlp/audit
+      metrics/audit:
+        exporters:
+          - otlphttp/prometheus
+        processors:
+          - deltatocumulative
           - memory_limiter
           - batch
         receivers:
-          - otlp/audit
+          - count/audit
+      logs/k8sevents:
+        # Block k8s events from the audittrail index: route to nop (/dev/null)
+        # instead of elasticsearch/audit + count/audit (PCP-21523).
+        exporters:
+          - nop
+        processors:
+          - filter/pod-reasons
+          - filter/k8s-warnings
+          - transform/pod-to-audit
+          - k8sattributes/k8sevents
+          - transform/audit-body-cp
+          - transform/audit-attrs
+          - transform/es-bodymap
+          - memory_limiter
+          - batch
+        receivers:
+          - k8s_events
 #config:
 #  exporters:
 #    debug: {}
@@ -384,7 +714,11 @@ topologySpreadConstraints: []
 # Allows for pod scheduler prioritisation
 priorityClassName: ""
 
-extraEnvs: []
+extraEnvs:
+  - name: MY_POD_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
 extraEnvsFrom:
   - secretRef:
       name: cp-otel-service
@@ -725,6 +1059,8 @@ prometheusRule:
   # Create default rules for monitoring the collector
   defaultRules:
     enabled: false
+    additionalRuleLabels: {}
+    additionalRuleAnnotations: {}
 
   # additional labels for the PrometheusRule
   extraLabels: {}

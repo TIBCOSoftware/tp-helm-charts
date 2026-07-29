@@ -1,14 +1,93 @@
 {{/*
-  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  Copyright (c) 2023-2025. Cloud Software Group, Inc.
   This file is subject to the license terms contained
   in the license file that is distributed with this file.
 */}}
+
+{{- define "otel-collector.otelsdkotlp.traces" -}}
+traces:
+  processors:
+    - batch:
+        exporter:
+          otlp:
+            protocol: http/protobuf
+            endpoint: {{ default .Values.internalTelemetryViaOTLP.endpoint .Values.internalTelemetryViaOTLP.traces.endpoint }}
+            {{- if or .Values.internalTelemetryViaOTLP.headers .Values.internalTelemetryViaOTLP.traces.headers }}
+            headers:
+              {{- toYaml (default .Values.internalTelemetryViaOTLP.headers .Values.internalTelemetryViaOTLP.traces.headers) | nindent 14 }}
+            {{- end }}
+{{- end }}
+
+{{- define "otel-collector.otelsdkotlp.metrics" -}}
+metrics:
+  readers:
+    - periodic:
+        exporter:
+          otlp:
+            protocol: http/protobuf
+            endpoint: {{ default .Values.internalTelemetryViaOTLP.endpoint .Values.internalTelemetryViaOTLP.metrics.endpoint }}
+            {{- if or .Values.internalTelemetryViaOTLP.headers .Values.internalTelemetryViaOTLP.metrics.headers }}
+            headers:
+              {{- toYaml (default .Values.internalTelemetryViaOTLP.headers .Values.internalTelemetryViaOTLP.metrics.headers) | nindent 14 }}
+            {{- end }}
+{{- end }}
+
+{{- define "otel-collector.metrics.prometheus" -}}
+metrics:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: {{ .address._0 | replace "{env!" "{env:" }}
+            port: {{ .address._1 }}
+            {{- if .Values.config.service.telemetry.resource }}
+            with_resource_constant_labels:
+              included:
+              {{- range (keys .Values.config.service.telemetry.resource | sortAlpha) }}
+              - {{ println . }}
+              {{- end }}
+            {{- end }}
+{{- end }}
+
+{{- define "otel-collector.otelsdkotlp.logs" -}}
+logs:
+  processors:
+    - batch:
+        exporter:
+          otlp:
+            protocol: http/protobuf
+            endpoint: {{ default .Values.internalTelemetryViaOTLP.endpoint .Values.internalTelemetryViaOTLP.logs.endpoint }}
+            {{- if or .Values.internalTelemetryViaOTLP.headers .Values.internalTelemetryViaOTLP.logs.headers }}
+            headers:
+              {{- toYaml (default .Values.internalTelemetryViaOTLP.headers .Values.internalTelemetryViaOTLP.logs.headers) | nindent 14 }}
+            {{- end }}
+{{- end }}
 
 {{- define "otel-collector.baseConfig" -}}
 {{- if .Values.alternateConfig }}
 {{- .Values.alternateConfig | toYaml }}
 {{- else}}
-{{- .Values.config | toYaml }}
+{{- $config := deepCopy .Values.config }}
+{{- if .Values.internalTelemetryViaOTLP.traces.enabled }}
+{{- $_ := set $config.service "telemetry" (mustMerge $config.service.telemetry (include "otel-collector.otelsdkotlp.traces" . | fromYaml)) }}
+{{- end }}
+{{- if .Values.internalTelemetryViaOTLP.metrics.enabled }}
+{{- $_ := unset $config.receivers "prometheus" }}
+{{- if $config.service.pipelines.metrics }}
+{{- $_ := set $config.service.pipelines.metrics "receivers" (mustWithout $config.service.pipelines.metrics.receivers "prometheus") }}
+{{- end }}
+{{- $_ := unset $config.service.telemetry.metrics "readers" }}
+{{- $_ := set $config.service "telemetry" (mustMerge $config.service.telemetry (include "otel-collector.otelsdkotlp.metrics" . | fromYaml)) }}
+{{- else if .Values.config.service.telemetry.metrics.address }}
+{{/* First replace env: with env! so we can split the host with the port and replace it back later */}}
+{{- $address:= .Values.config.service.telemetry.metrics.address | replace "{env:" "{env!" | split ":" }}
+{{- $_ := unset $config.service.telemetry.metrics "address" }}
+{{- $_ := set $config.service "telemetry" (mustMerge (include "otel-collector.metrics.prometheus" (mustMerge (dict "address" $address) .) | fromYaml) $config.service.telemetry ) }}
+{{- end }}
+{{- if .Values.internalTelemetryViaOTLP.logs.enabled }}
+{{- $_ := set $config.service "telemetry" (mustMerge $config.service.telemetry (include "otel-collector.otelsdkotlp.logs" . | fromYaml)) }}
+{{- end }}
+{{- $config | toYaml }}
 {{- end }}
 {{- end }}
 
@@ -22,8 +101,14 @@ Build config file for daemonset OpenTelemetry Collector
 {{- if .Values.presets.logsCollection.enabled }}
 {{- $config = (include "otel-collector.applyLogsCollectionConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
+{{- if or .Values.presets.annotationDiscovery.logs.enabled .Values.presets.annotationDiscovery.metrics.enabled }}
+{{- $config = (include "otel-collector.applyAnnotationDiscoveryConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
 {{- if .Values.presets.hostMetrics.enabled }}
 {{- $config = (include "otel-collector.applyHostMetricsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
+{{- if .Values.presets.profiling.enabled }}
+{{- $config = (include "otel-collector.applyProfilingConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
 {{- if .Values.presets.kubeletMetrics.enabled }}
 {{- $config = (include "otel-collector.applyKubeletMetricsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
@@ -31,8 +116,14 @@ Build config file for daemonset OpenTelemetry Collector
 {{- if .Values.presets.kubernetesAttributes.enabled }}
 {{- $config = (include "otel-collector.applyKubernetesAttributesConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
+{{- if .Values.presets.kubernetesObjects.enabled }}
+{{- $config = (include "otel-collector.applyKubernetesObjectsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
 {{- if .Values.presets.clusterMetrics.enabled }}
 {{- $config = (include "otel-collector.applyClusterMetricsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
+{{- if and .Values.presets.resourceDetection.enabled (or .Values.presets.resourceDetection.env.enabled .Values.presets.resourceDetection.k8snode.enabled .Values.presets.resourceDetection.eks.enabled .Values.presets.resourceDetection.aks.enabled .Values.presets.resourceDetection.gcp.enabled) }}
+{{- $config = (include "otel-collector.applyResourceDetectionConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
 {{- tpl (toYaml $config) . }}
 {{- end }}
@@ -47,8 +138,14 @@ Build config file for deployment OpenTelemetry Collector
 {{- if .Values.presets.logsCollection.enabled }}
 {{- $config = (include "otel-collector.applyLogsCollectionConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
+{{- if or .Values.presets.annotationDiscovery.logs.enabled .Values.presets.annotationDiscovery.metrics.enabled }}
+{{- $config = (include "otel-collector.applyAnnotationDiscoveryConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
 {{- if .Values.presets.hostMetrics.enabled }}
 {{- $config = (include "otel-collector.applyHostMetricsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
+{{- if .Values.presets.profiling.enabled }}
+{{- $config = (include "otel-collector.applyProfilingConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
 {{- if .Values.presets.kubeletMetrics.enabled }}
 {{- $config = (include "otel-collector.applyKubeletMetricsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
@@ -59,8 +156,14 @@ Build config file for deployment OpenTelemetry Collector
 {{- if .Values.presets.kubernetesEvents.enabled }}
 {{- $config = (include "otel-collector.applyKubernetesEventsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
+{{- if .Values.presets.kubernetesObjects.enabled }}
+{{- $config = (include "otel-collector.applyKubernetesObjectsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
 {{- if .Values.presets.clusterMetrics.enabled }}
 {{- $config = (include "otel-collector.applyClusterMetricsConfig" (dict "Values" $data "config" $config) | fromYaml) }}
+{{- end }}
+{{- if and .Values.presets.resourceDetection.enabled (or .Values.presets.resourceDetection.env.enabled .Values.presets.resourceDetection.k8snode.enabled .Values.presets.resourceDetection.eks.enabled .Values.presets.resourceDetection.aks.enabled .Values.presets.resourceDetection.gcp.enabled) }}
+{{- $config = (include "otel-collector.applyResourceDetectionConfig" (dict "Values" $data "config" $config) | fromYaml) }}
 {{- end }}
 {{- tpl (toYaml $config) . }}
 {{- end }}
@@ -122,14 +225,32 @@ receivers:
 {{- end }}
 
 {{- define "otel-collector.applyClusterMetricsConfig" -}}
-{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "receivers" list)))) (include "otel-collector.clusterMetricsConfig" .Values | fromYaml) .config }}
+{{- $vals := .Values.Values -}}
+{{- $disableLeaderElection := false -}}
+{{- if and (hasKey $vals "presets") (hasKey $vals.presets "clusterMetrics") -}}
+  {{- $disableLeaderElection = $vals.presets.clusterMetrics.disableLeaderElection -}}
+{{- end -}}
+{{- $useLeaderElection := and (eq $vals.mode "daemonset") (not $disableLeaderElection) -}}
+{{- $electorName := "k8s_cluster" }}
+{{- $ctx := mustMerge (dict "namespace" (include "otel-collector.namespace" .Values) "useLeaderElection" $useLeaderElection "electorName" $electorName) .Values }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "receivers" list)))) (include "otel-collector.clusterMetricsConfig" $ctx | fromYaml) .config }}
+{{- if $useLeaderElection}}
+{{- $configExtensions := mustMergeOverwrite (dict "service" (dict "extensions" list)) $config }}
+{{- $_ := set $config.service "extensions" (append $configExtensions.service.extensions (printf "k8s_leader_elector/%s" $electorName) | uniq)  }}
+{{- end }}
 {{- $_ := set $config.service.pipelines.metrics "receivers" (append $config.service.pipelines.metrics.receivers "k8s_cluster" | uniq)  }}
 {{- $config | toYaml }}
 {{- end }}
 
 {{- define "otel-collector.clusterMetricsConfig" -}}
+{{- if .useLeaderElection}}
+{{- include "otel-collector.leaderElectionConfig" (dict "name" .electorName "leaseName" "k8s.cluster.receiver.opentelemetry.io" "leaseNamespace" .namespace)}}
+{{- end}}
 receivers:
   k8s_cluster:
+    {{- if .useLeaderElection}}
+    k8s_leader_elector: k8s_leader_elector/{{ .electorName }}
+    {{- end}}
     collection_interval: 10s
 {{- end }}
 
@@ -144,7 +265,7 @@ receivers:
   kubeletstats:
     collection_interval: 20s
     auth_type: "serviceAccount"
-    endpoint: "${env:K8S_NODE_NAME}:10250"
+    endpoint: "${env:K8S_NODE_IP}:10250"
 {{- end }}
 
 {{- define "otel-collector.applyLogsCollectionConfig" -}}
@@ -187,6 +308,61 @@ receivers:
         max_log_size: {{ $.Values.presets.logsCollection.maxRecombineLogSize }}
 {{- end }}
 
+{{- define "otel-collector.applyAnnotationDiscoveryConfig" -}}
+{{- $config := mustMergeOverwrite (include "otel-collector.annotationDiscoveryConfig" .Values | fromYaml) .config }}
+{{- $_ := set $config.service "extensions" (append $config.service.extensions "k8s_observer" | uniq) }}
+{{- if .Values.Values.presets.annotationDiscovery.logs.enabled }}
+{{- $_ := set $config.service.pipelines.logs "receivers" (append $config.service.pipelines.logs.receivers "receiver_creator/logs" | uniq)  }}
+{{- end }}
+{{- if .Values.Values.presets.annotationDiscovery.metrics.enabled }}
+{{- $_ := set $config.service.pipelines.metrics "receivers" (append $config.service.pipelines.metrics.receivers "receiver_creator/metrics" | uniq) }}
+{{- end }}
+{{- $config | toYaml }}
+{{- end }}
+
+{{- define "otel-collector.annotationDiscoveryConfig" -}}
+extensions:
+  k8s_observer:
+    auth_type: serviceAccount
+    {{- if eq .Values.mode "daemonset" }}
+    node: ${env:K8S_NODE_NAME}
+    {{- end }}
+
+receivers:
+  {{- if .Values.presets.annotationDiscovery.logs.enabled }}
+  receiver_creator/logs:
+    watch_observers:
+      - k8s_observer
+    discovery:
+      enabled: true
+      default_annotations:
+        io.opentelemetry.discovery.logs/enabled: "true"
+ {{- end }}
+  {{- if .Values.presets.annotationDiscovery.metrics.enabled }}
+  receiver_creator/metrics:
+    watch_observers:
+      - k8s_observer
+    discovery:
+      enabled: true
+  {{- end }}
+{{- end }}
+
+{{- define "otel-collector.applyProfilingConfig" -}}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "profiles" (dict "receivers" list "exporters" list)))) (include "otel-collector.profilingConfig" .Values | fromYaml) .config }}
+{{- $_ := set $config.service.pipelines.profiles "receivers" (append $config.service.pipelines.profiles.receivers "profiling" | uniq)  }}
+{{- if not $config.service.pipelines.profiles.exporters }}
+{{- $_ := set $config.service.pipelines.profiles "exporters" (list "debug") }}
+{{- end }}
+{{- $config | toYaml }}
+{{- end }}
+
+{{- define "otel-collector.profilingConfig" -}}
+receivers:
+  profiling: {}
+exporters:
+  debug: {}
+{{- end }}
+
 {{- define "otel-collector.applyKubernetesAttributesConfig" -}}
 {{- $config := mustMergeOverwrite (include "otel-collector.kubernetesAttributesConfig" .Values | fromYaml) .config }}
 {{- if $config.service.pipelines.logs }}
@@ -205,6 +381,25 @@ receivers:
   {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "traces" (dict "processors" list)))) $config }}
   {{- if not (has "k8sattributes" $config.service.pipelines.traces.processors) }}
     {{- $_ := set $config.service.pipelines.traces "processors" (prepend $config.service.pipelines.traces.processors "k8sattributes" | uniq)  }}
+  {{- end }}
+{{- end }}
+{{- if $config.service.pipelines.profiles }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "profiles" (dict "processors" list)))) $config }}
+  {{- if not (has "k8sattributes" $config.service.pipelines.profiles.processors) }}
+    {{- $_ := set $config.service.pipelines.profiles "processors" (prepend $config.service.pipelines.profiles.processors "k8sattributes" | uniq)  }}
+  {{- end }}
+  {{- $podAssoc := $config.processors.k8sattributes.pod_association }}
+  {{- $containerIdSource := dict "sources" (list (dict "from" "resource_attribute" "name" "container.id")) }}
+  {{- $hasContainerId := false }}
+  {{- range $podAssoc }}
+    {{- range .sources }}
+      {{- if and (eq .from "resource_attribute") (eq .name "container.id") }}
+        {{- $hasContainerId = true }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- if not $hasContainerId }}
+    {{- $_ := set $config.processors.k8sattributes "pod_association" (prepend $podAssoc $containerIdSource) }}
   {{- end }}
 {{- end }}
 {{- $config | toYaml }}
@@ -228,17 +423,31 @@ processors:
     - sources:
       - from: connection
     extract:
+      otel_annotations: true
       metadata:
-        - "k8s.namespace.name"
-        - "k8s.deployment.name"
-        - "k8s.statefulset.name"
-        - "k8s.daemonset.name"
-        - "k8s.cronjob.name"
-        - "k8s.job.name"
-        - "k8s.node.name"
-        - "k8s.pod.name"
-        - "k8s.pod.uid"
-        - "k8s.pod.start_time"
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.node.name
+        - k8s.pod.start_time
+        - k8s.deployment.name
+        - k8s.replicaset.name
+        - k8s.replicaset.uid
+        - k8s.daemonset.name
+        - k8s.daemonset.uid
+        - k8s.job.name
+        - k8s.job.uid
+        - k8s.container.name
+        - k8s.cronjob.name
+        - k8s.statefulset.name
+        - k8s.statefulset.uid
+        - container.image.tag
+        - container.image.name
+        - k8s.cluster.uid
+        - service.namespace
+        - service.name
+        - service.version
+        - service.instance.id
       {{- if .Values.presets.kubernetesAttributes.extractAllPodLabels }}
       labels:
         - tag_name: $$1
@@ -303,3 +512,240 @@ receivers:
         exclude_watch_type:
           - "DELETED"
 {{- end }}
+
+{{- define "otel-collector.applyKubernetesObjectsConfig" -}}
+{{- $vals := .Values.Values -}}
+{{- $disableLeaderElection := false -}}
+{{- if and (hasKey $vals "presets") (hasKey $vals.presets "kubernetesObjects") -}}
+  {{- $disableLeaderElection = $vals.presets.kubernetesObjects.disableLeaderElection -}}
+{{- end -}}
+{{- $useLeaderElection := and (eq $vals.mode "daemonset") (not $disableLeaderElection) -}}
+{{- $electorName := "k8s_objects" }}
+{{- $ctx := mustMerge (dict "namespace" (include "otel-collector.namespace" .Values) "useLeaderElection" $useLeaderElection "electorName" $electorName) .Values }}
+{{- $objectsYaml := include "otel-collector.kubernetesObjectsConfig" $ctx | fromYaml }}
+{{- $newObjects := (index $objectsYaml.receivers "k8sobjects").objects }}
+{{- $existingObjects := list }}
+{{- if .config.receivers }}
+{{- if index .config.receivers "k8sobjects" }}
+{{- if (index .config.receivers "k8sobjects").objects }}
+{{- $existingObjects = (index .config.receivers "k8sobjects").objects }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $allObjects := concat $newObjects $existingObjects }}
+{{- $config := mustMergeOverwrite (dict "service" (dict "pipelines" (dict "logs" (dict "receivers" list)))) $objectsYaml .config }}
+{{- $_ := set (index $config.receivers "k8sobjects") "objects" $allObjects }}
+{{- if $useLeaderElection }}
+{{- $configExtensions := mustMergeOverwrite (dict "service" (dict "extensions" list)) $config }}
+{{- $_ := set $config.service "extensions" (append $configExtensions.service.extensions (printf "k8s_leader_elector/%s" $electorName) | uniq) }}
+{{- end }}
+{{- $_ := set $config.service.pipelines.logs "receivers" (append $config.service.pipelines.logs.receivers "k8sobjects" | uniq) }}
+{{- $config | toYaml }}
+{{- end }}
+
+{{- define "otel-collector.kubernetesObjectsConfig" -}}
+{{- $preset := .Values.presets.kubernetesObjects -}}
+{{- if .useLeaderElection }}
+{{- include "otel-collector.leaderElectionConfig" (dict "name" .electorName "leaseName" "k8s.objects.receiver.opentelemetry.io" "leaseNamespace" .namespace) }}
+{{- end }}
+receivers:
+  k8sobjects:
+    {{- if .useLeaderElection }}
+    k8s_leader_elector: k8s_leader_elector/{{ .electorName }}
+    {{- end }}
+    objects:
+{{- if $preset.core.enabled }}
+{{- range list "namespaces" "pods" "nodes" "services" "serviceaccounts" }}
+      - name: {{ . }}
+        mode: pull
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+{{- end }}
+{{- end }}
+{{- range list "deployments" "replicasets" "daemonsets" "statefulsets" }}
+      - name: {{ . }}
+        mode: pull
+        group: apps
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+        group: apps
+{{- end }}
+{{- end }}
+{{- range list "jobs" "cronjobs" }}
+      - name: {{ . }}
+        mode: pull
+        group: batch
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+        group: batch
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $preset.rbac.enabled }}
+{{- range list "roles" "rolebindings" "clusterroles" "clusterrolebindings" }}
+      - name: {{ . }}
+        mode: pull
+        group: rbac.authorization.k8s.io
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+        group: rbac.authorization.k8s.io
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $preset.storage.enabled }}
+{{- range list "storageclasses" }}
+      - name: {{ . }}
+        mode: pull
+        group: storage.k8s.io
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+        group: storage.k8s.io
+{{- end }}
+{{- end }}
+{{- range list "persistentvolumes" "persistentvolumeclaims" }}
+      - name: {{ . }}
+        mode: pull
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $preset.networking.enabled }}
+{{- range list "ingresses" "networkpolicies" }}
+      - name: {{ . }}
+        mode: pull
+        group: networking.k8s.io
+{{- if $preset.watch }}
+      - name: {{ . }}
+        mode: watch
+        group: networking.k8s.io
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $preset.autoscaling.enabled }}
+      - name: horizontalpodautoscalers
+        mode: pull
+        group: autoscaling
+{{- if $preset.watch }}
+      - name: horizontalpodautoscalers
+        mode: watch
+        group: autoscaling
+{{- end }}
+{{- if $preset.autoscaling.vpa.enabled }}
+      - name: verticalpodautoscalers
+        mode: pull
+        group: autoscaling.k8s.io
+{{- if $preset.watch }}
+      - name: verticalpodautoscalers
+        mode: watch
+        group: autoscaling.k8s.io
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $preset.policy.enabled }}
+      - name: poddisruptionbudgets
+        mode: pull
+        group: policy
+{{- if $preset.watch }}
+      - name: poddisruptionbudgets
+        mode: watch
+        group: policy
+{{- end }}
+{{- end }}
+{{- if $preset.apiExtensions.enabled }}
+      - name: customresourcedefinitions
+        mode: pull
+        group: apiextensions.k8s.io
+{{- if $preset.watch }}
+      - name: customresourcedefinitions
+        mode: watch
+        group: apiextensions.k8s.io
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "otel-collector.leaderElectionConfig" -}}
+extensions:
+  k8s_leader_elector/{{ .name }}:
+    auth_type: serviceAccount
+    lease_name: {{ .leaseName }}
+    lease_namespace: {{ .leaseNamespace }}
+{{- end }}
+
+{{- define "otel-collector.applyResourceDetectionConfig" -}}
+{{- $config := .config }}
+{{- $processors := get $config "processors" | default dict }}
+{{- $resourceDetectionProcessor := get $processors "resourcedetection/env" | default dict }}
+{{- $detectors := get $resourceDetectionProcessor "detectors" | default list }}
+{{- if .Values.Values.presets.resourceDetection.env.enabled }}
+{{- $detectors = append $detectors "env" | uniq }}
+{{- end }}
+{{- if .Values.Values.presets.resourceDetection.k8snode.enabled }}
+{{- $detectors = append $detectors "k8snode" | uniq }}
+{{- end }}
+{{- if .Values.Values.presets.resourceDetection.aks.enabled }}
+{{- $aksConfig := include "otel-collector.resourceDetectionAksDetectorConfig" . | fromYaml }}
+{{- $resourceDetectionProcessor = mustMergeOverwrite $resourceDetectionProcessor $aksConfig }}
+{{- $detectors = append $detectors "aks" | uniq }}
+{{- end }}
+{{- if .Values.Values.presets.resourceDetection.eks.enabled }}
+{{- $eksConfig := include "otel-collector.resourceDetectionEksDetectorConfig" . | fromYaml }}
+{{- $resourceDetectionProcessor = mustMergeOverwrite $resourceDetectionProcessor $eksConfig }}
+{{- $detectors = append $detectors "eks" | uniq }}
+{{- end }}
+{{- if .Values.Values.presets.resourceDetection.gcp.enabled }}
+{{- $gcpConfig := include "otel-collector.resourceDetectionGcpDetectorConfig" . | fromYaml }}
+{{- $resourceDetectionProcessor = mustMergeOverwrite $resourceDetectionProcessor $gcpConfig }}
+{{- $detectors = append $detectors "gcp" | uniq }}
+{{- end }}
+{{- $_ := set $resourceDetectionProcessor "detectors" $detectors }}
+{{- $_ := set $processors "resourcedetection/env" $resourceDetectionProcessor }}
+{{- $_ := set $config "processors" $processors }}
+{{- if $config.service.pipelines.logs }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "logs" (dict "processors" list)))) $config }}
+  {{- if not (has "resourcedetection/env" $config.service.pipelines.logs.processors) }}
+    {{- $_ := set $config.service.pipelines.logs "processors" (prepend $config.service.pipelines.logs.processors "resourcedetection/env" | uniq) }}
+  {{- end }}
+{{- end }}
+{{- if $config.service.pipelines.metrics }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "metrics" (dict "processors" list)))) $config }}
+  {{- if not (has "resourcedetection/env" $config.service.pipelines.metrics.processors) }}
+    {{- $_ := set $config.service.pipelines.metrics "processors" (prepend $config.service.pipelines.metrics.processors "resourcedetection/env" | uniq) }}
+  {{- end }}
+{{- end }}
+{{- if $config.service.pipelines.traces }}
+  {{- $config = mustMergeOverwrite (dict "service" (dict "pipelines" (dict "traces" (dict "processors" list)))) $config }}
+  {{- if not (has "resourcedetection/env" $config.service.pipelines.traces.processors) }}
+    {{- $_ := set $config.service.pipelines.traces "processors" (prepend $config.service.pipelines.traces.processors "resourcedetection/env" | uniq) }}
+  {{- end }}
+{{- end }}
+{{- $config | toYaml }}
+{{- end }}
+
+{{- define "otel-collector.resourceDetectionEksDetectorConfig" -}}
+timeout: 15s
+eks:
+  resource_attributes:
+    k8s.cluster.name:
+      enabled: true
+{{- end -}}
+
+{{- define "otel-collector.resourceDetectionAksDetectorConfig" -}}
+aks:
+  resource_attributes:
+    k8s.cluster.name:
+      enabled: true
+{{- end -}}
+
+{{- define "otel-collector.resourceDetectionGcpDetectorConfig" -}}
+gcp:
+  resource_attributes:
+    k8s.cluster.name:
+      enabled: true
+{{- end -}}

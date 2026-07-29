@@ -9,6 +9,10 @@ cp:
 
 # Global section will apply to this chart and all of its subcharts.
 global:
+  cp:
+    ## When set to true, forces re-execution of the current schema version's up.sql even if the DB is already at that version.
+    ## Useful when you need to re-apply a migration without bumping the schema version.
+    rerunUpgrade: false
   tibco:
     useSingleNamespace: true
     region: "global"
@@ -121,14 +125,29 @@ resources:
   db-schema-management:
     requests:
       cpu: 25m
-      memory: 20Mi
+      memory: 64Mi
     limits:
       cpu: 50m
-      memory: 40Mi
+      # 256Mi determined empirically: the original 40Mi limit OOMKilled the tp-cp-core-upgrade
+      # Job during the tscutd service-DB bootstrap on a fresh CP provision (PCP-20244), which
+      # blocked all CP provisioning. Mirrors the sibling security-certs fix (PCP-20141). 256Mi
+      # gives safe headroom for a short-lived one-shot Job.
+      # NOTE: backoffLimit (3) + activeDeadlineSeconds are now SET on this Job (jobs.yaml).
+      # Retry-after-partial-completion is proven safe by PCP-20008 on two fronts: (1) the
+      # role/db/secret path is idempotent -- createDatabaseSchemaUser skips an existing user,
+      # CREATE DATABASE/SCHEMA are existence-guarded, grants are idempotent, and it now
+      # self-heals a "user exists but credential secret missing" state; (2) table creation
+      # runs 1-up.sql with psql --single-transaction, so a failed/killed attempt rolls the
+      # DDL back, leaving no partial tables for a retry to trip over. The earlier "not proven
+      # safe" deferral is thus resolved.
+      memory: 256Mi
   security-certs:
     requests:
       cpu: 25m
-      memory: 20Mi
+      memory: 64Mi
     limits:
       cpu: 50m
-      memory: 40Mi
+      # 256Mi determined empirically: original 40Mi limit caused OOMKills in ~50% of deploys
+      # on GCP n2d-standard-16 nodes (PCP-20141). 256Mi is the upper bound of the recommended
+      # 128–256Mi range and gives safe headroom for a short-lived (~90s) one-shot Job.
+      memory: 256Mi
