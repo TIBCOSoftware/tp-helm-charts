@@ -1,0 +1,69 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $stsname := printf "%s-core" $params.as.basename -}}
+
+# Sets up an in-cluster DNS entry for the ftlserver pods.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $stsname }}-pods
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-stsname: "{{ $stsname }}"
+    com.tibco.datagrid.service: {{ $stsname }}-pods
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+spec:
+  # clusterIP: None puts service in headless mode, i.e. a virtual cluster IP is
+  # not allocated for this service. This is needed for the tibdgadmind container
+  # to be able to both resolve and bind to its host name. If a virtual IP is
+  # allocated, the tibdgadmind will attempt to bind to it and fail.
+  clusterIP: None
+  ports:
+{{- range $key, $val := $.Values.ftlserver.ports }}
+    - name: {{ $key }}
+      port: {{ $val }}
+{{- end }}
+  selector:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-stsname: "{{ $stsname }}"
+    com.tibco.datagrid.service: {{ $stsname }}
+
+...
+
+---
+# Sets up an as-core group ClusterIP entry for the ftlserver pods.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $stsname }}
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-stsname: "{{ $stsname }}"
+    com.tibco.datagrid.service: {{ $stsname }}
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+spec:
+  # clusterIP: None puts service in headless mode, i.e. a virtual cluster IP is
+  # not allocated for this service. This is needed for the tibdgadmind container
+  # to be able to both resolve and bind to its host name. If a virtual IP is
+  # allocated, the tibdgadmind will attempt to bind to it and fail.
+  # clusterIP: None
+  type: ClusterIP
+  ports:
+{{- range $key, $val := $.Values.ftlserver.ports }}
+    - name: {{ $key }}
+      port: {{ $val }}
+{{- end }}
+  selector:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-stsname: "{{ $stsname }}"
+    com.tibco.datagrid.service: {{ $stsname }}
+
+...

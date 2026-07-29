@@ -1,0 +1,262 @@
+{{/*
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+*/}}
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $stsname := printf "%s-core" $params.as.basename -}}
+{{- $scheme := $.Values.secure.tls | ternary "https" "http" -}}
+#
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $stsname }}
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-stsname: "{{ $stsname }}"
+    com.tibco.datagrid.service: {{ $stsname }}
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+spec:
+  serviceName: {{ $stsname }}-pods
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: OnDelete
+  replicas: {{ $.Values.ftlserver.count }}
+  selector:
+    matchLabels:
+      # Make VCT PVCs findable for cleanup
+      tib-dp-release: {{ $.Release.Name }}
+      tib-msg-stsname: "{{ $stsname }}"
+      com.tibco.datagrid.service: {{ $stsname }}
+  template:
+    metadata:
+      name: tibdgcore
+      labels:
+        tib-dp-release: {{ $.Release.Name }}
+        tib-msg-stsname: "{{ $stsname }}"
+        com.tibco.datagrid.service: {{ $stsname }}
+{{ include "tibdg.labels" $ | indent 8 }}
+        {{ include "msg.as.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.all" . | indent 8}}
+        {{ include "as.prom.o11y.labels" $params | indent 8 }}
+      annotations:
+        {{ include "as.prom.o11y.annotations" $params | indent 8 }}
+    spec:
+      enableServiceLinks: false
+{{- if $.Values.pod.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ $.Values.pod.terminationGracePeriodSeconds }}
+{{- end }}
+      serviceAccountName: "{{ $params.dp.serviceAccount }}"
+      topologySpreadConstraints:
+      # FIXME: Use helpers
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        {{- if $params.as.isProduction }}
+        whenUnsatisfiable: DoNotSchedule
+        {{- else }}
+        whenUnsatisfiable: ScheduleAnyway
+        {{- end }}
+        labelSelector:
+          matchLabels:
+            tib-msg-stsname: "{{ $stsname }}"
+            tib-dp-release: "{{ $.Release.Name }}"
+      {{- if ne "none" $params.as.zoneLabel }}
+      - maxSkew: 1
+        topologyKey: {{ $params.as.zoneLabel }}
+        {{- if $params.as.isProduction }}
+        whenUnsatisfiable: DoNotSchedule
+        {{- else }}
+        whenUnsatisfiable: ScheduleAnyway
+        {{- end }}
+        labelSelector:
+          matchLabels:
+            tib-msg-stsname: "{{ $stsname }}"
+            tib-dp-release: "{{ $.Release.Name }}"
+      {{- end }}
+      {{- if ne "none" $params.dp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $params.dp.pullSecret }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{ include "msg.dp.security.pod" $params | nindent 6 }}
+      containers:
+        - name: {{ $stsname }}
+          image: {{ $params.as.image}}
+          {{ include "msg.dp.security.container" $params | nindent 10 }}
+          command: ['bash', '-c' ]
+          args:
+            - |
+              COPY_FROM=/boot COPY_TO=/data/boot bash < /boot/copy-boot-config.sh ;
+              exec watchdog
+          ports:
+{{- range $key, $val := $.Values.ftlserver.ports }}
+            - name: {{ $key }}
+              containerPort: {{ $val }}
+{{- end }}
+          resources:
+{{ $params.core.resources | toYaml | indent 12 }}
+          livenessProbe:
+            # NOTE: tibemsd - /isLive is not true until after quorum is formed!!
+            httpGet:
+              path: /api/v1/server
+              port: {{ int $.Values.ftlserver.ports.http }}
+            initialDelaySeconds: 3
+            periodSeconds: 15
+            successThreshold: 1
+            failureThreshold: 4
+          readinessProbe:
+            httpGet:
+              path: /api/v1/server
+              port: {{ int $.Values.ftlserver.ports.http }}
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          envFrom:
+            - configMapRef:
+                name: "{{ $basename }}-status"
+                optional: True
+          env:
+            {{ include "msg.dp.stdenv" $params | indent  12 }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AS_USE_COMPACT
+              value: {{ $params.as.useCompact | quote }}
+            - name: UPGRADE_ACTION
+              value: {{ $params.as.forceBootUpgrade | quote }}
+            - name: REALM_POD_URL
+              value: "{{ include "ftl-server-url" $ }}"
+            - name: REALM_SVC_URL
+              value: "{{ printf "%s://%s.%s.svc.cluster.local:%d" $scheme $stsname .Release.Namespace (int $.Values.ftlserver.ports.http) }}"
+            - name: TIBFTL_LICENSE
+              value: "{{ $params.dp.activationUrl }}"
+            - name: WATCHDOG_LOG_FILE
+              value: /logs/watchdog.log
+            - name: WATCHDOG_CONFIG
+              value: "/data/boot/core-watchdog.yaml"
+            - name: WATCHDOG_HOSTPORT
+              value: "$(POD_NAME):{{ $params.as.ports.watchdogPort }}"
+            - name: TIBDG_FTL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $basename }}-conf
+                  key: TIBDG_FTL
+                  optional: true
+{{- if $.Values.secure.tls }}
+            - name: FTLSERVER_KEYSTORE_PW
+              valueFrom:
+                secretKeyRef:
+                  name: ftlserver-keystore-pw
+                  key: keystore-pw
+{{- end }}
+{{- if $.Values.secure.auth }}
+            - name: FTLSERVER_USER_PW
+              valueFrom:
+                secretKeyRef:
+                  name: ftlserver-user-creds
+                  key: password
+{{- end }}
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-vol
+            - mountPath: /boot
+              {{ include "msg.pv.vol.mount" $params.as.boot | nindent 14 }}
+            - mountPath: /conf
+              {{ include "msg.pv.vol.mount" $params.as.conf | nindent 14 }}
+            - mountPath: /data
+              {{ include "msg.pv.vol.mount" $params.as.coreData | nindent 14 }}
+            - mountPath: /logs
+              {{ include "msg.pv.vol.mount" $params.as.logs | nindent 14 }}
+            - mountPath: /boot-activation
+              name: activation-vol
+              readOnly: false
+            #
+            # - mountPath: /etc/tiblic
+            #   name: tiblic-secret-volume
+            # - mountPath: /config
+            #   name: config-pv
+            # - mountPath: /data
+            #   name: ftl-server-pv
+{{- if or $.Values.secure.tls $.Values.secure.auth }}
+            - name: ftlserver-p12
+              mountPath: /secrets/ftlserver-p12
+            - name: ftlserver-trust
+              mountPath: /secrets/ftlserver-trust
+{{- end }}
+{{- if $.Values.secure.auth }}
+            - name: auth
+              mountPath: /auth
+{{- end }}
+      initContainers:
+{{- if or $.Values.secure.tls $.Values.secure.auth }}
+        - name: secret-prep
+          image: {{ $params.as.kubectlImage }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          args:
+            - '/bin/sh'
+            - '-o'
+            - 'errexit'
+            - '-c'
+            - |
+              mkdir -p /data/$(POD_NAME)_data
+              ln -f -s /secrets/ftlserver-p12/ftl-tport.p12 /data/$(POD_NAME)_data/ftl-tport.p12
+              ln -f -s /secrets/ftlserver-trust/ftl-trust.pem /data/$(POD_NAME)_data/ftl-trust.pem
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-vol
+            - mountPath: /data
+              {{ include "msg.pv.vol.mount" $params.as.coreData | nindent 14 }}
+            - mountPath: /logs
+              {{ include "msg.pv.vol.mount" $params.as.logs | nindent 14 }}
+            # - name: ftl-server-pv
+            #   mountPath: /data
+{{- end }}
+      volumes:
+        - name: tmp-vol
+          emptyDir: {}
+        {{ include "msg.pv.vol.def" $params.as.boot | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.conf | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.coreData | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.logs | nindent 8 }}
+        - name: activation-vol
+          secret:
+            secretName: "{{ $params.as.activationSecret | default "cp-license-file-secret" }}"
+            optional: True
+            items:
+              - key: "{{ $params.as.activationSecretKey | default "license-file.bin" }}"
+                path: license-file.bin
+        # - name: config-pv
+        #   configMap:
+        #     name: ftlserver-conf
+{{- if or $.Values.secure.tls $.Values.secure.auth }}
+        - name: ftlserver-p12
+          secret:
+            secretName: ftlserver-p12
+        - name: ftlserver-trust
+          secret:
+            secretName: ftlserver-trust
+{{- end }}
+{{- if $.Values.secure.auth }}
+        - name: auth
+          secret:
+            secretName: ftlserver-users-txt
+{{- end }}
+  volumeClaimTemplates:
+    {{ include "msg.pv.vol.vct" $params.as.coreData | nindent 4 }}
+    {{ include "msg.pv.vol.vct" $params.as.logs | nindent 4 }}
+...

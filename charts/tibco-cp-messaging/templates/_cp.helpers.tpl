@@ -36,7 +36,7 @@ cp.values.computed - call with $vMerge
 */}}
 {{- define "cp.values.computed" -}}
 {{- $repo := .cp.repository -}}
-{{- $registry := .cp.registry | default "no-registrty" -}}
+{{- $registry := .cp.registry | default "no-registry" -}}
   {{- if not $repo -}}
       {{- if contains "jfrog.io" $registry -}}
         {{- $repo = include "msgdp.prodImageRepo" . -}}
@@ -80,7 +80,7 @@ cp:
   pullSecret: "tibco-container-registry-credentials"
   pullPolicy: Always
   imageName: "msg-cp-ui-contrib"
-  imageTag: "1.15.0-30"
+  imageTag: "1.19.0-15"
   enableResourceConstraints: true
     {{ if hasKey .Values.cp "enableSecurityContext" }}
   enableSecurityContext: {{ .Values.cp.enableSecurityContext }}

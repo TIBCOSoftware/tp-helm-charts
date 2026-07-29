@@ -1,0 +1,233 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# # Active Spaces version information
+# asVersion: 5.2.0
+# asVersionMajorMinor: 5.2
+
+# # FTL version information
+# ftlVersion: 7.2.0
+
+# Current Contol Plane chart is intended for use with the CP provision-schema
+# .. not with arbitrary values file settings.
+# To Customize pod resource requirements settings, the following sections
+# can be added with detail settings via provision-schema or Advance UI custom-config section.
+core:
+  resources: {}
+    # If you do want to specify core pod resources, uncomment the following lines,
+    # adjusting them as necessary, and remove the curly braces after 'resources:' above.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+job:
+  resources: {}
+# NOTE: Separate node/proxy pods are only used when increasing numProxies and/or numCopysets.
+#   the default configuration is to run nodes/proxies inside the core pods.
+node:
+  resources: {}
+proxy:
+  resources: {}
+
+# ======= INTERNAL VALUES - DO NOT MODIFY w/out SUPPORT CONSULTATION =======
+# Activespaces Specific settings
+# these will be populated as needed by provisioning API / UI
+# some overrides like resources sections are possible for advanced users.
+as:
+  basename: ""
+  image: ""
+  msgData: {}
+  coreData: {}
+  logs: {}
+  zoneLabel: "none"
+  # AWS:  zoneLabel: "topology.kubernetes.io/zone"
+enableSecurityContext: true
+
+
+# Control Plane Injected settings, do not modify/override
+#
+cp: {}
+
+global:
+  cp:
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
+    dataplane:
+      hostCloudType: "unset"
+    dataplaneId: "xx123"
+    containerRegistry:
+      registry: "ghcr.io"
+      repository: "tibco/msg-platform-cicd"
+      secret: ""
+      pullPolicy: ""
+    resources:
+      serviceaccount:
+        serviceAccountName: "provisioner"
+    logging:
+      fluentbit:
+        enabled: true
+
+# Allowed Dataplane specific overrides of CP settings
+dp:
+  pullSecret: ""
+  registry: ""
+  repo: ""
+  pullPolicy: ""
+  serviceAccount: ""
+
+
+# Legacy AS chart settings, use only with Tibco support consultation
+
+# Default values for tibdg.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Allows specification of additional grid creation options. Use space-separated key=value pairs,
+# e.g.:
+# gridCreateOptions: 'client_req_timeout=20 expiration_scanner_max_rows=100000 expiration_scanner_wakeup=20'
+gridCreateOptions: 'queryworker_count=3'
+
+# Allows specification of a custom grid name. The default grid name is used
+# if left null.
+gridName: null
+
+# Additional tibdg commands to be run at grid initialization. Can be used to
+# create tables, indexes, etc. The default table t1 is required for use with
+# the operations sample application.
+tibdgConfig: |-
+  table create t1 key long
+  column create t1 value string
+
+secure:
+  # Set to true to enable TLS transports using FTL server self-signed certificates
+  tls: false
+  # Set to true to enable authentication
+  # Must be enabled if secure.tls is enabled
+  auth: false
+# Used only if secure.auth is true.
+# Passwords may be specified here, otherwise they will be automatically generated on
+# chart install.
+#
+# Do not modify existing user names or roles.
+# Additional users can be added to this list.
+users:
+  - user: ftlserver-user
+    # password: specify password or leave commented to auto-generate on chart install
+    roles: ftl-admin,ftl-internal
+  - user: ftladmin-user
+    roles: ftl-admin
+  - user: tibdgcli-user
+    roles: ftl-admin
+  - user: tibdgnode-user
+    roles: ftl,tibdg-internal
+  - user: tibdgproxy-user
+    roles: ftl-admin,ftl,tibdg-internal
+  - user: tibdgclient-user
+    roles: ftl,tibdg-clients
+  - user: tibdgddlclient-user
+    roles: ftl,tibdg-clients,tibdg-ddl
+
+
+# # If true, deploys a grafana/prometheus monitoring stack.
+# monitoringEnabled: false
+
+ftlserver:
+  # The number of FTL servers. Should not be lower than 3 for production workloads.
+  count: 3
+  # The Activation URL
+  license: file:///etc/tiblic/ftl_license.bin
+  storageCapacity: 1Gi
+  # These are ports the FTL server process will listen on. The 'ftl' port is
+  # advertised to clients, so if external access is enabled the clients must be
+  # able to access the ftl port here on whatever proxy method is used. E.g. if
+  # using NodePort, the ftl port must be in the cluster's NodePort range, and
+  # must be available on every machine in the cluster.
+  ports:
+    http: 30080
+  # The Persistent Volume Storage Class for stateful data. Depending
+  # on your cluster configuration, these may need to be provisioned before hand.
+  # Set the storage class here as appropriate for your cluster.
+  # If defined, then storageClassName: <storageClass>
+  # If set to "-", then storageClassName: "", which disables dynamic provisioning
+  # If undefined or set to null, no storageClassName spec is
+  #   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  #   GKE, AWS & OpenStack)
+  storageClass: null
+  # If external access mode is set LoadBalancer, set the LoadBalancer ip
+  # address for the FTL server. If null will use the value of
+  # tibdgproxy.advertisedIPs
+  loadBalancerIP: null
+  resources: {}
+    # If you do want to specify resources, uncomment the following lines,
+    # adjust them as necessary, and remove the curly braces after
+    # 'resources:'.
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+tibdg:
+
+tibdgnode:
+  # The number of copysets to partition your data among.
+  # use $params.as.numCopysets instead :: copysetCount: 1
+  # The number of replicas in each copyset, i.e. how many copies of the data
+  # are kept.
+  copysetSize: 2
+  storageCapacity: 10Gi
+  # The Persistent Volume Storage Class for stateful data. Depending
+  # on your cluster configuration, these may need to be provisioned before hand.
+  # Set the storage class here as appropriate for your cluster.
+  # If defined, then storageClassName: <storageClass>
+  # If set to "-", then storageClassName: "", which disables dynamic provisioning
+  # If undefined or set to null, no storageClassName spec is
+  #   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  #   GKE, AWS & OpenStack)
+  storageClass: null
+
+tibdgproxy:
+  # The number of proxy nodes to deploy.
+  # use $params.as.numProxies instead :: count: 2
+  # If external access is enabled, each proxy is given a unique port starting
+  # from externalBasePort up to externalBasePort + count - 1. These
+  # ports are advertised to clients so they must be accessible from whatever
+  # proxy method is used.
+  externalBasePort: 30100
+  # If external access is enabled, this option can configure the IP address
+  # that is advertised to clients to connect to the proxy. The default value
+  # of $(NODE_IP) will advertise the k8s node IP address. Can be set to one or
+  # more semicolon-separated ip addresses. The same value is used for all proxies.
+  advertisedIPs: $(NODE_IP)
+  # Maximum seconds to wait for a LoadBalancer ingress IP/hostname.
+  lbIpWaitTimeoutSeconds: 600
+  # Polling interval in seconds when waiting for a LoadBalancer ingress IP/hostname.
+  lbIpPollIntervalSeconds: 5
+  listenPort: 8888
+
+# Configures access for clients external to the k8s cluster. Set to null
+# to disable external access.
+externalAccessMode: null        # [ null | NodePort | LoadBalancer ]
+
+# Configures AS clients to route their grid connections via the FTL servers by default.
+# Also disables generation of external services for each proxy if externalAccessMode
+# is enabled.
+# If externalAccessMode is enabled, this enables clients external to the grid to
+# access the grid via the FTL server port only.
+proxyAutoTransport: true
+
+pod:
+  # Set to "0" (including double quotes) to render 0.
+  # Leave null to use k8s default.
+  # Set to any positive integer otherwise.
+  terminationGracePeriodSeconds: null
+
+nodeSelector:
+  kubernetes.io/os: linux

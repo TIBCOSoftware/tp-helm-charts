@@ -20,7 +20,7 @@ runningVersion=$(kubectl get {{ .cr }} -o=jsonpath='{.metadata.labels.tib-msgdp-
 [ -z "$runningVersion" ] && runningVersion="1.10.0" ; 
 echo "#+: Checking :  semver compare $runningVersion $newVersion " ; 
 rtc=$( /usr/local/bin/semver compare $runningVersion $newVersion ) ;
-[ "$rtc" -eq 1 ] && echo "ERROR: Downgrades not supported." && exit 1 ; 
+[ "$rtc" -eq 1 ] && echo "WARNING: Downgrades not supported." ; 
 {{- end }}
 
 {{/* msg.oldjob.cleanup - Find previous jobs by label and delete them

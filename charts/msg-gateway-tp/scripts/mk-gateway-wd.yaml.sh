@@ -10,7 +10,8 @@ cat - <<EOF > $outfile
 services:
   - name: gateway
     config:
-      cmd: /app/cloudshell
+      cmd: bash /logs/boot/start-gateway.sh
+      # cmd: /app/cloudshell
       # cmd: wait-for-shutdown.sh
       cwd: /app
       ctl: /logs

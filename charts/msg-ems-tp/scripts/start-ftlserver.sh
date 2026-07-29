@@ -17,4 +17,4 @@ if  [ -z "$TIBEMS_LICENSE" ]; then
 fi
 [ -z "$TIBFTL_LICENSE" ] && TIBFTL_LICENSE="$TIBEMS_LICENSE"
 
-tibftlserver -n ${MY_POD_NAME} -c /data/boot/ftlserver.yml
+exec tibftlserver -n ${MY_POD_NAME} -c /data/boot/ftlserver.yml

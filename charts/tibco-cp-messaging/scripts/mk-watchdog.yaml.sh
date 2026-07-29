@@ -11,7 +11,7 @@ cat - <<EOF > $outfile
 services:
   - name: msg-gems
     config:
-      cmd: ${MSG_WEB_DIR}/gems
+      cmd: /data/boot/start-gems.sh
       cwd: ${MSG_WEB_DIR}/
       ctl: /logs/msg-webserver/
       log:

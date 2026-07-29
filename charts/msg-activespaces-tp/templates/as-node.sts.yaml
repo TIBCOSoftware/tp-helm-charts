@@ -1,0 +1,261 @@
+{{/*
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+*/}}
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $scheme := $.Values.secure.tls | ternary "https" "http" -}}
+{{- if not $params.as.useCompact }}
+
+{{- range until ( int $params.as.numCopysets ) }}
+  {{- $copysetName := printf "%s-cs-%02d" $basename ( add1 . ) }}
+  {{- $stsname := printf "%s-node" $copysetName -}}
+
+#
+---
+#
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $stsname }}
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-stsname: "{{ $stsname }}"
+    com.tibco.datagrid.service: {{ $stsname }}
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+spec:
+  serviceName: {{ $stsname }}-pods
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: OnDelete
+  replicas: {{ $.Values.tibdgnode.copysetSize }}
+  selector:
+    matchLabels:
+      tib-dp-release: {{ $.Release.Name }}
+      tib-msg-stsname: "{{ $stsname }}"
+      com.tibco.datagrid.service: {{ $stsname }}
+      com.tibco.datagrid.node.copyset: {{ $copysetName }}
+  template:
+    metadata:
+      name: tibdgnode
+      labels:
+        tib-dp-release: {{ $.Release.Name }}
+        tib-msg-stsname: "{{ $stsname }}"
+        com.tibco.datagrid.service: {{ $stsname }}
+        com.tibco.datagrid.node.copyset: {{ $copysetName }}
+{{ include "tibdg.labels" $ | indent 8 }}
+        {{ include "msg.as.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.kubectl" . | indent 8}}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: "{{ $params.dp.serviceAccount }}"
+  {{- if $.Values.pod.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ $.Values.pod.terminationGracePeriodSeconds }}
+  {{- end }}
+      topologySpreadConstraints:
+      # In production do not allow 2 pods from the same copyset 
+      # on the same k8s node or zone. In non-production, allow it.
+      # TODO: Use helpers
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        {{- if $params.as.isProduction }}
+        whenUnsatisfiable: DoNotSchedule
+        {{- else }}
+        whenUnsatisfiable: ScheduleAnyway
+        {{- end }}
+        labelSelector:
+          matchLabels:
+            tib-msg-stsname: "{{ $stsname }}"
+            tib-dp-release: "{{ $.Release.Name }}"
+      {{- if ne "none" $params.as.zoneLabel }}
+      - maxSkew: 1
+        topologyKey: {{ $params.as.zoneLabel }}
+        {{- if $params.as.isProduction }}
+        whenUnsatisfiable: DoNotSchedule
+        {{- else }}
+        whenUnsatisfiable: ScheduleAnyway
+        {{- end }}
+        labelSelector:
+          matchLabels:
+            tib-msg-stsname: "{{ $stsname }}"
+            tib-dp-release: "{{ $.Release.Name }}"
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            {{- /* This rule sets a strong preference not to run on a k8s node
+                 * that is already running a tibdgnode from the same copyset.  */}}
+            - weight: 100
+              podAffinityTerm:
+                {{- /* hostname here means segregate based on individual k8s
+                     * nodes. Could change to availability zones or some other
+                     * property. */}}
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: com.tibco.datagrid.node.copyset
+                      operator: In
+                      values: [ {{ $copysetName }} ]
+            {{- /* This rule sets a preference not to run on a k8s node that is
+                 * already running a tibdgnode. However it is weighted lower
+                 * than the previous rule to avoid k8s nodes running the same
+                 * copyset - so if tibdgnodes land on the same k8s node, they should be from different copysets. */}}
+            - weight: 50
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: com.tibco.datagrid.service
+                      operator: In
+                      values: [ {{ $stsname }} ]
+      {{- if ne "none" $params.dp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $params.dp.pullSecret }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{ include "msg.dp.security.pod" $params | nindent 6 }}
+      containers:
+        - name: {{ $stsname }}
+          image: {{ $params.as.image}}
+          {{ include "msg.dp.security.container" $params | nindent 10 }}
+          command: ['bash', '-c' ]
+          args:
+            - |
+              COPY_FROM=/boot COPY_TO=/data/boot bash < /boot/copy-boot-config.sh ;
+              exec watchdog
+#           args:
+#             - '-r'
+#             - '{{ include "ftl-server-url" $ }}'
+#             - '-n'
+#             - '$(POD_NAME)'
+#   {{- if $params.as.basename }}
+#             - '-g'
+#             - '{{ $params.as.basename }}'
+#   {{- end }}
+#             - '--health-server'
+#             - ':9191'
+# {{- if $.Values.secure.tls }}
+#             - --trust-file
+#             - /secrets/ftlserver-trust/ftl-trust.pem
+# {{- end }}
+# {{- if $.Values.secure.auth }}
+#             - --user-password-file
+#             - /auth/userpw.txt
+# {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 9191
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9191
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          resources:
+{{ $params.node.resources | toYaml | indent 12 }}
+          env:
+            {{ include "msg.dp.stdenv" $params | indent  12 }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AS_USE_COMPACT
+              value: {{ $params.as.useCompact | quote }}
+            - name: UPGRADE_ACTION
+              value: {{ $params.as.forceBootUpgrade | quote }}
+            - name: REALM_POD_URL
+              value: "{{ include "ftl-server-url" $ }}"
+            - name: REALM_SVC_URL
+              value: "{{ printf "%s://%s.%s.svc.cluster.local:%d" $scheme $stsname $.Release.Namespace (int $.Values.ftlserver.ports.http) }}"
+            - name: TIBFTL_LICENSE
+              value: "{{ $params.dp.activationUrl }}"
+            - name: WATCHDOG_LOG_FILE
+              value: /logs/watchdog.log
+            - name: WATCHDOG_CONFIG
+              value: "/data/boot/node-watchdog.yaml"
+            - name: WATCHDOG_HOSTPORT
+              value: "$(POD_NAME):{{ $params.as.ports.watchdogPort }}"
+            - name: TIBDG_FTL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $basename }}-conf
+                  key: TIBDG_FTL
+                  optional: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-vol
+            - mountPath: /boot
+              {{ include "msg.pv.vol.mount" $params.as.boot | nindent 14 }}
+            - mountPath: /conf
+              {{ include "msg.pv.vol.mount" $params.as.conf | nindent 14 }}
+            - mountPath: /data
+              {{ include "msg.pv.vol.mount" $params.as.msgData | nindent 14 }}
+            - mountPath: /logs
+              {{ include "msg.pv.vol.mount" $params.as.logs | nindent 14 }}
+#             - mountPath: /data
+#               name: node-pv
+# {{- if $.Values.secure.tls }}
+#             - name: ftlserver-trust
+#               mountPath: /secrets/ftlserver-trust
+# {{- end }}
+# {{- if $.Values.secure.auth }}
+#             - name: auth
+#               mountPath: /auth
+# {{- end }}
+#           resources:
+# {{ toYaml $.Values.tibdgnode.resources | indent 12 }}
+      volumes:
+        - name: tmp-vol
+          emptyDir: {}
+        {{ include "msg.pv.vol.def" $params.as.boot | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.conf | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.msgData | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.logs | nindent 8 }}
+# {{- if $.Values.secure.tls }}
+#         - name: ftlserver-trust
+#           secret:
+#             secretName: ftlserver-trust
+# {{- end }}
+# {{- if $.Values.secure.auth }}
+#         - name: auth
+#           secret:
+#             secretName: tibdgnode-user-creds
+#             items:
+#               - key: userpw.txt
+#                 path: userpw.txt
+# {{- end }}
+  volumeClaimTemplates:
+    {{ include "msg.pv.vol.vct" $params.as.msgData | nindent 4 }}
+    {{ include "msg.pv.vol.vct" $params.as.logs | nindent 4 }}
+
+    # - metadata:
+    #     name: node-pv
+    #   spec:
+    #     accessModes: [ "ReadWriteOnce" ]
+    # {{- if $.Values.tibdgnode.storageClass }}
+    #   {{- if ( eq "-" $.Values.tibdgnode.storageClass ) }}
+    #     storageClassName: ""
+    #   {{- else }}
+    #     storageClassName: "{{ $.Values.tibdgnode.storageClass }}"
+    #   {{- end }}
+    # {{- end }}
+    #     resources:
+    #       requests:
+    #         storage: "{{ $.Values.tibdgnode.storageCapacity }}"
+
+...
+
+{{ end }} 
+
+{{- end }} {{/* end of if not useCompact */}}

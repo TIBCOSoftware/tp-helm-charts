@@ -64,24 +64,36 @@ function waitForConfig {
 
 # Wait for a registered EMS server config file
 EMSCONFIG=${restdDir}/ems.*.restd.yaml
+#EMSCONFIG=${loggerDir}/ems.*.*.logger.yaml
 waitForConfig $EMSCONFIG
-serverlist=()
-serverlist+=($EMSCONFIG)
-
-# Generate logger config files
-# TODO: Uses a changes list ? 
+#serverlist=()
+#serverlist+=($EMSCONFIG)
+#
+## Generate logger config files
+## TODO: Uses a changes list ?
 dpLoggerFile="${loggerDir}/dp.$MY_DATAPLANE.logger.yaml"
-/app/ems-registration generate-log-header -header ${loggerDir}/logHeader.yaml
-# refresh all, since we do not have an add-delete list (yet)
-rm -f ${loggerDir}/ems.*.logger.yaml
-for server in "${serverlist[@]}"; do
-  export groupName="$(echo $(basename $server) | cut -d. -f2 )"
-  export capabilityId="$(echo $(basename $server) | cut -d. -f3 )"
-  # Migration: 1.13.0:  Upgrade existing registrations for logging
-  /app/ems-registration enable-log-monitor -group "$groupName"
-  loggerFile="${loggerDir}/ems.$groupName.$capabilityId.logger.yaml"
-  /app/ems-registration generate-log-config -restd "$server" -log $loggerFile
+#/app/ems-registration generate-log-header -header ${loggerDir}/logHeader.yaml
+/app/ems-registration generate-log-header -header ${dpLoggerFile}
+## refresh all, since we do not have an add-delete list (yet)
+#rm -f ${loggerDir}/ems.*.logger.yaml
+#for server in "${serverlist[@]}"; do
+#  export groupName="$(echo $(basename $server) | cut -d. -f2 )"
+#  export capabilityId="$(echo $(basename $server) | cut -d. -f3 )"
+#  # Migration: 1.13.0:  Upgrade existing registrations for logging
+#  /app/ems-registration enable-log-monitor -group "$groupName"
+#  loggerFile="${loggerDir}/ems.$groupName.$capabilityId.logger.yaml"
+#  /app/ems-registration generate-log-config -restd "$server" -log $loggerFile
+#done
+#cat ${loggerDir}/logHeader.yaml ${loggerDir}/ems.*.logger.yaml  > "$dpLoggerFile"
+for f in ${restdDir}/ems.*.restd.yaml; do
+  export groupName="$(echo $(basename $f) | cut -d. -f2 )"
+  export capabilityId="$(echo $(basename $f) | cut -d. -f3 )"
+  logCfg="${loggerDir}/ems.$groupName.$capabilityId.logger.yaml"
+  if [ ! -a "${logCfg}" ] ; then
+    log "Logger config for $groupName $capabilityId not found, generating new one"
+    /app/ems-registration enable-log-monitor -group "$groupName"
+    /app/ems-registration generate-log-config -restd "$f" -log "$logCfg"
+  fi
 done
-cat ${loggerDir}/logHeader.yaml ${loggerDir}/ems.*.logger.yaml  > "$dpLoggerFile"
 
 exec emslog -rotate.bytes 10MiB -config $dpLoggerFile

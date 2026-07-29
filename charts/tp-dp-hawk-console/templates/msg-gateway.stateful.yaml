@@ -63,8 +63,8 @@ spec:
               imagePullPolicy: "{{ $params.dp.pullPolicy }}"
               resources:
 {{ $params.msggw.resources | toYaml | indent 16 }}
-              # exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ; 
-              # exec /usr/local/watchdog/bin/watchdog  ; 
+              # exec /opt/tibco/pod-tools/bin/wait-for-shutdown.sh  ; 
+              # exec /opt/tibco/pod-tools/bin/watchdog  ; 
               # cd /app ; exec /app/cloudshell  ; 
               command: ['/compliance/check_eua', 'bash', '-c' ]
               args:
@@ -74,7 +74,7 @@ spec:
                 COPY_FROM=/boot COPY_TO=/data/boot bash < /boot/copy-boot-config.sh ;
                 COPY_FROM=/boot-certs COPY_TO=/data/certs bash < /boot/copy-boot-config.sh ;
                 COPY_FROM=/opt/tibco/ems/current-version/samples/certs COPY_TO=/data/certs/samples  bash < /boot/copy-boot-config.sh ;
-                exec /usr/local/watchdog/bin/watchdog  ; 
+                exec /opt/tibco/pod-tools/bin/watchdog  ; 
               ports:
               - name: ops-shell
                 containerPort: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
@@ -163,13 +163,13 @@ spec:
                 value: 
               - name: GOTRACEBACK
                 value: "crash"
-              - name: TCM_WATCHDOG_LOG_FILE
+              - name: WATCHDOG_LOG_FILE
                 value: /logs/watchdog.log
-              - name: TCM_WATCHDOG_CONFIG
+              - name: WATCHDOG_CONFIG
                 value: "/logs/boot/gateway.wd.yaml"
               - name: TCM_WD_PORT
                 value: "{{ $params.msggw.ports.watchdogPort }}"
-              - name: TCM_WATCHDOG_HOSTPORT
+              - name: WATCHDOG_HOSTPORT
                 # note: $(MY_POD_NAME) will be one of {{ $stsname }}-[012]
                 value: "$(MY_POD_NAME):$(TCM_WD_PORT)"
             volumes:

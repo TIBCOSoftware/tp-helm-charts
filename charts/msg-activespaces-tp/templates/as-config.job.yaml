@@ -1,0 +1,121 @@
+
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $stsname := printf "%s-core" $params.as.basename -}}
+{{- $jobLabel := printf "%s-configure" $params.as.basename -}}
+{{- $jobList := printf "-l=tib-msg-jobname=%s" $jobLabel -}}
+
+{{- /* Job to inject grid configuration into realmserver. */}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $jobLabel }}-{{ randAlphaNum 4 | lower }}
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-jobname: {{ $jobLabel }}
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+spec:
+  template:
+    metadata:
+      name: {{ $jobLabel }}
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+      labels:
+        tib-dp-release: {{ $.Release.Name }}
+        tib-msg-jobname: {{ $jobLabel }}
+{{ include "tibdg.labels" $ | indent 8 }}
+        {{ include "msg.as.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.kubectl" . | indent 8}}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: "{{ $params.dp.serviceAccount }}"
+      restartPolicy: OnFailure
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if ne "none" $params.dp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $params.dp.pullSecret }}
+      {{- end }}
+      {{ include "msg.dp.security.pod" $params | nindent 6 }}
+      containers:
+        - name: {{ $jobLabel }}
+          image: {{ $params.as.image}}
+          {{ include "msg.dp.security.container" $params | nindent 10 }}
+          imagePullPolicy: "{{ $params.dp.pullPolicy }}"
+          resources:
+            {{ $params.job.resources | toYaml | nindent 12 }}
+          command: ["bash", "-c"]
+          args:
+            - |
+              {{ include "msg.oldjob.cleanup" ( $jobList ) | nindent 14 }}
+              echo "Injecting grid configuration into realmserver ... "
+              dgOpts=()
+              dgOpts+=(--wait-for-realm 60)
+{{- if $.Values.secure.tls }}
+              dgOpts+=(--trust-file /secrets/ftlserver-trust/ftl-trust.pem)
+{{- end }}
+{{- if $.Values.secure.auth }}
+              dgOpts+=(--user-password-file /auth/userpw.txt)
+{{- end }}
+              if [ "$configType" = "install" ] ; then
+                echo "... Configuring for First time install ... "
+                dgOpts+=(-s /boot/conf.tibdg)
+              else
+                echo "... Configuring for upgrade ... "
+                dgOpts+=(-g '{{ $params.as.basename }}')
+                dgOpts+=(grid rebuild '{{ $params.as.basename }}')
+              fi
+              echo "#+:... " /opt/tibco/as/current-version/bin/tibdg -r '{{ include "ftl-server-url" $ }}' "${dgOpts[@]}"
+              /opt/tibco/as/current-version/bin/tibdg -r '{{ include "ftl-server-url" $ }}' "${dgOpts[@]}"
+              if [ "$configType" = "upgrade" ] ; then
+                echo "... Restarting pods ... "
+                source /boot/as-redeploy.sh
+                asRedeploy || ( echo "ERROR: Failed to redeploy pods after upgrade" && exit 1 )
+              fi
+
+          envFrom:
+            - configMapRef:
+                name: "{{ $basename }}-status"
+                optional: True
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-vol
+            - mountPath: /boot
+              {{ include "msg.pv.vol.mount" $params.as.boot | nindent 14 }}
+            - mountPath: /conf
+              {{ include "msg.pv.vol.mount" $params.as.conf | nindent 14 }}
+{{- if $.Values.secure.tls }}
+            - name: ftlserver-trust
+              mountPath: /secrets/ftlserver-trust
+{{- end }}
+{{- if $.Values.secure.auth }}
+            - name: auth
+              mountPath: /auth
+{{- end }}
+      volumes:
+        - name: tmp-vol
+          emptyDir: {}
+        {{ include "msg.pv.vol.def" $params.as.boot | nindent 8 }}
+        {{ include "msg.pv.vol.def" $params.as.conf | nindent 8 }}
+{{- if $.Values.secure.tls }}
+        - name: ftlserver-trust
+          secret:
+            secretName: ftlserver-trust
+{{- end }}
+{{- if $.Values.secure.auth }}
+        - name: auth
+          secret:
+            secretName: tibdgcli-user-creds
+            items:
+              - key: userpw.txt
+                path: userpw.txt
+{{- end }}

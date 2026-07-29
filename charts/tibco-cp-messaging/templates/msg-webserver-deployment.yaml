@@ -10,7 +10,7 @@ metadata:
   name: tp-cp-msg-webserver
   namespace: "{{ .Release.Namespace }}"
   labels:
-    tib-msgdp-mm-version: "1.15.0-0"
+    tib-msgdp-mm-version: "1.19.0-0"
 spec:
   replicas: 1
   selector:
@@ -23,6 +23,7 @@ spec:
         app.kubernetes.io/name: msg-webserver
         app.kubernetes.io/component: msg
         egress.networking.platform.tibco.com/internet-all: enable
+        networking.platform.tibco.com/internet-egress: enable
         egress.networking.cloud.tibco.com/internet-all: enable
         egress.networking.cloud.tibco.com/hybrid-server: enable
         networking.platform.tibco.com/kubernetes-api: enable
@@ -46,7 +47,7 @@ spec:
         {{- end }}
         {{- end }}
         command: ['/compliance/check_eua', 'bash', '-c' ]
-        #exec /usr/local/watchdog/bin/wait-for-shutdown.sh  ;  
+        #exec /opt/tibco/pod-tools/bin/wait-for-shutdown.sh  ;  
         args:
         - >
           ( mkdir -p /data/boot ; cd /data/boot ;
@@ -54,7 +55,7 @@ spec:
           ( cp /boot/*.sh /data/boot/ ; chmod +x /data/boot/*.sh ) ;
           mkdir -p /logs/msg-webserver ;
           source /boot/msg-web-setup.sh >> /logs/msg-webserver/setup.log ;
-          exec /usr/local/watchdog/bin/watchdog ;
+          exec /opt/tibco/pod-tools/bin/watchdog ;
         ports:
           - containerPort: 7513
         {{ include "msg.cp.security.container" $webserverParams | nindent 8 }}
@@ -114,9 +115,11 @@ spec:
         # FIXME: OHC FB Temporary Disable flag
         - name: MSG_WEB_DIR
           value: "/contributions/gems"
-        - name: TCM_WATCHDOG_LOG_FILE
+        - name: WATCHDOG_HOSTPORT
+          value: 0.0.0.0:12502
+        - name: WATCHDOG_LOG_FILE
           value: /logs/msg-webserver/watchdog.log
-        - name: TCM_WATCHDOG_CONFIG
+        - name: WATCHDOG_CONFIG
           value: "/data/boot/watchdog.yml"
         - name: LOG_ALERT_PORT
           value: "8099"

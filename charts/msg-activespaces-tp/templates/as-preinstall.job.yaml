@@ -1,0 +1,128 @@
+
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $stsname := printf "%s-core" $params.as.basename -}}
+{{- $jobLabel := printf "%s-preinstall" $params.as.basename -}}
+{{- $jobList := printf "-l=tib-msg-jobname=%s" $jobLabel -}}
+{{- $scheme := $.Values.secure.tls | ternary "https" "http" -}}
+{{- $realmSvcUrl := printf "%s://%s.%s.svc.cluster.local:%d" $scheme $stsname .Release.Namespace (int $.Values.ftlserver.ports.http) }}
+
+##kubectl get sts,pods,pvc,svc,cm,secret  -l=tib-dp-release=msg-as
+
+{{- /* Job to inject grid configuration into realmserver. */}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $jobLabel }}-{{ $.Release.Revision }}
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-jobname: {{ $jobLabel }}
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+    # "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    metadata:
+      name: {{ $jobLabel }}
+      labels:
+        tib-dp-release: {{ $.Release.Name }}
+        tib-msg-jobname: {{ $jobLabel }}
+{{ include "tibdg.labels" $ | indent 8 }}
+        {{ include "msg.as.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.kubectl" . | indent 8}}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: "{{ $params.dp.serviceAccount }}"
+      restartPolicy: OnFailure
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if ne "none" $params.dp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $params.dp.pullSecret }}
+      {{- end }}
+      {{ include "msg.dp.security.pod" $params | nindent 6 }}
+      containers:
+        - name: main
+          image: {{ $params.as.image}}
+          {{ include "msg.dp.security.container" $params | nindent 10 }}
+          imagePullPolicy: "{{ $params.dp.pullPolicy }}"
+          resources:
+            {{ $params.job.resources | toYaml | nindent 12 }}
+          command: ["bash", "-c"]
+          args:
+            - |
+              {{ include "msg.oldjob.cleanup" ( $jobList ) | nindent 14 }}
+              echo "... Checking install vs upgrade ... "
+              if kubectl get cm/{{ $basename }}-boot ; then
+                echo "... Boot config exists, upgrade in progress"
+                export configType=upgrade
+              else
+                echo "... No boot config, assuming fresh install and proceeding with install steps"
+                export configType=install
+              fi
+              # STATUS CONFIGMAP
+              cat - <<EOF | kubectl apply -f -
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: {{ $basename }}-status
+                namespace: "{{ .Release.Namespace }}"
+                labels:
+                  tib-dp-release: {{ $.Release.Name }}
+                  tib-msg-group-name: {{ $params.as.basename }}
+                  app.kubernetes.io/component: msg-activespaces
+                  platform.tibco.com/capability-instance-id: "{{ $params.dp.instanceId }}"
+              data:
+                configType: ${configType}
+                releaseRevision: "{{ $.Release.Revision }}"
+                releaseName: "{{ $.Release.Name }}"
+                instanceId: "{{ $params.dp.instanceId }}"
+                chartName: "{{ $.Chart.Name }}"
+                chartVersion: "{{ $.Chart.Version }}"
+                tibdgVersion: "5.2.0"
+                groupName: {{ $params.as.basename | quote }}
+                useCompact: {{ $params.as.useCompact | quote }}
+                numCopysets: {{ $params.as.numCopysets | quote }}
+                numProxies: {{ $params.as.numProxies | quote }}
+              EOF
+              # CONF SECRET
+              cat - <<EOF > /tmp/{{ $basename }}.conf.json
+              {
+                "ftl_url": "{{ $realmSvcUrl }}"
+              }
+              EOF
+              cat - <<EOF > /tmp/as.{{ $params.dp.instanceId }}.args
+              -r
+              {{ $realmSvcUrl }}
+              -g
+              {{ $params.as.basename }}
+              EOF
+              kubectl create secret generic {{ $basename }}-conf \
+                --from-file=/tmp/{{ $basename }}.conf.json \
+                --from-file=/tmp/as.{{ $params.dp.instanceId }}.args \
+                --from-literal=TIBDG_FTL={{ $realmSvcUrl }} \
+                -n {{ .Release.Namespace }} --dry-run=client -o yaml | kubectl apply -f -
+              kubectl label secret {{ $basename }}-conf tib-dp-release={{ $.Release.Name }}
+              kubectl label secret {{ $basename }}-conf tib-msg-group-name={{ $params.as.basename }}
+              kubectl label secret {{ $basename }}-conf app.kubernetes.io/component=msg-activespaces
+              exit 0
+
+          volumeMounts:
+            - name: tmp-vol
+              mountPath: /tmp
+      volumes:
+        - name: tmp-vol
+          emptyDir: {}

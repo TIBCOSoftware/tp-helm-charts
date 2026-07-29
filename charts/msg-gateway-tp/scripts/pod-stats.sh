@@ -17,14 +17,20 @@ ENV OPTIONS:
     POD_MAX_THREADS     - override default max threads of 15000
     POD_MON_DISK        - enable low-disk monitoring with a list of directories
     POD_DISK_ALERT_SH   - path to script for low_disk alerts (optional)
+    POD_MON_RM_OLD_LOGS - number of days to keep old csv files (default: 14)
+    POD_DISABLE_PID_STATS - set to 'true' to disable per-process pid stats collection (default: false)
+    PID_MON_CSV         - override ./pid-stats.csv filename for per-process stats
 "
 csvfile="${POD_MON_CSV:-./pod-mon.csv}"
+csvdir="$(dirname $csvfile)"
 diskcsv="${POD_DISK_CSV:-./pod-disk.csv}"
 sampleWait="${POD_STATS_INTERVAL:-20}"
 maxThreads="${POD_MAX_THREADS:-15000}"
 podDiskThreshold="${POD_DISK_THRESHOLD:-95}"
 podDiskList="${POD_DISK_MON}"
 podDiskAlert="${POD_DISK_ALERT_SH}"
+podDisablePidStats="${POD_DISABLE_PID_STATS:-false}"
+podMonRmOldLogs="${POD_MON_RM_OLD_LOGS:-14}"
 ## more portable, but no milliseconds:  
 ## fmtTime="+%y%m%dT%H:%M:%S"
 ## Ubuntu preferred: 
@@ -41,7 +47,7 @@ curl_opts="-Ss -XPOST http://localhost:${LOG_ALERT_PORT-8099}/dp.routable"
 function alert
 { 
     log "ALERT: $*" 
-    payload="$(printf '{"message":"%s","level":"alert","caller":"%s"}' "$*" "pod-status.sh" )"
+    payload="$(printf '{"message":"%s","level":"alert","caller":"%s"}' "$*" "pod-stats.sh" )"
     if [ -n "$LOG_ALERT_PORT" ] ; then
         curl -d "$payload" -H "$curl_h" $curl_opts || true
     fi
@@ -154,6 +160,47 @@ function rotate_log() {
     mv "$file" "$file.0"
 }
 
+function pid_stats_hdr() {
+    echo "datetime,pid,vcpu,ram-KB,svc,command"
+}
+
+function pid_stats() {
+    [ "$podDisablePidStats" = "true" ] && return 0
+    pid_newday
+    # Log pod cpu/memory by process
+    # ps  -eo pid,pcpu,rss,command --sort=-%mem | egrep -v '%CPU|pid,pcpu'
+    # echo "cmd, ram(KB), cpu, pid, command"
+    pidfile="${PID_MON_CSV:-./pid-stats.csv}"
+    dtime="$(date "$fmtTime" )"
+    ps  -eo pid,pcpu,rss,command --sort=-%mem > "$csvdir/tmp.pidlist"
+    cat "$csvdir/tmp.pidlist" | egrep -v '%CPU|pid,pcpu' | while read pid pcpu rss cmd ; do 
+        # bc not installed: millicpu=$( echo "$pcpu * 10" | bc )
+        svc="$( echo $cmd | cut -f1 -d' ' )"
+        next="$( echo $cmd | cut -f2 -d' ' )"
+        [[ "$svc" =~ bash ]] && svc="$next"
+        [[ "$svc" =~ ^/ ]] && svc="$( basename $svc )"
+        vcpu=$( echo | awk "{printf \"%.3f\", $pcpu / 100}" )
+        echo "$dtime,$pid,$vcpu,$rss,$svc,$cmd" >> $pidfile
+    done
+}
+
+export PID_TODAY=""
+function pid_newday() {
+    export PID_TODAY
+    pidfile="${PID_MON_CSV:-./pid-stats.csv}"
+    today=$(date +%y%m%d)
+    if [ -z "$PID_TODAY" ] ; then
+        [ ! -s "$pidfile" ] && pid_stats_hdr > $pidfile
+        PID_TODAY="$today"
+    elif [ "$today" != "$PID_TODAY" ] ; then
+        mv "$pidfile" "$pidfile.${PID_TODAY:-start}" 2>/dev/null || true
+        PID_TODAY="$today"
+        pid_stats_hdr > $pidfile
+        # Remove old CSV files.
+        find "$csvdir" -type f -name 'p*.csv.*' -mtime +${podMonRmOldLogs:-30} -delete
+    fi
+}
+
 echo "# ===== $cmd ====="
 log " DISK MONITORING: $podDiskList"
 ! which "$podDiskAlert" && export podDiskAlert='' && echo "NO DISK ALERTING."
@@ -170,6 +217,7 @@ do
     dtime="$(date "$fmtTime" )"
     ramUse=$(memusage)
     cpuUse=$(cpuusage)
+    pid_stats
     totalFDs=0
     totalPids=0
     for pid in /proc/[0-9]*

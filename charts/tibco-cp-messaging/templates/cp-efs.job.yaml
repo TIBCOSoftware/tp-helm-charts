@@ -94,11 +94,11 @@ data:
 {{- if .Values.recipeOverride }}
   recipeOverrides: |
   {{- if .Values.recipeOverride.MSGCORE }}
-    infra/msgcore/1.15.0/recipe.yaml:
+    infra/msgcore/1.19.0/recipe.yaml:
       {{ toYaml .Values.recipeOverride.MSGCORE | nindent 6 }}
   {{- end }}
   {{- if .Values.recipeOverride.EMS }}
-    platform/ems/1.15.0/recipe.yaml:
+    platform/ems/1.19.0/recipe.yaml:
       {{ toYaml .Values.recipeOverride.EMS | nindent 6 }}
   {{- end }}
 {{- end }}

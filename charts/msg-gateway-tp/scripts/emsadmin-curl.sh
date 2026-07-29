@@ -30,8 +30,6 @@ curl_opts=()
 curl_opts+=("-H" "Content-Type: application/json")
 curl_opts+=("-ks")
 curl_opts+=("-D" "curl.debug")
-curl_opts+=("-c" "./cookies.txt")
-curl_opts+=("-b" "./cookies.txt")
 auth_opts=()
 EMS_REST_API=
 EMS_ADMIN_USER=${EMS_ADMIN_USER:-admin}
@@ -78,10 +76,10 @@ fi
 # Avoid corrupting curl openssl build
 export LD_LIBRARY_PATH= 
 > curl.debug
-curl "${curl_opts[@]}" "${auth_opts[@]}" -i -X POST  "$EMS_ADMIN_URL"/connect?${EMS_CONNECT_PARAMS} >> curl.debug 2>> curl.debug
+curl "${curl_opts[@]}" "${auth_opts[@]}" -c ./cookies.txt -i -X POST  "$EMS_ADMIN_URL"/connect?${EMS_CONNECT_PARAMS} >> curl.debug 2>> curl.debug
 
 if [ "$confirm" ] ; then
-    response=$(curl "${curl_opts[@]}" "${auth_opts[@]}"  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}" 2>> curl.debug)
+    response=$(curl "${curl_opts[@]}" "${auth_opts[@]}" -b ./cookies.txt  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}" 2>> curl.debug)
     response=(${response[@]})
     confirmation_code=$(echo "${response[-1]}" | jq -r '.confirmation')
     if [[ $EMS_REST_API == *'?'* ]]; then
@@ -90,6 +88,6 @@ if [ "$confirm" ] ; then
         EMS_REST_API="${EMS_REST_API}?confirmation=${confirmation_code}"
     fi
 fi
-curl "${curl_opts[@]}" "${auth_opts[@]}"  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}"
+curl "${curl_opts[@]}" "${auth_opts[@]}" -b ./cookies.txt  "${cmd_opts[@]}" "${EMS_ADMIN_URL}${EMS_REST_API}"
 
-curl "${curl_opts[@]}" "${auth_opts[@]}" -i -X POST  "$EMS_ADMIN_URL"/disconnect >> curl.debug 2>> curl.debug
+curl "${curl_opts[@]}" "${auth_opts[@]}" -b ./cookies.txt -i -X POST  "$EMS_ADMIN_URL"/disconnect >> curl.debug 2>> curl.debug

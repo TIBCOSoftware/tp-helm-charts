@@ -8,7 +8,7 @@
 #
 {{-  $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
-{{- $jobname := printf "%s-preinstall-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
+{{- $jobname := printf "%s-preinstall-%d" $emsParams.ems.name $.Release.Revision -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcFtl := printf "%s-%s" $emsParams.ems.name "ftl" -}}
 {{- $svcFtlHost := printf "%s.%s.svc" $svcFtl .Release.Namespace -}}
@@ -28,6 +28,7 @@ metadata:
     annotations:
       "helm.sh/hook": pre-install,pre-upgrade
       "helm.sh/hook-weight": "5"
+      "helm.sh/hook-delete-policy": before-hook-creation
 spec:
     backoffLimit: 0
     #4hr limit -  activeDeadlineSeconds: 14400
