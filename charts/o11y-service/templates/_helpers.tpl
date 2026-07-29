@@ -33,7 +33,7 @@ Create image tag value which defaults to .Chart.AppVersion.
 {{- define "o11y-service.promserver-proxy-password" }}promserver-proxy-password{{ end -}}
 {{- define "o11y-service.promserver-exporter-token" }}promserver-exporter-token{{ end -}}
 
-{{- define "o11y-service.jaeger-collector-endpoint" }}jaeger-collector.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local:{{ .Values.global.cp.resources.o11y.tracesServer.config.collector.port }}{{ end -}}
+{{- define "o11y-service.jaeger-collector-endpoint" }}jaeger.{{ .Values.global.cp.resources.serviceaccount.namespace }}.svc.cluster.local:{{ .Values.global.cp.resources.o11y.tracesServer.config.collector.port }}{{ end -}}
 {{- define "o11y-service.finops-collector-endpoint" }}{{ .Values.global.otel.finops.exporters.metricsendpoint }}{{ end -}}
 
 {{- define "o11y-service.role" }}tp-dp-{{ .Values.global.cp.dataplaneId }}-o11y-role{{ end -}}

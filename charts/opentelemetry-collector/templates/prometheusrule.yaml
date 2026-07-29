@@ -1,10 +1,4 @@
-#
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
-
-{{ if .Values.prometheusRule.enabled  }}
+{{- if .Values.prometheusRule.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -28,57 +22,99 @@ spec:
       for: 2m
       labels:
         severity: critical
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{`The {{ $labels.receiver }} receiver is dropping spans at a rate of {{ humanize $value }} per second `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#receive-failures'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     - alert: ReceiverDroppedMetrics
       expr: rate(otelcol_receiver_refused_metric_points_total[5m]) > 0
       for: 2m
       labels:
         severity: critical
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{`The {{ $labels.receiver }} receiver is dropping metrics at a rate of {{ humanize $value }} per second `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#receive-failures'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     - alert: ReceiverDroppedLogs
       expr: rate(otelcol_receiver_refused_log_records_total[5m]) > 0
       for: 5m
       labels:
         severity: critical
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{` The {{ $labels.receiver }} is dropping logs at a rate of {{ humanize $value }} per second `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#receive-failures'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     - alert: ExporterDroppedSpans
       expr: rate(otelcol_exporter_send_failed_spans_total[5m]) > 0
       for: 2m
       labels:
         severity: critical
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{`The {{ $labels.exporter }} exporter is dropping spans at a rate of {{ humanize $value }} per second `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#receive-failures'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     - alert: ExporterDroppedMetrics
       expr: rate(otelcol_exporter_send_failed_metric_points_total[5m]) > 0
       for: 2m
       labels:
         severity: critical
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{`The {{ $labels.exporter }} exporter is dropping metrics at a rate of {{ humanize $value }} per second `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#receive-failures'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     - alert: ExporterDroppedLogs
       expr: rate(otelcol_exporter_send_failed_log_records_total[5m]) > 0
       for: 5m
       labels:
         severity: critical
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{` The {{ $labels.exporter }} is dropping logs at a rate of {{ humanize $value }} per second `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#receive-failures'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     - alert: ExporterQueueSize
       expr: otelcol_exporter_queue_size > otelcol_exporter_queue_capacity * 0.8
       for: 1m
       labels:
         severity: warning
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{`The {{ $labels.exporter }} queue has reached a size of {{ $value }} `}}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#queue-length'
+        {{- with .Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
 {{- $signals := list "spans" "metric_points" "log_records" }}
 {{- range $signal := $signals }}
     - alert: SendQueueFailed{{ $signal }}
@@ -86,9 +122,15 @@ spec:
       for: 1m
       labels:
         severity: warning
+        {{- with $.Values.prometheusRule.defaultRules.additionalRuleLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         description: '{{`The {{ $labels.exporter }} sending queue failed to accept {{ $value }} `}} {{ $signal }}'
         runbook_url: 'https://opentelemetry.io/docs/collector/internal-telemetry/#queue-length'
+        {{- with $.Values.prometheusRule.defaultRules.additionalRuleAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

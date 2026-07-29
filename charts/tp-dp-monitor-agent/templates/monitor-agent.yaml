@@ -160,6 +160,8 @@ spec:
           value: {{ .Values.global.cp.subscriptionId }}
         - name: CP_DOMAIN
           value: cp-proxy.{{ .Release.Namespace }}.svc.cluster.local
+        - name: MONITOR_AGENT_HTTP_TIMEOUT_SECONDS
+          value: {{ .Values.global.MONITOR_AGENT_HTTP_TIMEOUT_SECONDS | quote }}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
         volumeMounts:
         - name: logs

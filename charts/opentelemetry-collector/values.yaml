@@ -52,6 +52,9 @@ fullnameOverride: ""
 # Valid values are "daemonset", "deployment", and "statefulset".
 mode: "deployment"
 
+# Override the default apiVersion for custom controllers or for testing new API versions.
+apiVersion: "apps/v1"
+
 # Specify which namespace should be used to deploy the resources into
 namespaceOverride: ""
 
@@ -131,6 +134,53 @@ presets:
     logs:
       enabled: false
     metrics:
+      enabled: false
+  # Configures the collector to collect Kubernetes objects via the k8sobjects receiver in pull mode.
+  # Can be used with mode = deployment, statefulset, or daemonset.
+  # Compatible with kubernetesEvents preset.
+  # See https://opentelemetry.io/docs/kubernetes/collector/components/#kubernetes-objects-receiver for details.
+  kubernetesObjects:
+    enabled: false
+    # When enabled with mode = daemonset, leader election is setup to prevent telemetry duplication.
+    # disableLeaderElection: false
+    # When enabled, watch mode is added alongside pull to stream real-time changes.
+    watch: false
+    core:
+      enabled: true
+    rbac:
+      enabled: true
+    storage:
+      enabled: true
+    networking:
+      enabled: true
+    autoscaling:
+      enabled: true
+      vpa:
+        enabled: false
+    policy:
+      enabled: true
+    apiExtensions:
+      enabled: true
+  # Configures the collector to collect profiling data.
+  # Adds profiles pipeline with the profiling receiver,
+  # and adds the necessary volumes, security context and host PID access.
+  # Warning: requires a dedicated collector distribution (e.g. otelcol-ebpf-profiler).
+  profiling:
+    enabled: false
+  # Configures the collector to detect resource attributes using the resourcedetection processor.
+  # Each detector can be enabled individually.
+  # See https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor for details.
+  resourceDetection:
+    enabled: false
+    env:
+      enabled: true
+    k8snode:
+      enabled: true
+    eks:
+      enabled: false
+    aks:
+      enabled: false
+    gcp:
       enabled: false
 
 configMap:
@@ -225,14 +275,8 @@ config:
 #    zipkin:
 #      endpoint: ${env:MY_POD_IP}:9411
   service:
-#    telemetry:
-#      metrics:
-#        readers:
-#          - pull:
-#              exporter:
-#                prometheus:
-#                  host: ${env:MY_POD_IP}
-#                  port: 8888
+    telemetry:
+      metrics: {}
     extensions:
       - health_check
 #    pipelines:
@@ -706,6 +750,8 @@ prometheusRule:
   # Create default rules for monitoring the collector
   defaultRules:
     enabled: false
+    additionalRuleLabels: {}
+    additionalRuleAnnotations: {}
 
   # additional labels for the PrometheusRule
   extraLabels: {}

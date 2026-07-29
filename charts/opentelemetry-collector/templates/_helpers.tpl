@@ -4,6 +4,12 @@
 # in the license file that is distributed with this file.
 #
 
+#
+# Copyright © 2023 - 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
 {{/*
 Expand the name of the chart.
 */}}
@@ -271,4 +277,19 @@ Create ConfigMap checksum annotation if configMap.existingPath is defined, other
     checksum/config: {{ include (print $.Template.BasePath "/configmap-statefulset.yaml") . | sha256sum }}
     {{- end -}}
   {{- end }}
+{{- end }}
+
+{{/*
+List of upstream community OpenTelemetry Collector distributions that do NOT include
+the profiling receiver. Among community images only `opentelemetry-collector-ebpf-profiler`
+ships the receiver; custom/vendor distributions pass through.
+Consumed by NOTES.txt to fail-fast when the profiling preset
+is enabled with an incompatible community image.
+See https://github.com/open-telemetry/opentelemetry-collector-releases/tree/main/distributions
+*/}}
+{{- define "opentelemetry-collector.profilingUnsupportedImages" -}}
+- opentelemetry-collector
+- opentelemetry-collector-contrib
+- opentelemetry-collector-k8s
+- opentelemetry-collector-otlp
 {{- end }}

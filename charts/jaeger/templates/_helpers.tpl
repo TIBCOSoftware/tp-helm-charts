@@ -1,5 +1,5 @@
 #
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
+# Copyright © 2023 - 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
@@ -38,13 +38,6 @@ Create chart name and version as used by the chart label.
 {{- end -}}
 
 {{/*
-Create image tag value which defaults to .Chart.AppVersion.
-*/}}
-{{- define "jaeger.image.tag" -}}
-{{- .Values.tag | default .Chart.AppVersion }}
-{{- end -}}
-
-{{/*
 Common labels
 */}}
 {{- define "jaeger.labels" -}}
@@ -54,6 +47,9 @@ helm.sh/chart: {{ include "jaeger.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Values.commonLabels}}
+{{ toYaml .Values.commonLabels }}
+{{- end }}
 {{- end -}}
 
 {{/*
@@ -65,70 +61,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
-Common labels for Collector
+Merge common annotations with component-specific annotations.
+Component-specific annotations take precedence.
 */}}
-{{- define "jaeger.collector.labels" -}}
-helm.sh/chart: {{ include "jaeger.chart" . }}
-{{ include "jaeger.collector.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end -}}
-
-{{/*
-Selector labels for Collector
-*/}}
-{{- define "jaeger.collector.selectorLabels" -}}
-app.kubernetes.io/name: "jaeger-collector"
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/part-of: "o11y"
-platform.tibco.com/workload-type: "infra"
-platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
-platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
-{{- end -}}
-
-{{/*
-Common labels for Query
-*/}}
-{{- define "jaeger.query.labels" -}}
-helm.sh/chart: {{ include "jaeger.chart" . }}
-{{ include "jaeger.query.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end -}}
-
-{{/*
-Selector labels for Query
-*/}}
-{{- define "jaeger.query.selectorLabels" -}}
-app.kubernetes.io/name: "jaeger-query"
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/part-of: "o11y"
-platform.tibco.com/workload-type: "infra"
-platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
-platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
-{{- end -}}
-
-{{- define "jaeger.image.registry" }}
-  {{- .Values.global.cp.containerRegistry.url }}
-{{- end -}}
-
-{{/* set repository based on the registry url. We will have different repo for each one. */}}
-{{- define "jaeger.image.repository" -}}
-  {{- .Values.global.cp.containerRegistry.repository }}
-{{- end -}}
-
-{{/*
-Create the name of the cassandra schema service account to use
-*/}}
-{{- define "jaeger.cassandraSchema.serviceAccountName" -}}
-{{- if .Values.schema.serviceAccount.create -}}
-  {{ default (printf "%s-cassandra-schema" (include "jaeger.fullname" .)) .Values.schema.serviceAccount.name }}
-{{- else -}}
-  {{ default "default" .Values.schema.serviceAccount.name }}
+{{- define "jaeger.annotations" -}}
+{{- $annotations := merge (dict) (.component | default dict) (.context.Values.commonAnnotations | default dict) -}}
+{{- if gt (len (keys $annotations)) 0 -}}
+{{- toYaml $annotations -}}
 {{- end -}}
 {{- end -}}
 
@@ -176,175 +115,10 @@ Create the name of the esLookback service account to use
 {{- end -}}
 {{- end -}}
 
-{{/*
-Create the name of the hotrod service account to use
-*/}}
-{{- define "jaeger.hotrod.serviceAccountName" -}}
-{{- if .Values.hotrod.serviceAccount.create -}}
-  {{ default (printf "%s-hotrod" (include "jaeger.fullname" .)) .Values.hotrod.serviceAccount.name }}
-{{- else -}}
-  {{ default "default" .Values.hotrod.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create the name of the query service account to use
-*/}}
-{{- define "jaeger.query.serviceAccountName" -}}
-{{- if .Values.query.serviceAccount.create -}}
-  {{ default (include "jaeger.query.name" .) .Values.query.serviceAccount.name }}
-{{- else -}}
-  {{ default "default" .Values.query.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create the name of the agent service account to use
-*/}}
-{{- define "jaeger.agent.serviceAccountName" -}}
-{{- if .Values.agent.serviceAccount.create -}}
-  {{ default (include "jaeger.agent.name" .) .Values.agent.serviceAccount.name }}
-{{- else -}}
-  {{ default "default" .Values.agent.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create the name of the collector service account to use
-*/}}
-{{- define "jaeger.collector.serviceAccountName" -}}
-{{- if .Values.collector.serviceAccount.create -}}
-  {{ default (include "jaeger.collector.name" .) .Values.collector.serviceAccount.name }}
-{{- else -}}
-  {{ default "default" .Values.collector.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create the collector ingress host
-*/}}
-{{- define "jaeger.collector.ingressHost" -}}
-{{- if (kindIs "string" .) }}
-  {{- . }}
-{{- else }}
-  {{- .host }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Create the collector ingress servicePort
-*/}}
-{{- define "jaeger.collector.ingressServicePort" -}}
-{{- if (kindIs "string" .context) }}
-  {{- .defaultServicePort }}
-{{- else }}
-  {{- .context.servicePort }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Create the name of the ingester service account to use
-*/}}
-{{- define "jaeger.ingester.serviceAccountName" -}}
-{{- if .Values.ingester.serviceAccount.create -}}
-  {{ default (include "jaeger.ingester.name" .) .Values.ingester.serviceAccount.name }}
-{{- else -}}
-  {{ default "default" .Values.ingester.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create a fully qualified query name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-*/}}
-{{- define "jaeger.query.name" -}}
-{{- $nameGlobalOverride := printf "%s-query" (include "jaeger.fullname" .) -}}
-{{- if .Values.query.fullnameOverride -}}
-{{- printf "%s" .Values.query.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s" $nameGlobalOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create a fully qualified agent name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-*/}}
-{{- define "jaeger.agent.name" -}}
-{{- $nameGlobalOverride := printf "%s-agent" (include "jaeger.fullname" .) -}}
-{{- if .Values.agent.fullnameOverride -}}
-{{- printf "%s" .Values.agent.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s" $nameGlobalOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create a fully qualified collector name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-*/}}
-{{- define "jaeger.collector.name" -}}
-{{- $nameGlobalOverride := printf "%s-collector" (include "jaeger.fullname" .) -}}
-{{- if .Values.collector.fullnameOverride -}}
-{{- printf "%s" .Values.collector.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s" $nameGlobalOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create a fully qualified ingester name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-*/}}
-{{- define "jaeger.ingester.name" -}}
-{{- $nameGlobalOverride := printf "%s-ingester" (include "jaeger.fullname" .) -}}
-{{- if .Values.ingester.fullnameOverride -}}
-{{- printf "%s" .Values.ingester.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s" $nameGlobalOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "cassandra.host" -}}
-{{- if .Values.provisionDataStore.cassandra -}}
-{{- if .Values.storage.cassandra.nameOverride }}
-{{- printf "%s" .Values.storage.cassandra.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name "cassandra" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- else }}
-{{- .Values.storage.cassandra.host }}
-{{- end -}}
-{{- end -}}
-
 {{- define "cassandra.contact_points" -}}
 {{- $port := .Values.storage.cassandra.port | toString }}
-{{- if .Values.provisionDataStore.cassandra -}}
-{{- if .Values.storage.cassandra.nameOverride }}
-{{- $host := printf "%s" .Values.storage.cassandra.nameOverride | trunc 63 | trimSuffix "-" -}}
-{{- printf "%s:%s" $host $port }}
-{{- else }}
-{{- $host := printf "%s-%s" .Release.Name "cassandra" | trunc 63 | trimSuffix "-" -}}
-{{- printf "%s:%s" $host $port }}
-{{- end -}}
-{{- else }}
 {{- printf "%s:%s" .Values.storage.cassandra.host $port }}
 {{- end -}}
-{{- end -}}
-
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-*/}}
-{{- define "elasticsearch.client.url" -}}
-{{- $port := .Values.storage.elasticsearch.port | toString -}}
-{{- printf "%s://%s:%s" .Values.storage.elasticsearch.scheme .Values.storage.elasticsearch.host $port }}
-{{- end -}}
-
-{{- define "jaeger.hotrod.tracing.host" -}}
-{{- default (include "jaeger.agent.name" .) .Values.hotrod.tracing.host -}}
-{{- end -}}
-
 
 {{/*
 Configure list of IP CIDRs allowed access to load balancer (if supported)
@@ -366,10 +140,11 @@ Configure list of IP CIDRs allowed access to load balancer (if supported)
 
 {{/*
 Cassandra related environment variables
+TODO: Is this needed other than spark?
 */}}
 {{- define "cassandra.env" -}}
 - name: CASSANDRA_SERVERS
-  value: {{ include "cassandra.host" . }}
+  value: {{ .Values.storage.cassandra.host }}
 - name: CASSANDRA_PORT
   value: {{ .Values.storage.cassandra.port | quote }}
 {{ if .Values.storage.cassandra.tls.enabled }}
@@ -398,7 +173,7 @@ Cassandra related environment variables
     secretKeyRef:
       name: {{ if .Values.storage.cassandra.existingSecret }}{{ .Values.storage.cassandra.existingSecret }}{{- else }}{{ include "jaeger.fullname" . }}-cassandra{{- end }}
       key: password
-{{- range $key, $value := .Values.storage.cassandra.env }}
+{{ range $key, $value := .Values.storage.cassandra.env }}
 - name: {{ $key | quote }}
   value: {{ $value | quote }}
 {{ end -}}
@@ -411,257 +186,140 @@ Cassandra related environment variables
 Elasticsearch related environment variables
 */}}
 {{- define "elasticsearch.env" -}}
+{{- if eq .Values.storage.type "elasticsearch" -}}
+{{- $es := .Values.storage.elasticsearch | default dict -}}
+{{- $user := $es.user | default "elastic" -}}
+{{- $password := $es.password | default "changeme" -}}
+{{- $url := $es.url | default "http://elasticsearch-master:9200" -}}
 - name: ES_SERVER_URLS
-  value: {{ include "elasticsearch.client.url" . }}
-{{- if not .Values.storage.elasticsearch.anonymous }}
+  value: {{ $url | quote }}
+- name: ES_NODES
+  value: {{ $url | quote }}
 - name: ES_USERNAME
-  value: {{ .Values.storage.elasticsearch.user }}
-{{- end }}
-{{- if .Values.storage.elasticsearch.usePassword }}
+  value: {{ $user | quote }}
 - name: ES_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ if .Values.storage.elasticsearch.existingSecret }}{{ .Values.storage.elasticsearch.existingSecret }}{{- else }}{{ include "jaeger.fullname" . }}-elasticsearch{{- end }}
-      key: {{ default "password" .Values.storage.elasticsearch.existingSecretKey }}
-{{- end }}
-{{- if .Values.storage.elasticsearch.tls.enabled }}
-- name: ES_TLS_ENABLED
+  value: {{ $password | quote }}
+{{- /* Handle TLS insecurity */ -}}
+{{- if and (($es).tls).enabled (($es).tls).insecure }}
+- name: ES_TLS_SKIP_HOST_VERIFY
   value: "true"
-- name: ES_TLS_CA
-  value: {{ .Values.storage.elasticsearch.tls.ca }}
 {{- end }}
-{{- if .Values.storage.elasticsearch.indexPrefix }}
-- name: ES_INDEX_PREFIX
-  value: {{ .Values.storage.elasticsearch.indexPrefix }}
-{{- end }}
-{{- range $key, $value := .Values.storage.elasticsearch.env }}
-- name: {{ $key | quote }}
-  value: {{ $value | quote }}
-{{ end -}}
-{{- if .Values.storage.elasticsearch.extraEnv }}
-{{ toYaml .Values.storage.elasticsearch.extraEnv }}
 {{- end }}
 {{- end -}}
 
 {{/*
-grpcPlugin related environment variables
-*/}}
-{{- define "grpcPlugin.env" -}}
-{{- if .Values.storage.grpcPlugin.extraEnv }}
-{{- toYaml .Values.storage.grpcPlugin.extraEnv }}
-{{- end }}
-{{- end -}}
-
-{{- define "badger.env" -}}
-- name: BADGER_SPAN_STORE_TTL
-  value: 24h
-- name: QUERY_BASE_PATH
-  value: /o11y/v1/traceproxy/{{ .Values.global.cp.dataplaneId }}
-- name: QUERY_UI_CONFIG
-  value: /jaeger/config/jaeger-ui-config.json
-- name: BADGER_EPHEMERAL
-  value: "false"
-- name: BADGER_DIRECTORY_VALUE
-  value: /mnt/data/badger/data
-- name: BADGER_DIRECTORY_KEY
-  value: /mnt/data/badger/key
-{{- end -}}
-
-{{/*
-Cassandra, Elasticsearch, or grpc-plugin related environment variables depending on which is used
+Cassandra, Elasticsearch related environment variables depending on which is used
+TODO: storage.env only used in spark
 */}}
 {{- define "storage.env" -}}
 {{- if eq .Values.storage.type "cassandra" -}}
 {{ include "cassandra.env" . }}
 {{- else if eq .Values.storage.type "elasticsearch" -}}
 {{ include "elasticsearch.env" . }}
-{{- else if eq .Values.storage.type "grpc-plugin" -}}
-{{ include "grpcPlugin.env" . }}
-{{- end -}}
-{{- end -}}
-
-
-{{- define "allinone.storage.env" -}}
-{{- $st := include "allinone.storage.type" . -}}
-{{- if eq $st "cassandra" -}}
-{{ include "cassandra.env" . }}
-{{- else if eq $st "elasticsearch" -}}
-{{ include "elasticsearch.env" . }}
-{{- else if eq $st "badger" -}}
-{{ include "badger.env" . }}
-{{- else if eq $st "grpc-plugin" -}}
-{{ include "grpcPlugin.env" . }}
-{{- end -}}
-{{- end -}}
-
-{{- define "collector.storage.env" -}}
-{{- $st := include "collector.storage.type" . -}}
-{{- if eq $st "cassandra" -}}
-{{ include "cassandra.env" . }}
-{{- else if eq $st "elasticsearch" -}}
-{{ include "elasticsearch.env" . }}
-{{- else if eq $st "badger" -}}
-{{ include "badger.env" . }}
-{{- else if eq $st "grpc-plugin" -}}
-{{ include "grpcPlugin.env" . }}
-{{- end -}}
-{{- end -}}
-
-{{- define "query.storage.env" -}}
-{{- $st := include "query.storage.type" . -}}
-{{- if eq $st "cassandra" -}}
-{{ include "cassandra.env" . }}
-{{- else if eq $st "elasticsearch" -}}
-{{ include "elasticsearch.env" . }}
-{{- else if eq $st "badger" -}}
-{{ include "badger.env" . }}
-{{- else if eq $st "grpc-plugin" -}}
-{{ include "grpcPlugin.env" . }}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Cassandra related command line options
+Build a full image reference from an imageRoot dict (registry, repository, tag, digest).
+Falls back to .Chart.AppVersion if no tag is set.
+( dict "imageRoot" .Values.path.to.image "context" $ )
 */}}
-{{- define "cassandra.cmdArgs" -}}
-{{- range $key, $value := .Values.storage.cassandra.cmdlineParams -}}
-{{- if $value }}
-- --{{ $key }}={{ $value }}
-{{- else }}
-- --{{ $key }}
-{{- end -}}
+{{- define "renderImage" -}}
+{{- $ctx := .context -}}
+{{- $img := .imageRoot -}}
+{{- $registry := $img.registry | default $ctx.Values.global.cp.containerRegistry.url -}}
+{{- $repo := $img.repository -}}
+{{- $tag := $img.tag | default $ctx.Chart.AppVersion -}}
+{{- if $img.digest -}}
+{{- printf "%s/%s@%s" $registry $repo $img.digest -}}
+{{- else -}}
+{{- printf "%s/%s:%s" $registry $repo $tag -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Elasticsearch related command line options
+Create image name for jaeger image (TIBCO registry)
 */}}
-{{- define "elasticsearch.cmdArgs" -}}
-- --es.server-urls={{ .Values.global.cp.resources.o11y.tracesServer.config.es.endpoint }}
-- --es.username={{ .Values.global.cp.resources.o11y.tracesServer.config.es.username }}
-- --es.password={{ .Values.global.cp.resources.o11y.tracesServer.secret.es.password }}
-{{- range $key, $value := .Values.storage.elasticsearch.cmdlineParams -}}
-{{- if $value }}
-- --{{ $key }}={{ $value }}
-{{- else }}
-- --{{ $key }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "isO11yv3" -}}
-{{- and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") -}}
-{{- end -}}
-
-{{- define "esServerUrls" -}}
---es.server-urls={{ .Values.global.cp.resources.o11y.tracesServer.config.es.endpoint }}
-{{- end -}}
-
-{{- define "esUsername" -}}
---es.username={{ .Values.global.cp.resources.o11y.tracesServer.config.es.username }}
-{{- end -}}
-
-{{- define "esPassword" -}}
---es.password={{ .Values.global.cp.resources.o11y.tracesServer.secret.es.password }}
-{{- end -}}
-
-
-{{/*
-Elasticsearch related command line options
-*/}}
-{{- define "elasticsearch.query.cmdArgs" -}}
-{{- if include "isO11yv3" . -}}
-{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled -}}
-{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind "elasticSearch" -}}
-- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.elasticSearch.endpoint }}
-- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.elasticSearch.username }}
-- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.proxy.elasticSearch.password }}
-{{- end -}}
-{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind "openSearch" -}}
-- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.openSearch.endpoint }}
-- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.openSearch.username }}
-- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.proxy.openSearch.password }}
-{{- end -}}
-{{- end -}}
-{{- else}}
-- {{ include "esServerUrls" . }}
-- {{ include "esUsername" . }}
-- {{ include "esPassword" . }}
-{{- end -}}
-{{- range $key, $value := .Values.storage.elasticsearch.cmdlineParams -}}
-{{- if $value }}
-- --{{ $key }}={{ $value }}
-{{- else }}
-- --{{ $key }}
-{{- end -}}
-{{- end -}}
+{{- define "jaeger.image" -}}
+{{- include "jaeger.image.registry" . }}/{{ include "jaeger.image.repository" . }}/o11y-jaeger:{{ .Values.tag | default .Chart.AppVersion }}
 {{- end -}}
 
 {{/*
-Elasticsearch related command line options
+Create pull secrets for jaeger image (TIBCO registry)
 */}}
-{{- define "elasticsearch.collector.cmdArgs" -}}
-{{- if include "isO11yv3" . -}}
-{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled -}}
-{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "elasticSearch" -}}
-- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.endpoint }}
-- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.username }}
-- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
+{{- define "jaeger.imagePullSecrets" -}}
+{{- if .Values.global.cp.containerRegistry.secret -}}
+imagePullSecrets:
+- name: {{ .Values.global.cp.containerRegistry.secret }}
 {{- end -}}
-{{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "openSearch" -}}
-- --es.server-urls={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.endpoint }}
-- --es.username={{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.username }}
-- --es.password={{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
-{{- end -}}
-{{- end -}}
-{{- else }}
-- {{ include "esServerUrls" . }}
-- {{ include "esUsername" . }}
-- {{ include "esPassword" . }}
 {{- end }}
-{{- range $key, $value := .Values.storage.elasticsearch.cmdlineParams -}}
-{{- if $value }}
-- --{{ $key }}={{ $value }}
-{{- else }}
-- --{{ $key }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
 
 {{/*
-Cassandra or Elasticsearch related command line options depending on which is used
+Create image name for spark image
 */}}
-{{- define "storage.cmdArgs" -}}
-{{- if eq .Values.storage.type "cassandra" -}}
-{{- include "cassandra.cmdArgs" . -}}
-{{- else if eq .Values.storage.type "elasticsearch" -}}
-{{- include "elasticsearch.cmdArgs" . -}}
+{{- define "spark.image" -}}
+{{- include "renderImage" ( dict "imageRoot" .Values.spark.image "context" $ ) -}}
 {{- end -}}
-{{- end -}}
-
-{{- define "storage.query.cmdArgs" -}}
-{{- $st := include "query.storage.type" . }}
-{{- if eq $st "cassandra" -}}
-{{- include "cassandra.cmdArgs" . -}}
-{{- else if eq $st "elasticsearch" -}}
-{{- include "elasticsearch.query.cmdArgs" . -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "storage.collector.cmdArgs" -}}
-{{- $st := include "collector.storage.type" . }}
-{{- if eq $st "cassandra" -}}
-{{- include "cassandra.cmdArgs" . -}}
-{{- else if eq $st "elasticsearch" -}}
-{{- include "elasticsearch.collector.cmdArgs" . -}}
-{{- end -}}
-{{- end -}}
-
 
 {{/*
-Add extra argument to the command line options
-Usage:
-    {{ include "extra.cmdArgs" ( dict "cmdlineParams" .Values.collector.cmdlineParams ) | nindent 10  }}
+Create pull secrets for spark image
+*/}}
+{{- define "spark.imagePullSecrets" -}}
+{{- if .Values.global.cp.containerRegistry.secret }}
+- name: {{ .Values.global.cp.containerRegistry.secret }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create image name for esIndexCleaner image
+*/}}
+{{- define "esIndexCleaner.image" -}}
+{{- include "renderImage" ( dict "imageRoot" .Values.esIndexCleaner.image "context" $ ) -}}
+{{- end -}}
+
+{{/*
+Create pull secrets for esIndexCleaner image
+*/}}
+{{- define "esIndexCleaner.imagePullSecrets" -}}
+{{- if .Values.global.cp.containerRegistry.secret }}
+- name: {{ .Values.global.cp.containerRegistry.secret }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create image name for esRollover image
+*/}}
+{{- define "esRollover.image" -}}
+{{- include "renderImage" ( dict "imageRoot" .Values.esRollover.image "context" $ ) -}}
+{{- end -}}
+
+{{/*
+Create pull secrets for esRollover image
+*/}}
+{{- define "esRollover.imagePullSecrets" -}}
+{{- if .Values.global.cp.containerRegistry.secret }}
+- name: {{ .Values.global.cp.containerRegistry.secret }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create image name for esLookback image
+*/}}
+{{- define "esLookback.image" -}}
+{{- include "renderImage" ( dict "imageRoot" .Values.esLookback.image "context" $ ) -}}
+{{- end -}}
+
+{{/*
+Create pull secrets for esLookback image
+*/}}
+{{- define "esLookback.imagePullSecrets" -}}
+{{- if .Values.global.cp.containerRegistry.secret }}
+- name: {{ .Values.global.cp.containerRegistry.secret }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate command line arguments from a dictionary
 */}}
 {{- define "extra.cmdArgs" -}}
 {{- range $key, $value := .cmdlineParams -}}
@@ -669,133 +327,110 @@ Usage:
 - --{{ $key }}={{ $value }}
 {{- else }}
 - --{{ $key }}
-{{- end }}
 {{- end -}}
 {{- end -}}
-
-{{/*
-Provides a basic ingress network policy
-*/}}
-{{- define "jaeger.ingress.networkPolicy" -}}
-apiVersion: {{ include "jaeger.capabilities.networkPolicy.apiVersion" . }}
-kind: NetworkPolicy
-metadata:
-  name: {{ printf "%s-ingress" .Name }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app.kubernetes.io/component: {{ .Component }}
-    {{- include "jaeger.labels" . | nindent 4 }}
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: {{ .Component }}
-  policyTypes:
-  - Ingress
-  ingress:
-  {{- if or .ComponentValues.networkPolicy.ingressRules.namespaceSelector .ComponentValues.networkPolicy.ingressRules.podSelector }}
-  - from:
-    {{- if .ComponentValues.networkPolicy.ingressRules.namespaceSelector }}
-    - namespaceSelector:
-        matchLabels: {{- include "jaeger.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.ingressRules.namespaceSelector "context" $) | nindent 10 }}
-    {{- end }}
-    {{- if .ComponentValues.networkPolicy.ingressRules.podSelector }}
-    - podSelector:
-        matchLabels: {{- include "jaeger.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.ingressRules.podSelector "context" $) | nindent 10 }}
-    {{- end }}
-  {{- end }}
-  {{- if .ComponentValues.networkPolicy.ingressRules.customRules }}
-  {{- include "jaeger.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.ingressRules.customRules "context" $) | nindent 2 }}
-  {{- end }}
 {{- end -}}
 
 {{/*
-Provides a basic egress network policy
+TIBCO Platform image registry
 */}}
-{{- define "jaeger.egress.networkPolicy" -}}
-apiVersion: {{ include "jaeger.capabilities.networkPolicy.apiVersion" . }}
-kind: NetworkPolicy
-metadata:
-  name: {{ printf "%s-egress" .Name }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app.kubernetes.io/component: {{ .Component }}
-    {{- include "jaeger.labels" . | nindent 4 }}
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: {{ .Component }}
-  policyTypes:
-  - Egress
-  egress:
-  {{- if or .ComponentValues.networkPolicy.egressRules.namespaceSelector .ComponentValues.networkPolicy.egressRules.podSelector }}
-  - to:
-    {{- if .ComponentValues.networkPolicy.egressRules.namespaceSelector }}
-    - namespaceSelector:
-        matchLabels: {{- include "jaeger.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.egressRules.namespaceSelector "context" $) | nindent 10 }}
-    {{- end }}
-    {{- if .ComponentValues.networkPolicy.egressRules.podSelector }}
-    - podSelector:
-        matchLabels: {{- include "jaeger.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.egressRules.podSelector "context" $) | nindent 10 }}
-    {{- end }}
-  {{- end }}
-  {{- if .ComponentValues.networkPolicy.egressRules.customRules }}
-  {{- include "jaeger.tplvalues.render" (dict "value" .ComponentValues.networkPolicy.egressRules.customRules "context" $) | nindent 2 }}
-  {{- end }}
-{{- end -}}
-
-{{- define "collector.storage.type" -}}
-  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) -}}
-    {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind | lower -}}
-    {{- if eq $st "localstore" -}}
-      {{- $st = "badger" -}}
-    {{- else if eq $st "opensearch" -}}
-      {{- $st = "elasticsearch" -}}
-    {{- end -}}
-    {{- $st -}}
-  {{- end -}}
-{{- end -}}
-
-
-{{- define "query.storage.type" -}}
-  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) -}}
-  {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind | lower -}}
-    {{- if eq $st "localstore" -}}
-      {{- $st = "badger" -}}
-    {{- else if eq $st "opensearch" -}}
-      {{- $st = "elasticsearch" -}}
-    {{- end -}}
-    {{- $st -}}
-  {{- end -}}
-{{- end -}}
-
-{{- define "allinone.storage.type" -}}
-  badger
-{{- end -}}
-
-{{- define "useBadger" -}}
-{{- $badgerProxy := and (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) (eq .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind "localStore") -}}
-{{- $badgerExporter := and (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) (eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "localStore") -}}
-{{- and (include "isO11yv3" .) $badgerProxy $badgerExporter -}}
+{{- define "jaeger.image.registry" }}
+  {{- .Values.global.cp.containerRegistry.url }}
 {{- end -}}
 
 {{/*
-Common labels for allinone
+TIBCO Platform image repository
 */}}
-{{- define "jaeger.allinone.labels" -}}
-helm.sh/chart: {{ include "jaeger.chart" . }}
-{{ include "jaeger.allinone.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- define "jaeger.image.repository" -}}
+  {{- .Values.global.cp.containerRegistry.repository }}
 {{- end -}}
 
 {{/*
-Selector labels for Collector
+TIBCO Platform selector labels for all-in-one
 */}}
-{{- define "jaeger.allinone.selectorLabels" -}}
+{{- define "jaeger.tibco.selectorLabels" -}}
 app.kubernetes.io/part-of: "o11y"
 platform.tibco.com/workload-type: "infra"
 platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
 platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
+{{- end -}}
+
+{{/*
+Detect o11yv3 resource mapping
+*/}}
+{{- define "isO11yv3" -}}
+{{- and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") -}}
+{{- end -}}
+
+{{/*
+Resolve collector storage type from o11yv3 config
+*/}}
+{{- define "collector.storage.type" -}}
+  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) -}}
+    {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind | lower -}}
+    {{- if eq $st "localstore" -}}
+      {{- $st = "memory" -}}
+    {{- else if eq $st "opensearch" -}}
+      {{- $st = "elasticsearch" -}}
+    {{- end -}}
+    {{- $st -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*
+Resolve query storage type from o11yv3 config
+*/}}
+{{- define "query.storage.type" -}}
+  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) -}}
+    {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind | lower -}}
+    {{- if eq $st "localstore" -}}
+      {{- $st = "memory" -}}
+    {{- else if eq $st "opensearch" -}}
+      {{- $st = "elasticsearch" -}}
+    {{- end -}}
+    {{- $st -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*
+Elasticsearch environment variables for ES credential injection into Jaeger v2 config via ${env:...}
+Always set the env vars (with empty defaults) so ${env:...} references in userconfig don't cause startup failures.
+*/}}
+{{- define "jaeger.es.env" -}}
+{{- if include "isO11yv3" . -}}
+{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled -}}
+{{- $kind := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind | lower -}}
+{{- if or (eq $kind "elasticsearch") (eq $kind "opensearch") -}}
+- name: ES_SERVER_URLS
+  value: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.endpoint }}
+- name: ES_USERNAME
+  value: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.username }}
+- name: ES_PASSWORD
+  value: {{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
+{{- else -}}
+- name: ES_SERVER_URLS
+  value: ""
+- name: ES_USERNAME
+  value: ""
+- name: ES_PASSWORD
+  value: ""
+{{- end -}}
+{{- end -}}
+{{- else -}}
+{{- if .Values.global.cp.resources.o11y.tracesServer.enabled -}}
+- name: ES_SERVER_URLS
+  value: {{ .Values.global.cp.resources.o11y.tracesServer.config.es.endpoint }}
+- name: ES_USERNAME
+  value: {{ .Values.global.cp.resources.o11y.tracesServer.config.es.username }}
+- name: ES_PASSWORD
+  value: {{ .Values.global.cp.resources.o11y.tracesServer.secret.es.password }}
+{{- else -}}
+- name: ES_SERVER_URLS
+  value: ""
+- name: ES_USERNAME
+  value: ""
+- name: ES_PASSWORD
+  value: ""
+{{- end -}}
+{{- end -}}
 {{- end -}}
