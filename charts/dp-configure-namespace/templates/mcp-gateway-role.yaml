@@ -1,0 +1,51 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.rbac.mcpGateway}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-mcp-gateway
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["create", "get", "delete", "update"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["list", "get", "create", "update", "delete"]
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-mcp-gateway
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-mcp-gateway
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
+
+{{- end -}}

@@ -1,10 +1,4 @@
-#
-# Copyright © 2023 - 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
-
-{{ if and (eq (include "opentelemetry-collector.serviceEnabled" .) "true") .Values.serviceMonitor.enabled .Values.serviceMonitor.metricsEndpoints }}
+{{- if and (eq (include "opentelemetry-collector.serviceEnabled" .) "true") .Values.serviceMonitor.enabled .Values.serviceMonitor.metricsEndpoints }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -16,6 +10,9 @@ metadata:
     {{- printf "%s: %s" $key (tpl $value $ | quote) | nindent 4 }}
     {{- end }}
 spec:
+  {{- with .Values.serviceMonitor.sampleLimit }}
+  sampleLimit: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "opentelemetry-collector.selectorLabels" . | nindent 6 }}

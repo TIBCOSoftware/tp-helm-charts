@@ -5,7 +5,7 @@
 #
 
 {{ if eq .Values.mode "daemonset" }}
-apiVersion: apps/v1
+apiVersion: {{ .Values.apiVersion }}
 kind: DaemonSet
 metadata:
   name: {{ include "opentelemetry-collector.fullname" . }}-agent
@@ -48,6 +48,7 @@ spec:
       {{- $podData := dict "Values" $podValues "configmapSuffix" "-agent" "isAgent" true }}
       {{- include "opentelemetry-collector.pod" ($podData | mustMergeOverwrite (deepCopy .)) | nindent 6 }}
       hostNetwork: {{ .Values.hostNetwork }}
+      hostPID: {{ or .Values.hostPID .Values.presets.profiling.enabled }}
       {{- with .Values.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}

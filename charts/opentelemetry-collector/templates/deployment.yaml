@@ -6,7 +6,7 @@
 
 {{ if .Values.global.cp.svcPod.enabled -}}
 {{ if eq .Values.mode "deployment" }}
-apiVersion: apps/v1
+apiVersion: {{ .Values.apiVersion }}
 kind: Deployment
 metadata:
   name: {{ include "opentelemetry-collector.fullname" . }}
@@ -63,5 +63,6 @@ spec:
       {{- $podData := dict "Values" $podValues "configmapSuffix" "" "isAgent" false }}
       {{- include "opentelemetry-collector.pod" ($podData | mustMergeOverwrite (deepCopy .)) | nindent 6 }}
       hostNetwork: {{ .Values.hostNetwork }}
+      hostPID: {{ or .Values.hostPID .Values.presets.profiling.enabled }}
 {{- end }}
 {{- end }}

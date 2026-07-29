@@ -121,7 +121,7 @@ metadata:
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
     haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs/(.*) /\1
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-logs-rewrite@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-logs-rewrite@kubernetescrd
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -271,7 +271,7 @@ metadata:
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
     haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces/(.*) /\1
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-traces-rewrite@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-traces-rewrite@kubernetescrd
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -421,7 +421,7 @@ metadata:
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
     haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics/(.*) /\1
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-rewrite@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-metrics-rewrite@kubernetescrd
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}

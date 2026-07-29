@@ -487,7 +487,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 4723
+      tag: 5230
     job:
       image:
         tag: 9474
@@ -645,8 +645,8 @@ ingress:
 
 jaeger:
   service:
-    name: jaeger-query
-    port: 80
+    name: jaeger
+    port: 16686
   ingress:
     # -- Enables configuration of ingress to expose o11y-service. Requires ingress support in the Kubernetes cluster.
     enabled: true

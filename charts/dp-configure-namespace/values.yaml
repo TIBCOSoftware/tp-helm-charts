@@ -35,7 +35,19 @@ rbac:
   flogo: true
   ems: true
   devHub: true
+  infraMcp: true
+  # Use ClusterRole instead of per-namespace Roles for infra-mcp (full cluster diagnostics)
+  infraMcpClusterScoped: false
+  # Override the infra-mcp-server service account name (BYOSA — set to your own SA name)
+  infraMcpServiceAccountName: ""
+  # Extra RBAC rules appended to the infra-mcp reader Role/ClusterRole
+  # infraMcpExtraRules:
+  #   - apiGroups: [""]
+  #     resources: ["pods/exec"]
+  #     verbs: ["create"]
   o11y: true
+  mcpGateway: true
+  springboot: true
   # Gateway API RBAC
   gatewayAPI:
     nginxGatewayFabric: true
@@ -50,9 +62,6 @@ networkPolicy:
   # Flag to enable or disable creating default network policies for a namespace
   # Default value is false. Possible values are true, false
   create: false
-  # Required value if the network policies are to be enabled
-  # Create deprecated network policies
-  createDeprecatedPolicies: true
   # Flag to enable or disable creating cluster scoped network policies
   createClusterScopePolicies: false
   # Flag to enable or disable creating internet scoped network policies

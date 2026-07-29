@@ -1,23 +1,39 @@
-#
-# Copyright © 2023 - 2025. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
-#
-
 apiVersion: v2
-appVersion: 1.66.0
+appVersion: 2.19.0
 description: A Jaeger Helm chart for Kubernetes
 name: jaeger
 type: application
-version: 0.72.41
+version: 4.8.2
+# Artifact Hub annotations
+# The jaeger image is whitelisted from security scanning because the reported
+# CVEs are in the upstream Alpine base image (OpenSSL libcrypto3/libssl3) and
+# Go stdlib, not in this Helm chart. These will be resolved when the Jaeger
+# project releases a new image with updated base packages.
+annotations:
+  artifacthub.io/images: |
+    - name: jaeger
+      image: jaegertracing/jaeger:2.19.0
+      whitelisted: true
+      ignored: true
 # CronJobs require v1.21
-kubeVersion: '>= 1.21-0'
+kubeVersion: ">= 1.21-0"
 keywords:
   - jaeger
   - opentracing
   - tracing
   - instrumentation
 home: https://jaegertracing.io
-icon: https://camo.githubusercontent.com/afa87494e0753b4b1f5719a2f35aa5263859dffb/687474703a2f2f6a61656765722e72656164746865646f63732e696f2f656e2f6c61746573742f696d616765732f6a61656765722d766563746f722e737667
+icon: https://www.jaegertracing.io/img/jaeger-icon-reverse-color.svg
 sources:
   - https://hub.docker.com/u/jaegertracing/
+maintainers:
+  - name: mehta-ankit
+    email: ankit.mehta@appian.com
+  - name: mikelorant
+    email: michael.lorant@fairfaxmedia.com.au
+  - name: naseemkullah
+    email: naseem@transit.app
+  - name: pavelnikolov
+    email: me@pavelnikolov.net
+  - name: jkowall
+    email: jkowall@kowall.net

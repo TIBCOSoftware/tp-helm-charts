@@ -59,3 +59,39 @@ postgresql:
     image:
       repository: tibco-platform-docker-dev/common-os-shell
       tag: 12-debian-12-r30
+
+# Redis chart Configuration
+redis:
+  # Enable or disable Redis deployment
+  # Set to false if using an external Redis instance
+  enabled: false
+
+  # Use a single Redis node (no replication / sentinel) for the on-prem third-party tier,
+  # mirroring the single-instance PostgreSQL above.
+  architecture: standalone
+
+  global:
+    imageRegistry: ""
+    imagePullSecrets:
+    - tibco-container-registry-credentials
+    # Allow the mirrored internal images (common-redis*) below — Bitnami's image
+    # verification (chart >= ~19) otherwise rejects non-bitnami repositories.
+    security:
+      allowInsecureImages: true
+
+  # Redis container image configuration
+  image:
+    repository: tibco-platform-docker-dev/common-redis
+    tag: 7.4.3-debian-12-r0
+
+  # Redis exporter container image configuration
+  metrics:
+    image:
+      repository: tibco-platform-docker-dev/common-redis-exporter
+      tag: 1.70.0-debian-12-r2
+
+  # Redis volume-permissions (os-shell) image configuration
+  volumePermissions:
+    image:
+      repository: tibco-platform-docker-dev/common-os-shell
+      tag: 12-debian-12-r43
