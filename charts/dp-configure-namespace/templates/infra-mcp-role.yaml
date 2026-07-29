@@ -1,0 +1,199 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{- if .Values.rbac.infraMcp }}
+{{- $saName := .Values.rbac.infraMcpServiceAccountName | default "tp-dp-infra-mcp-server" }}
+
+# Provisioner role — allows the shared SA to create the infra-mcp-server's SA and RBAC resources (primary namespace only)
+{{- if eq .Release.Namespace (include "dp-configure-namespace.primaryNamespaceName" .) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp-provisioner
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - serviceaccounts
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources:
+      - serviceaccounts
+    resourceNames: ["{{ $saName }}"]
+    verbs: ["get", "update", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - roles
+      - rolebindings
+    verbs: ["create"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - roles
+      - rolebindings
+    resourceNames: ["{{ $saName }}"]
+    verbs: ["get", "update", "delete"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp-provisioner
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp-provisioner
+subjects:
+- kind: ServiceAccount
+  name: {{ include "dp-configure-namespace.serviceAccount" . | quote }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
+
+---
+{{- end }}
+
+{{- if .Values.rbac.infraMcpClusterScoped }}
+# Cluster-scoped reader — read-only access across all namespaces (created only in primary namespace)
+{{- if eq .Release.Namespace (include "dp-configure-namespace.primaryNamespaceName" .) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - endpoints
+      - configmaps
+      - secrets
+      - events
+      - persistentvolumeclaims
+      - namespaces
+      - nodes
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - pods
+      - nodes
+    verbs: ["get", "list"]
+  {{- with .Values.rbac.infraMcpExtraRules }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp
+subjects:
+- kind: ServiceAccount
+  name: {{ $saName }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
+{{- end }}
+
+{{- else }}
+# Namespace-scoped reader — read-only access within each DP namespace (created in every namespace)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - endpoints
+      - configmaps
+      - secrets
+      - events
+      - persistentvolumeclaims
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - pods
+    verbs: ["get", "list"]
+  {{- with .Values.rbac.infraMcpExtraRules }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "dp-configure-namespace.dataPlaneId" . }}-infra-mcp
+subjects:
+- kind: ServiceAccount
+  name: {{ $saName }}
+  namespace: {{ include "dp-configure-namespace.primaryNamespaceName" . | quote }}
+{{- end }}
+{{- end -}}
