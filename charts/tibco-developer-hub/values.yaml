@@ -57,7 +57,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 5.0.6
+          tag: 5.0.9
         enabled: true
         resources:
           requests:
@@ -162,7 +162,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "1419"
+    tag: "1480"
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -292,7 +292,6 @@ service:
     backend: 7007
 
     # -- Backstage svc target port referencing receiving pod container port
-    # -- For Netscaler gateway This should be same as port in service.yaml
     targetPort: 7007
 
   # -- Node port for the Backstage client connections
@@ -358,7 +357,7 @@ networkPolicy:
 # -- PostgreSQL [chart configuration](https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml)
 # @default -- See below
 postgresql:
-  postgresqlDataDir: /bitnami/postgresql/data_18
+  postgresqlDataDir: /bitnami/postgresql/data_18_1.51
   # -- Switch to enable or disable the PostgreSQL helm chart
   enabled: false
   image:
@@ -494,7 +493,7 @@ metrics:
 
 fluentbit:
   image:
-    tag: 5.0.6
+    tag: 5.0.9
     pullPolicy: Always
   securityContext:
     runAsNonRoot: false
@@ -581,7 +580,7 @@ backupJob:
 
 image:
   name: infra-cp-proxy
-  tag: 323
+  tag: 348
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -612,3 +611,5 @@ kubectl:
   image:
     name: dx-kubectl
     tag: 1.18.0
+
+backstageVersion: 1.51.0

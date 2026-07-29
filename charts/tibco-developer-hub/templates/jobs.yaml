@@ -184,6 +184,8 @@ spec:
     metadata:
       name: {{ include "tibcohub.consts.appName" . }}-data-backup
       labels: {{- include "common.labels.standard" . | nindent 8 }}
+        # Required so the backup job's kubectl calls can reach the Kubernetes API server through the namespace deny-all network policy
+        networking.platform.tibco.com/kubernetes-api: enable
         {{- include "tibcohub.platform.commonLabels" . | nindent 8 }}
     spec:
       {{ if .Values.podSecurityContext }}
@@ -217,13 +219,27 @@ spec:
                  echo "Backing up data from PostgreSQL version $CUR_VERSION before upgrade to {{ .Values.postgresql.image.tag }}"; \
                  kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'rm /bitnami/postgresql/data_backup.sql; rm -rf /bitnami/postgresql/restore_running; rm -rf {{ .Values.postgresql.postgresqlDataDir }}; PGPASSWORD=$PGPASSWORD pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql;'; \
               else \
+                 SCALE_DOWN=false; \
                  CUR_TAG_POSTGRES=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.containers[0].image}' | awk -F: '{print $NF}'); \
+                 DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
                  if [ "$CUR_TAG_POSTGRES" != "{{ .Values.postgresql.image.tag }}" ]; then \
                    echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.version }}, but tag $CUR_TAG_POSTGRES does not match target tag {{ .Values.postgresql.image.tag }}."; \
                    DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
                    kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
+                   SCALE_DOWN=true; \
                  else \
-                 echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}. No backup needed."; \
+                 echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}.Current Tag $CUR_TAG_POSTGRES matches target tag {{ .Values.postgresql.image.tag }} No backup needed."; \
+                 fi; \
+                 DEVHUB_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=tibco-developer-hub -o jsonpath="{.items[0].metadata.name}"); \
+                 BACKSTAGE_CUR_VERSION=$(kubectl exec -n $NAMESPACE -c backstage-backend $DEVHUB_POD_NAME -- sh -c "printenv BACKSTAGE_VERSION || true"); \
+                 if [ "$BACKSTAGE_CUR_VERSION" != "{{ .Values.backstageVersion }}" ]; then \
+                    if [ "$SCALE_DOWN" = false ]; then \
+                      kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
+                    fi; \
+                    echo "Backstage version $BACKSTAGE_CUR_VERSION does not match target version {{ .Values.backstageVersion }}. Backing up data before upgrade."; \
+                    kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'rm /bitnami/postgresql/data_backup.sql; rm -rf /bitnami/postgresql/restore_running; rm -rf {{ .Values.postgresql.postgresqlDataDir }}; PGPASSWORD=$PGPASSWORD pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql;'; \
+                 else \
+                 echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}.Backstage version $BACKSTAGE_CUR_VERSION matches target version {{ .Values.backstageVersion }}. No backup needed."; \
                  fi; \
               fi; \
           {{- if .Values.global.cp.enableResourceConstraints }}
