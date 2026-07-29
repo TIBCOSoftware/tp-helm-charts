@@ -5,6 +5,7 @@
 {{- $installDir := .Values.backstage.installDir -}}
 {{ $cpHostname := (.Values.global.cp).cpHostname | required ".Values.global.cp.cpHostname is required." }}
 {{ $cpCertificateSecretPath:= "/etc/ssl/custom-certs" }}
+{{ $cpCertificateCombinePath:= "/etc/ssl/combined-cert" }}
 ---
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
@@ -77,6 +78,8 @@ spec:
           secret:
             defaultMode: 420
             secretName: {{ .Values.global.cp.cpCertificateSecret }}
+        - name: cp-certs-combined
+          emptyDir: {}
         {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: config-volume
@@ -94,8 +97,8 @@ spec:
       {{- end }}
       {{- end }}
       {{- end }}
-      {{- if and (.Values.postgresql.enabled) (.Values.global.cp.resources.storage) (.Values.global.cp.resources.storage.storageClassName) }}
       initContainers:
+        {{- if and (.Values.postgresql.enabled) (.Values.global.cp.resources.storage) (.Values.global.cp.resources.storage.storageClassName) }}
         - name: check-db-ready
           image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.postgresql.image.name }}:{{ .Values.postgresql.image.tag }}
           command: ['sh', '-c',
@@ -137,6 +140,34 @@ spec:
             {{- toYaml .Values.appInit.securityContext | nindent 12 }}
           {{- end }}
         {{- end }}
+        {{- if .Values.global.cp.cpCertificateSecret }}
+        - name: combine-cp-certs
+          image: {{ include "backstage.image.registry" .}}{{"/"}}{{ include "backstage.image.repository" .}}{{"/"}}{{ .Values.kubectl.image.name }}:{{ .Values.kubectl.image.tag }}
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              if [ -d {{ $cpCertificateSecretPath }} ]; then
+                 cat {{ $cpCertificateSecretPath }}/*.crt {{ $cpCertificateSecretPath }}/*.pem 2>/dev/null > {{ $cpCertificateCombinePath }}/combined.pem
+                 echo "Custom certificates combined into {{ $cpCertificateCombinePath }}/combined.pem"
+              fi
+          {{- if .Values.global.cp.cpCertificateSecret }}
+          volumeMounts:
+            - name: cp-certs
+              mountPath: {{ $cpCertificateSecretPath }}
+            - name: cp-certs-combined
+              mountPath: {{ $cpCertificateCombinePath }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- if .Values.appInit.resources }}
+          resources:
+            {{- toYaml .Values.appInit.resources | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.appInit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.appInit.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end}}
       {{- if .Values.backstage.initContainers }}
         {{- include "common.tplvalues.render" ( dict "value" .Values.backstage.initContainers "context" $) | nindent 8 }}
       {{- end }}
@@ -239,9 +270,17 @@ spec:
               value: {{ $cpHostname }}
             - name: CP_DOMAIN
               value: {{ include "tibcohub.cp.domain" . }}
+            - name: BACKSTAGE_VERSION
+              value: {{ .Values.backstageVersion }}
             {{- if .Values.global.cp.cpCertificateSecret }}
-            - name: CP_CERTIFICATE_SECRET_PATH
-              value: {{ $cpCertificateSecretPath }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: {{ $cpCertificateCombinePath }}/combined.pem
+            - name: GIT_SSL_CAINFO
+              value: {{ $cpCertificateCombinePath }}/combined.pem
+            - name: GIT_PROXY_SSL_CAINFO
+              value: {{ $cpCertificateCombinePath }}/combined.pem
+            - name: NODE_USE_SYSTEM_CA
+              value: "1"
             {{- end }}
             {{- if and (.Values.postgresql.enabled) (.Values.global.cp.resources.storage) (.Values.global.cp.resources.storage.storageClassName) }}
             - name: POSTGRES_HOST
@@ -277,27 +316,19 @@ spec:
             {{- end }}
             {{- with .Values.global.cp.proxy }}
             {{- if .httpProxy }}
-            - name: http_proxy
-              value: {{ .httpProxy }}
-            - name: GLOBAL_AGENT_HTTP_PROXY
+            - name: HTTP_PROXY
               value: {{ .httpProxy }}
             {{- end }}
             {{- if .httpsProxy }}
-            - name: https_proxy
-              value: {{ .httpsProxy }}
-            - name: GLOBAL_AGENT_HTTPS_PROXY
+            - name: HTTPS_PROXY
               value: {{ .httpsProxy }}
             {{- end }}
             {{- if or .httpProxy .httpsProxy }}
             {{- if not .noProxy }}
-            - name: no_proxy
-              value: "127.0.0.1,*.svc.cluster.local"
-            - name: GLOBAL_AGENT_NO_PROXY
+            - name: NO_PROXY
               value: "127.0.0.1,*.svc.cluster.local"
             {{- else }}
-            - name: no_proxy
-              value: "{{ .noProxy }},127.0.0.1,*.svc.cluster.local"
-            - name: GLOBAL_AGENT_NO_PROXY
+            - name: NO_PROXY
               value: "{{ .noProxy }},127.0.0.1,*.svc.cluster.local"
             {{- end }}
             {{- end }}
@@ -314,6 +345,8 @@ spec:
             {{- if .Values.global.cp.cpCertificateSecret }}
             - name: cp-certs
               mountPath: {{ $cpCertificateSecretPath }}
+            - name: cp-certs-combined
+              mountPath: {{ $cpCertificateCombinePath }}
             {{- end }}
             {{- if (or .Values.backstage.extraAppConfig .Values.backstage.appConfig (and .Values.backstage.extraVolumeMounts .Values.backstage.extraVolumes)) }}
             {{- range .Values.backstage.extraAppConfig }}
