@@ -65,7 +65,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 5.0.6
+          tag: 5.0.9
         resources:
           requests:
             cpu: 10m
@@ -253,6 +253,10 @@ config:
   PROVISIONER_AGENT_SERVICE_PORT: "80"
   ENABLE_NON_TOKENIZED_PROPS: "true"
   INFRA_CP_PROXY_IMAGE_TAG: "280"
+  APP_INIT_CPU_LIMIT: "100m"
+  APP_INIT_MEMORY_LIMIT: "200Mi"
+  APP_INIT_CPU_REQUEST: "10m"
+  APP_INIT_MEMORY_REQUEST: "10Mi"
 
 autoDiscovery:
   enabled: false

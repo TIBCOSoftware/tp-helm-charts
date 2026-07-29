@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.6
+          tag: 5.0.9
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -48,13 +48,13 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 175-distroless
+  tag: 181-distroless
   pullPolicy: IfNotPresent
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.4
+    tag: 13.5
 
 nameOverride: ""
 
@@ -224,11 +224,11 @@ bwPluginsJobB:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sp:
     tags:
-      - tag: 1.1.1.v3-tci-2.0
+      - tag: 1.1.1.v12-tci-2.0
         metadata:
-          displayVersion: "1.1.1"
+          displayVersion: "1.1.1 HF1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sftp"
-          releaseDate: "February 2024"
+          releaseDate: "May 2026"
           supportedBWVersions: "5.14.0 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-pdf:
@@ -253,11 +253,11 @@ bwPluginsJobB:
 bwPluginsJobC:
   tci-bw-plugin-restjson:
     tags:
-      - tag: 2.1.0.v71.2-tci-2.0
+      - tag: 2.1.0.v93-tci-2.0
         metadata:
-          displayVersion: "2.1.0 HF17"
+          displayVersion: "2.1.0 HF18"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-rest-and-json"
-          releaseDate: "November 2024"
+          releaseDate: "May 2026"
           supportedBWVersions: "5.11.0 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bc:
@@ -305,24 +305,33 @@ bwPluginsJobC:
           releaseDate: "June 2025"
           supportedBWVersions: "5.13.1 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
+  tci-bw-plugin-ftl:
+    tags:
+      - tag: 5.0.0.v10-tci-2.0
+        metadata:
+          displayVersion: "5.0.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-tibco-ftl"
+          releaseDate: "July 2026"
+          supportedBWVersions: "5.16.1"
+          endOfSupportDate: "EoS not Announced"
 
 bwAdaptersJob:
   tci-bw-adapter-adfiles:
     tags:
-      - tag: 7.1.1.v37-tci-2.0
+      - tag: 7.1.1.v41.3-tci-2.0
         metadata:
-          displayVersion: "7.1.1 HF2"
+          displayVersion: "7.1.1 HF3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-adapter-for-files-for-unix-win"
-          releaseDate: "July 2025"
+          releaseDate: "July 2026"
           supportedBWVersions: "5.14.0 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
   tci-bw-adapter-adadb:
     tags:
-      - tag: 7.3.2.v46-tci-2.0
+      - tag: 7.3.2.v52.3-tci-2.0
         metadata:
-          displayVersion: "7.3.2 HF3"
+          displayVersion: "7.3.2 HF5"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-adapter-for-database"
-          releaseDate: "October 2025"
+          releaseDate: "May 2026"
           supportedBWVersions: "5.14.1 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
   tci-bw-adapter-adldap:
@@ -352,6 +361,15 @@ bwAdaptersJob:
           releaseDate: "June 2025"
           supportedBWVersions: "5.7.0 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
+  tci-bw-adapter-adtuxedo:
+    tags:
+      - tag: 6.1.2.v2.1-tci-2.0
+        metadata:
+          displayVersion: "6.1.2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-adapter-for-tuxedo"
+          releaseDate: "June 2026"
+          supportedBWVersions: "5.15.1 - 5.16.1"
+          endOfSupportDate: "EoS not Announced"
 
 volumes:
   plugins:
@@ -375,7 +393,7 @@ buildtypeImages:
 - name: tp-bw5ce-buildtype
   extract_image: true
   path: /var/lib/bw5ce/buildtypes
-  tag: BW-5.16.1-HF5-TRA-5.13.0-HF5
+  tag: BW-5.16.1-HF6-TRA-5.13.0-HF6
   target_location: bw5ce/buildtypes
 
 probes:

@@ -1,0 +1,105 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- if and .Values.flogopluginsExtractA (semverCompare ">=1.35-0" .Capabilities.KubeVersion.GitVersion) .Values.useImageVolumes }}
+{{- $dot := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flogo-utilities.fullname" $dot }}-plugins-extract-a-v2-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flogo-utilities.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Cleanup of jobs from key/value store after 100 sec
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "flogo-utilities.selectorLabels" . | nindent 8 }}
+        {{- include "flogo-utilities.networkPolicyLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if (include "flogo-utilities.container-registry.secret" $dot) }}
+      imagePullSecrets:
+        - name: {{ include "flogo-utilities.container-registry.secret" $dot }}
+      {{- end }}
+      containers:
+        # v2: a single container extracts every connector from images mounted as
+        # native image volumes; no external image-extractor container is required.
+        - name: plugins-extract-job
+          image: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.infra.image.repository" $dot }}{{"/"}}{{ $.Values.debug.image.name }}:{{ $.Values.debug.image.tag }}
+          imagePullPolicy: IfNotPresent
+          {{- with $.Values.probes.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.global.tibco.enableResourceConstraints }}
+          resources:
+            {{- toYaml $.Values.plugins.resources | nindent 12 }}
+          {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              # Loop through all connectors and their tags to delete and extract from mounted image volumes
+            {{- range $name, $plugin := .Values.flogopluginsA }}
+              # Remove contributions listed under deleteTags
+            {{- range $tag := $plugin.deleteTags }}
+              path={{ $.Values.volumes.plugins.mountPath }}/flogo-contribution/{{ $name }}/{{ $tag }}
+              rm -rf "${path}"
+              echo "Deleted flogo contribution from location: $path"
+            {{- end }}
+              # Extract contributions for each configured tag
+            {{- range $tag := $plugin.tags }}
+              echo "Extracting flogo contribution {{ $name }} with tag {{ $tag }}"
+              target={{ $.Values.volumes.plugins.mountPath }}/flogo-contribution/{{ $name }}/{{ $tag }}
+              rm -rf "${target}"
+              mkdir -p "${target}"
+              cp -r /tmp/{{ $name }}-{{ $tag }}/opt/tibco/flogo-contribution/* "${target}/"
+              echo "Extracted flogo contribution {{ $name }} with tag {{ $tag }} to location: ${target}"
+            {{- end }}
+              # Record the default version for the connector
+            {{- if and $plugin.tags $plugin.default }}
+              defaultPath={{ $.Values.volumes.plugins.mountPath }}/flogo-contribution/{{ $name }}/default.ver
+              mkdir -p "${defaultPath%/*}" && touch "$defaultPath"
+              echo "{{ $plugin.default }}" > "$defaultPath"
+              echo "Set default version for {{ $name }} to {{ $plugin.default }}"
+            {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: shared-vol
+              mountPath: {{ $.Values.volumes.plugins.mountPath }}
+              subPath: {{ $.Values.volumes.plugins.subPath }}
+            {{- range $name, $plugin := .Values.flogopluginsA }}
+            {{- range $tag := $plugin.tags }}
+            - name: {{ $name | lower }}-{{ $tag | replace "." "-" | lower }}-img-vol
+              mountPath: /tmp/{{ $name }}-{{ $tag }}
+            {{- end }}
+            {{- end }}
+      volumes:
+      - name: shared-vol
+        persistentVolumeClaim:
+          claimName: {{ include "flogo-utilities.pvc-name" $dot }}
+      {{- range $name, $plugin := .Values.flogopluginsA }}
+      {{- range $tag := $plugin.tags }}
+      - name: {{ $name | lower }}-{{ $tag | replace "." "-" | lower }}-img-vol
+        image:
+          reference: {{ include "flogo-utilities.image.registry" $dot }}{{"/"}}{{ include "flogo-utilities.plugins.image.repository" $dot }}{{"/"}}{{ $name }}:{{ $tag }}
+          pullPolicy: IfNotPresent
+      {{- end }}
+      {{- end }}
+{{- end }}

@@ -65,7 +65,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 5.0.6
+          tag: 5.0.9
         resources:
           requests:
             cpu: 10m
@@ -247,8 +247,15 @@ extraInitContainers: []
 
 config:
   ARTIFACT_MANAGER_PORT: "7813"
-  APP_INIT_IMAGE_TAG: "31"
+  APP_INIT_IMAGE_TAG: "78"
   INFRA_CP_PROXY_IMAGE_TAG: "280"
+  # app-init init container resource requests/limits passed by the provisioner
+  # to the dp-flogo-app chart (rendered into appInit.resources). See FLOGO-18363.
+  APP_INIT_CPU_LIMIT: "200m"
+  APP_INIT_MEMORY_LIMIT: "400Mi"
+  APP_INIT_CPU_REQUEST: "100m"
+  APP_INIT_MEMORY_REQUEST: "100Mi"
+  FLOGO_APP_BASE_IMAGE_TAG: "2.26.6-b573"
 
 publicApi:
   config:
@@ -299,6 +306,7 @@ fluentbit:
           Match  app.*
           key_name log
           parser  formattedlog
+          parser  jsonlog
           parser  unformattedlog
 
         [FILTER]
@@ -313,8 +321,8 @@ fluentbit:
           type          regex
           key_content   log
           flush_timeout 1000
-          rule          "start_state"   "/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+.*/"     "cont"
-          rule          "cont"          "/^(?!\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+).*/"   "cont"
+          rule          "start_state"   "/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+|\{.level.:).*/"     "cont"
+          rule          "cont"          "/^(?!\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+|\{.level.:).*/"   "cont"
 
         [PARSER]
           Name        formattedlog
@@ -323,6 +331,10 @@ fluentbit:
           Time_Key    time
           Time_Format %Y-%m-%dT%H:%M:%S.%L
           Time_Keep   On
+
+        [PARSER]
+          Name        jsonlog
+          Format      json
 
         [PARSER]
           Name        unformattedlog
@@ -357,22 +369,60 @@ fluentbit:
 
       updaterecordlua: |-
         function update_record(tag, timestamp, record)
-          msg = record["message"]
+          -- JSON (zap) path: the jsonlog parser promotes zap keys level/timestamp/logger/msg.
+          -- Map them onto the contract fields (log_level/log_time/message) WITHOUT clobbering
+          -- the TEXT path, which already sets those via the formattedlog parser. Guards
+          -- (contract field == nil) keep the TEXT path byte-for-byte unchanged.
+          if record["message"] == nil and record["msg"] ~= nil then
+            -- Prepend the logger as "[logger] -\t" so JSON logs match the TEXT console
+            -- format ("[flogo.flow] -\t<msg>"); the TEXT path already carries this prefix.
+            -- tostring() guards a non-string zap "msg" (number/object), which would
+            -- otherwise raise a Lua concat error and drop the record.
+            local jmsg = tostring(record["msg"])
+            local jlogger = record["logger"]
+            if jlogger ~= nil and jlogger ~= "" then
+              record["message"] = "[" .. tostring(jlogger) .. "] -\t" .. jmsg
+            else
+              record["message"] = jmsg
+            end
+          end
+          if record["log_level"] == nil and record["level"] ~= nil then
+            record["log_level"] = string.upper(tostring(record["level"]))
+          end
+          if record["log_time"] == nil and record["timestamp"] ~= nil then
+            record["log_time"] = record["timestamp"]
+          end
+
+          local logger = record["logger"]
+          local msg = record["message"]
+
+          -- log_type: JSON classifies via the structured logger field; TEXT via the
+          -- bracketed token in the message (logger is nil on the TEXT path).
+          if logger == "flogo.general.activity.log" then
+            record["log_type"] = "user"
+          elseif msg ~= nil and msg:find("%[flogo%.general%.activity%.log%]") then
+            record["log_type"] = "user"
+          else
+            record["log_type"] = "engine"
+          end
+
+          -- trace/span extraction runs on the mapped message for BOTH paths.
           if msg ~= nil then
-            trace_id = msg:match("%[traceID:%s*([%da-fA-F]+)%]")
-            span_id = msg:match("%[spanID:%s*([%da-fA-F]+)%]")
+            local trace_id = msg:match("%[traceID:%s*([%da-fA-F]+)%]")
+            local span_id = msg:match("%[spanID:%s*([%da-fA-F]+)%]")
             if trace_id then
               record["trace_id"] = trace_id
             end
             if span_id then
               record["span_id"] = span_id
             end
-            if msg:find("%[flogo%.general%.activity%.log%]") then
-              record["log_type"] = "user"
-            else
-              record["log_type"] = "engine"
-            end
-            return 1, timestamp, record
           end
+
+          -- Drop the raw zap keys now that they are mapped (no-ops on the TEXT path).
+          record["msg"] = nil
+          record["level"] = nil
+          record["logger"] = nil
+          record["timestamp"] = nil
+
           return 1, timestamp, record
         end

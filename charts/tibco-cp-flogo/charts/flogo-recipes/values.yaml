@@ -24,7 +24,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.6
+          tag: 5.0.9
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -46,7 +46,7 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Timestamp of capability release
-    releaseDate: "2026/05/29"
+    releaseDate: "2026/07/30"
     # Either a link to document or the document itself specifying _what was fixed in this release.
     releaseNotes: "#cshid=new_features"
 
@@ -54,7 +54,7 @@ image:
   name: common-distroless-base-debian-debug
   registry: ""
   repo: ""
-  tag: 13.4
+  tag: 13.5
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -83,11 +83,16 @@ securityContext:
 
 flogoprovisioner:
   image:
-    tag: 957-platform-1.18.0
+    tag: "1027-platform-1.19.0"
   config:
-    APP_INIT_IMAGE_TAG: "72"
-    APP_HELMCHART_VERSION: "1.18.10"
-    INFRA_CP_PROXY_IMAGE_TAG: "323"
+    APP_INIT_IMAGE_TAG: "81"
+    APP_HELMCHART_VERSION: "1.19.13"
+    INFRA_CP_PROXY_IMAGE_TAG: "348"
+    APP_INIT_CPU_LIMIT: "200m"
+    APP_INIT_MEMORY_LIMIT: "400Mi"
+    APP_INIT_CPU_REQUEST: "100m"
+    APP_INIT_MEMORY_REQUEST: "100Mi"
+    FLOGO_APP_BASE_IMAGE_TAG: "2.26.6-b584"
   resources:
     requests:
       cpu: "2"
