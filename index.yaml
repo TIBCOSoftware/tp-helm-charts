@@ -8134,6 +8134,32 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.19.0-alpha.51/tibco-cp-bw-1.19.0-alpha.51.tgz
     version: 1.19.0-alpha.51
   - apiVersion: v2
+    appVersion: 1.19.0
+    created: "2026-07-29T07:29:27.50062948Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.19.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.19.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.19.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.19.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 3894889df234650d3b5dacd3a991eed928cd6e655cc765672e12e87f4f7b679b
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.19.0-alpha.51/tibco-cp-bw-1.19.0-alpha.51.tgz
+    version: 1.19.0-alpha.51
+  - apiVersion: v2
     appVersion: 1.18.0
     created: "2026-06-11T07:38:20.945827469Z"
     dependencies:
@@ -8291,6 +8317,24 @@ entries:
     version: 1.13.0
   tibco-cp-devhub:
   - apiVersion: v2
+    appVersion: 1.19.0
+    created: "2026-07-29T07:29:27.649300859Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.19.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.19.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: 0c901db860d2ce810eae034220ded0158f728ce5efc4db9efedf456a01f1fd6b
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.19.0-alpha.9/tibco-cp-devhub-1.19.0-alpha.9.tgz
+    version: 1.19.0-alpha.9
+  - apiVersion: v2
     appVersion: 1.18.0
     created: "2026-06-11T06:31:14.060960217Z"
     dependencies:
@@ -8439,6 +8483,28 @@ entries:
       version: 1.19.*
     description: TIBCO Controlplane chart for FLOGO Capability
     digest: ca945d82e6f76c35d07cb484bddf3aa09950a95590c7e9c164a93c6691dd50ec
+    name: tibco-cp-flogo
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.19.0-alpha.35/tibco-cp-flogo-1.19.0-alpha.35.tgz
+    version: 1.19.0-alpha.35
+  - apiVersion: v2
+    appVersion: 1.19.0
+    created: "2026-07-29T07:29:27.797301661Z"
+    dependencies:
+    - condition: flogo-recipes.enabled
+      name: flogo-recipes
+      repository: ""
+      version: 1.19.*
+    - condition: flogo-webserver.enabled
+      name: flogo-webserver
+      repository: ""
+      version: 1.19.*
+    - condition: flogo-utilities.enabled
+      name: flogo-utilities
+      repository: ""
+      version: 1.19.*
+    description: TIBCO Controlplane chart for FLOGO Capability
+    digest: 0b7e9beb5995904137f5514759dd6d79c414c57d1048ff95e7e12f0e0a707cc3
     name: tibco-cp-flogo
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.19.0-alpha.35/tibco-cp-flogo-1.19.0-alpha.35.tgz
@@ -8874,6 +8940,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-messaging-1.11.15/tibco-cp-messaging-1.11.15.tgz
     version: 1.11.15
   tibco-developer-hub:
+  - apiVersion: v2
+    appVersion: 1.19.0
+    created: "2026-07-29T07:29:27.969179979Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 18.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: 8922366f83ab319a2a5f49db590b8ec602455a8e7d99e6acde224fb141b54f5e
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.19.8/tibco-developer-hub-1.19.8.tgz
+    version: 1.19.8
   - apiVersion: v2
     appVersion: 1.18.0
     created: "2026-06-09T08:09:18.88305854Z"
@@ -16053,4 +16139,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-monitor-agent-1.3.136/tp-dp-monitor-agent-1.3.136.tgz
     version: 1.3.136
-generated: "2026-07-29T07:03:17.929110264Z"
+generated: "2026-07-29T07:29:27.970874337Z"
