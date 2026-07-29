@@ -135,11 +135,11 @@ export CAPABILITY_NAME="control-plane"
 
 If Docker Buildx is unavailable in your environment, skopeo can also perform a direct registry-to-registry copy.
 
-[`skopeo`](https://github.com/containers/skopeo) is purpose-built for registry-to-registry image operations. The `--all` flag copies every architecture variant in a single command, preserving the full multi-arch manifest list.
+[`skopeo`](https://github.com/containers/skopeo) is purpose-built for registry-to-registry image operations. The `--all` flag copies every architecture variant in a single command, preserving the full multi-arch manifest list. The `--preserve-digests` flag keeps the copied image digests identical to the source and fails the copy if a digest cannot be preserved — this avoids the layer re-encoding described in [Verifying Image Integrity After Transfer](#verifying-image-integrity-after-transfer) and is recommended for OpenShift/Podman environments.
 
 ```bash
 # Copy a single image (all architectures)
-skopeo copy --all \
+skopeo copy --all --preserve-digests \
   --src-creds  "tibco-platform-sub-<id>:xxxxxxxxxxxxxx" \
   --dest-creds "your-username:your-password" \
   docker://csgprdeuwrepoedge.jfrog.io/tibco-platform-docker-prod/core-cp-scripts:9474 \
@@ -156,7 +156,7 @@ TARGET_REPO="tibco-platform"
 
 while IFS= read -r image || [[ -n "$image" ]]; do
   [[ -z "$image" || "$image" == \#* ]] && continue
-  skopeo copy --all \
+  skopeo copy --all --preserve-digests \
     --src-creds  "tibco-platform-sub-<id>:xxxxxxxxxxxxxx" \
     --dest-creds "your-username:your-password" \
     "docker://${SOURCE_REGISTRY}/${SOURCE_REPO}/${image}" \
@@ -203,7 +203,7 @@ xxd /tmp/check_header.tar.gz | head -1
 00000000: 1f8b 0800 0000 0000 00ff ecf2 638c 2f40  ................
 ```
 
-Bytes 10–11 should be non-zero (e.g. `ec f2`). If you see `00 ff`, the layer was re-encoded — re-mirror using `sync-images.sh` or `skopeo copy --all` before proceeding.
+Bytes 10–11 should be non-zero (e.g. `ec f2`). If you see `00 ff`, the layer was re-encoded — re-mirror using `sync-images.sh` or `skopeo copy --all --preserve-digests` before proceeding.
 
 # Download Helm Charts
 
