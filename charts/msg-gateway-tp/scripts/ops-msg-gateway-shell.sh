@@ -16,6 +16,9 @@ mkdir -p $cliDir && pushd $cliDir
 if [[ "$MSG_CLI_APPNAME" =~ ^ems ]]; then
     echo "Using app = $MSG_CLI_APPNAME"
     /app/ems-registration tibemsadmin "$MSG_CLI_RIID"
+elif [[ "$MSG_CLI_APPNAME" =~ ^as ]]; then
+    echo "Using app = $MSG_CLI_APPNAME"
+    /app/ems-registration tibdg "$MSG_CLI_RIID"
 elif [[ "$MSG_CLI_APPNAME" =~ ^support ]]; then
     if [[ "$DP_SUPPORT_SHELL_ENABLED" =~ ^[FfNn0] ]]; then
         echo "Support shell has been disabled, exiting."

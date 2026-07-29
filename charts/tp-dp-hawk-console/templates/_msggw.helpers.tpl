@@ -70,7 +70,7 @@ dp:
   release: {{ .Release.Name }}
   chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   namespace: {{ .Values.namespace | default .Release.Namespace }}
-  pullSecret: "{{ .Values.dp.pullSecret | default  .Values.global.cp.containerRegistry.secret | default "cic2-tcm-ghcr-secret" }}"
+  pullSecret: "{{ .Values.dp.pullSecret | default  .Values.global.cp.containerRegistry.secret | default "none" }}"
   adminUser: {{ .Values.dp.adminUser | default "tibadmin" }}
   registry: {{ .Values.dp.registry | default .Values.global.cp.containerRegistry.url | default "ghcr.io" }}
   repository: {{ .Values.dp.repository | default ( include "msg.dp.repository" . ) }}
@@ -93,8 +93,8 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-21" $dpParams.dp.registry $dpParams.dp.repository -}}
-{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.5.0-39" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-30" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.4.3-8" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -157,7 +157,7 @@ msg.gateway.mon.labels $params - Generate CP monitoring labels
 */}}
 {{- define "msg.gateway.mon.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.18.0.12"
+tib-dp-msgbuild: "1.19.0.23"
 tib-dp-chart: {{ .dp.chart }}
 platform.tibco.com/app-type: "msg-gateway"
 platform.tibco.com/scrape_finops: "true"
@@ -194,7 +194,7 @@ app.cloud.tibco.com/tenant-name: messaging
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"
 tib-dp-app: msg-gateway
-tib-msgdp-mm-version: "1.18.0-0"
+tib-msgdp-mm-version: "1.19.0-0"
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: tp-hawk-console
@@ -226,7 +226,6 @@ Labels to allow pods full K8s + cluster CIDR (ingress/LBs) access
 networking.platform.tibco.com/msgInfra: enable
 networking.platform.tibco.com/cluster-ingress: enable
 networking.platform.tibco.com/cluster-egress: enable
-ingress.networking.platform.tibco.com/cluster-access: enable
 {{- end }}
 
 {{/*
@@ -236,8 +235,6 @@ Labels to allow pods external N-S access
 {{- define "msg.dp.net.external" }}
 networking.platform.tibco.com/internet-ingress: enable
 networking.platform.tibco.com/internet-egress: enable
-egress.networking.platform.tibco.com/internet-all: enable
-ingress.networking.platform.tibco.com/internet-access: enable
 {{- end }}
 
 {{/*

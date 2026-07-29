@@ -26,7 +26,7 @@ need.msg.dp.params
   {{- $name := "dp-noname" -}}
   {{- $adminUser := .Values.cp.adminUser -}}
   {{- $jwks := .Values.cp.jwks -}}
-  {{- $pullSecret := "cic2-tcm-ghcr-secret" -}}
+  {{- $pullSecret := "none" -}}
   {{- $registry := "ghcr.io" -}}
   {{- $repo := include "msgdp.ghcrImageRepo" . -}}
   {{- $pullPolicy := "IfNotPresent" -}}
@@ -175,7 +175,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.15.0.31"
+tib-dp-msgbuild: "1.19.0.23"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "capability-service"
 tib-dp-dataplane-id: "{{ .dp.name }}"
@@ -199,6 +199,8 @@ msg.dp.net.fullCluster
 Labels to allow pods full K8s + cluster CIDR (ingress/LBs) access
 */}}
 {{- define "msg.dp.net.fullCluster" }}
+networking.platform.tibco.com/cluster-ingress: enable
+networking.platform.tibco.com/cluster-egress: enable
 ingress.networking.platform.tibco.com/cluster-access: enable
 {{- end }}
 
@@ -207,6 +209,8 @@ msg.dp.net.external
 Labels to allow pods external N-S access
 */}}
 {{- define "msg.dp.net.external" }}
+networking.platform.tibco.com/internet-ingress: enable
+networking.platform.tibco.com/internet-egress: enable
 egress.networking.platform.tibco.com/internet-all: enable
 ingress.networking.platform.tibco.com/internet-access: enable
 {{- end }}

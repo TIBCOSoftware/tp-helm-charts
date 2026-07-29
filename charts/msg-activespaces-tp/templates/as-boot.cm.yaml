@@ -1,0 +1,159 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $corename := printf "%s-core" $basename -}}
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $params.as.basename }}-boot
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    {{ include "msg.as.labels" $params | nindent 4 }}
+data:
+  {{ (.Files.Glob "scripts/*").AsConfig | nindent 2 }}
+  # CORE WATCHDOG YAML
+  core-watchdog.yaml: |
+    services:
+      - name: core
+        config:
+          cmd: /data/boot/start-ftlserver.sh
+          # cmd: tibftlserver -n ${MY_POD_NAME} -c /data/boot/ftlserver.yml
+          cwd: /logs/core
+          log:
+            size: 10
+            num: 7
+      {{- if $params.as.useCompact }}
+      - name: proxy
+        config:
+          cmd: /data/boot/start-proxy.sh
+          cwd: /logs/proxy
+          log:
+            size: 10
+            num: 7
+      - name: node
+        config:
+          cmd: /data/boot/start-node.sh
+          cwd: /logs/node
+          log:
+            size: 10
+            num: 7
+      {{- end }}
+      {{- if eq "yes" $params.as.usePodStats }}
+      - name: pod-stats
+        config:
+          cmd: /opt/tibco/pod-tools/bin/pod-stats.sh
+          cwd: /logs/pod-stats
+          log:
+            size: 10
+            debugfile: /logs/pod-stats/pod-mon.csv
+            num: 7
+      {{- end }}
+
+  # PROXY WATCHDOG YAML
+  proxy-watchdog.yaml: |
+    services:
+      - name: proxy
+        config:
+          cmd: /logs/boot/start-proxy.sh
+          cwd: /logs/proxy
+          log:
+            size: 10
+            num: 7
+      {{- if eq "yes" $params.as.usePodStats }}
+      - name: pod-stats
+        config:
+          cmd: /opt/tibco/pod-tools/bin/pod-stats.sh
+          cwd: /logs/pod-stats
+          log:
+            size: 10
+            debugfile: /logs/pod-stats/pod-mon.csv
+            num: 7
+      {{- end }}
+
+  # NODE WATCHDOG YAML
+  node-watchdog.yaml: |
+    services:
+      - name: node
+        config:
+          cmd: /data/boot/start-node.sh
+          cwd: /logs/node
+          log:
+            size: 10
+            num: 7
+      {{- if eq "yes" $params.as.usePodStats }}
+      - name: pod-stats
+        config:
+          cmd: /opt/tibco/pod-tools/bin/pod-stats.sh
+          cwd: /logs/pod-stats
+          log:
+            size: 10
+            debugfile: /logs/pod-stats/pod-mon.csv
+            num: 7
+      {{- end }}
+
+  # FTLSERVER YAML
+  ftl.yaml: | 
+    # generated version goes here ...
+    globals:
+{{- if $.Values.secure.tls }}
+      tls.secure: env:FTLSERVER_KEYSTORE_PW
+{{- end }}
+{{- if $.Values.secure.auth }}
+      auth.url: file:///auth/users.txt
+{{- end }}
+      core.servers:
+{{- range until ( int $.Values.ftlserver.count ) }}
+        {{ $corename }}-{{ . }}: {{ $corename }}-{{ . }}.{{ $corename }}-pods:{{ $.Values.ftlserver.ports.http }}
+{{- end }}
+    servers:
+{{- range until ( int $.Values.ftlserver.count ) }}
+      {{ $corename }}-{{ . }}:
+      - realm:
+          data: /data/realm-{{ . }}
+{{- if $.Values.secure.auth }}
+          user: ftlserver-user
+          password: env:FTLSERVER_USER_PW
+{{- end }}
+      - tibdgkeeper:
+          exepath: /opt/tibco/as/current-version/bin/tibdgkeeper
+          name: core-{{ . }}
+          grid: {{ $params.as.basename }}
+      - tibdgadminsvc:
+          exepath: /opt/tibco/as/current-version/bin/tibdgadminsvc
+{{- end }}
+
+  # GRID CONFIG
+  conf.tibdg: |
+    grid create {{ $.Values.gridCreateOptions }} copyset_size={{ $.Values.tibdgnode.copysetSize }} proxy_client_listen_port={{ $.Values.tibdgproxy.listenPort }} {{ if $.Values.proxyAutoTransport -}} default_client_proxy_transport=auto {{- end }} {{ if $.Values.secure.tls -}} encrypted_connections=all {{- end }} {{ $params.as.basename }}
+{{- range until ( int $params.as.numCopysets ) }}
+  {{- $copysetName := printf "%s-cs-%02d" $params.as.basename ( add1 . ) }}
+    copyset create {{ $copysetName }}
+  {{- range until ( int $.Values.tibdgnode.copysetSize ) }}
+    {{- $nodeName := printf "%s-node-%d" $copysetName . }}
+    node create --copyset {{ $copysetName }} --dir /data/{{ $nodeName }} {{ $nodeName }}
+  {{- end }}
+{{- end }}
+{{- range until ( int $.Values.ftlserver.count ) }}
+    keeper create --dir /data/core-{{ . }} core-{{ . }}
+{{- end }}
+{{- range until ( int $params.as.numProxies ) }}
+  {{- if and $.Values.externalAccessMode ( not $.Values.proxyAutoTransport ) }}
+    {{- /* give each proxy a unique external port */}}
+    proxy create proxy_client_listen_external_port={{ add . $.Values.tibdgproxy.externalBasePort }} proxy-{{ . }}
+  {{- else }}
+    proxy create proxy-{{ . }}
+  {{- end }}
+{{- end }}
+{{ $.Values.tibdgConfig | indent 4 }}
+
+
+  params.yaml: |
+    {{ include "need.msg.as.params" . | nindent 4 }}
+
+...

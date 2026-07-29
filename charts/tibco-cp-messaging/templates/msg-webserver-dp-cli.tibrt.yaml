@@ -28,7 +28,7 @@ spec:
         SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
         SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
       enableRedirects: true
-      fqdn: "{{ $cpParams.DNS_DOMAIN }}"
+      fqdn: "{{ $cpParams.cp.DNS_DOMAIN }}"
       listener: virtual
   serviceName: dp-proxy
   serviceNamespace: {{ .Release.Namespace }}

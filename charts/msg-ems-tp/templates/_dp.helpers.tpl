@@ -26,7 +26,7 @@ need.msg.dp.params
   {{- $name := "dp-noname" -}}
   {{- $adminUser := .Values.cp.adminUser -}}
   {{- $jwks := .Values.cp.jwks -}}
-  {{- $pullSecret := "cic2-tcm-ghcr-secret" -}}
+  {{- $pullSecret := "none" -}}
   {{- $registry := "ghcr.io" -}}
   {{- $repo := include "msgdp.ghcrImageRepo" . -}}
   {{- $pullPolicy := "IfNotPresent" -}}
@@ -187,7 +187,7 @@ note: tib-msg-stsname will be added directly in statefulset charts, as it needs 
 */}}
 {{- define "msg.dpparams.labels" }}
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.15.0.31"
+tib-dp-msgbuild: "1.19.0.23"
 tib-dp-chart: {{ .dp.chart }}
 tib-dp-workload-type: "user-app"
 tib-dp-dataplane-id: "{{ .dp.name }}"

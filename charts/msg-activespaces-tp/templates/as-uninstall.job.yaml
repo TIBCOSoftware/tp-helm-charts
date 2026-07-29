@@ -1,0 +1,71 @@
+
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- $params := include "need.msg.as.params" . | fromYaml -}}
+{{- $basename := $params.as.basename -}}
+{{- $stsname := printf "%s-core" $params.as.basename -}}
+{{- $jobLabel := printf "%s-uninstall" $params.as.basename -}}
+{{- $jobList := printf "-l=tib-msg-jobname=%s" $jobLabel -}}
+
+##kubectl get sts,pods,pvc,svc,cm,secret  -l=tib-dp-release=msg-as
+
+{{- /* Job to inject grid configuration into realmserver. */}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $jobLabel }}-{{ $.Release.Revision }}
+  labels:
+    tib-dp-release: {{ $.Release.Name }}
+    tib-msg-jobname: {{ $jobLabel }}
+{{ include "tibdg.labels" $ | indent 4 }}
+    {{ include "msg.as.labels" $params | nindent 4 }}
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+    # "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    metadata:
+      name: {{ $jobLabel }}
+      labels:
+        tib-dp-release: {{ $.Release.Name }}
+        tib-msg-jobname: {{ $jobLabel }}
+{{ include "tibdg.labels" $ | indent 8 }}
+        {{ include "msg.as.labels" $params | nindent 8 }}
+        {{ include "msg.dp.net.kubectl" . | indent 8}}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: "{{ $params.dp.serviceAccount }}"
+      restartPolicy: OnFailure
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if ne "none" $params.dp.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $params.dp.pullSecret }}
+      {{- end }}
+      {{ include "msg.dp.security.pod" $params | nindent 6 }}
+      containers:
+        - name: main
+          image: {{ $params.as.image}}
+          {{ include "msg.dp.security.container" $params | nindent 10 }}
+          imagePullPolicy: "{{ $params.dp.pullPolicy }}"
+          resources:
+            {{ $params.job.resources | toYaml | nindent 12 }}
+          command: ["bash", "-c"]
+          args:
+            - |
+              {{ include "msg.oldjob.cleanup" ( $jobList ) | nindent 14 }}
+              for cr in pvc secrets job configmap ; do 
+                echo "Cleaning up $cr ... "
+                kubectl get $cr -l=tib-dp-release={{ .Release.Name }} | egrep -v 'NAME|uninstall' | while read x o ; do 
+                  kubectl delete $cr $x || true ; done
+              done
+              exit 0

@@ -1,0 +1,83 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+top: platform/as
+# latest is first in versions.json
+files:
+  platform/as/versions.json: |
+    [
+        {
+            "capabilityVersion": "1.19.0",
+            "minRollbackVersion": "1.19.0",
+            "minCPVersion": "1.17.0",
+            "maxCPVersion": "",
+            "minVersionRequiredForUpgrade": "1.10.0",
+            "minDPVersion": {
+                "dp-core-infrastructure": "1.10.0",
+                "dp-configure-namespace": "1.10.0"
+            },
+            "releaseNotes": "#cshid=migration_and_compatibility",
+            "releaseDate": "2025/11/30"
+        }
+    ]
+  platform/as/1.19.0/recipe.yaml: |
+      recipe:
+        helmCharts:
+          - flags:
+              createNamespace: false
+              install: true
+            name: msg-activespaces-tp
+            namespace: ${NAMESPACE}
+            releaseName: msg-activespaces
+            repository:
+              chartMuseum:
+                host: ${HELM_REPO}
+            values:
+              - content: |
+                  asVersion: "5.2.0-3"
+            version: '1.19.23'
+  platform/as/1.19.0/package.json: |
+      {
+        "package": {
+          "allowMultipleInstances": false,
+          "capabilityResourceDependencies": [
+            {
+              "required": true,
+              "description": "Select a resource for the storage-class of AS message data",
+              "resourceId": "STORAGE",
+              "resourceType": "PLATFORM",
+              "type": "Message Storage"
+            },
+            {
+              "description": "Select a resource for the storage-class of AS logs store",
+              "required": false,
+              "resourceId": "STORAGE",
+              "resourceType": "PLATFORM",
+              "type": "Log Storage"
+            }
+          ],
+          "dependsOn": [
+            {
+              "version": [
+                1,
+                9,
+                0
+              ],
+              "capabilityId": "MSGCORE",
+              "capabilityType": "INFRA"
+            }
+          ],
+          "provisioningRoles": [
+            "DEV_OPS"
+          ],
+          "services": [
+            {
+              "description": "AS Grid",
+              "monitoringPriority": "essential",
+              "name": "tp-as"
+            }
+          ]
+        }
+      }

@@ -70,7 +70,7 @@ dp:
   release: {{ .Release.Name }}
   chart: {{ printf "%s_%s" .Chart.Name .Chart.Version }}
   namespace: {{ .Values.namespace | default .Release.Namespace }}
-  pullSecret: "{{ .Values.dp.pullSecret | default  .Values.global.cp.containerRegistry.secret | default "cic2-tcm-ghcr-secret" }}"
+  pullSecret: "{{ .Values.dp.pullSecret | default  .Values.global.cp.containerRegistry.secret | default "none" }}"
   adminUser: {{ .Values.dp.adminUser | default "tibadmin" }}
   registry: {{ .Values.dp.registry | default .Values.global.cp.containerRegistry.url | default "ghcr.io" }}
   repository: {{ .Values.dp.repository | default ( include "msg.dp.repository" . ) }}
@@ -93,8 +93,8 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-21" $dpParams.dp.registry $dpParams.dp.repository -}}
-{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.5.0-39" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-30" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.4.3-8" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -181,12 +181,12 @@ platform.tibco.com/dataplane-id: "{{ .dp.name }}"
 app.cloud.tibco.com/created-by: tp-msg
 app.cloud.tibco.com/tenant-name: messaging
 tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.15.0.31"
+tib-dp-msgbuild: "1.19.0.23"
 tib-dp-chart: {{ .dp.chart }}
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"
 tib-dp-app: msg-gateway
-tib-msgdp-mm-version: "1.15.0-0"
+tib-msgdp-mm-version: "1.19.0-0"
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: msg-infra-core
