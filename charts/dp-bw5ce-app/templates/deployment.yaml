@@ -81,12 +81,14 @@ spec:
           value: {{ .Values.appConfig.originalAppName | quote }}
         - name: BW_PROJECT_VERSION
           value: {{ .Values.appConfig.appVersion | quote }}
+        {{- if .Values.dpConfig.activationServiceUrl }}
         {{- if or (eq .Values.appConfig.bw5ceBuildTypeTag "preview-0.1") (eq .Values.appConfig.bw5ceBuildTypeTag "preview-0.2") (eq .Values.appConfig.bw5ceBuildTypeTag "preview-0.3") }}
         - name: BW_ACTIVATION_SERVICE_URL
           value: {{ .Values.dpConfig.activationServiceUrl | quote }}
         {{- else }}
         - name: TIB_ACTIVATION
           value: {{ .Values.dpConfig.activationServiceUrl | quote }}
+        {{- end }}
         {{- end }}
         {{- if .Values.otel.enabled }}
         - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
@@ -160,8 +162,6 @@ spec:
           name: resources-addons-lib
         - mountPath: /resources/addons/jars
           name: resources-addons-jars
-        - mountPath: /resources/addons/certs
-          name: resources-addons-certs
         {{- end }}
         {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
         - mountPath: {{ .Values.dpConfig.licenseMountPath }}
@@ -264,8 +264,6 @@ spec:
         name: resources-addons-jars
       - emptyDir: {}
         name: resources-addons-plugins
-      - emptyDir: {}
-        name: resources-addons-certs
       {{- end }}
       {{- if and .Values.dpConfig.licenseMountPath .Values.dpConfig.licenseSecretName }}
       - name: license-volume

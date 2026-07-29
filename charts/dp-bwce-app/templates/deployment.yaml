@@ -77,12 +77,14 @@ spec:
           value: {{ .Values.appConfig.bwceBuildTypeTag | quote }}
         - name: TIBCO_INTERNAL_BW_BASE_IMAGE_TAG
           value: {{ .Values.appConfig.bwceBaseImageTag | quote }}
+        {{- if .Values.dpConfig.activationServiceUrl }}
         {{- if or (eq .Values.appConfig.bwceBuildTypeTag "6.12.0") (eq .Values.appConfig.bwceBuildTypeTag "2.10.0-HF4") }}
         - name: LICENSE_SOURCE
           value: {{ .Values.dpConfig.activationServiceUrl | quote }}
         {{- else }}
         - name: TIB_ACTIVATION
           value: {{ .Values.dpConfig.activationServiceUrl | quote }}
+        {{- end }}
         {{- end }}
         {{- if .Values.otel.enabled }}
         - name: BW_OTEL_ENABLED
@@ -172,8 +174,6 @@ spec:
           name: resources-addons-lib
         - mountPath: /resources/addons/jars
           name: resources-addons-jars
-        - mountPath: /resources/addons/certs
-          name: resources-addons-certs
         - mountPath: /resources/addons/thirdparty-installs
           name: resources-addons-thirdparty-installs
         {{- end }}
@@ -278,8 +278,6 @@ spec:
         name: resources-addons-jars
       - emptyDir: {}
         name: resources-addons-plugins
-      - emptyDir: {}
-        name: resources-addons-certs
       - emptyDir: {}
         name: resources-addons-thirdparty-installs
       {{- end }}
