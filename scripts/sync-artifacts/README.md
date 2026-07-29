@@ -131,6 +131,44 @@ The script ignores blank lines, lines starting with `#`, and lines containing `*
 - **Preserves multi-arch manifests**: Multi-platform images remain intact during copy
 - **Faster**: No intermediate download/upload steps
 
+### Alternative: skopeo (community tool, not validated)
+
+> [!WARNING]
+> The following is provided as a reference only. We do not test or validate `skopeo`-based workflows. If you use this approach, verify image integrity after transfer (see the [air-gapped workshop README](../../docs/workshop/air-gapped-system/README.md#verifying-image-integrity-after-transfer)).
+
+[`skopeo`](https://github.com/containers/skopeo) can perform registry-to-registry copies without Docker. Use `--all` to preserve multi-arch manifests, and `--preserve-digests` to keep image digests identical to the source (recommended for OpenShift/Podman environments).
+
+**Single image:**
+```bash
+skopeo copy --all --preserve-digests \
+  --src-creds  "tibco-platform-sub-<id>:xxxxxxxxxxxxxx" \
+  --dest-creds "your-username:your-password" \
+  docker://<SOURCE_REGISTRY>/tibco-platform-docker-prod/<image>:<tag> \
+  docker://<TARGET_REGISTRY>/tibco-platform/<image>:<tag>
+```
+
+**Bulk copy from an image list file:**
+```bash
+SOURCE_REGISTRY="csgprdeuwrepoedge.jfrog.io"
+SOURCE_REPO="tibco-platform-docker-prod"
+TARGET_REGISTRY="your-registry.example.com"
+TARGET_REPO="tibco-platform"
+
+while IFS= read -r image || [[ -n "$image" ]]; do
+  [[ -z "$image" || "$image" == \#* ]] && continue
+  skopeo copy --all --preserve-digests \
+    --src-creds  "tibco-platform-sub-<id>:xxxxxxxxxxxxxx" \
+    --dest-creds "your-username:your-password" \
+    "docker://${SOURCE_REGISTRY}/${SOURCE_REPO}/${image}" \
+    "docker://${TARGET_REGISTRY}/${TARGET_REPO}/${image}"
+done < ../../artifacts/control-plane/control-plane-<RELEASE_VERSION>-images.txt
+```
+
+> [!NOTE]
+> `--preserve-digests` keeps the copied image digests identical to the source. If a digest **cannot** be preserved — for example, when the target registry forces a manifest conversion — the copy **fails** rather than silently re-digesting the image. This is intended: it guarantees image integrity between source and target. If you hit such a failure, verify that the target registry supports the source manifest format (e.g., OCI) rather than removing the flag.
+
+---
+
 ### Insecure (HTTP) Registries
 
 For insecure HTTP registries, configure a buildx builder with insecure registry settings:

@@ -872,7 +872,7 @@ EOF
         echo "[INFO] Waiting for GatewayClass to be accepted..."
         SUDO_ENV=${SUDO_ENV_VARS} elevate_cmd env kubectl wait --timeout=2m gatewayclass/netscaler-gateway-class --for=condition=Accepted
 
-        echo "[INFO] Creating Gateway resource with external IP..."
+        echo "[INFO] Creating Gateway resource..."
         SUDO_ENV=${SUDO_ENV_VARS} elevate_cmd env kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -881,9 +881,6 @@ metadata:
   namespace: ${GATEWAY_NS}
 spec:
   gatewayClassName: netscaler-gateway-class
-  addresses:
-  - type: IPAddress
-    value: ${MACHINE_IP}
   listeners:
   - name: http
     port: 80

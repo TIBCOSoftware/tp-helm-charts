@@ -7,7 +7,7 @@
 # TIBCO Control Plane API-Based Automation with IdP Configuration
 
 
-Automated provisioning of TIBCO Control Plane subscriptions with external SAML IdP configuration. This covers the provisioning workflow including self-signed certificate generation, external IdP setup, and subscription/IdP verification steps.
+Automated provisioning of TIBCO Control Plane subscriptions with external SAML IdP configuration. This covers the provisioning workflow including SP certificate provisioning (self-signed generation or upload/delete of a customer-provided certificate), external IdP setup, and subscription/IdP verification steps.
 
 
 ## Table of Contents
@@ -20,6 +20,8 @@ Automated provisioning of TIBCO Control Plane subscriptions with external SAML I
   - [Step 3 — Revoke Initial Access Token (ADMIN)](#step-3--revoke-initial-access-token-admin)
   - [Step 4 — OAuth2 Token Exchange (ADMIN)](#step-4--oauth2-token-exchange-admin)
   - [Step 5 — Generate Self-Signed Certificate](#step-5--generate-self-signed-certificate)
+  - [Step 5a — Upload Customer-Provided Certificate](#step-5a--upload-customer-provided-certificate)
+  - [Step 5b — Delete SP Certificate](#step-5b--delete-sp-certificate)
   - [Step 6 — Configure External IdP](#step-6--configure-external-idp)
   - [Step 7 — Create CP Subscription](#step-7--create-cp-subscription)
   - [Step 8 — Register OAuth2 Client (CP) & Revoke CP IAT](#step-8--register-oauth2-client-cp--revoke-cp-iat)
@@ -48,7 +50,10 @@ Step 3  Revoke ADMIN Initial Access Token
         │
 Step 4  Exchange credentials for ADMIN Access Token ──► Verify via /whoami
         │
-Step 5  Generate Self-Signed Certificate          (optional, for IdP configuration)
+Step 5  Provision SP Certificate                  (optional, for IdP configuration)
+        │   • 5   Generate self-signed, or
+        │   • 5a  Upload customer-provided keystore
+        │   • 5b  Delete an SP certificate
         │
 Step 6  Configure External IdP ──► Verify ADMIN   (optional)
         │
@@ -304,6 +309,97 @@ POST {BASE_URL}/platform-console/api/v1/idps/sp-certs/generate
  "response": {
    "alias": "<cert-alias>",
    "cert": "<base64-encoded-certificate>"
+ }
+}
+```
+
+
+---
+
+
+### Step 5a — Upload Customer-Provided Certificate
+
+
+Uploads a customer-provided PKCS12 keystore as the SAML service provider certificate. Use this API instead of Step 5 when you bring your own SP signing/encryption certificate rather than generating a self-signed one. The returned `alias` should be referenced in the `serviceProviderCerts` array when configuring the external IdP in Step 6.
+
+
+```
+POST {BASE_URL}/platform-console/api/v1/idps/sp-certs/upload
+```
+
+
+**Auth:** `Authorization: Bearer <admin-access-token>`
+
+
+**Request Body:**
+
+
+The `keystore` is the base64-encoded content of a PKCS12 (`.p12`/`.pfx`) file, and `password` is the keystore password. The values below are placeholders — substitute your own, and prefer injecting the password from an environment variable (shown here as `${KEYSTORE_PASSWORD}`) rather than hard-coding it.
+
+
+```json
+{
+ "keystore": "<base64-encoded-pkcs12-keystore>",
+ "password": "${KEYSTORE_PASSWORD}"  // gitleaks:allow — placeholder, not a real credential
+}
+```
+
+
+Generate the base64 keystore value from your PKCS12 file:
+
+
+```bash
+# Linux
+base64 -w0 sp.p12
+# macOS
+base64 -i sp.p12 | tr -d '\n'
+```
+
+
+> **Note:** Passing the keystore `password` inline (e.g. via a shell one-liner) exposes it in shell history and process arguments. Prefer reading it from an environment variable or a protected file, and construct the request body with a tool such as `jq` rather than hand-escaped JSON.
+
+
+**Sample Response:** *(HTTP 201)*
+
+
+```json
+{
+ "status": "success",
+ "response": {
+   "alias": "<cert-alias>"
+ }
+}
+```
+
+
+---
+
+
+### Step 5b — Delete SP Certificate
+
+
+Deletes a stored SP keystore by its `alias` (the value returned from Step 5 or Step 5a).
+
+
+```
+DELETE {BASE_URL}/platform-console/api/v1/idps/sp-certs/{alias}
+```
+
+
+**Auth:** `Authorization: Bearer <admin-access-token>`
+
+
+**Sample Response:** *(HTTP 200)*
+
+
+> **Note:** The `message` below is the response verified when deleting a customer-provided (uploaded) keystore. The exact wording may differ for a self-signed certificate generated in Step 5.
+
+
+```json
+{
+ "status": "success",
+ "response": {
+   "message": "Customer provided keystore deleted successfully"
  }
 }
 ```
