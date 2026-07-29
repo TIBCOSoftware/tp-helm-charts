@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.6
+          tag: 5.0.9
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -48,13 +48,13 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 175-distroless
+  tag: 181-distroless
   pullPolicy: IfNotPresent
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.4
+    tag: 13.5
 
 nameOverride: ""
 
@@ -267,12 +267,12 @@ bwPluginsJobB:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-googlecs:
     tags:
-      - tag: 6.0.0.v43.1-tci-2.0
+      - tag: 6.0.0.v46.1-tci-2.0
         metadata:
-          displayVersion: "6.0.0 HF2"
+          displayVersion: "6.0.0 HF3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-google-cloud-storage"
-          releaseDate: "December 2025"
-          supportedBWVersions: "6.6.1 - 6.11.0"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.6.1 - 6.13.0"
           supportedBWCEVersions: "2.5.3 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bc:
@@ -309,42 +309,42 @@ bwPluginsJobB:
 bwPluginsJobC:
   tci-bw-plugin-adbplugin:
     tags:
-      - tag: 8.6.0.v44-tci-2.0
+      - tag: 8.6.0.v52-tci-2.0
         metadata:
-          displayVersion: "8.6.0 HF4"
+          displayVersion: "8.6.0 HF5"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-database"
-          releaseDate: "February 2026"
-          supportedBWVersions: "6.8.0 - 6.12.0"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.8.0 - 6.13.0"
           supportedBWCEVersions: "2.7.0 - 2.10.x"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-bigquery:
     tags:
-      - tag: 6.1.0.v9.1-tci-2.0
+      - tag: 6.1.0.v15.2-tci-2.0
         metadata:
-          displayVersion: "6.1.0 HF1"
+          displayVersion: "6.1.0 HF2"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-google-bigquery"
-          releaseDate: "April 2023"
-          supportedBWVersions: "6.8.0 - 6.11.0"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.8.0 - 6.13.0"
           supportedBWCEVersions: "2.7.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-acs:
     tags:
-      - tag: 6.0.0.v21-tci-2.0
+      - tag: 6.0.0.v25.2-tci-2.0
         metadata:
-          displayVersion: "6.0.0 HF2"
+          displayVersion: "6.0.0 HF3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-azure-cloud-services-azure-data-lake-storage-gen2"
-          releaseDate: "May 2025"
-          supportedBWVersions: "6.6.0 - 6.12.0"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.6.0 - 6.13.0"
           supportedBWCEVersions: "2.5.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sap:
     tags:
-      - tag: 8.8.0.v25.2-tci-2.0
+      - tag: 8.8.0.v40.3-tci-2.0
         metadata:
-          displayVersion: "8.8.0 HF1"
+          displayVersion: "8.8.0 HF2"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-sap-solutions"
-          releaseDate: "February 2025"
-          supportedBWVersions: "6.8.1 - 6.12.0"
+          releaseDate: "June 2026"
+          supportedBWVersions: "6.8.1 - 6.13.0"
           supportedBWCEVersions: "2.7.2 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-mongodb:
@@ -369,13 +369,13 @@ bwPluginsJobC:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-googlepubsub:
     tags:
-      - tag: 6.0.2.v36.3-tci-2.0
+      - tag: 6.0.2.v40.1-tci-2.0
         metadata:
-          displayVersion: "6.0.2 HF2"
+          displayVersion: "6.0.2 HF3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-google-cloud-pub-sub"
-          releaseDate: "March 2026"
-          supportedBWVersions: "6.6.0 - 6.12.x"
-          supportedBWCEVersions: "2.5.0 - 2.10.x"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.6.0 - 6.13.0"
+          supportedBWCEVersions: "2.5.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-kafka:
     tags:
@@ -421,12 +421,12 @@ bwPluginsJobD:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-snowflake:
     tags:
-      - tag: 6.3.1.v2.1-tci-2.0
+      - tag: 6.3.1.v6.1-tci-2.0
         metadata:
-          displayVersion: "6.3.1"
+          displayVersion: "6.3.1 HF1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-snowflake"
-          releaseDate: "September 2025"
-          supportedBWVersions: "6.9.0 - 6.12.0"
+          releaseDate: "June 2026"
+          supportedBWVersions: "6.9.0 - 6.13.0"
           supportedBWCEVersions: "2.8.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sqs:
@@ -461,11 +461,11 @@ bwPluginsJobD:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-mq:
     tags:
-      - tag: 8.8.2.v17-tci-2.0
+      - tag: 8.8.2.v20-tci-2.0
         metadata:
-          displayVersion: "8.8.2 HF2"
+          displayVersion: "8.8.2 HF3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-ibm-mq"
-          releaseDate: "September 2025"
+          releaseDate: "May 2026"
           supportedBWVersions: "6.8.0 - 6.12.x"
           supportedBWCEVersions: "2.7.0 - 2.10.x"
           endOfSupportDate: "EoS not Announced"
@@ -488,6 +488,16 @@ bwPluginsJobD:
           releaseDate: "November 2023"
           supportedBWVersions: "6.6.0 - 6.12.0"
           supportedBWCEVersions: "2.5.0 - 2.10.0"
+          endOfSupportDate: "EoS not Announced"
+  tci-bw-plugin-mqtt:
+    tags:
+      - tag: 6.0.0.v23-tci-2.0
+        metadata:
+          displayVersion: "6.0.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-mqtt"
+          releaseDate: "June 2026"
+          supportedBWVersions: "6.10.0 - 6.13.0"
+          supportedBWCEVersions: "2.9.0 - 2.10.x"
           endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobE:
@@ -625,13 +635,13 @@ bwPluginsJobF:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-amqp:
     tags:
-      - tag: 6.5.2.v6-tci-2.0
+      - tag: 6.5.3.v10-tci-2.0
         metadata:
-          displayVersion: "6.5.2"
+          displayVersion: "6.5.3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amqp"
-          releaseDate: "September 2025"
-          supportedBWVersions: "6.8.0 - 6.12.x"
-          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.10.0 - 6.13.0"
+          supportedBWCEVersions: "2.8.1 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ftl:
     tags:
@@ -675,13 +685,13 @@ bwPluginsJobF:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-confidentiality:
     tags:
-      - tag: 6.1.1.v3-tci-2.0
+      - tag: 6.1.1.v19.1-tci-2.0
         metadata:
-          displayVersion: "6.1.1"
+          displayVersion: "6.1.1 HF1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-confidentiality"
-          releaseDate: "November 2021"
-          supportedBWVersions: "6.5.0 - 6.12.x"
-          supportedBWCEVersions: "2.4.0 - 2.10.x"
+          releaseDate: "May 2026"
+          supportedBWVersions: "6.8.0 - 6.13.0"
+          supportedBWCEVersions: "2.8.1 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobG:
@@ -767,11 +777,11 @@ bwPluginsJobG:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-rag:
     tags:
-      - tag: 6.0.0.v8-tci-2.0
+      - tag: 6.0.1.v8.1-tci-2.0
         metadata:
-          displayVersion: "6.0.0"
-          docLink: ""
-          releaseDate: ""
+          displayVersion: "6.0.1"
+          docLink: "https://docs.tibco.com/products/tibco-businessworks-plug-in-for-ai"
+          releaseDate: "June 2026"
           supportedBWVersions: "6.11.0 - 6.12.0"
           supportedBWCEVersions: "2.10.0 - 2.10.x"
           endOfSupportDate: ""
@@ -804,7 +814,7 @@ buildtypeImages:
 - name: tp-bwce-buildtype
   extract_image: true
   path: /var/lib/bwce/buildtypes
-  tag: 2.10.0-HF5
+  tag: 2.10.0-HF6
   target_location: bwce/buildtypes
 
 probes:

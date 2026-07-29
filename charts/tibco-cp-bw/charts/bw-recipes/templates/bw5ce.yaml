@@ -12,8 +12,8 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.18.0",
-      "minCPVersion": "1.18.0",
+      "capabilityVersion": "1.19.0",
+      "minCPVersion": "1.19.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bw5ce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bw5ce.releaseNotes | quote }},
@@ -72,7 +72,7 @@ data:
       helmCharts:
         - name: bw5provisioner
           namespace: ${NAMESPACE}
-          version: "1.18.4"
+          version: "1.19.7"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -86,11 +86,15 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bw5provisioner:
                     image:
-                      tag: 227
+                      tag: 260
                 config:
-                  APP_INIT_IMAGE_TAG: "81"
-                  BW5CE_APP_HELMCHART_VERSION: "1.18.4"
-                  INFRA_CP_PROXY_IMAGE_TAG: "323"
+                  APP_INIT_IMAGE_TAG: "91"
+                  BW5CE_APP_HELMCHART_VERSION: "1.19.6"
+                  INFRA_CP_PROXY_IMAGE_TAG: "348"
+                  APP_INIT_CPU_LIMIT: "100m"
+                  APP_INIT_MEMORY_LIMIT: "200Mi"
+                  APP_INIT_CPU_REQUEST: "10m"
+                  APP_INIT_MEMORY_REQUEST: "10Mi"
                 publicApi:
                   config:
                     pathPrefix: ${INGRESS_PATH_PREFIX}
@@ -146,7 +150,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.18.0"
+          value: "1.19.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

@@ -20,6 +20,21 @@ spec:
       request:
       - action:
           set:
+            value: https
+          type: Set
+        name: X-Forwarded-Proto
+      - action:
+          set:
+            value: "443"
+          type: Set
+        name: X-Forwarded-Port
+      - action:
+          set:
+            value: {{ .Values.global.cp.resources.ingress.fqdn }}
+          type: Set
+        name: X-Forwarded-Host
+      - action:
+          set:
             value: {{ .Values.publicApi.config.pathPrefix }}
           type: Set
         name: X-Forwarded-Prefix

@@ -13,13 +13,13 @@ data:
   version.json: |
     {
       "capabilityVersion": {{ .Chart.AppVersion | quote }},
-      "minCPVersion": "1.18.0",
+      "minCPVersion": "1.19.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.18.0",
+        "dp-core-infrastructure": "1.19.0",
         "dp-configure-namespace": "1.15.0"
       }
     }
@@ -73,7 +73,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.18.4"
+          version: "1.19.11"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -92,6 +92,11 @@ data:
                   APP_INIT_IMAGE_TAG: {{ .Values.flogoprovisioner.config.APP_INIT_IMAGE_TAG | quote }}
                   APP_HELMCHART_VERSION: {{ .Values.flogoprovisioner.config.APP_HELMCHART_VERSION | quote }}
                   INFRA_CP_PROXY_IMAGE_TAG: {{ .Values.flogoprovisioner.config.INFRA_CP_PROXY_IMAGE_TAG | quote }}
+                  APP_INIT_CPU_LIMIT: {{ .Values.flogoprovisioner.config.APP_INIT_CPU_LIMIT | quote }}
+                  APP_INIT_MEMORY_LIMIT: {{ .Values.flogoprovisioner.config.APP_INIT_MEMORY_LIMIT | quote }}
+                  APP_INIT_CPU_REQUEST: {{ .Values.flogoprovisioner.config.APP_INIT_CPU_REQUEST | quote }}
+                  APP_INIT_MEMORY_REQUEST: {{ .Values.flogoprovisioner.config.APP_INIT_MEMORY_REQUEST | quote }}
+                  FLOGO_APP_BASE_IMAGE_TAG: {{ .Values.flogoprovisioner.config.FLOGO_APP_BASE_IMAGE_TAG | quote }}
                 resources:
                   {{- toYaml .Values.flogoprovisioner.resources | nindent 18 }}
                 publicApi:

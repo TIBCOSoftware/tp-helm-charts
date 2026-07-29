@@ -12,14 +12,14 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.18.0",
-      "minCPVersion": "1.18.0",
+      "capabilityVersion": "1.19.0",
+      "minCPVersion": "1.19.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.18.0",
+        "dp-core-infrastructure": "1.19.0",
         "dp-configure-namespace": "1.15.0"
       }
     }
@@ -83,7 +83,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.18.4"
+          version: "1.19.7"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -97,12 +97,16 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 977
+                      tag: 1019
                 config:
-                  APP_INIT_IMAGE_TAG: "81"
-                  BWCE_APP_HELMCHART_VERSION: "1.18.4"
+                  APP_INIT_IMAGE_TAG: "91"
+                  BWCE_APP_HELMCHART_VERSION: "1.19.6"
                   ENABLE_NON_TOKENIZED_PROPS: ${ENABLE_NON_TOKENIZED_PROPS}
-                  INFRA_CP_PROXY_IMAGE_TAG: "323"
+                  INFRA_CP_PROXY_IMAGE_TAG: "348"
+                  APP_INIT_CPU_LIMIT: "100m"
+                  APP_INIT_MEMORY_LIMIT: "200Mi"
+                  APP_INIT_CPU_REQUEST: "10m"
+                  APP_INIT_MEMORY_REQUEST: "10Mi"
                 autoDiscovery:
                   enabled: ${ENABLE_APP_DISCOVERY}
                   config:
@@ -117,7 +121,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.18.3"
+          version: "1.19.3"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -180,7 +184,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.18.0"
+          value: "1.19.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
