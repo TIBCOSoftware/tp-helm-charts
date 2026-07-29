@@ -77,7 +77,8 @@ data:
                   cp:
                     logging:
                       fluentbit:
-                        tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
+                        image:
+                          tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
                     resources:
                       o11y:
                         logsServer:

@@ -65,7 +65,8 @@ data:
                   cp:
                     logging:
                       fluentbit:
-                        tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
+                        image:
+                          tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
                   artifactmanager:
                     image:
                       tag: {{ .Values.capabilities.integrationcore.artifactmanager.tag | quote }}

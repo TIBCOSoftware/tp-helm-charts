@@ -73,7 +73,8 @@ data:
                   cp:
                     logging:
                       fluentbit:
-                        tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
+                        image:
+                          tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
                   o11yservice:
                     job:
                       image:
