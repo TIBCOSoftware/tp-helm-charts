@@ -246,6 +246,8 @@ spec:
           {{- else }}
           value: /private/tsc/certificates/{{ .Values.global.tibco.db_ssl_root_cert_filename }}
           {{- end }}
+        - name: DB_STATEMENT_TIMEOUT_IN_MILLISECONDS
+          value: "{{ .Values.global.tibco.dbStatementTimeoutInMilliseconds }}"
         - name: NOTIFICATION_PAYLOAD_THRESHOLD_SIZE_IN_BYTES
           valueFrom:
             configMapKeyRef:
@@ -273,6 +275,26 @@ spec:
               key: TP_CP_IDM_HOST
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
+        - name: TP_CP_ORCHESTRATOR_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: TP_CP_ORCHESTRATOR_MGMT_PORT
+          value: "8833"
+        # PCP-20774: USM (user-subscriptions) management host, used to resolve accountId->subscriptionId
+        # on the token-less enforce path. Mandatory (pengine fails fast at startup if unset).
+        - name: TP_CP_USER_SUBSCRIPTIONS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+        - name: TP_CP_USER_SUBSCRIPTIONS_MGMT_PORT
+          value: "8832"
+        - name: ID_SET_CACHE_SIZE
+          value: "1000"   # even in SaaS we won't have 1K subscriptions with DPs. Most of them are only for JFrog credentials
+        - name: ID_SET_CACHE_TTL_SECONDS
+          value: "604800"  # discard deleted dataplanes after 7 days
         volumeMounts:
         - name: cp-core-config
           mountPath: /tmp/private/tsc/config

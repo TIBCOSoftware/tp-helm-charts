@@ -10,9 +10,12 @@ global:
 ########################################  IDM common vars  #############################################
 identity-management:
   psqlMaxOpenConnections: "100"
-  psqlMaxIdleConnections: "25"
+  # PCP-18673: HikariCP pool tuning to evict idle/aged connections. HOCON durations.
+  psqlConnectionTimeout: "5s"
+  psqlIdleTimeout: "10m"
+  psqlMaxLifetime: "30m"
+  psqlMinimumIdle: "2"
   cookieName: "tsc"
-  psqlConnectionMaxLifeTime: "3600"
   corsAllowOrigins: "http://localhost, https://localhost, capacitor://localhost, vscode://tibco.flogo https://vscode.dev" # localhost is for native apps, ex. Spotfire's; capacitor for mobile apps; vscode is for Flogo vscode extension.
   tibcoaccountKeystoreKeyAlias: "cic_cloud"
 
@@ -30,18 +33,11 @@ orchestrator:
 
 ####################################     CP WEB server env variables      ##############################################
 web-server:
-  customContentSecurityPolicyHeader: "default-src 'self';
-                                     connect-src 'self' https://221-bcq-142.mktoresp.com/ https://app.pendo.io/ https://cdn.bizible.com/ https://cdn.pendo.io/ https://www.google.com/ https://analytics.google.com/ https://www.google-analytics.com/ https://www.googletagmanager.com/ https://*.googleapis.com/ https://www.gstatic.com/ https://cdn.linkedin.oribi.io/ https://munchkin.marketo.net/ https://stats.g.doubleclick.net/;
-                                     font-src 'self' data: https://fonts.gstatic.com/;
-                                     frame-src 'self' https://www.google.com/ https://*.tcie.pro/;
-                                     img-src 'self' data: https://app.pendo.io/ https://cdn.bizible.com/ https://cdn.bizibly.com/ https://cdn.pendo.io/ https://www.google.com/ https://www.google-analytics.com/;
-                                     object-src 'none';
-                                     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.bizible.com/ https://cdn.pendo.io/ https://www.google.com/ https://www.google-analytics.com/ https://www.googletagmanager.com/ https://www.gstatic.com/ https://cdn.linkedin.oribi.io/ https://munchkin.marketo.net/ https://pendo-io-static.storage.googleapis.com/;
-                                     style-src 'self' 'unsafe-inline' https://*.googleapis.com/;
-                                     base-uri 'self';
-                                     sandbox allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-top-navigation;
-                                     form-action 'self' https://*.cloud.tibco.com/ https://*.tibco.com/ https://*.cic2.pro/ https://*.tcie.pro/ https://*.mashspud.com/ https://*.mashery.com/ https://*.scribesoft.com/ https://*.scribeqa.net/ https://*.salesforce.com/; 
-                                     frame-ancestors 'self'"
+  customContentSecurityPolicyHeader: ""
+  # Optional Report-Only twin used during pilot rollout.
+  # Leave empty (or omit) once you are ready to enforce. 
+  customContentSecurityPolicyHeaderReportOnly: ""
+
 ####################################    CP_USER_SUBSCRIPTION_COMMON_VARS       ######################################################
 
 user-subscriptions:

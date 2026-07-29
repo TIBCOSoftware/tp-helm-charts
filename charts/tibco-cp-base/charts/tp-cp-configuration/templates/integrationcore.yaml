@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.18.0",
+      "capabilityVersion": "1.19.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.integrationcore.releaseDate | quote }},
@@ -62,6 +62,10 @@ data:
           values:
             - content: |
                 global:
+                  cp:
+                    logging:
+                      fluentbit:
+                        tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
                   artifactmanager:
                     image:
                       tag: {{ .Values.capabilities.integrationcore.artifactmanager.tag | quote }}
@@ -121,7 +125,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.18.0"
+          value: "1.19.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

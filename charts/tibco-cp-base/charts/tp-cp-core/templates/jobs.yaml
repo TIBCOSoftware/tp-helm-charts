@@ -9,15 +9,28 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "tp-control-plane.consts.appName" . }}-upgrade-{{ randAlphaNum 4 | lower }}
+  name: {{ include "tp-control-plane.consts.appName" . }}-db-schema-management-{{ randAlphaNum 4 | lower }}
   namespace: {{ include "tp-control-plane.consts.namespace" . }}
   labels:
     {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
 spec:
-  backoffLimit: 0
+  # PCP-20008: retry this Job on a transient failure. This is now safe because
+  # createDatabaseSchemaUser self-heals a "user exists but credential secret missing"
+  # state and 1-up.sql runs in a single transaction (a failed/OOMKilled attempt rolls
+  # back, so a retry starts from a clean slate). activeDeadlineSeconds bounds a genuinely
+  # hung run (e.g. DB unreachable) well under the platform-base helm --wait timeout,
+  # instead of letting install-tp hang for hours.
+  backoffLimit: 3
+  # activeDeadlineSeconds caps the Job's TOTAL active time across all retries, so it must
+  # comfortably exceed (4 attempts x worst-case per-service DB-readiness waits) or it would
+  # convert a legitimately-slow run into a terminal failure before backoffLimit is exhausted.
+  # 1h is a coarse backstop -- far above any healthy run yet well under the multi-hour
+  # platform-base helm --wait, so a genuinely hung run fails fast instead of hanging install-tp.
+  activeDeadlineSeconds: 3600
+  ttlSecondsAfterFinished: 3600
   template:
     metadata:
-      name: {{ include "tp-control-plane.consts.appName" . }}-upgrade
+      name: {{ include "tp-control-plane.consts.appName" . }}-db-schema-management
       labels:
         {{- include "tp-control-plane.shared.labels.standard" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
@@ -38,7 +51,7 @@ spec:
         - name: {{ include "cp-core-configuration.container-registry.secret" . }}
       {{- end }}
       containers:
-      - name: tsc-upgrade
+      - name: db-schema-management
         {{- if .Values.global.containerSecurityContextTpcpcoreJob }}
         securityContext:
           {{- toYaml .Values.global.containerSecurityContextTpcpcoreJob | nindent 10 }}
@@ -87,6 +100,8 @@ spec:
           value: {{ .Values.global.tibco.region }}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
+        - name: RERUN_CURRENT_UPGRADE
+          value: {{ .Values.global.cp.rerunUpgrade | quote }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/tsc/scripts/postgres/tibco-cp-base
         - name: BASE_SCRIPTS_LOCATION
@@ -97,10 +112,14 @@ spec:
           value: /opt/tibco/tsc/certificates
         - name: TSC_VOLUME_LOCATION
           value: /tmp/private/tsc
+        - name: EFS_BASE_PATH
+          value: /private/tsc/config/db-scripts/tibco-cp-base
         - name: DB_SSL_MODE
           value: {{ .Values.global.external.db_ssl_mode }}
         - name: DB_SSL_CERT_SECRET_NAME
           value: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: CHART_APP_VERSION
+          value: {{ .Chart.AppVersion }}
         command:
           - "/bin/bash"
           - "-c"
@@ -123,13 +142,18 @@ spec:
                 fi
               fi
             fi
-            /opt/tibco/tsc/scripts/postgres-helper.bash upgrade
+            /opt/tibco/tsc/scripts/postgres-helper.bash manageDbSchema $CHART_APP_VERSION
         volumeMounts:
         - name: tmp-volume
           mountPath: /tmp
+        - name: store-vol
+          mountPath: /private
       volumes:
         - name: tmp-volume
           emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "cp-core-configuration.pvc-name" . }}
 
 {{- end }}
 {{- end }}
@@ -148,8 +172,8 @@ metadata:
   labels:
     {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
 spec:
-  backoffLimit: 0
-  activeDeadlineSeconds: 180 # Timeout and terminate after 60 seconds
+  backoffLimit: 2
+  activeDeadlineSeconds: 600 # 3 attempts × ~90s per cert-gen run + buffer
   ttlSecondsAfterFinished: 3600 # Remove the job 1 hour after completion
   template:
     metadata:

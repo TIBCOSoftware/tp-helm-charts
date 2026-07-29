@@ -10,10 +10,10 @@
     {{- else if eq .category "CPASSProvision"}}Your TIBCO® Platform subscription has been activated
     {{- else if eq .category "CPASSNotifyShipTo"}}Purchase Order for TIBCO® Platform provisioned successfully
     {{- else if eq .category "InviteUser"}}Invitation to join TIBCO® Platform
-    {{- else if eq .category "RequestSAMLToUser"}}Request to enable Use Corporate Account configuration for {{.Company}}
-    {{- else if eq .category "RequestSAMLToTibco"}}Request to enable Use Corporate Account configuration for {{.Company}}
-    {{- else if eq .category "IdPConfigurationsUpdatedNotificationToUser"}}Corporate Account configuration update request for {{.Company}} completed successfully
-    {{- else if eq .category "EnableTASignIn"}}Sign in with TIBCO Accounts to TIBCO® Platform
+    {{- else if eq .category "RequestSAMLToUser"}}Request to enable Use Corporate Account configuration for {{.Company | decodeHTMLSafe}}
+    {{- else if eq .category "RequestSAMLToTibco"}}Request to enable Use Corporate Account configuration for {{.Company | decodeHTMLSafe}}
+    {{- else if eq .category "IdPConfigurationsUpdatedNotificationToUser"}}Corporate Account configuration update request for {{.Company | decodeHTMLSafe}} completed successfully
+    {{- else if eq .category "EnableTASignIn"}}Sign in with TIBCO to TIBCO® Platform
     {{- else if eq .category "ResetPassword"}}TIBCO Platform password reset
     {{- else if eq .category "AlertsNotification"}}TIBCO® Platform: {{.Severity}}: {{.AlertName | decodeHTMLSafe}} triggered{{- end}}
 {{end}}
@@ -207,7 +207,7 @@
         <br><h1 class="message" style="line-height: 38px; font-size: 30px; font-weight: 600; letter-spacing: 0.2px; text-align: center; color: #212121; margin-top: 0px;">You are cleared for takeoff</h1><br></span>
         <span style="font-weight: 400;padding: 0px 8px 8px 8px; line-height: 14px;">Hi{{if ne .FirstName ""}} {{.FirstName}}{{end}},</span>
         <br><span style="margin:0;padding: 8px 0px 8px 8px;">You can now sign in  to the TIBCO<sup>&reg;</sup> Platform account of
-        <br>{{.OrganizationName}} using your TIBCO Account credentials.
+        <br>{{.OrganizationName}} using your TIBCO credentials.
         <br><br>Click on the link below to access your company’s account
         <br>on TIBCO<sup>&reg;</sup> Control Plane
         </span>

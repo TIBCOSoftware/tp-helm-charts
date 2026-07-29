@@ -275,3 +275,15 @@ Create ConfigMap checksum annotation if configMap.existingPath is defined, other
 
 
 {{- define "otel-collector.container-registry.secret" }}tibco-container-registry-credentials{{end}}
+
+{{/*
+List of upstream community OpenTelemetry Collector distributions that do NOT include
+the profiling receiver. Consumed by NOTES.txt to fail-fast when the profiling preset
+is enabled with an incompatible community image.
+*/}}
+{{- define "otel-collector.profilingUnsupportedImages" -}}
+- opentelemetry-collector
+- opentelemetry-collector-contrib
+- opentelemetry-collector-k8s
+- opentelemetry-collector-otlp
+{{- end }}

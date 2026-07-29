@@ -227,7 +227,7 @@ server:
   ## Prometheus server container image
   ##
   image:
-    tag: "v3.5.2"
+    tag: "v3.5.4"
     pullPolicy: IfNotPresent
 
   ## Prometheus server command
@@ -640,8 +640,6 @@ server:
   ## Labels to be added to Prometheus server pods
   ##
   podLabels:
-    egress.networking.platform.tibco.com/internet-all: enable
-    egress.networking.platform.tibco.com/cluster-all: enable
     networking.platform.tibco.com/cluster-egress: enable
     networking.platform.tibco.com/cluster-ingress: enable
 
