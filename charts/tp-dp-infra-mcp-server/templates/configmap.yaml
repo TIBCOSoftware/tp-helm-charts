@@ -1,0 +1,20 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-infra-mcp-server.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+data:
+  config.yaml: |-
+    kubectl:
+      allowedVerbs: ["get", "describe", "logs"]
+      allowedResources: ["pods", "services", "deployments", "statefulsets", "replicasets", "daemonsets", "jobs", "cronjobs", "configmaps", "events", "ingresses", "persistentvolumeclaims", "horizontalpodautoscalers", "endpoints", "networkpolicies"]
+      blockedVerbs: ["delete", "create", "apply", "patch", "edit", "replace", "exec", "drain", "cordon", "taint"]
+    helm:
+      allowedCommands: ["list", "status", "get", "history"]
+      blockedCommands: ["install", "upgrade", "uninstall", "delete", "rollback"]

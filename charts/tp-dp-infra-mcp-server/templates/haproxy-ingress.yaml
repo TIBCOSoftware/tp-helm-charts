@@ -1,0 +1,31 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- if .Values.haproxy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: haproxy-infra-mcp-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    haproxy.org/cors-enable: "true"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/src-ip-header: X-Real-IP
+    ingress.kubernetes.io/path-rewrite: {{ .Values.haproxy.pathPrefix }}/(.*) /\1
+spec:
+  ingressClassName: tibco-dp-{{ .Values.global.cp.dataplaneId }}
+  rules:
+    - host: {{ tpl .Values.global.cp.dpUrl.host . }}
+      http:
+        paths:
+          - path: {{ .Values.haproxy.pathPrefix }}/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tp-infra-mcp-server.fullname" . }}
+                port:
+                  number: {{ .Values.service.restPort }}
+{{- end }}

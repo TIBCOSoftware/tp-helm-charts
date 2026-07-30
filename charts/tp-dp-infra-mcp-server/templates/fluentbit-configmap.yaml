@@ -1,0 +1,79 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if .Values.global.cp.logging.fluentbit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-infra-mcp-server.fullname" . }}-fluentbit-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+      HTTP_Server       On
+      HTTP_Listen       0.0.0.0
+      HTTP_Port         2020
+      Health_Check      On
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               dp.${POD_NAMESPACE}.${POD_NAME}.${POD_ID}.${CONTAINER_NAME}
+      Path              /var/log/pods/tp-dp-infra-mcp-server.log
+      multiline.parser  docker, cri
+      DB                /var/log/pods/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             dp.*
+      Remove_key        stream
+      Remove_key        _p
+
+    [FILTER]
+      Name              parser
+      Match             dp.*
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
+
+  output.conf: |
+    [OUTPUT]
+      Name   stdout
+      Match  dp.*
+      Format json
+
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                dp.*
+      Host                 otel-services.${POD_NAMESPACE}.svc.cluster.local
+      Port                 4318
+      Logs_uri             /v1/logs
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    [PARSER]
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+{{- end }}

@@ -1,0 +1,118 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+global:
+  cp:
+    dataplaneId: ""
+    instanceId: ""
+    # CP-DP HAProxy ingress vhost. Default = tunnel vhost (hybrid-ON).
+    # The orchestrator overrides host with the reachable-URL host
+    # (cpdpproxy.<dp-ns>.svc.cluster.local) when hybrid connectivity is disabled,
+    # exactly as for bwprovisioner/flogoprovisioner/o11y-service/tp-dp-mcp-gateway.
+    # Rendered through `tpl` in haproxy-ingress.yaml so the {{ }} default is
+    # re-evaluated at install. Keys on global.cp.dataplaneId — the same identifier
+    # this chart's ingressClassName (tibco-dp-<dataplaneId>) already uses.
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
+    containerRegistry:
+      secret: ""
+      url: ""
+      repository: "tibco-platform-docker-prod"
+    enableResourceConstraints: true
+    resources:
+      serviceaccount:
+        namespace: ""
+        serviceAccountName: ""
+    logging:
+      fluentbit:
+        enabled: false
+        image:
+          tag: 5.0.2
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+# -- Service account configuration
+serviceAccount:
+  # Set to false to use a pre-existing service account (BYOSA)
+  create: true
+  # Override the service account name (defaults to chart fullname)
+  name: ""
+
+# -- Container image
+image:
+  name: tp-infra-mcp-server
+  tag: "70"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# -- Service ports
+service:
+  type: ClusterIP
+  restPort: 80
+  restTargetPort: 8091
+  mcpPort: 8092
+  mcpTargetPort: 8092
+
+# -- HAProxy ingress for CP-to-DP proxy routing
+haproxy:
+  enabled: true
+  pathPrefix: /tibco/agent/integration/infra-mcp-server
+
+# -- Application configuration (mounted as environment variables)
+config:
+  LOG_LEVEL: "info"
+  KUBECTL_TIMEOUT: "30"
+  HELM_TIMEOUT: "30"
+
+# -- Resource constraints
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
