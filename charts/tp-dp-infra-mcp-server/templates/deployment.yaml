@@ -1,0 +1,128 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-infra-mcp-server.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tp-infra-mcp-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tp-infra-mcp-server.selectorLabels" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      serviceAccountName: {{ include "tp-infra-mcp-server.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "tp-infra-mcp-server.image.registry" .}}{{"/"}}{{ include "tp-infra-mcp-server.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: rest
+              containerPort: {{ .Values.service.restTargetPort }}
+              protocol: TCP
+            - name: mcp
+              containerPort: {{ .Values.service.mcpTargetPort }}
+              protocol: TCP
+          env:
+            - name: CP_DOMAIN
+              value: {{ include "tp-infra-mcp-server.cp.domain" . }}
+            # The owning subscription, so the server can reject
+            # cross-subscription tokens (it requires this and fails fast without it).
+            - name: SUBSCRIPTION_ID
+              value: {{ required "global.cp.subscriptionId is required for tp-dp-infra-mcp-server" .Values.global.cp.subscriptionId | quote }}
+            {{- range $key, $val := .Values.config }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: rest
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: rest
+            initialDelaySeconds: 30
+            periodSeconds: 30
+{{- if .Values.global.cp.enableResourceConstraints }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
+            - name: logs
+              mountPath: /var/log/pods
+{{- end }}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
+        - name: fluent-bit
+          image: {{ include "tp-infra-mcp-server.image.registry" .}}{{"/"}}{{ include "tp-infra-mcp-server.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.probes.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: {{ .Chart.Name }}
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/pods
+            - name: fluent-bit-config
+              mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- if .Values.global.cp.logging.fluentbit.enabled }}
+        - name: logs
+          emptyDir: {}
+        - name: fluent-bit-config
+          configMap:
+            name: {{ include "tp-infra-mcp-server.fullname" . }}-fluentbit-config
+{{- end }}

@@ -1,0 +1,24 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-infra-mcp-server.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "tp-infra-mcp-server.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: rest
+      port: {{ .Values.service.restPort }}
+      targetPort: {{ .Values.service.restTargetPort }}
+      protocol: TCP
+    - name: mcp
+      port: {{ .Values.service.mcpPort }}
+      targetPort: {{ .Values.service.mcpTargetPort }}
+      protocol: TCP
