@@ -230,6 +230,16 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_BW_HOST
+        - name: TP_CP_SB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_SB_HOST
+        - name: TP_CP_BCCE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BCCE_HOST
         - name: TP_CP_BW5CE_HOST
           valueFrom:
             configMapKeyRef:
@@ -330,6 +340,16 @@ spec:
           value: {{ include "tp-cp-web-server.consts.http.request.timeout" . | quote }}
         - name: IDLE_TIME_SECONDS
           value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}
+        - name: CUSTOM_CONTENT_SECURITY_POLICY_HEADER
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.customContentSecurityPolicyHeader
+        - name: CUSTOM_CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.customContentSecurityPolicyHeaderReportOnly
         - name: CUSTOM_SCHEME_URLS
           value: {{ include "tp-cp-web-server.consts.custom.scheme.urls" . }}
         - name: WEB_SERVER_LOG_ENABLED
@@ -342,6 +362,8 @@ spec:
           value: {{ .Values.global.tibco.finops }}
         - name: CP_MCP_SERVER_ENABLED
           value: "{{ .Values.cpmcpserver.enabled }}"
+        - name: CP_MCP_HUB_ENABLED
+          value: "{{ .Values.mcpHub.enabled }}"
         - name: DOC_BASE_URL
           valueFrom:
             configMapKeyRef:
@@ -370,6 +392,8 @@ spec:
           value: {{ .Values.global.tibco.msg_dp_config_enabled | quote }}
         - name: HYBRID_CONNECTIVITY
           value: {{ .Values.global.tibco.hybridConnectivity.enabled | quote}}
+        - name: ARTIFACT_MANAGER_DISK_STORAGE_WARNING_THRESHOLD
+          value: {{ .Values.global.tibco.artifact_manager_disk_storage_threshold | quote }}
         - name: CP_HELM_REPO
           value: {{ .Values.global.external.helmRepo }}
         - name: CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME
@@ -388,6 +412,10 @@ spec:
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         - name: AUDITSAFE_ENABLED
           value: "true"
+        - name: PROVISION_WIZARD_MODAL_CAPABILITIES
+          value: {{ .Values.cpwebserver.provisionWizardModalCapabilities | default "" | quote }}
+        - name: INFRA_MCP_SERVER_ENABLED
+          value: {{ .Values.cpwebserver.infraMcpServerEnabled | quote }}
         - name: DEPLOYMENT_REGION
           valueFrom:
             configMapKeyRef:
@@ -460,6 +488,11 @@ spec:
               configMapKeyRef:
                 name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
                 key: TP_CP_APP_VERSION
+          - name: TP_DP_PROXY_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_DP_PROXY_HOST
         volumeMounts:
           - name: logs
             mountPath: /tmp/logs
@@ -840,6 +873,24 @@ spec:
       enableRedirects: true
       allowClientCache: true
       allowXFrameOptions: false
+  - path: /cp/apps
+    internalPath: /apps
+    port: 3000
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: "${TSC_DNS_DOMAIN}"
+      methods:
+      - GET
+      configVariables:
+        TENANT_ID: "TSC"
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      enableRedirects: true
+      allowClientCache: true
+      allowXFrameOptions: false
   - path: /cp/root-config-content
     internalPath: /root-config-content
     port: 3000
@@ -928,6 +979,22 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+  - path: /cp/v2
+    internalPath: /tp-cp-ws/v2
+    port: 3000
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: "${TSC_DNS_DOMAIN}"
+        configVariables:
+          TENANT_ID: "TSC"
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
   - path: /tp-cp-ws/v1
     internalPath: /tp-cp-ws/v1
     port: 3000
@@ -944,6 +1011,22 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+  - path: /tp-cp-ws/v2
+    internalPath: /tp-cp-ws/v2
+    port: 3000
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: "${TSC_DNS_DOMAIN}"
+        configVariables:
+          TENANT_ID: "TSC"
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
   - path: /cp/public/v1
     internalPath: /tp-cp-ws/public/v1
     port: 3000

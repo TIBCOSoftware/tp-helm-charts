@@ -32,7 +32,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.2
+          tag: 5.0.6
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -79,7 +79,7 @@ probes:
 image:
   name: "o11y-service"
   pullPolicy: IfNotPresent
-  tag: 4723
+  tag: 5230
 
 tibcoRouter:
   path: /o11y
@@ -118,13 +118,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.18.13"
+        version: "1.19.16"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
-        version: "0.140.3"
+        version: "0.156.2"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.41"
+        version: "4.8.2"
     withResources:
       # if set to true then existing recipe will be overwritten by latest recipe.
       overwriteRecipe: "false"
@@ -136,13 +136,13 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.18.13"
+        version: "1.19.16"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
-        version: "0.140.3"
+        version: "0.156.2"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
-        version: "0.72.41"
+        version: "4.8.2"
 
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -181,7 +181,7 @@ o11ymcpserver:
   enabled: false
   image:
     name: cp-o11y-mcp-server
-    tag: "580"
+    tag: "754"
   resources:
     requests:
       cpu: 100m

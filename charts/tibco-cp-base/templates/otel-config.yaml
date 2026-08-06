@@ -27,5 +27,6 @@ data:
   CP_AUDITSERVER_URL: {{ $audit.endpoint }}
   CP_AUDITSERVER_USERNAME: {{ $audit.username }}
   CP_AUDITSERVER_INDEX: {{.Values.global.external.auditserver.index }}
+  CP_PROMETHEUS_OTLP_ENDPOINT: http://{{ index .Values "tp-cp-prometheus" "server" "fullnameOverride" }}:{{ index .Values "tp-cp-prometheus" "server" "service" "servicePort" }}/api/v1/otlp
 {{- end }}
 {{- end }}

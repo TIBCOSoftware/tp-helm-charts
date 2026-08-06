@@ -49,6 +49,15 @@ idm:
     limits:
       cpu: "500m"
       memory: "2048Mi"
+  # IdM in-memory rate limiter (PCP-20085). Defaults mirror identity-management.conf
+  # bundled in the core-identity-management image (delivered in PCP-19854).
+  # Override any of these via Helm values / env without an image rebuild.
+  rateLimit:
+    enabled: true            # IDENTITY_MANAGEMENT_RATE_LIMIT_ENABLED
+    maxRequests: 3           # IDENTITY_MANAGEMENT_RATE_LIMIT_MAX_REQUESTS — requests allowed per window
+    windowSeconds: 10        # IDENTITY_MANAGEMENT_RATE_LIMIT_WINDOW_SECONDS — sliding window length
+    evictionTtlSeconds: 60   # IDENTITY_MANAGEMENT_RATE_LIMIT_EVICTION_TTL_SECONDS — idle entry TTL
+    maxEntries: 100000       # IDENTITY_MANAGEMENT_RATE_LIMIT_MAX_ENTRIES — max tracked keys
 fluentbit:
   resources:
     requests:
