@@ -1,0 +1,29 @@
+{{- /* LOCAL TIBCO MOD (PCP-20474): bundled-Redis gate (suppressed for the effective-external path). */}}
+{{- if and (eq (include "mcp-stack.bundledRedisEnabled" .) "true") .Values.redis.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-redis-pvc
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app: {{ include "mcp-stack.fullname" . }}-redis
+    component: storage
+  {{- if .Values.redis.persistence.annotations }}
+  annotations:
+    {{- toYaml .Values.redis.persistence.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- $sc := include "mcp-stack.storageClassName" (dict "local" .Values.redis.persistence.storageClassName "ctx" $) }}
+  {{- if $sc }}
+  storageClassName: {{ $sc }}
+  {{- end }}
+  {{- if .Values.redis.persistence.useReadWriteOncePod }}
+  accessModes:
+    - ReadWriteOncePod
+  {{- else }}
+  accessModes: {{- toYaml .Values.redis.persistence.accessModes | nindent 4 }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+{{- end }}

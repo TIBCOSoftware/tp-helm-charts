@@ -1,0 +1,200 @@
+{{/* -------------------------------------------------------------------
+     DEPLOYMENT - Redis
+     -------------------------------------------------------------------
+     - Name + labels templated with <release>-mcp-stack-redis.
+     - Adds exec-based readiness & liveness probes (redis-cli PING).
+     - Adds resource requests / limits pulled from values.yaml.
+     ------------------------------------------------------------------- */}}
+
+{{- /* LOCAL TIBCO MOD (PCP-20275): bundled-Redis server-side TLS gate (single source). Keep on
+       upstream mcp-stack (github.com/IBM/mcp-context-forge) re-sync. */}}
+{{- $bundledServerTls := eq (include "mcp-stack.bundledRedisServerTls" .) "true" -}}
+{{- /* LOCAL TIBCO MOD (PCP-20474): suppress the bundled Redis when external is effectively in play
+       (explicit redis.external.enabled OR an injected global.cp.resources.redisconfig). Collapses to
+       the legacy gate when no block is injected. Keep on upstream re-sync. */}}
+{{- if eq (include "mcp-stack.bundledRedisEnabled" .) "true" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-redis
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app: {{ include "mcp-stack.fullname" . }}-redis
+spec:
+  replicas: 1                   # single instance; swap for StatefulSet if HA
+  selector:
+    matchLabels:
+      app: {{ include "mcp-stack.fullname" . }}-redis
+  # PCP-21592: force non-overlapping updates now that Redis owns a single-writer PVC
+  # (persistence.enabled). Mirrors deployment-postgres.yaml — Recreate is immediate
+  # protection against two pods racing the same /data volume during a rollout.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: {{ include "mcp-stack.fullname" . }}-redis
+    spec:
+      # Image pull secrets
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- with .Values.redis.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          {{- with .Values.redis.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089): compose the effective repository
+                 <registry>/<repository>/<bare-name> from global.cp.containerRegistry and pass it
+                 to the ONE mcp-stack.image helper, which appends the tag (and would append a
+                 digest). Assembling the `image:` string here instead would silently drop the
+                 digest — it would still render and still deploy, back on a mutable reference.
+                 No `digest` is declared for redis: it is a mirrored third-party image that
+                 release-alpha.sh does not pin, and the helper treats an absent digest as the
+                 tag-only case. Keep on upstream re-sync. */}}
+          {{- $redisImg := merge (dict "repository" (printf "%s/%s/%s" (include "mcp-stack.image.registry" $) (include "mcp-stack.image.repository" $) (include "mcp-stack.image.bareRepository" .Values.redis.image.repository))) .Values.redis.image }}
+          image: {{ include "mcp-stack.image" $redisImg | quote }}
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+
+          # Start Redis with optional persistence config and optional password auth.
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              AUTH_ARGS=""
+              if [ -n "${REDIS_PASSWORD:-}" ]; then
+                AUTH_ARGS="--requirepass ${REDIS_PASSWORD}"
+              fi
+              # PCP-21194: bound Redis memory + evict so the streamable-HTTP event store
+              # (mcpgw:eventstore:*) can't grow until pod OOMKill. Empty maxmemory => no cap.
+              MEM_ARGS="{{ if .Values.redis.maxmemory }}--maxmemory {{ .Values.redis.maxmemory }} --maxmemory-policy {{ .Values.redis.maxmemoryPolicy | default "allkeys-lru" }}{{ end }}"
+              if [ -f /usr/local/etc/redis/redis.conf ]; then
+                exec redis-server /usr/local/etc/redis/redis.conf $AUTH_ARGS $MEM_ARGS
+              fi
+              exec redis-server $AUTH_ARGS $MEM_ARGS
+
+          # Expose Redis TCP port inside the pod
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.service.port }}
+
+          # ─── Readiness probe ───
+          {{- with .Values.redis.probes.readiness }}
+          readinessProbe:
+          {{- /* LOCAL TIBCO MOD (PCP-20275): under server-side TLS the server is TLS-ONLY (port 0),
+                 so a plaintext redis-cli PING would never go Ready (Deployment deadlock). Emit a
+                 TLS-aware probe threading --tls --cacert; the OFF branch keeps the untouched
+                 renderProbe include byte-for-byte (AC-1). ATOMIC with configmap-redis.yaml `port 0`. */}}
+          {{- if $bundledServerTls }}
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -n "${REDIS_PASSWORD:-}" ]; then
+                    redis-cli --tls --cacert /tls/{{ $.Values.redis.serverTls.caKey }} --no-auth-warning -a "${REDIS_PASSWORD}" PING
+                  else
+                    redis-cli --tls --cacert /tls/{{ $.Values.redis.serverTls.caKey }} PING
+                  fi
+            initialDelaySeconds: {{ .initialDelaySeconds | default 0 }}
+            periodSeconds:       {{ .periodSeconds       | default 10 }}
+            timeoutSeconds:      {{ .timeoutSeconds      | default 1 }}
+            successThreshold:    {{ .successThreshold    | default 1 }}
+            failureThreshold:    {{ .failureThreshold    | default 3 }}
+          {{- else }}
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          # ─── Liveness probe ───
+          {{- with .Values.redis.probes.liveness }}
+          livenessProbe:
+          {{- if $bundledServerTls }}
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -n "${REDIS_PASSWORD:-}" ]; then
+                    redis-cli --tls --cacert /tls/{{ $.Values.redis.serverTls.caKey }} --no-auth-warning -a "${REDIS_PASSWORD}" PING
+                  else
+                    redis-cli --tls --cacert /tls/{{ $.Values.redis.serverTls.caKey }} PING
+                  fi
+            initialDelaySeconds: {{ .initialDelaySeconds | default 0 }}
+            periodSeconds:       {{ .periodSeconds       | default 10 }}
+            timeoutSeconds:      {{ .timeoutSeconds      | default 1 }}
+            successThreshold:    {{ .successThreshold    | default 1 }}
+            failureThreshold:    {{ .failureThreshold    | default 3 }}
+          {{- else }}
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          {{- if .Values.redis.auth.enabled }}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.redisSecretName" . | trim | quote }}
+                  key: {{ .Values.redis.auth.passwordKey | default "REDIS_PASSWORD" }}
+          {{- end }}
+
+          # ─── Volume mounts for persistence ───
+          {{- /* LOCAL TIBCO MOD (PCP-20275): the redis-config ConfigMap is now also mounted when
+                 serverTls is on (it carries the tls-* redis.conf); the cert/key/CA are mounted
+                 read-only at /tls. redis-data stays persistence-only. Keep on re-sync. */}}
+          {{- if or .Values.redis.persistence.enabled $bundledServerTls }}
+          volumeMounts:
+            {{- if .Values.redis.persistence.enabled }}
+            - name: redis-data
+              mountPath: /data
+            {{- end }}
+            - name: redis-config
+              mountPath: /usr/local/etc/redis
+            {{- if $bundledServerTls }}
+            - name: redis-tls
+              mountPath: /tls
+              readOnly: true
+            {{- end }}
+          {{- end }}
+
+          # ─── Resource limits & requests ───
+          {{- with .Values.redis.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+      volumes:
+        {{- if .Values.redis.persistence.enabled }}
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-stack.fullname" . }}-redis-pvc
+        - name: redis-config
+          configMap:
+            name: {{ include "mcp-stack.fullname" . }}-redis-config
+        {{- else if $bundledServerTls }}
+        {{- /* LOCAL TIBCO MOD (PCP-20275): with persistence off but serverTls on, still mount the
+               redis-config ConfigMap (it carries the tls-* redis.conf). Keep on re-sync. */}}
+        - name: redis-config
+          configMap:
+            name: {{ include "mcp-stack.fullname" . }}-redis-config
+        {{- end }}
+        {{- if $bundledServerTls }}
+        - name: redis-tls
+          secret:
+            secretName: {{ include "mcp-stack.redisTlsSecretName" . }}
+        {{- end }}
+{{- end }}

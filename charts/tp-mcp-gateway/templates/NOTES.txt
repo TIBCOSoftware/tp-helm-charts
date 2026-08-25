@@ -1,0 +1,93 @@
+TIBCO Platform MCP Gateway — chart {{ .Chart.Version }}
+
+{{- if .Values.lite.enabled }}
+Mode: lite (single pod, SQLite + memory cache).
+{{- if .Values.dialHome.enabled }}
+
+Dial-home is ENABLED — the gateway dials home to:
+  {{ .Values.dialHome.hub.url }}
+using the bootstrap token from existingSecret "{{ .Values.dialHome.hub.bootstrapTokenSecret.name }}"
+(key "{{ .Values.dialHome.hub.bootstrapTokenSecret.key }}").
+{{- else }}
+
+To run as a standalone-customer dial-home gateway (connect a self-hosted gateway to a
+TP-hosted MCP Hub over WSS — PCP-20277), create the bootstrap-token secret out of band,
+then enable dial-home (NEVER pass the token via --set):
+
+  kubectl create secret generic <token-secret> --from-file=token=<token-file>
+  helm upgrade --install {{ .Release.Name }} <chart> \
+    -f values.yaml -f values-lite.yaml \
+    --set tibcoProxy.enabled=true \
+    --set dialHome.enabled=true \
+    --set dialHome.hub.url=<wss://hub-host/.../ws> \
+    --set dialHome.hub.bootstrapTokenSecret.name=<token-secret> \
+    --set dialHome.image.tag=<agent-image-tag>
+
+  ⚠ PRODUCTION: dial-home requires tibcoProxy.enabled=true. Do NOT leave
+  tibcoProxy.trustCPNetwork=true (POC/dev only — it skips CIC token validation);
+  wire CP_DOMAIN + cp-proxy/IdM and set it false for a hardened trust posture.
+{{- end }}
+
+Egress posture (outbound-only — PCP-20287/B4):
+{{- if .Values.dialHome.egress.enabled }}
+  ENABLED — a NetworkPolicy restricts this pod's egress to the Hub
+  ({{- range $i, $c := .Values.dialHome.egress.hubCIDRs }}{{ if $i }},{{ end }}{{ $c }}{{- end }}:{{ .Values.dialHome.egress.hubPort }}){{ if .Values.dialHome.egress.allowDNS }} + DNS{{ end }} + extraEgress only.
+  ⚠ POD-SCOPED: discovery (default on) → K8s API/probes, OTel (default on) → collector,
+    tp-mcp-gateway-proxy → CP, and backend MCP targets are DENIED unless added to
+    dialHome.egress.extraEgress. extraEgress is raw passthrough (NOT validated) — an
+    entry with an empty/omitted `to:` is allow-all and defeats the posture; use
+    constrained ipBlock/selectors. On a TIBCO DP also set
+    global.networkPolicy.internetAll=disable for a true lock-down (NPs are additive).
+{{- else }}
+  The gateway makes ONE outbound WSS:443 to the Hub and needs ZERO inbound. To enforce
+  this on a bare cluster, supply the Hub's IP CIDR(s) and enable the opt-in egress NP:
+    --set dialHome.egress.enabled=true \
+    --set dialHome.egress.hubCIDRs[0]=<hub-ip>/32
+  Stock NetworkPolicy can't match egress by hostname — supply the IP (or use an
+  FQDN-CNI / egress gateway). See values.yaml for the in-cluster targets to allow.
+{{- end }}
+{{- else }}
+Mode: full (mcp-stack: PostgreSQL + Redis).
+{{- /* PCP-21192: warn when external PG is enabled but no credential resolves. Mirrors the
+       mcp-stack.externalPg.* coalesce (DBCONFIG -> explicit) and AND-s in existingSecret so it
+       does NOT misfire when a cred IS supplied. nil-safe via dig/get on subchart + global.
+       The HOST is resolved the same way and warned on separately: its default is now blank
+       too, and a blank host is NOT a render error — libpq reads an empty host as "unset" and
+       silently falls back to a unix socket, so the operator only finds out via a misleading
+       runtime "connection to server on socket /var/run/postgresql/.s.PGSQL.5432 failed".
+       Deliberately a NOTE, not a template-time `fail`: the blank host is the shipped default,
+       so failing here would break the plain `helm template` surface (and the render-test
+       asserts that walk it). */}}
+{{- $ms := index .Values "mcp-stack" | default dict }}
+{{- if and (dig "enabled" true $ms) (dig "postgres" "external" "enabled" false $ms) (not (dig "postgres" "external" "existingSecret" "" $ms)) }}
+{{- $dbc := dig "cp" "resources" "dbconfig" dict (.Values.global | default dict) | default dict }}
+{{- $host := coalesce (get $dbc "dbHost") (dig "postgres" "external" "host" "" $ms) "" }}
+{{- $user := coalesce (get $dbc "dbUser") (dig "postgres" "external" "user" "" $ms) "" }}
+{{- $pw := coalesce (get $dbc "secretDbPassword") (dig "postgres" "external" "password" "" $ms) "" }}
+{{- if not $host }}
+
+⚠  External PostgreSQL is ENABLED but NO database HOST is configured.
+   The chart no longer ships a default host (formerly "postgresql.tibco-ext.svc.cluster.local",
+   a Control-Plane in-cluster Service name that does not resolve from a Data Plane).
+   A blank host does NOT fail the render — but libpq treats it as unset and falls back to a
+   local unix socket, so the gateway dies at startup with a misleading
+   "connection to server on socket /var/run/postgresql/.s.PGSQL.5432 failed".
+   Supply one of:
+     • a CP DBCONFIG resource (global.cp.resources.dbconfig.*), or
+     • postgres.external.existingSecret=<secret holding the connection fields>, or
+     • an explicit mcp-stack.postgres.external.host
+{{- end }}
+{{- if or (not $user) (not $pw) }}
+
+⚠  PCP-21192: external PostgreSQL is ENABLED but NO database credential is configured.
+   The chart no longer ships a default credential (formerly the guessable "postgres/postgres").
+   The gateway will FAIL to authenticate to PostgreSQL at startup until you supply one of:
+     • a CP DBCONFIG resource (global.cp.resources.dbconfig.*), or
+     • postgres.external.existingSecret=<secret holding the user/password>, or
+     • explicit mcp-stack.postgres.external.user + mcp-stack.postgres.external.password
+{{- end }}
+{{- end }}
+{{- end }}
+
+Bare cluster pulling the private TIBCO images? Supply a pre-created pull secret:
+  --set global.imagePullSecrets[0]=<pull-secret-name>

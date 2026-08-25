@@ -1,0 +1,120 @@
+{{- $targetVersion := .Values.postgres.upgrade.targetVersion | toString -}}
+{{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089): re-apply on upstream mcp-stack re-vendor.
+       Container-registry indirection, same composition as deployment-postgres.yaml: the
+       effective repository <registry>/<repository>/<bare-name> is built from
+       global.cp.containerRegistry and passed to the ONE mcp-stack.image helper.
+       THE :18 IS A LITERAL MAJOR and must stay one — this Job must talk to the POST-upgrade
+       PostgreSQL 18 server whatever postgres.image.tag says. `merge` is DESTINATION-WINS, so
+       the explicit "tag" "18" in the fresh destination dict beats the values tag. The NAME half
+       goes through "mcp-stack.image.bareRepository", the fail-fast that stops an
+       already-qualified postgres.image.repository being prefixed a second time. */ -}}
+{{- /* Gated for the same reason as deployment-postgres.yaml: bareRepository fails the render on a
+       host-qualified value, and this Job only renders under postgres.upgrade.enabled. */ -}}
+{{- $pgRepo := "" -}}
+{{- if or .Values.postgres.enabled .Values.postgres.upgrade.enabled -}}
+{{- $pgRepo = printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository) -}}
+{{- end -}}
+{{- $postgresImage18 := include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "18") (omit .Values.postgres.image "digest")) -}}
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.external.enabled) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-postgres-migration-check
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres-migration-check
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-stack.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres-migration-check
+    spec:
+      {{- /* LOCAL TIBCO MOD: this Job runs the BUNDLED postgres image, which now comes from the
+             private TIBCO mirror instead of Docker Hub — an anonymous pull no longer works. The
+             ServiceAccount carries no pull secret, so the pod needs the same block the sibling
+             workloads already declare (verbatim from deployment-postgres.yaml). */}}
+      # Image pull secrets
+      {{- if (.Values.global).imagePullSecrets }}
+      imagePullSecrets:
+        {{- range (.Values.global).imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      # [PCP-20234] securityContext baseline (this default-off Job previously had none) —
+      # seccomp parity; postgres image runs as root so RORFS/runAsNonRoot are out of scope here
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: Never
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      containers:
+        - name: postgres-migration-check
+          securityContext:
+            allowPrivilegeEscalation: false
+          image: {{ $postgresImage18 | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+
+              echo "Checking PostgreSQL 18 migration status..."
+
+              # Wait for PostgreSQL to be ready
+              echo "Waiting for PostgreSQL 18 to be ready..."
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER"; do
+                sleep 2
+              done
+
+              # Run a simple query to verify the database is working
+              RESULT=$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" \
+                         -U "$POSTGRES_USER" \
+                         -d "$POSTGRES_DB" \
+                         -t -c "SELECT version();" 2>/dev/null || echo "ERROR")
+
+              if [[ $RESULT == *"ERROR"* ]] || [[ -z "$RESULT" ]]; then
+                echo "❌ Migration check failed - PostgreSQL 18 is not working properly"
+                exit 1
+              else
+                echo "✅ PostgreSQL 18 is working properly"
+                echo "PostgreSQL version: $RESULT"
+
+                # Update the upgrade status in a ConfigMap or similar
+                # For now, we'll just log that the migration was successful
+                echo "Migration to PostgreSQL 18 completed successfully"
+              fi
+          env:
+            - name: POSTGRES_HOST
+              value: {{ printf "%s-postgres" (include "mcp-stack.fullname" .) }}
+            - name: POSTGRES_PORT
+              value: "{{ .Values.postgres.service.port }}"
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: POSTGRES_USER
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: POSTGRES_PASSWORD
+{{- end }}

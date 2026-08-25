@@ -1,0 +1,38 @@
+{{- /*  templates/hpa-mcpgateway.yaml  */ -}}
+{{- if .Values.mcpContextForge.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-mcpgateway
+  labels:
+    {{- /* PCP-19047 LOCAL MOD: keep this gateway-owned HPA's identity consistent with the
+           gateway Deployment (app.kubernetes.io/name=tp-mcp-gateway + platform.tibco.com/*)
+           so FinOps attributes it to the capability. scaleTargetRef is by name, not label, so
+           this is metadata-only. Replaces upstream `mcp-stack.labels`; do not revert on
+           upstream mcp-stack (github.com/IBM/mcp-context-forge) re-sync. */}}
+    {{- include "mcp-stack.capabilityLabels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "mcp-stack.fullname" . }}-mcpgateway
+  minReplicas: {{ .Values.mcpContextForge.hpa.minReplicas }}
+  maxReplicas: {{ .Values.mcpContextForge.hpa.maxReplicas }}
+
+  # ─── Metrics ───
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.mcpContextForge.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.mcpContextForge.hpa.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.mcpContextForge.hpa.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

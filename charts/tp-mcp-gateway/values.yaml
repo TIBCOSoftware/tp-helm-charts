@@ -1,0 +1,1790 @@
+# TIBCO Platform MCP Gateway — default values
+#
+# Two deployment modes — enable EXACTLY ONE (a render-time guard,
+# templates/mode-validate.yaml, rejects both-on and both-off; PCP-20562):
+#   Full (default): mcp-stack sub-chart with PostgreSQL + Redis
+#                   (mcp-stack.enabled=true, lite.enabled=false)
+#   Lite:           Single pod with SQLite + memory cache
+#                   (lite.enabled=true AND mcp-stack.enabled=false; lite.replicas must be 1)
+#
+# Plugins are defined ONCE via YAML anchor and shared by both modes.
+
+# -- DP identification (must be set per deployment)
+dpName: ""
+dataplaneId: ""
+namespace: ""
+
+# =====================================================================
+# Network policy labels — mirrors the convention used by dp-flogo-app
+# and dp-bwce-app. The DP namespace ships a NetworkPolicy that selects
+# pods carrying ``networking.platform.tibco.com/internet-egress: enable``
+# and permits egress to public CIDRs; pods without (or with the value
+# set to "disable") are confined to in-cluster traffic only.
+#
+# Lives under ``global:`` so the same toggle reaches both deployment
+# paths — the lite-mode deployment in this chart, and the
+# deployment-mcpgateway template inside the mcp-stack sub-chart.
+# (Helm propagates ``global.*`` to every sub-chart automatically.)
+# =====================================================================
+
+# =====================================================================
+# Global CP values (auto-injected by orchestrator at deploy time)
+# =====================================================================
+global:
+  # Bare-cluster private-registry pull secrets (PCP-20286 / B3). A list of
+  # pre-created Secret NAMES (kubernetes.io/dockerconfigjson). Empty by default:
+  # DP installs use the orchestrator-created `dataplaneId` secret, so the default
+  # render is unchanged; a standalone customer on a bare cluster sets this to pull
+  # the private TIBCO images. Under global.* so it also reaches the mcp-stack
+  # sub-chart (which already honors global.imagePullSecrets).
+  imagePullSecrets: []
+  # See "Network policy labels" comment block above for the contract.
+  networkPolicy:
+    internetAll: enable        # "enable" allows outbound internet (e.g. external SOAP/REST/WSDL); "disable" blocks it
+  # =====================================================================
+  # Full-mode sidecar toggles
+  # =====================================================================
+  # The full-mode gateway runs inside the vendored mcp-stack sub-chart, which CANNOT read
+  # this chart's top-level .Values.discovery / .Values.tibcoProxy — Helm propagates only
+  # global.* into a sub-chart. These two flags are therefore the FULL-MODE equivalents of
+  # the top-level discovery.enabled / tibcoProxy.enabled toggles (which only the lite
+  # templates read). They gate a dedicated LOCAL TIBCO MOD block inside
+  # charts/mcp-stack/templates/deployment-mcpgateway.yaml + service-mcp.yaml that inlines
+  # the discovery + tp-mcp-gateway-proxy sidecars, mirroring lite-deployment.yaml / lite-service.yaml.
+  #
+  # The recipe/orchestrator MUST keep each pair in sync (set the global flag to the same
+  # value as the top-level toggle) so lite and full installs behave identically:
+  #   discovery.enabled   <-> global.tpMcpGateway.discovery.enabled
+  #   tibcoProxy.enabled  <-> global.tpMcpGateway.tibcoProxy.enabled
+  tpMcpGateway:
+    # ─────────────────────────────────────────────────────────────────────────
+    # Gateway configuration shared by BOTH deployment modes.
+    #
+    # WHY IT LIVES UNDER global: the vendored mcp-stack sub-chart can only read
+    # `global.*` (Helm shares nothing else with a sub-chart), so a key that must
+    # reach BOTH the lite Deployment and the full-mode one has exactly one home.
+    # Before this section the same setting had to be written TWICE — once in
+    # `lite.config` and once in `mcp-stack.mcpContextForge.config` — and kept in
+    # step by hand. Of the two sides' keys only 16 names were even the same, and 4 of those 16
+    # had DIFFERENT values (they are listed below and stayed put). This block is the single
+    # source for the 12 that genuinely are shared.
+    #
+    # HOW IT IS APPLIED, and why it always wins:
+    #   lite  → templates/lite-deployment.yaml merges it OVER `lite.config`
+    #   full  → templates/gateway-config-configmap.yaml renders it into
+    #           `<release>-gateway-cfg`, which `mcp-stack.mcpContextForge.extraEnvFrom`
+    #           mounts LAST in the container's envFrom list (k8s: last wins), i.e.
+    #           over the sub-chart's own ConfigMap AND Secret.
+    # The sub-chart is NOT patched for this — extraEnvFrom is its own documented
+    # extension point ("envFrom is managed by the chart; use extraEnvFrom to add
+    # additional sources"), already used the same way for the OAuth ConfigMap
+    # (PCP-20591). Keeping the vendored tree untouched is deliberate: every local
+    # edit to it is a rebase conflict against upstream later.
+    #
+    # WHAT DOES **NOT** BELONG HERE — anything whose correct value differs by mode.
+    # Putting one of these here silently changes a mode's behaviour:
+    #   CACHE_TYPE                   lite "memory"  vs full "redis"   (architectural)
+    #   AUTH_REQUIRED                lite "true"    vs full "false"
+    #   MCP_REQUIRE_AUTH             lite "true"    vs full "false"
+    #   ALLOW_UNAUTHENTICATED_ADMIN  lite "false"   vs full "true"
+    #   DATABASE_URL                 lite sqlite    vs full postgres  (would break full)
+    #   HOST · GUNICORN_WORKERS · DB_SQLITE_BUSY_TIMEOUT · PLUGINS_CONFIG_FILE ·
+    #   MCP_CLIENT_AUTH_ENABLED      (lite-only — lite-runtime specific, or dynamically
+    #                                 overridden by the proxy branch in lite-deployment.yaml)
+    #   APP_ROOT_PATH · MCPGATEWAY_SESSION_AFFINITY_ENABLED ·
+    #   MCPGATEWAY_FEDERATION_SERVER_REQUESTS_ENABLED  (full-only)
+    # Those stay in `lite.config` / `mcp-stack.mcpContextForge.config` respectively.
+    #
+    # Operators (and MCP Hub's deploy wizard) override shared gateway settings here — it is the
+    # one path that reaches both modes and outranks the chart defaults.
+    #
+    # ⚠️ "Outranks the chart defaults" is NOT "overrides anything". A value rendered as an
+    # explicit container `env` entry beats every `envFrom` source, and both modes have some.
+    # Setting one of these here has NO effect:
+    #   lite   APP_ROOT_PATH (owned by publicApi.pathPrefix) · ALLOWED_ORIGINS (rendered from the
+    #          public origin) · MCP_CLIENT_AUTH_ENABLED when tibcoProxy.enabled (forced "false")
+    #   full   HOST and the proxy-auth vars, PLUGINS_CONFIG_FILE (explicit env in the sub-chart)
+    # None of the keys below is in that set. Check the deployment templates before adding one
+    # that is — it would render into the ConfigMap, look applied, and do nothing.
+    #
+    # ⚠️ VERSION COUPLING, and it is deliberate. This path did not exist before
+    # tp-mcp-gateway 1.20.0-alpha.36, and MCP Hub's deploy wizard writes ONLY this path from the
+    # matching release onward. Mixing the two halves fails SILENTLY in both directions — a new
+    # Hub against an older chart has its overrides ignored; an older Hub's `lite.config`
+    # overrides lose to the defaults below. There is no in-between release that reads both, by
+    # choice: the gateway has not shipped, so no deployment exists to be compatible with, and a
+    # dual-read transition would have to be carried and then removed. Ship the chart and the Hub
+    # together.
+    config:
+      SECURE_COOKIES: "false"
+      PLUGINS_ENABLED: "true"
+      # PCP-20165 SA-16: reject weak JWT/encryption secrets (defense-in-depth; the sensitive
+      # secret keys are strong-secret-generated, so this passes by default).
+      REQUIRE_STRONG_SECRETS: "true"
+      # PCP-22379: the gateway's own Admin web UI is off for the official release — MCP Hub is the
+      # control source of truth. The Admin API stays ON on purpose (Hub proxies /admin/plugins for
+      # the plugin catalog + governance). Both sides already defaulted to exactly these values.
+      MCPGATEWAY_UI_ENABLED: "false"
+      MCPGATEWAY_ADMIN_API_ENABLED: "true"
+      # PCP-20564: SSRF_ALLOW_PRIVATE_NETWORKS stays "true" on purpose — it is a FUNCTIONAL
+      # requirement for TP (MCP servers run on private cluster / on-prem IPs; federation +
+      # register-by-URL need RFC-1918 reachability). Its hardening (an egress NetworkPolicy
+      # backstop) is tracked separately by PCP-19937 / TT-21 — NOT by tightening this default,
+      # which would break federation on every real deployment.
+      SSRF_ALLOW_PRIVATE_NETWORKS: "true"
+      # PCP-20216 (TT-25): pin outbound TLS verification fail-closed. The gateway code already
+      # defaults skip_ssl_verify=False and raises on SKIP_SSL_VERIFY=true in production (PCP-20195);
+      # this pins the chart default explicitly across all blocks so it can't silently drift.
+      SKIP_SSL_VERIFY: "false"
+      # SOAP/WSDL support — see PCP-18693. Default-on in TIBCO mode so the
+      # /admin/wsdl endpoints + SOAP dispatch are available without an extra
+      # opt-in step. Requires the [soap] extra (zeep) in the image — already
+      # baked in via Containerfile.lite.
+      MCPGATEWAY_SOAP_ENABLED: "true"
+      # OAuth upstream proxy (PCP-18426). DCR is on by default; stateful sessions are
+      # required for UC3 (external MCP client per-session token). OAUTH_REDIRECT_URI is
+      # injected by lite-deployment.yaml from the DP ingress FQDN.
+      DCR_ENABLED: "true"
+      USE_STATEFUL_SESSIONS: "true"
+      # Inbound external-IdP OAuth — unprovisioned access (PCP-20050 / PCP-18426).
+      # Deliberate security toggle, default ON: when "true", a VALID external-IdP token
+      # whose user is NOT provisioned in the gateway is admitted (scope-gated; fine-grained
+      # authz delegated to plugins, PCP-19981). Set "false" to restore upstream
+      # 'user must exist' behavior. The Hub deploy wizard can override this per-DP.
+      MCP_INBOUND_OAUTH_ALLOW_UNPROVISIONED: "true"
+      # Rate limiting (PCP-20090). The gateway's in-process RateLimitMiddleware is
+      # DEFAULT-OFF on the DP gateway. The DP gateway sits behind platform ingress /
+      # dp-proxy / tibtunnel, and the per-IP limiter otherwise mis-fires on the Hub's
+      # own control-plane traffic: a single Push sends many admin calls from one IP
+      # (Hub / dp-proxy), trips the MEDIUM tier (100 rpm), and after 5 violations the
+      # 15-minute account LOCKOUT turns a transient 429 into an outage ("Account
+      # locked"). Set "true" to enable the in-process limiter (e.g. a gateway exposed
+      # directly, not fronted by an external API gateway). When enabled, these tune it
+      # (all settable the same way — uncomment to override the code defaults):
+      #   RATE_LIMIT_LOCKOUT_ENABLED: "false"  # keep soft 60s 429s, drop the 15-min lock
+      #   RATE_LIMIT_MEDIUM_RPM: "100"         # /servers /tools /gateways /mcp per minute
+      #   RATE_LIMIT_LOCKOUT_THRESHOLD: "5"    # violations before lockout
+      RATE_LIMITING_ENABLED: "false"
+    discovery:
+      enabled: true       # full-mode discovery sidecar (default ON)
+      # Image for the full-mode discovery sidecar. The vendored mcp-stack subchart only sees
+      # global.*, so it CANNOT read the top-level discovery.image.* keys below — these mirror
+      # them so the subchart renders the SAME discovery image as the lite templates. Keep the
+      # repository/tag identical to the top-level discovery.image (single source of truth).
+      # NOTE: each `repository:` line ends in the bare image name with `tag:` immediately
+      # following so the automated alpha release pins these alongside the top-level tags.
+      # PCP-23125: BARE NAME. The registry + repository halves come from
+      # global.cp.containerRegistry via the mcp-stack.image.* helpers, so this mirror MUST be
+      # flipped in the same shape as its top-level twin (discovery.image below) — the release
+      # pinner rewrites both pairs but only verifies the six top-level paths, which makes a
+      # stale mirror the one drift nothing catches. Do NOT quote and do NOT re-qualify.
+      image:
+        repository: tp-mcp-discovery
+        tag: "1.20.0"
+        digest: ""
+        # PCP-23334: GA ships TAG-ONLY. Every digest in this file is deliberately empty and
+        # nothing will fill it -- release-alpha.sh pins digests on the ALPHA lane only, and a
+        # hand-cut GA has no equivalent pinner. So :1.20.0 is a MUTABLE tag; the promote
+        # workflow refuses to re-point it, but that is discipline, not enforcement. This chart
+        # is the one that goes PUBLIC, so do not assume a pinner exists. Follow-up tracked.
+    tibcoProxy:
+      enabled: false      # full-mode tp-mcp-gateway-proxy sidecar + gateway auth-rewire (default OFF)
+      # Image for the full-mode tp-mcp-gateway-proxy sidecar. Same rationale as discovery.image above:
+      # the subchart only sees global.*, so this mirrors the top-level tibcoProxy.image (single
+      # source of truth). Keep the repository/tag identical and in this layout (repository line
+      # ending in the bare image name, tag line immediately after) for the automated release pin.
+      # PCP-23125: BARE NAME, same rules as global.tpMcpGateway.discovery.image above.
+      image:
+        repository: tp-mcp-gateway-proxy
+        tag: "1.20.0"
+        digest: ""
+  # OpenTelemetry — reads collector endpoints from DP o11y-service ConfigMap.
+  # Same pattern as bwprovisioner. Degrades gracefully when o11y not deployed.
+  # Uses global: so it flows into the mcp-stack subchart automatically.
+  otel:
+    enabled: true
+    serviceName: "mcp-gateway"
+  # ─ TIBCO Platform application-log forwarding (PCP-22768) ─
+  # When enabled, a fluentbit sidecar tails the gateway's JSON application-log file and
+  # ships it to the DP observability Log server (otel-userapp-logs). MCP Hub sets `enabled`
+  # from the Register-Gateway "fluentbit sidecar" toggle via ENABLE_APPS_FLUENTBIT_SIDECAR.
+  # Under global.* so it reaches BOTH the vendored mcp-stack sub-chart (full mode) and the
+  # wrapper lite-deployment template (lite mode). Default OFF: the pod is unchanged unless
+  # a caller (Hub) explicitly opts in.
+  tibco:
+    logging:
+      fluentbit:
+        enabled: false
+        image:
+          # PCP-23125: BARE NAME — same registry as the gateway's discovery /
+          # tp-mcp-gateway-proxy sidecars because it goes through the SAME resolver
+          # (global.cp.containerRegistry). This key is SHARED: templates/lite-deployment.yaml
+          # and charts/mcp-stack/templates/deployment-mcpgateway.yaml both read it, and both
+          # prefix it. Re-qualifying it here would double-prefix BOTH modes — which is why both
+          # of them now abort the render instead (tp-mcp-gateway.image.bareRepository and its
+          # mcp-stack twin).
+          repository: common-fluentbit
+          tag: "5.1.0"
+          pullPolicy: IfNotPresent
+        otel:
+          host: otel-userapp-logs
+          port: 4318
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+  cp:
+    # Auto-injected by the orchestrator/recipe at deploy time.
+    # Consumed by tp-mcp-gateway.selectorLabels for the platform.tibco.com/* spec labels.
+    dataplaneId: ""
+    instanceId: ""
+    # Container-registry indirection (PCP-23125). Injected by the orchestrator on a live
+    # Data Plane; declared here so the chart renders standalone without a nil-map panic —
+    # the same way every sibling DP chart declares it. `secret` is declared for shape parity
+    # with the siblings; this chart still takes pull secrets from global.imagePullSecrets.
+    containerRegistry:
+      secret: ""
+      url: ""
+      repository: "tibco-platform-docker-prod"
+    # CP-DP HAProxy ingress vhost (PCP-19767). Default = tunnel vhost (hybrid-ON).
+    # The orchestrator overrides host with the reachable-URL host
+    # (cpdpproxy.<dp-ns>.svc.cluster.local) when hybrid connectivity is disabled,
+    # exactly as for bwprovisioner/flogoprovisioner/o11y-service. Rendered through
+    # `tpl` in the ingress templates so the {{ }} default is re-evaluated at install.
+    # Keys on global.cp.dataplaneId (same identifier tp-mcp-gateway.selectorLabels
+    # uses), matching the bwprovisioner/flogoprovisioner convention for this global.
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
+    resources:
+      serviceaccount:
+        namespace: ""
+        serviceAccountName: ""
+      ingress:
+        fqdn: ""
+        ingressClassName: ""
+        ingressController: ""       # traefik | nginx | haProxy
+        annotations: {}
+      gatewayapi:
+        gatewayAPIControllerName: ""  # GKE | ISTIO | etc (if set, enables Gateway API)
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
+        annotations: {}
+      # Auto-injected by the orchestrator/recipe at deploy time (same pattern as
+      # ingress.fqdn / ingress.ingressClassName above). Left empty here so the
+      # contract is discoverable. When empty, the chart OMITS storageClassName
+      # from the PVC, so Kubernetes uses the cluster's default StorageClass.
+      # (Use the "-" sentinel — quoted as "-" in a values file — to emit
+      # storageClassName: "" and disable dynamic provisioning instead.)
+      storage:
+        storageClassName: ""
+
+# =====================================================================
+# HAProxy Ingress — CP-to-DP proxy chain (used by both modes)
+# =====================================================================
+haproxy:
+  enabled: true
+  # CP->DP HAProxy ingress sub-path the Hub reaches the gateway on. The MCP Hub composes the complete
+  # per-instance path (this base + the gateway's stable id) and passes it here; the chart renders it
+  # verbatim. This default is the plain base for single-instance / operator-supplied installs.
+  pathPrefix: /tibco/agent/integration/mcp-gateway
+
+# =====================================================================
+# Public Ingress — optional path prefix for shared-FQDN deployments
+# When set, the gateway is served under this sub-path and APP_ROOT_PATH
+# is configured automatically. When empty, the gateway is served at /.
+# =====================================================================
+publicApi:
+  pathPrefix: ""
+  # Public BARE ORIGIN (scheme://host, no path) used as the inbound-OAuth audience
+  # trust anchor (APP_DOMAIN, PCP-20050). Leave EMPTY to auto-derive from the DP
+  # ingress FQDN (global.cp.resources.ingress.fqdn, or the Gateway API host). Set
+  # explicitly ONLY when the public host differs from the DP ingress (e.g. an external
+  # API gateway fronts the DP). Do NOT include the path prefix — the gateway appends
+  # APP_ROOT_PATH itself, so embedding it here would double-prefix admin/email URLs.
+  appDomain: ""
+  # RFC 9728 OAuth Protected Resource Metadata well-known base path.
+  # Protocol constant — do NOT override per-deployment.
+  # When pathPrefix is set, the public ingress additionally routes
+  #   <wellKnownPrefix><pathPrefix>
+  # so spec-compliant MCP clients can perform root-anchored RFC 9728 discovery
+  # for a sub-path-mounted gateway (PCP-19809). Chart-owned route; no rewrite —
+  # the gateway serves PRM at the full literal path.
+  wellKnownPrefix: /.well-known/oauth-protected-resource
+
+# =====================================================================
+# Plugins — defined once, used by both lite and full mode
+# =====================================================================
+plugins:
+  enabled: true
+  config: &plugins_config |
+    plugin_dirs:
+      - "plugins/native"
+      - "plugins/custom"
+
+    plugin_settings:
+      parallel_execution_within_band: true
+      plugin_timeout: 120
+      fail_on_plugin_error: false
+      enable_plugin_api: true
+      plugin_health_check_interval: 120
+      include_user_info: false
+
+    plugins:
+      # Rate limiter — cpex_rate_limiter pip package (Rust core, in-memory by default).
+      # Without `backend: redis`, the plugin runs in-process memory mode; no
+      # Redis dependency required for the default install.
+      # PCP-22399: kind points at the fork-side ObservableRateLimiterPlugin wrapper
+      # (subclasses the cpex_rate_limiter wheel, delegates 100% of enforcement) so the
+      # silent redis→memory fail-open fallback becomes observable — deduped WARNING +
+      # rate_limiter_degraded / rate_limiter_backend on the tools/call _meta. Requires a
+      # gateway image that carries the wrapper — first added in e20deb0d (PCP-22389); the
+      # image tags below pin build wip-poc-1-0b9555a (a descendant that contains it).
+      - name: "RateLimiterPlugin"
+        kind: "plugins.rate_limiter.observable_rate_limiter.ObservableRateLimiterPlugin"
+        description: "Per-user/tenant/tool rate limits"
+        version: "0.0.6"
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke"]
+        tags: ["limits", "throttle"]
+        mode: "disabled"
+        priority: 20
+        conditions: []
+        config:
+          by_user: "60/m"
+          by_tenant: "600/m"
+          by_tool:
+            search: "10/m"
+
+      # Secrets Detection — regex-based key/token detector
+      - name: "SecretsDetection"
+        kind: "plugins.secrets_detection.secrets_detection.SecretsDetectionPlugin"
+        description: "Detects keys/tokens/secrets in inputs/outputs"
+        version: "0.1.0"
+        # PCP-20254: tool_pre_invoke added so secrets in tool INPUT args are scanned (cpex
+        # dispatches only hooks declared here, so the method + this entry must ship together).
+        # PCP-19884: per-VS model — base mode is "disabled" (loaded-but-inert, no global
+        # security floor). Enforcement is opt-in PER VIRTUAL SERVER (and per VS-tool) via a
+        # Hub plugin binding, which gateway_plugin_manager._merge_tenant_config activates per
+        # context and _apply_security_floor then pins to blocking/fail-closed. A base-disabled,
+        # unbound plugin is left OFF (the floor never force-enables it).
+        # OPERATOR NOTE: to restore the GLOBAL always-on floor instead, set mode "enforce" with
+        # conditions: [] — that + the PCP-20184 floor = blocking and non-downgradable on every
+        # VS. To soften a global floor, use "permissive", or turn off a broad detector (e.g.
+        # base64_24) under config.enabled below.
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke", "tool_post_invoke", "resource_post_fetch"]
+        tags: ["security", "secrets", "dlp"]
+        mode: "disabled"
+        priority: 51
+        conditions: []
+        config:
+          enabled:
+            aws_access_key_id: true
+            aws_secret_access_key: true
+            google_api_key: true
+            slack_token: true
+            private_key_block: true
+            jwt_like: true
+            hex_secret_32: true
+            base64_24: true
+          redact: false
+          redaction_text: "***REDACTED***"
+          block_on_detection: true
+          min_findings_to_block: 1
+
+      # Output Length Guard — truncate oversized tool outputs
+      - name: "OutputLengthGuardPlugin"
+        kind: "plugins.output_length_guard.output_length_guard.OutputLengthGuardPlugin"
+        description: "Guards tool outputs by enforcing max length"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["guard", "length", "outputs", "truncate"]
+        mode: "enforce"
+        priority: 160
+        conditions: []
+        config:
+          min_chars: 0
+          max_chars: 15000
+          strategy: "truncate"
+          ellipsis: "..."
+
+      # Safe HTML Sanitizer — strip XSS vectors
+      - name: "SafeHTMLSanitizer"
+        kind: "plugins.safe_html_sanitizer.safe_html_sanitizer.SafeHTMLSanitizerPlugin"
+        description: "Sanitize HTML to remove XSS vectors"
+        version: "0.1.0"
+        hooks: ["resource_post_fetch"]
+        tags: ["security", "html", "xss", "sanitize"]
+        mode: "enforce"
+        priority: 119
+        conditions: []
+        config:
+          allowed_tags:
+            - a
+            - p
+            - div
+            - span
+            - strong
+            - em
+            - code
+            - pre
+            - ul
+            - ol
+            - li
+            - h1
+            - h2
+            - h3
+            - h4
+            - h5
+            - h6
+            - blockquote
+            - img
+            - br
+            - hr
+            - table
+            - thead
+            - tbody
+            - tr
+            - th
+            - td
+          # PCP-19889: keep allowed_attrs in sync with code DEFAULT_ALLOWED_ATTRS so
+          # the deployed default does not silently drop table/th/td layout attributes
+          # (config overrides the code default, so an omitted key = dropped attr).
+          allowed_attrs:
+            "*": ["id", "class", "title", "alt"]
+            a: ["href", "rel", "target"]
+            img: ["src", "width", "height", "alt", "title"]
+            table: ["border", "cellpadding", "cellspacing", "summary"]
+            th: ["colspan", "rowspan"]
+            td: ["colspan", "rowspan"]
+          remove_comments: true
+          drop_unknown_tags: true
+          strip_event_handlers: true
+          sanitize_css: true
+          allow_data_images: false
+          remove_bidi_controls: true
+          to_text: false
+
+      # HTML to Markdown — convert fetched HTML to Markdown
+      - name: "HTMLToMarkdownPlugin"
+        kind: "plugins.html_to_markdown.html_to_markdown.HTMLToMarkdownPlugin"
+        description: "Converts HTML ResourceContent to Markdown"
+        version: "0.1.0"
+        hooks: ["resource_post_fetch"]
+        tags: ["transform", "markdown", "html"]
+        mode: "disabled"
+        priority: 120
+        conditions: []
+        config: {}
+
+      # Code Safety Linter — detect unsafe code patterns
+      - name: "CodeSafetyLinterPlugin"
+        kind: "plugins.code_safety_linter.code_safety_linter.CodeSafetyLinterPlugin"
+        description: "Detect unsafe code patterns in outputs"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["security", "code"]
+        # PCP-20254: enforce-by-default. OPERATOR NOTE: once enforced, the PCP-20184 security
+        # floor pins this plugin blocking + fail-closed and it CANNOT be downgraded at runtime —
+        # setting mode "permissive"/"disabled" here is NOT honored for this curated plugin (the
+        # floor re-pins it to blocking). A false positive on legitimate code-bearing tool OUTPUT
+        # is therefore a redeploy-only fix. PCP-20299: the real softening lever is the rule tiers
+        # below — move a noisy rule from blocked_patterns (hard block) to warn_patterns
+        # (non-blocking advisory, logged + annotated in result.metadata).
+        mode: "enforce"
+        priority: 155
+        conditions: []
+        config:
+          # PCP-20299: block-tier = genuinely-dangerous, low-FP Python execution sinks (hard block).
+          blocked_patterns:
+            - "\\bos\\.system\\s*\\("
+            - "\\bsubprocess\\.(Popen|call|run)\\s*\\("
+          # warn-tier = prose-prone constructs (eval/exec/rm -rf) — non-blocking, logged + annotated.
+          # NOTE: warn_patterns is honored only by a gateway image carrying the PCP-20299 plugin
+          # code; on an older image these patterns are simply not scanned (non-blocking) — the
+          # blocked_patterns narrowing already removes the customer-visible false positive.
+          warn_patterns:
+            - "\\beval\\s*\\("
+            - "\\bexec\\s*\\("
+            - "\\brm\\s+-rf\\b"
+
+      # ============================================================
+      # Additional native plugins — registered with mode="disabled" so
+      # they surface in Hub's catalog (GET /admin/plugins returns
+      # disabled entries too) but don't fire until a user attaches them
+      # via plugin_bindings. Kinds taken from tp-mcp-gateway's
+      # reference plugins/config.yaml.
+      # ============================================================
+
+      - name: "SpanAttributeCustomizer"
+        kind: "plugins.span_attribute_customizer.span_attribute_customizer.SpanAttributeCustomizerPlugin"
+        description: "Customizes OpenTelemetry span attributes"
+        version: "1.0.0"
+        hooks: ["tool_pre_invoke", "resource_pre_fetch", "resource_post_fetch"]
+        tags: ["observability", "telemetry", "spans"]
+        mode: "disabled"
+        priority: 10
+        conditions: []
+        config: {}
+
+      - name: "ArgumentNormalizer"
+        kind: "plugins.argument_normalizer.argument_normalizer.ArgumentNormalizerPlugin"
+        description: "Normalizes Unicode, whitespace, casing, dates, numbers in args"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke"]
+        tags: ["transform", "normalize"]
+        mode: "disabled"
+        priority: 40
+        conditions: []
+        config: {}
+
+      - name: "ReplaceBadWordsPlugin"
+        kind: "plugins.regex_filter.search_replace.SearchReplacePlugin"
+        description: "Regex search-and-replace on prompts/tool I/O"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "prompt_post_fetch", "tool_pre_invoke", "tool_post_invoke"]
+        tags: ["transform", "regex"]
+        mode: "disabled"
+        priority: 150
+        conditions: []
+        config:
+          words: []
+
+      - name: "DenyListPlugin"
+        kind: "plugins.deny_filter.deny.DenyListPlugin"
+        description: "Blocks prompts matching denylist words"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch"]
+        tags: ["security", "denylist"]
+        mode: "disabled"
+        priority: 100
+        conditions: []
+        config:
+          words: []
+
+      - name: "ResourceFilterExample"
+        kind: "plugins.resource_filter.resource_filter.ResourceFilterPlugin"
+        description: "Validates resource URIs and limits content size"
+        version: "1.0.0"
+        hooks: ["resource_pre_fetch", "resource_post_fetch", "tool_post_invoke"]
+        tags: ["validation", "resource"]
+        mode: "disabled"
+        priority: 75
+        conditions: []
+        config:
+          max_content_size: 1048576
+
+      - name: "SchemaGuardPlugin"
+        kind: "plugins.schema_guard.schema_guard.SchemaGuardPlugin"
+        description: "Validates payloads against JSON Schema"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["validation", "schema"]
+        mode: "disabled"
+        priority: 45
+        conditions: []
+        config: {}
+
+      - name: "SPARCStaticValidator"
+        kind: "plugins.sparc_static_validator.sparc_static_validator.SPARCStaticValidatorPlugin"
+        description: "Static validation against SPARC rules"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke"]
+        tags: ["validation"]
+        mode: "disabled"
+        priority: 46
+        conditions: []
+        config: {}
+
+      - name: "CachedToolResultPlugin"
+        kind: "plugins.cached_tool_result.cached_tool_result.CachedToolResultPlugin"
+        description: "Caches successful tool responses"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "cache"]
+        mode: "disabled"
+        priority: 150
+        conditions: []
+        config: {}
+
+      - name: "FileTypeAllowlistPlugin"
+        kind: "plugins.file_type_allowlist.file_type_allowlist.FileTypeAllowlistPlugin"
+        description: "Restricts file types to an allowlist"
+        version: "0.1.0"
+        hooks: ["resource_pre_fetch", "resource_post_fetch"]
+        tags: ["validation", "allowlist"]
+        mode: "disabled"
+        priority: 30
+        conditions: []
+        config: {}
+
+      - name: "MarkdownCleanerPlugin"
+        kind: "plugins.markdown_cleaner.markdown_cleaner.MarkdownCleanerPlugin"
+        description: "Normalizes markdown headings and whitespace"
+        version: "0.1.0"
+        hooks: ["prompt_post_fetch", "resource_post_fetch"]
+        tags: ["transform", "markdown"]
+        mode: "disabled"
+        priority: 140
+        conditions: []
+        config: {}
+
+      - name: "JSONRepairPlugin"
+        kind: "plugins.json_repair.json_repair.JSONRepairPlugin"
+        description: "Repairs malformed JSON in tool outputs"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["transform", "json"]
+        mode: "disabled"
+        priority: 110
+        conditions: []
+        config: {}
+
+      - name: "CircuitBreaker"
+        kind: "plugins.circuit_breaker.circuit_breaker.CircuitBreakerPlugin"
+        description: "Trips on failing upstream tools"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "circuit"]
+        mode: "disabled"
+        priority: 25
+        conditions: []
+        config: {}
+
+      - name: "Watchdog"
+        kind: "plugins.watchdog.watchdog.WatchdogPlugin"
+        description: "Times out long-running tool calls"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "watchdog"]
+        mode: "disabled"
+        priority: 80
+        conditions: []
+        config: {}
+
+      - name: "RobotsLicenseGuard"
+        kind: "plugins.robots_license_guard.robots_license_guard.RobotsLicenseGuardPlugin"
+        description: "Enforces robots.txt and licensing rules on fetched resources"
+        version: "0.1.0"
+        hooks: ["resource_pre_fetch", "resource_post_fetch"]
+        tags: ["privacy", "compliance", "license"]
+        mode: "disabled"
+        priority: 50
+        conditions: []
+        config: {}
+
+      - name: "HarmfulContentDetector"
+        kind: "plugins.harmful_content_detector.harmful_content_detector.HarmfulContentDetectorPlugin"
+        description: "Detects harmful or unsafe content in payloads"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "tool_post_invoke"]
+        tags: ["security", "moderation"]
+        mode: "disabled"
+        priority: 30
+        conditions: []
+        config: {}
+
+      - name: "TimezoneTranslator"
+        kind: "plugins.timezone_translator.timezone_translator.TimezoneTranslatorPlugin"
+        description: "Translates timestamps across timezones"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["transform", "timezone"]
+        mode: "disabled"
+        priority: 140
+        conditions: []
+        config: {}
+
+      - name: "SQLSanitizer"
+        kind: "plugins.sql_sanitizer.sql_sanitizer.SQLSanitizerPlugin"
+        description: "Strips dangerous SQL fragments from arguments"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke"]
+        tags: ["security", "sql"]
+        mode: "disabled"
+        priority: 40
+        conditions: []
+        config: {}
+
+      - name: "HeaderInjector"
+        kind: "plugins.header_injector.header_injector.HeaderInjectorPlugin"
+        description: "Injects configured HTTP headers into resource fetch metadata"
+        version: "0.1.0"
+        hooks: ["resource_pre_fetch"]
+        tags: ["auth", "header"]
+        mode: "disabled"
+        priority: 20
+        conditions: []
+        config: {}
+
+      - name: "PrivacyNoticeInjector"
+        kind: "plugins.privacy_notice_injector.privacy_notice_injector.PrivacyNoticeInjectorPlugin"
+        description: "Injects privacy notices into responses"
+        version: "0.1.0"
+        hooks: ["prompt_post_fetch"]
+        tags: ["privacy", "compliance"]
+        mode: "disabled"
+        priority: 80
+        conditions: []
+        config: {}
+
+      - name: "ResponseCacheByPrompt"
+        kind: "plugins.response_cache_by_prompt.response_cache_by_prompt.ResponseCacheByPromptPlugin"
+        description: "Caches responses keyed by prompt"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "cache"]
+        mode: "disabled"
+        priority: 151
+        conditions: []
+        config: {}
+
+      - name: "CodeFormatter"
+        kind: "plugins.code_formatter.code_formatter.CodeFormatterPlugin"
+        description: "Pretty-prints code blocks in responses"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke", "resource_post_fetch"]
+        tags: ["transform", "code"]
+        mode: "disabled"
+        priority: 120
+        conditions: []
+        config: {}
+
+      - name: "LicenseHeaderInjector"
+        kind: "plugins.license_header_injector.license_header_injector.LicenseHeaderInjectorPlugin"
+        description: "Adds license headers to generated artifacts"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke", "resource_post_fetch"]
+        tags: ["privacy", "license"]
+        mode: "disabled"
+        priority: 85
+        conditions: []
+        config: {}
+
+      - name: "CitationValidator"
+        kind: "plugins.citation_validator.citation_validator.CitationValidatorPlugin"
+        description: "Validates citation formatting in outputs"
+        version: "0.1.0"
+        hooks: ["resource_post_fetch", "tool_post_invoke"]
+        tags: ["privacy", "citation"]
+        mode: "disabled"
+        priority: 95
+        conditions: []
+        config: {}
+
+      - name: "ToonEncoder"
+        kind: "plugins.toon_encoder.toon_encoder.ToonEncoderPlugin"
+        description: "Encodes data using token-optimized format"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["encoding", "format", "toon"]
+        mode: "disabled"
+        priority: 160
+        conditions: []
+        config: {}
+
+      - name: "ToolsTelemetryExporter"
+        kind: "plugins.tools_telemetry_exporter.telemetry_exporter.ToolsTelemetryExporterPlugin"
+        description: "Emits OpenTelemetry spans per tool call"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["observability", "telemetry"]
+        mode: "disabled"
+        priority: 200
+        conditions: []
+        config: {}
+
+      - name: PIIFilterPlugin
+        kind: cpex_pii_filter.PIIFilterPlugin
+        description: Detects and masks Personally Identifiable Information
+        version: 0.2.0
+        author: Mihai Criveti
+        hooks:
+        - prompt_pre_fetch
+        - prompt_post_fetch
+        - tool_pre_invoke
+        - tool_post_invoke
+        tags:
+        - security
+        - pii
+        - compliance
+        - filter
+        - gdpr
+        - hipaa
+        mode: disabled
+        priority: 50
+        conditions:
+        - prompts: []
+          server_ids: []
+          tenant_ids: []
+        config:
+          detect_ssn: true
+          detect_credit_card: true
+          detect_email: true
+          detect_phone: false
+          detect_ip_address: false
+          default_mask_strategy: partial
+          redaction_text: '[PII_REDACTED]'
+          block_on_detection: false
+          log_detections: true
+          include_detection_details: true
+          whitelist_patterns:
+          - test@example.com
+          - 555-555-5555
+      - name: URLReputationPlugin
+        kind: cpex_url_reputation.URLReputationPlugin
+        description: Static URL reputation checks using blocked domains and URL patterns
+        version: 0.3.2
+        author: ContextForge Contributors
+        hooks:
+        - resource_pre_fetch
+        tags:
+        - security
+        - url
+        - reputation
+        mode: disabled
+        priority: 60
+        conditions: []
+        # PCP-19890: full 7-field config surface + version/author reconciled to the
+        # installed cpex_url_reputation 0.3.2 wheel (manifest), not the stale
+        # 0.1.1/Mihai Criveti. Values are the wheel manifest defaults except the
+        # sample blocked_domains entry.
+        config:
+          whitelist_domains: []
+          allowed_patterns: []
+          blocked_domains:
+          - malicious.example.com
+          blocked_patterns: []
+          use_heuristic_check: false
+          entropy_threshold: 3.65
+          block_non_secure_http: true
+      - name: RetryWithBackoffPlugin
+        kind: cpex_retry_with_backoff.RetryWithBackoffPlugin
+        description: Detects transient failures and asks the gateway to re-invoke the tool after a jittered exponential backoff delay
+        version: 0.1.0
+        author: Mihai Criveti
+        hooks:
+        - tool_post_invoke
+        tags:
+        - retry
+        - backoff
+        - resilience
+        mode: disabled
+        priority: 170
+        conditions: []
+        config:
+          max_retries: 2
+          backoff_base_ms: 200
+          max_backoff_ms: 5000
+          retry_on_status:
+          - 429
+          - 500
+          - 502
+          - 503
+          - 504
+          jitter: true
+          check_text_content: false
+          tool_overrides: {}
+      - name: EncodedExfilDetector
+        # PCP-21038: point at the bare cpex_encoded_exfil_detection wheel. The v1.0.4+ wheel recurses
+        # into CopyOnWriteDict natively, so the old in-repo cow_compat compat wrapper was deleted from
+        # the gateway image (gateway PR #121 / PCP-20589 / PCP-20883). The chart config kind must match
+        # the image's module layout, else the plugin fails to load and the security-floor errors every call.
+        kind: cpex_encoded_exfil_detection.EncodedExfilDetectorPlugin
+        description: Detects suspicious encoded exfiltration patterns in prompts, tool outputs, and resources
+        version: 0.2.0
+        author: Mihai Criveti
+        hooks:
+        - prompt_pre_fetch
+        - tool_post_invoke
+        - resource_post_fetch
+        tags:
+        - security
+        - exfiltration
+        - dlp
+        - encoding
+        mode: disabled  # PCP-19885: per-VS opt-in only (no global floor) — enforcement comes from a Hub VS-level binding
+        priority: 52
+        conditions: []
+        config:
+          enabled:
+            base64: true
+            base64url: true
+            hex: true
+            percent_encoding: true
+            escaped_hex: true
+          min_encoded_length: 24
+          min_decoded_length: 12
+          min_entropy: 3.3
+          min_printable_ratio: 0.7
+          min_suspicion_score: 3
+          max_scan_string_length: 200000
+          max_findings_per_value: 50
+          redact: false
+          redaction_text: '***ENCODED_REDACTED***'
+          block_on_detection: true
+          min_findings_to_block: 1
+          include_detection_details: true
+          allowlist_patterns: []
+          extra_sensitive_keywords: []
+          extra_egress_hints: []
+          max_decode_depth: 2
+          max_recursion_depth: 32
+          log_detections: true
+      - name: VirusTotalURLCheckerPlugin
+        kind: plugins.virus_total_checker.virus_total_checker.VirusTotalURLCheckerPlugin
+        description: Integrates with VirusTotal v3 to check URLs/domains/IPs and local files
+        version: 0.1.0
+        author: Mihai Criveti
+        hooks:
+        - resource_pre_fetch
+        - resource_post_fetch
+        - prompt_post_fetch
+        - tool_post_invoke
+        tags:
+        - security
+        - threat
+        mode: disabled
+        priority: 61
+        conditions: []
+        config:
+          enabled: true
+          api_key_env: VT_API_KEY
+          timeout_seconds: 8.0
+          check_url: true
+          check_domain: true
+          check_ip: true
+          scan_if_unknown: false
+          wait_for_analysis: false
+          max_wait_seconds: 8
+          poll_interval_seconds: 1.0
+          block_on_verdicts:
+          - malicious
+          min_malicious: 1
+          cache_ttl_seconds: 300
+          max_retries: 3
+          base_backoff: 0.5
+          max_delay: 8.0
+          jitter_max: 0.2
+          enable_file_checks: true
+          file_hash_alg: sha256
+          upload_if_unknown: false
+          upload_max_bytes: 10485760
+          scan_tool_outputs: true
+          max_urls_per_call: 5
+          url_pattern: https?://[\w\-\._~:/%#\[\]@!\$&'\(\)\*\+,;=]+
+          min_harmless_ratio: 0.0
+          scan_prompt_outputs: true
+          scan_resource_contents: true
+          allow_url_patterns: []
+          deny_url_patterns: []
+          allow_domains: []
+          deny_domains: []
+          allow_ip_cidrs: []
+          deny_ip_cidrs: []
+          override_precedence: deny_over_allow
+      - name: Summarizer
+        kind: plugins.summarizer.summarizer.SummarizerPlugin
+        description: Summarize long text content using an LLM
+        version: 0.1.0
+        author: ContextForge
+        hooks:
+        - resource_post_fetch
+        - tool_post_invoke
+        tags:
+        - summarize
+        - llm
+        - content
+        mode: disabled
+        priority: 170
+        conditions: []
+        config:
+          provider: openai
+          openai:
+            api_base: https://api.openai.com/v1
+            api_key_env: OPENAI_API_KEY
+            model: gpt-4o-mini
+            temperature: 0.2
+            max_tokens: 512
+            use_responses_api: true
+          anthropic:
+            api_base: https://api.anthropic.com/v1
+            api_key_env: ANTHROPIC_API_KEY
+            model: claude-3-5-sonnet-latest
+            max_tokens: 512
+            temperature: 0.2
+          prompt_template: 'You are a helpful assistant. Summarize the following content succinctly
+
+            in no more than {max_tokens} tokens. Focus on key points, remove
+
+            redundancy, and preserve critical details.
+
+            '
+          include_bullets: true
+          language: null
+          threshold_chars: 800
+          hard_truncate_chars: 24000
+          tool_allowlist:
+          - search
+          - retrieve
+          resource_uri_prefixes:
+          - http://
+          - https://
+      - name: VaultPlugin
+        kind: plugins.vault.vault_plugin.Vault
+        description: Generates bearer tokens based on vault-saved tokens
+        version: 0.0.1
+        author: Adrian Popa
+        hooks:
+        - tool_pre_invoke
+        tags:
+        - security
+        - vault
+        - OAUTH2
+        mode: disabled
+        priority: 10
+        conditions:
+        - prompts: []
+          server_ids: []
+          tenant_ids: []
+        config:
+          system_tag_prefix: system
+          vault_header_name: X-Vault-Tokens
+          vault_handling: raw
+          system_handling: tag
+      - name: WebhookNotification
+        kind: plugins.webhook_notification.webhook_notification.WebhookNotificationPlugin
+        description: Send HTTP webhook notifications on events, violations, and state changes
+        version: 1.0.0
+        author: Manav Gupta
+        hooks:
+        - tool_pre_invoke
+        - tool_post_invoke
+        - prompt_post_fetch
+        - resource_post_fetch
+        tags:
+        - notification
+        - webhook
+        - monitoring
+        - observability
+        mode: disabled
+        priority: 900
+        conditions: []
+        config:
+          webhooks:
+          - url: https://example.invalid/webhook
+            events:
+            - violation
+            - tool_success
+            - tool_error
+            - rate_limit_exceeded
+            - pii_detected
+            authentication:
+              type: none
+            retry_attempts: 2
+            retry_delay: 1000
+            timeout: 10
+            enabled: false
+          default_template: "{\n  \"event\": \"{{event}}\",\n  \"plugin\": \"{{plugin_name}}\",\n  \"timestamp\": \"{{timestamp}}\",\n  \"request_id\": \"{{request_id}}\",\n  \"user\": \"{{user}}\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"violation\": {{violation}},\n  \"metadata\": {{metadata}}\n}\n"
+          include_payload_data: false
+          max_payload_size: 1000
+      - name: ContentModeration
+        kind: plugins.content_moderation.content_moderation.ContentModerationPlugin
+        description: Advanced content moderation using AI services (IBM Watson, IBM Granite Guardian, OpenAI)
+        version: 1.0.0
+        author: Manav Gupta
+        hooks:
+        - prompt_pre_fetch
+        - tool_pre_invoke
+        - tool_post_invoke
+        tags:
+        - safety
+        - moderation
+        - content
+        - ai
+        - ibm
+        - watson
+        - granite
+        mode: disabled
+        priority: 30
+        conditions: []
+        config:
+          provider: ibm_granite
+          fallback_provider: null
+          fallback_on_error: warn
+          ibm_granite:
+            ollama_url: http://localhost:11434
+            model: granite3-guardian
+            temperature: 0.1
+            timeout: 30
+          categories:
+            hate:
+              threshold: 0.7
+              action: warn
+            violence:
+              threshold: 0.8
+              action: warn
+            sexual:
+              threshold: 0.6
+              action: warn
+            self_harm:
+              threshold: 0.5
+              action: warn
+            harassment:
+              threshold: 0.7
+              action: warn
+            profanity:
+              threshold: 0.6
+              action: redact
+            toxic:
+              threshold: 0.7
+              action: warn
+          audit_decisions: true
+          include_confidence_scores: true
+          enable_caching: true
+          cache_ttl: 3600
+          max_text_length: 10000
+      - name: ALTKJsonProcessor
+        kind: plugins.altk_json_processor.json_processor.ALTKJsonProcessor
+        description: Uses JSON Processor from ALTK to extract data from long JSON responses
+        version: 0.1.0
+        author: Jason Tsay
+        hooks:
+        - tool_post_invoke
+        tags:
+        - plugin
+        mode: disabled
+        priority: 150
+        conditions:
+        - server_ids: []
+          tenant_ids: []
+        config:
+          jsonprocessor_query: ''
+          llm_provider: watsonx
+          watsonx:
+            wx_api_key: ''
+            wx_project_id: ''
+            wx_url: https://us-south.ml.cloud.ibm.com
+          ollama:
+            ollama_url: http://localhost:11434
+          openai:
+            api_key: ''
+          anthropic:
+            api_key: ''
+          model_id: ibm/granite-3-3-8b-instruct
+          length_threshold: 100000
+      - name: UnifiedPDPPlugin
+        kind: plugins.unified_pdp.unified_pdp.UnifiedPDPPlugin
+        description: Unified Policy Decision Point for access control across multiple policy engines
+        version: 0.1.0
+        author: yiannis2804
+        hooks:
+        - tool_pre_invoke
+        - resource_pre_fetch
+        tags:
+        - security
+        - policy
+        - access-control
+        - pdp
+        - rbac
+        - mac
+        mode: disabled
+        priority: 10
+        conditions: []
+        config:
+          engines:
+          - name: native
+            enabled: true
+            priority: 1
+            settings:
+              rules_file: plugins/unified_pdp/default_rules.json
+          - name: mac
+            enabled: false
+            priority: 2
+            settings:
+              relaxed_star: false
+          - name: opa
+            enabled: false
+            priority: 3
+            settings:
+              opa_url: http://localhost:8181
+              policy_path: mcpgateway
+              timeout_ms: 5000
+              max_retries: 3
+          - name: cedar
+            enabled: false
+            priority: 4
+            settings:
+              cedar_url: http://localhost:8700
+              timeout_ms: 5000
+              max_retries: 3
+          combination_mode: all_must_allow
+          default_decision: deny
+          cache:
+            enabled: true
+            ttl_seconds: 60
+            max_entries: 10000
+          performance:
+            timeout_ms: 1000
+            parallel_evaluation: true
+      - name: JwtClaimsExtractionPlugin
+        kind: plugins.jwt_claims_extraction.jwt_claims_extraction.JwtClaimsExtractionPlugin
+        description: Extracts JWT claims and stores them in global context state for downstream authorization plugins
+        version: 1.0.0
+        author: yiannis2804
+        hooks:
+        - http_auth_resolve_user
+        tags:
+        - auth
+        - jwt
+        - claims
+        - rbac
+        - abac
+        - rfc9396
+        mode: disabled
+        priority: 10
+        conditions: []
+        config:
+          context_key: jwt_claims
+      # Permission — per-user authorization for OAuth-authenticated inbound Virtual
+      # Server requests (PCP-19981). Maps JWT groups -> roles -> allowed tools and
+      # grants/denies each inbound tool call (default-deny). Pairs with the
+      # JwtClaimsExtractionPlugin dependency above. Ships disabled; enable per-VS via
+      # the Hub "Add plugin to http_auth_check_permission" binding.
+      - name: PermissionPlugin
+        kind: plugins.permissions.permissions.PermissionPlugin
+        description: "Per-user authorization for OAuth inbound VS requests: JWT groups -> roles -> allowed tools (default-deny)"
+        version: 1.0.0
+        author: TIBCO
+        hooks:
+        - http_auth_check_permission
+        tags:
+        - auth
+        - authorization
+        - rbac
+        - oauth
+        - permission
+        - inbound
+        - security
+        mode: disabled
+        priority: 20
+        conditions: []
+        config:
+          claims_context_key: jwt_claims
+          group_claim: groups
+          default_decision: deny
+          enforce_for_auth_methods:
+          - oauth_access_token
+          - oauth_access_token_unprovisioned
+          bypass_admin: true
+          group_role_map: {}
+          roles: {}
+
+# =====================================================================
+# Discovery sidecar — auto-discovers MCP-enabled BW/Flogo apps (PCP-18432)
+# =====================================================================
+discovery:
+  enabled: true
+  # In-pod discovery sub-path (PCP-20569, Option B). There is NO dedicated discovery Ingress and NO
+  # :8080 discovery Service anymore. The discovery sidecar (:8080) is reached ONLY in-pod: the
+  # tp-mcp-gateway-proxy sidecar fronts the gateway on :81 and path-routes <subPath> (relative to the single
+  # gateway haproxy.pathPrefix) to the in-pod discovery upstream (http://127.0.0.1:8080). This is why
+  # discovery.enabled implies the :81 front (the haproxy ingress + Service select :81 when EITHER
+  # tibcoProxy.enabled OR discovery.enabled). subPath (default "_discovery") is injected into the proxy
+  # as DISCOVERY_PATH_PREFIX via the tp-mcp-gateway.discoverySubPath helper (leading-slash normalized).
+  subPath: _discovery
+  # DEPRECATED / no-op (PCP-20569). The discovery route is no longer a separate ingress, so this value
+  # is NEVER read — setting it has ZERO effect. Discovery is now served under the single gateway prefix
+  # at <haproxy.pathPrefix>/<subPath> (default <haproxy.pathPrefix>/_discovery), routed in-pod by
+  # tp-mcp-gateway-proxy. The key is retained ONLY so old recipes / --reuse-values upgrades that still set it
+  # remain harmless (the value is silently ignored).
+  pathPrefix: /tibco/agent/integration/mcp-discovery
+  # PCP-23125: BARE NAME — templates/lite-deployment.yaml composes
+  # <tp-mcp-gateway.image.registry>/<tp-mcp-gateway.image.repository>/<this> and passes it to
+  # the tp-mcp-gateway.image helper. Keep in the same shape as the
+  # global.tpMcpGateway.discovery.image mirror above, and keep `tag:` on the line IMMEDIATELY
+  # below (the release pinner rewrites the next `tag:` after this line).
+  # Setting a FULLY-QUALIFIED value here (or replaying one through `helm upgrade
+  # --reuse-values` from a release older than PCP-23125) ABORTS the render rather than
+  # prefixing the registry a second time — see tp-mcp-gateway.image.bareRepository in
+  # templates/_helpers.tpl. Point global.cp.containerRegistry.url / .repository at your
+  # registry instead. The same rule applies to every image block below that says
+  # "same rules as discovery.image above".
+  image:
+    repository: tp-mcp-discovery
+    tag: "1.20.0"
+    digest: ""
+    pullPolicy: IfNotPresent
+  config:
+    DISCOVERY_ANNOTATION_KEY: "platform.tibco.com/connectors"
+    DISCOVERY_ANNOTATION_MATCH: "MCP"
+    # BW/BWCE apps serve MCP at /rest/mcp (REST, :18000) and /soap/mcp (SOAP, :18001) when built
+    # with BW_JAVA_OPTS=-Dbw.enable.mcp.server=true; Flogo uses /mcp. Confirmed live on dgidwani-mcp-17.
+    MCP_PATH_BW: "/rest/mcp,/soap/mcp"
+    # Capability probe (PCP-18432 / B2): discover MCP apps that carry NO connector marker by
+    # handshaking their Service ports x reserved paths — label- and ingress-independent (covers BW,
+    # whose runtime-enabled MCP leaves platform.tibco.com/connectors empty). Reserved paths only +
+    # the initialize-handshake validator mean a probe cannot false-positive; the negative cache keeps
+    # non-MCP apps from being re-probed every refresh. Set DISCOVERY_PROBE_FALLBACK=false to require
+    # the connector annotation (legacy behavior).
+    DISCOVERY_PROBE_FALLBACK: "true"
+    DISCOVERY_PROBE_PATHS: "/mcp,/rest/mcp,/soap/mcp"
+    DISCOVERY_PROBE_NEGATIVE_TTL_MS: "450000"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# =====================================================================
+# tp-mcp-gateway-proxy sidecar — CP auth (Path A :81) + anti-spoofing (Path B :80)
+# =====================================================================
+tibcoProxy:
+  enabled: false
+  # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
+  image:
+    repository: tp-mcp-gateway-proxy
+    tag: "1.20.0"
+    digest: ""
+    pullPolicy: IfNotPresent
+  # trustCPNetwork: skip CIC token validation and trust the HAProxy network path.
+  # Set true for POC/dev (cp-proxy IdM exchange not yet wired).
+  # Set false for production (requires CP_DOMAIN and cp-proxy + IdM).
+  trustCPNetwork: true
+  platformAdminEmail: "mcp-hub-admin@platform.local"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+# =====================================================================
+# dial-home sidecar (B1 · PCP-20284) — standalone-customer dial-home agent
+# =====================================================================
+# A 4th LITE sidecar that dials home to a TP-hosted MCP Hub over a persistent
+# WebSocket, so the Hub can push config to a gateway with NO inbound reachability
+# (End-state 2, PCP-20277; design dial-home-control-channel.md §10). Gated OFF by
+# default and LITE-ONLY. The agent is a SEPARATE TIBCO image built by build-image.yml
+# (B3 · PCP-20286). Enabling REQUIRES tibcoProxy.enabled (loopback/proxy-trust, §4/§7.2)
+# plus non-empty hub.url + hub.bootstrapTokenSecret.name/key + image.tag — all enforced
+# at render time by templates/dialhome-validate.yaml (no silent :latest, no missing token).
+#
+# Customer command (rendered by the Hub, A2 — future): consolidated under dialHome.*
+#   helm install ... --set dialHome.enabled=true \
+#     --set dialHome.hub.url=<wss endpoint> \
+#     --set dialHome.hub.bootstrapTokenSecret.name=<pre-created secret>
+# (design §10 wrote these as hub.dialHome / hub.url; this chart is the source of truth
+#  and consolidates them under dialHome.* — the Hub-rendered command targets these keys.)
+dialHome:
+  enabled: false
+  # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
+  image:
+    repository: tp-mcp-gateway-dialhome-agent
+    # Default tag is pinned here by release-alpha to the immutable build-image.yml tag
+    # (<branch-slug>-<sha>). An ENABLED render with an EMPTY tag still fails fast
+    # (templates/dialhome-validate.yaml) — never a silent :latest.
+    tag: "1.20.0"
+    digest: ""
+    pullPolicy: IfNotPresent
+  hub:
+    # External WSS endpoint the agent dials (Hub GET /config -> features.dialHome.hubUrl).
+    url: ""
+    # Bootstrap token delivered ONLY via a pre-created existingSecret — NEVER raw
+    # --set (leaks via Helm values / release metadata / shell history) and NEVER
+    # chart-generated. Create it out of band:
+    #   kubectl create secret generic <name> --from-file=token=<file>
+    bootstrapTokenSecret:
+      name: ""
+      key: "token"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+  # ---------------------------------------------------------------------
+  # Outbound-only egress posture (B4 · PCP-20287) — OPT-IN, default OFF.
+  # ---------------------------------------------------------------------
+  # The point of dial-home: the gateway needs ZERO inbound and only ONE outbound
+  # connection (WSS:443 to the Hub). Set egress.enabled=true to emit a pod-scoped
+  # NetworkPolicy (templates/dialhome-egress-networkpolicy.yaml) that default-denies
+  # all egress from the lite gateway pod except the Hub (hubCIDRs:hubPort), DNS, and
+  # anything in extraEgress. Default OFF → no NetworkPolicy is rendered (byte-stable).
+  # Decoupled from dialHome.enabled (a lite gateway can lock egress independently).
+  # Design rationale: dial-home-control-channel.md §7.3.
+  #
+  # ⚠ HONEST LIMIT: stock k8s NetworkPolicy CANNOT match egress by DNS hostname — you
+  #   MUST supply the Hub's external IP/CIDR(s). For hostname-scoped egress use an
+  #   FQDN-capable CNI (Cilium toFQDNs / Calico) or an egress gateway (documented-only).
+  # ⚠ POD-SCOPED: this governs the WHOLE gateway pod's egress, not just the dial-home
+  #   sidecar. The chart's DEFAULT-ON features are DENIED unless added to extraEgress:
+  #     - discovery (discovery.enabled, default true) → the K8s API server + the
+  #       in-cluster MCP Services it probes (arbitrary in-cluster probing is at odds
+  #       with a tight posture — disable discovery or widen extraEgress);
+  #     - OpenTelemetry (global.otel.enabled, default true) → the in-cluster o11y
+  #       collector (else traces are silently dropped);
+  #     - tp-mcp-gateway-proxy (tibcoProxy.enabled) → the Control Plane (cp-proxy / IdM);
+  #     - any backend MCP / SOAP / REST / WSDL servers the gateway proxies to.
+  # ⚠ ADDITIVE: on a bare standalone cluster this IS your egress posture (authoritative);
+  #   on a TIBCO DP it UNIONS with the platform policy — also set
+  #   global.networkPolicy.internetAll=disable for a true lock-down.
+  egress:
+    enabled: false
+    # REQUIRED when enabled — the Hub's external IP/CIDR(s). Empty => render FAILS
+    # (fail-closed; never emits an empty `to` = allow-all). e.g. ["203.0.113.10/32"].
+    hubCIDRs: []
+    hubPort: 443
+    # Allow DNS (UDP+TCP :53 to any destination). Keep true — a non-empty egress policy
+    # is default-deny, so the agent needs DNS to resolve the Hub hostname.
+    allowDNS: true
+    # Raw NetworkPolicyEgressRule[] passed through verbatim (NOT validated — an empty
+    # `to:` is allow-all; supply constrained ipBlock/selectors). Add the in-cluster /
+    # backend targets the pod-scoped policy would otherwise deny, e.g.:
+    #   extraEgress:
+    #     - to:                                    # backend MCP/SOAP/REST server
+    #         - ipBlock: { cidr: 10.0.0.0/8 }
+    #       ports: [ { protocol: TCP, port: 443 } ]
+    #     - to:                                    # K8s API server (discovery.enabled)
+    #         - ipBlock: { cidr: 10.96.0.1/32 }
+    #       ports: [ { protocol: TCP, port: 443 } ]
+    extraEgress: []
+    annotations: {}
+
+# =====================================================================
+# Lite mode — single pod, SQLite, memory cache
+# =====================================================================
+# ⚠ PCP-23089 — TAG AND DIGEST MUST MOVE TOGETHER. release-alpha.sh always writes both from
+# ONE build, but a HAND override does not: `helm upgrade --reuse-values --set ...image.tag=X`
+# keeps the PREVIOUS digest, and the pair then deploys the OLD content under the NEW version
+# string — the pod reports X while running what X replaced. Nothing detects it: the reference
+# is well-formed, the digest resolves, and the runtime correctly obeys the digest. If you set
+# a tag by hand, set the matching digest in the SAME command, or clear it (`--set
+# ...image.digest=`) to fall back to tag-only. Same caveat for every image block in this file
+# that declares a `digest` key — the mirrored third-party images (fluentbit here, postgres and
+# redis in the mcp-stack sub-chart) deliberately declare none, because nothing writes one.
+lite:
+  enabled: false
+  # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
+  image:
+    repository: tp-mcp-gateway
+    # PCP-20131: MUST stay in sync with the MCP Hub recipe pin
+    # (charts/tibco-cp-mcp-hub/charts/mcp-hub-recipes/values.yaml mcpGateway.image.tag,
+    #  and the parent override charts/tibco-cp-mcp-hub/values.yaml). A fresh provision
+    # falls back to this default, so divergence ships a stale gateway image even when the
+    # recipe pins a newer one. Bump all FIVE refs together (see the gateway-chart checklist):
+    #   1. this lite.image.tag
+    #   2. mcp-stack.mcpContextForge.image.tag (full mode runs the same TIBCO image)
+    #   3. mcp-stack.migration.image.tag       (DB migration Job uses the same image)
+    #   4. charts/tibco-cp-mcp-hub/charts/mcp-hub-recipes/values.yaml mcpGateway.image.tag
+    #   5. charts/tibco-cp-mcp-hub/values.yaml mcpGateway.image.tag (parent override)
+    tag: "1.20.0"
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicas: 1
+  storage:
+    size: 1Gi
+    className: ""
+  # PCP-22959: the lite gateway keeps its sqlite DB on the `storage:` PVC above, mounted at
+  # /data, while the container runs as the image's non-root user (uid/gid 10001 — see
+  # tp-mcp-gateway/Containerfile). A newly provisioned volume is handed to the pod as
+  # root:root 0755, so without an fsGroup the kubelet never chowns it: sqlite cannot create
+  # /data/mcp.db and every cold start dies in wait_for_db_ready with "Database not ready
+  # after 30 attempts" -> permanent CrashLoopBackOff. Reproduced on AWS EKS StorageClass gp2.
+  #
+  # fsGroup does NOT have to equal the image's gid to work (the kubelet chowns the volume to
+  # root:<fsGroup> with g+rwx AND adds <fsGroup> to every container's supplementary groups),
+  # but matching 10001 keeps the on-disk owner aligned with the process's primary group.
+  #
+  # Applies pod-wide: the two emptyDirs (/tmp, /var/log/mcpgateway) are also chowned to this
+  # gid. That is safe — the fluentbit sidecar runs as uid 1000 but receives this fsGroup as a
+  # supplementary group, so it keeps write access to the shared log dir.
+  #
+  # NB the template renders these two keys with `dig` defaults, so the fix survives a
+  # `helm upgrade --reuse-values` that replays a values map predating this key. Overriding
+  # the map here still works; it is exposed for volume plugins that ignore fsGroup entirely
+  # (NFS/EFS-style StorageClasses — block SCs such as gp2 honour it).
+  # ⚠️ KEEP IN SYNC with the `dig` inline defaults in templates/lite-deployment.yaml. Both values
+  # below are encoded twice on purpose — the template's inline default is the `--reuse-values`
+  # fail-safe — but that makes this a quiet drift surface: editing ONLY this file to change the
+  # gid still yields the template's default on any `--reuse-values` upgrade. Change both together.
+  podSecurityContext:
+    fsGroup: 10001
+    # OnRootMismatch: skip the recursive chown when ownership is already correct (fast
+    # restarts), but still fix an existing root:root volume on the next mount.
+    fsGroupChangePolicy: OnRootMismatch
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  # PCP-22882: how long a COLD START may take before kubelet gives up. A first boot on a fresh
+  # volume runs the full alembic revision set (120 revisions) against sqlite:////data/mcp.db in
+  # the single worker's lifespan; the liveness probe must not own that window (it used to, and
+  # killed the pod at ~150s on every restart — a permanent CrashLoopBackOff).
+  #
+  # Default (120-1) x 10s = ~1190s (~20 min). Raise failureThreshold on slow storage — but it is
+  # only the FIRST of three ceilings, and past ~30 min the other two bite (see below and the
+  # comment on startupProbe in lite-deployment.yaml):
+  #     startupProbe ~20 min  <  progressDeadlineSeconds 25 min  <  GUNICORN_TIMEOUT 30 min
+  #
+  # NB the earlier "~13 min DB-readiness budget" justification was the wrong yardstick: on sqlite
+  # wait_for_db_ready succeeds on the first attempt, so that budget is never spent here. The real
+  # cost is the alembic chain — these numbers are headroom, not a measurement.
+  #
+  # PCP-22959: the alembic chain now HAS one observation — 27.3s end to end on a live EKS gp2 pod
+  # (all 120 revisions; the sqlite probe returned in 0.18s, confirming the retraction above). The
+  # numbers below are deliberately NOT re-sized off it: n=1 and best-case (fresh 1Gi gp2 with a
+  # full burst-credit balance, image already on the node, idle node), so it is a floor rather than
+  # a representative figure. Undersizing re-creates PCP-22882's self-perpetuating CrashLoopBackOff;
+  # oversizing costs one slow restart. Re-size when there are samples from slow storage and an
+  # exhausted burst balance — see the full rationale on startupProbe in lite-deployment.yaml.
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 120
+    # k8s defaults this to 1s; during migration the proxy front holds the connection rather than
+    # answering, so 1s would fail every tick for the wrong reason.
+    timeoutSeconds: 5
+  # Must exceed the startupProbe budget, or `kubectl rollout status` / `helm --wait` declare
+  # ProgressDeadlineExceeded on a pod that is still legitimately starting. (The production DP
+  # path does not wait, but operator and CI paths do.)
+  progressDeadlineSeconds: 1500
+  # PCP-20564: lite ships SECURE application-auth defaults (require auth, no unauthenticated
+  # admin, non-wildcard CORS). Set insecureLocalDev=true to restore the fully-open local-dev
+  # posture (re-opens MCP_REQUIRE_AUTH / AUTH_REQUIRED / ALLOW_UNAUTHENTICATED_ADMIN /
+  # ALLOWED_ORIGINS). Do NOT enable outside genuine local dev — real deployments are fronted
+  # (CP->DP proxy chain) and inherit the secure defaults. (SSRF is unaffected; see its note below.)
+  insecureLocalDev: false
+  # LITE-ONLY gateway settings. Anything shared with full mode now lives ONCE in
+  # global.tpMcpGateway.config, which is merged OVER this map at render time — see
+  # that section for the list and for why these particular keys stayed behind
+  # (they are lite-runtime specific, or their correct value differs by mode).
+  config:
+    HOST: "0.0.0.0"
+    DATABASE_URL: "sqlite:////data/mcp.db"
+    CACHE_TYPE: "memory"
+    PLUGINS_CONFIG_FILE: "plugins/config.yaml"
+    GUNICORN_WORKERS: "1"
+    # PCP-22882: MUST be set here, and MUST stay above the startupProbe budget. gunicorn's
+    # arbiter SIGABRTs a worker whose heartbeat is stale, and under UvicornWorker the heartbeat
+    # only begins after Server.startup() — i.e. after the lifespan, which is exactly the slow
+    # part. So a cold start longer than this is killed no matter what any probe says. lite used
+    # to inherit run-gunicorn.sh's 600s default while the probe also budgeted ~600s: the two
+    # collided and the documented failureThreshold knob silently stopped working. Full mode has
+    # always set this explicitly (mcp-stack/values.yaml).
+    GUNICORN_TIMEOUT: "1800"
+    # PCP-22882: the gateway's own default is ERROR (config.py), and every DB-readiness retry
+    # logs at DEBUG — so the entire cold-start window was pitch black, which is why this bug
+    # presented as a hang. Full mode already ships INFO; lite never did.
+    LOG_LEVEL: "INFO"
+    DB_SQLITE_BUSY_TIMEOUT: "5000"
+    # MCP_CLIENT_AUTH_ENABLED selects the auth METHOD: "true" = JWT/cookie only (the trusted-proxy
+    # header is never read); "false" = trusted-proxy-header path (+ Bearer fallback). "true" is the
+    # correct default for a non-proxy lite install (clients present a gateway-issued token).
+    # PCP-20564: when tibcoProxy.enabled=true, lite-deployment.yaml AUTO-emits this as "false" (the
+    # sidecar terminates auth on Path A and injects X-Authenticated-User), so require-auth is
+    # satisfied by the trusted proxy identity — no manual operator step (removes the old footgun).
+    MCP_CLIENT_AUTH_ENABLED: "true"
+    # PCP-20564: SECURE-BY-DEFAULT. Lite requires auth out of the box. A fronting tibcoProxy satisfies
+    # it via the injected identity (MCP_CLIENT_AUTH_ENABLED auto-"false", above); a bare install
+    # authenticates with a gateway-issued token. Hub-issued tokens still enforce scoping (server_id /
+    # ip_restrictions / permissions / time_restrictions) + revocation. For genuine local dev with no
+    # auth, set lite.insecureLocalDev=true (re-opens these). ALLOWED_ORIGINS is rendered by
+    # lite-deployment.yaml (the public origin when known, else localhost) — do NOT hardcode a wildcard.
+    MCP_REQUIRE_AUTH: "true"
+    AUTH_REQUIRED: "true"
+    ALLOW_UNAUTHENTICATED_ADMIN: "false"
+    # NOTE: PLATFORM_ADMIN_TEAM_ID is intentionally NOT set. The gateway bootstraps
+    # a fixed, well-known "MCP Hub System" team (ensure_mcphub_system_team in
+    # bootstrap_db.py) that Hub pins all tools + plugin bindings to. This replaced
+    # the per-DP team-id handshake (Hub no longer generates or injects an id).
+  secret:
+    # PCP-20165 SA-16: no weak static secrets. Empty values are STRONG-secret-generated
+    # by templates/lite-secret.yaml (idempotent: reuse-if-strong-else-mint). An operator
+    # may still supply a value to override. Rotate any value that was ever shipped weak.
+    JWT_SECRET_KEY: ""
+    AUTH_ENCRYPTION_SECRET: ""
+    BASIC_AUTH_PASSWORD: ""
+    DEFAULT_USER_PASSWORD: ""
+    PLATFORM_ADMIN_EMAIL: "mcp-hub-admin@platform.local"
+    PLATFORM_ADMIN_PASSWORD: ""
+  # NOTE: lite mode no longer renders a dedicated default Ingress. The gateway's
+  # public Ingress is selected by the ingress controller via
+  # global.cp.resources.ingress.{ingressController,fqdn,ingressClassName}
+  # (injected by the CP/orchestrator), rendering the per-controller
+  # templates/ingress-<controller>.yaml in both lite and full mode. This removes
+  # the previous duplicate-Ingress-for-one-FQDN that occurred when a lite deploy
+  # had both the default lite ingress and a per-controller public ingress.
+
+# =====================================================================
+# Full mode — upstream mcp-stack sub-chart overrides
+# =====================================================================
+mcp-stack:
+  enabled: true
+
+  # Disable CRDs not permitted by DP service account
+  networkPolicies:
+    enabled: false
+
+  migration:
+    # The DB migration Job must run the SAME private TIBCO gateway image as the app (the
+    # sub-chart defaults it to the public IBM image). Keep the tag in sync with
+    # mcpContextForge.image above.
+    # PCP-23125: BARE NAME — charts/mcp-stack/templates/job-migration.yaml composes
+    # <mcp-stack.image.registry>/<mcp-stack.image.repository>/<this> and passes it to the
+    # mcp-stack.image helper.
+    image:
+      repository: tp-mcp-gateway
+      tag: "1.20.0"
+      digest: ""
+      pullPolicy: IfNotPresent
+
+  mcpContextForge:
+    # Full mode runs the SAME TIBCO gateway image as lite (not the floating upstream
+    # ghcr.io/ibm/mcp-context-forge:latest). Keeps lite+full in lockstep and removes the
+    # floating-tag crash root cause. Keep this tag in sync with lite.image.tag and the MCP
+    # Hub recipe pins.
+    # PCP-23125: BARE NAME — charts/mcp-stack/templates/deployment-mcpgateway.yaml composes
+    # <mcp-stack.image.registry>/<mcp-stack.image.repository>/<this> and passes it to the
+    # mcp-stack.image helper.
+    image:
+      repository: tp-mcp-gateway
+      tag: "1.20.0"
+      digest: ""
+      pullPolicy: IfNotPresent
+    secret:
+      # Clamp JWT validity to the upstream cap: mcp-context-forge rejects token_expiry > 1440
+      # (le=1440, 24h) at startup and crashes full mode. Authoritative parent override — beats
+      # the sub-chart default and survives an upstream re-vendor of mcp-stack.
+      TOKEN_EXPIRY: "1440"
+    # PCP-20471: cap the gateway HPA envelope to the PRD's 2–5 range (docs/design/mcp-hub-prd
+    # deployment-architecture). The vendored mcp-stack sub-chart defaults min2/max10; pin
+    # minReplicas explicitly (matches the sub-chart default) so the 2–5 envelope can't drift,
+    # and lower maxReplicas 10→5. Deep-merges with the sub-chart mcpContextForge.hpa block, so
+    # enabled:true + the CPU/memory targets are preserved.
+    hpa:
+      minReplicas: 2
+      maxReplicas: 5
+    # FULL-MODE-ONLY gateway settings. Anything shared with lite now lives ONCE in
+    # global.tpMcpGateway.config, which reaches this container through
+    # mcpContextForge.extraEnvFrom (mounted LAST, so it outranks both this ConfigMap
+    # and the sub-chart's own) — see that section for the list and the rationale.
+    config:
+      APP_ROOT_PATH: "/tibco/agent/integration/mcp-gateway"
+      AUTH_REQUIRED: "false"
+      # MCP_REQUIRE_AUTH stays false in the DEFAULT full-mode render — the tp-mcp-gateway-proxy
+      # sidecar is OPT-IN (default OFF, gated on global.tpMcpGateway.tibcoProxy.enabled), so
+      # by default there is no Path A handler injecting X-Authenticated-User on CP→DP traffic.
+      # TIBCO-PROXY: when you set global.tpMcpGateway.tibcoProxy.enabled=true,
+      # mirror lite and flip this to "true" — the sidecar terminates auth on Path A and Bearer
+      # tokens flow on Path B, so the gateway should reject unauthenticated MCP requests. You must
+      # ALSO set MCP_CLIENT_AUTH_ENABLED: "false" manually — it is NOT auto-flipped by any template.
+      # Only the loopback/proxy-trust env + flipped probe ports are auto-applied by the gated
+      # LOCAL TIBCO MOD block in the sub-chart's deployment template.
+      MCP_REQUIRE_AUTH: "false"
+      ALLOW_UNAUTHENTICATED_ADMIN: "true"
+      # PCP-20592: enable Redis pub/sub session-affinity so Streamable-HTTP sessions survive cross-replica/cross-worker round-robin (-32600). Hard-requires USE_STATEFUL_SESSIONS=true (now set once in global.tpMcpGateway.config) + CACHE_TYPE=redis (below). Needs the gateway image with the in-process affinity dispatch + per-worker WORKER_ID fix (tp-mcp-gateway #101).
+      MCPGATEWAY_SESSION_AFFINITY_ENABLED: "true"
+      # PCP-20592: pin explicitly (was only inherited from the mcp-stack subchart default) so the session-affinity hard-requirement cannot silently drift.
+      CACHE_TYPE: "redis"
+      # PCP-21836 (follow-up to PCP-21805): turn ON the federated upstream server-initiated request broker (elicitation / sampling / roots). Code-side default is OFF (deliberate safe default; enablement is chart-side). Rides on the exact full-mode config verified in PCP-21805 (16-worker gunicorn + Redis): hard-requires MCPGATEWAY_SESSION_AFFINITY_ENABLED=true + CACHE_TYPE=redis (both above) + USE_STATEFUL_SESSIONS=true (global.tpMcpGateway.config). Do NOT enable in lite mode (CACHE_TYPE=memory) unless single-worker — the in-memory event bus is worker-local.
+      MCPGATEWAY_FEDERATION_SERVER_REQUESTS_ENABLED: "true"
+      # PLATFORM_ADMIN_TEAM_ID intentionally unset — see lite.config note above.
+    ingress:
+      enabled: false
+    metrics:
+      serviceMonitor:
+        enabled: false
+    pluginConfig:
+      enabled: true
+      plugins: *plugins_config
+    # =================================================================
+    # Discovery + tp-mcp-gateway-proxy sidecars — see global.tpMcpGateway
+    # =================================================================
+    # The full-mode discovery + tp-mcp-gateway-proxy sidecars are NO LONGER wired from here. Helm
+    # does not pass a parent's top-level .Values into a sub-chart (only global.* propagates),
+    # so values set here could not be toggled at install time. Instead the sidecars live in a
+    # dedicated, gated LOCAL TIBCO MOD block INSIDE the vendored sub-chart
+    # templates (charts/mcp-stack/templates/deployment-mcpgateway.yaml + service-mcp.yaml),
+    # gated on the sub-chart-visible global flags:
+    #   global.tpMcpGateway.discovery.enabled   (default true)  -> discovery container + :8080 port + k8s-api pod label
+    #   global.tpMcpGateway.tibcoProxy.enabled  (default false) -> tp-mcp-gateway-proxy container + 80/81 ports + gateway auth/probe rewire
+    # Those literals are KEPT IN SYNC with templates/lite-deployment.yaml / lite-service.yaml
+    # and the top-level discovery.* / tibcoProxy.* defaults (the sub-chart can't read them).
+    #
+    # The generic re-vendor-safe hooks below (extraContainers / extraPodLabels /
+    # service.extraPorts) remain declared but EMPTY — they are the ticket's requested generic
+    # extension point and are additive to the gated block above.
+    extraContainers: []
+    extraPodLabels: {}
+    service:
+      type: ClusterIP
+      port: 80
+      extraPorts: []
+    # PCP-20165 SA-16: the parent no longer forces REQUIRE_STRONG_SECRETS:"false" — the
+    # sub-chart default ("true", with ENVIRONMENT=production) now stands, so weak/empty
+    # gateway secrets fail closed. The sensitive secret keys are strong-secret-generated
+    # (charts/mcp-stack/templates/secret-gateway.yaml), so the gate passes by default.
+    # PCP-20050: APP_DOMAIN (+ APP_ROOT_PATH when publicApi.pathPrefix is set) for full mode.
+    # Sub-chart values can't be templated, so the derived values are rendered into the wrapper
+    # ConfigMap "<release>-oauth" (templates/oauth-configmap.yaml) and pulled in here (the
+    # name below is tpl-rendered by the sub-chart to that release-scoped name; PCP-20591).
+    # Ordered after the sub-chart's own gateway-config in envFrom, so these override the
+    # placeholders (APP_DOMAIN https://gateway.local; APP_ROOT_PATH the internal-HAProxy literal).
+    # optional: pod still starts if the ConfigMap is absent.
+    # name is a template string: the sub-chart tpl-renders it to the release-scoped ConfigMap
+    # (templates/oauth-configmap.yaml -> <release>-oauth) so multiple gateways co-exist per DP (PCP-20591).
+    extraEnvFrom:
+      - configMapRef:
+          name: '{{ .Release.Name }}-oauth'
+          optional: true
+      # The shared global.tpMcpGateway.config map, rendered by
+      # templates/gateway-config-configmap.yaml. Ordered LAST on purpose: envFrom is
+      # last-wins, so this is the one place that overrides BOTH the sub-chart's gateway
+      # ConfigMap and its Secret — which is what makes it a usable override point for an
+      # operator and for MCP Hub's deploy wizard. optional: true so a deployment that
+      # clears the shared map still starts.
+      # ⚠️ CHARACTER-IDENTICAL to the name in templates/gateway-config-configmap.yaml. This string is
+      # tpl-rendered by the sub-chart, so it computes the same content hash; that is what makes a
+      # config change alter the pod template and roll the pods. A drift between the two expressions
+      # points this at a non-existent ConfigMap, and `optional: true` makes that failure SILENT.
+      - configMapRef:
+          name: '{{ .Release.Name }}-gateway-cfg-{{ toJson (dig "tpMcpGateway" "config" dict .Values.global) | sha256sum | trunc 8 }}'
+          optional: true
+
+  mcpFastTimeServer:
+    enabled: false
+
+  postgres:
+    enabled: false
+    external:
+      enabled: true
+      # No DB hostname is shipped in version control either. This used to default to
+      # postgresql.tibco-ext.svc.cluster.local — a CONTROL-PLANE in-cluster Service name that
+      # does not resolve from a customer-run Data Plane, so the default silently pointed every
+      # shippable install at a host it can never reach. Blank by default: the operator must
+      # supply it, or it is injected from a CP DBCONFIG resource
+      # (global.cp.resources.dbconfig.*), same channel as the credential below.
+      host: ""
+      port: 5432
+      database: mcpforgedb
+      # PCP-21192: no usable DB credential is shipped in version control. Supply one via a
+      # CP DBCONFIG resource (global.cp.resources.dbconfig.*), postgres.external.existingSecret,
+      # or an explicit postgres.external.user / password. Blank by default (was "postgres/postgres",
+      # a guessable shared-CP literal). port/database above are non-secret topology hints.
+      user: ""
+      password: ""
+      # PCP-21192: recommended escape hatch — name a pre-created Secret holding the DB
+      # credential (key names per the *Key fields). When set, it is used instead of the
+      # user/password above and the chart skips rendering the literal Secret.
+      existingSecret: ""

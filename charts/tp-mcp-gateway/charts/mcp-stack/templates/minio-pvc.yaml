@@ -1,0 +1,19 @@
+{{- if and .Values.minio.enabled .Values.minio.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-minio
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  accessModes:
+    {{- toYaml .Values.minio.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.minio.persistence.size | quote }}
+  {{- $sc := include "mcp-stack.storageClassName" (dict "local" .Values.minio.persistence.storageClassName "ctx" $) }}
+  {{- if $sc }}
+  storageClassName: {{ $sc }}
+  {{- end }}
+{{- end }}

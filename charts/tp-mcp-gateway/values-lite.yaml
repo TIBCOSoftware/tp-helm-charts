@@ -1,0 +1,10 @@
+# Lite mode overrides — SQLite + memory cache, single pod.
+# Usage: helm install ... -f values.yaml -f values-lite.yaml
+# Ingress is driven by global.cp.resources.ingress.{ingressController,fqdn,ingressClassName}
+# (set by the CP/orchestrator); for a standalone install set those to render the public ingress.
+
+lite:
+  enabled: true
+
+mcp-stack:
+  enabled: false

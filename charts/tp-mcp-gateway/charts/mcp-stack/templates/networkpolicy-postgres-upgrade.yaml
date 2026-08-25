@@ -1,0 +1,88 @@
+{{- /*
+  PCP-22375: pre-upgrade hook NetworkPolicies for the PostgreSQL major-version upgrade flow.
+
+  The `-postgres-backup` Job (helm.sh/hook: pre-upgrade, hook-weight -5) and the
+  `-postgres-migration-check` Job (post-upgrade) run during the Helm hook phase. On a
+  `helm upgrade` the main-manifest NetworkPolicies (networkpolicies.yaml) are applied only in
+  the main phase — i.e. AFTER the pre-upgrade backup Job has already tried to reach postgres /
+  minio. If the persistent postgres/minio NP does not yet carry the upgrade-job ingress rules
+  (e.g. an upgrade from an older release that lacked them), the backup pod is fenced off and the
+  upgrade stalls. These hook-scoped NPs (hook-weight -10, so they are created BEFORE the
+  backup Job at -5) grant that same ingress for the duration of the upgrade hooks and are then
+  torn down (delete-policy before-hook-creation,hook-succeeded,hook-failed — cleaned up whether
+  the pre-upgrade phase SUCCEEDS or FAILS, so no orphan NP can outlive the upgrade). They mirror
+  the persistent rules in networkpolicies.yaml.
+*/}}
+{{- if .Values.networkPolicies.enabled }}
+{{- $fullName := include "mcp-stack.fullname" . -}}
+
+{{- if and .Values.postgres.upgrade.enabled (eq (.Values.postgres.upgrade.targetVersion | toString) "18") (not .Values.postgres.upgrade.backupCompleted) .Values.networkPolicies.postgres.enabled .Values.postgres.enabled (not .Values.postgres.external.enabled) .Values.networkPolicies.postgres.allowUpgradeJobs }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-postgres-upgrade
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: networkpolicy
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullName }}-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: postgres-backup
+              app.kubernetes.io/name: {{ $fullName }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.service.port }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: postgres-migration-check
+              app.kubernetes.io/name: {{ $fullName }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.service.port }}
+{{- end }}
+
+{{- if and .Values.postgres.upgrade.enabled (eq (.Values.postgres.upgrade.targetVersion | toString) "18") (not .Values.postgres.upgrade.backupCompleted) (not .Values.postgres.external.enabled) .Values.networkPolicies.minio.enabled .Values.minio.enabled .Values.networkPolicies.minio.allowUpgradeJobs }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-minio-upgrade
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: networkpolicy
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: minio
+      app: {{ $fullName }}-minio
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: postgres-backup
+              app.kubernetes.io/name: {{ $fullName }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.minio.service.apiPort }}
+{{- end }}
+
+{{- end }}

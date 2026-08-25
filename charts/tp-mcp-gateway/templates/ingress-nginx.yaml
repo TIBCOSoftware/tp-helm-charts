@@ -1,0 +1,39 @@
+{{ if eq .Values.global.cp.resources.ingress.ingressController "nginx" -}}
+{{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
+{{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    nginx.ingress.kubernetes.io/proxy-body-size: "200m"
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $svcName }}-public-nginx
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        path: {{ if $pp }}{{ $pp }}/{{ else }}/{{ end }}
+        pathType: Prefix
+      {{- if $pp }}
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
+        path: {{ .Values.publicApi.wellKnownPrefix }}{{ $pp }}
+        pathType: Prefix
+      {{- end }}
+{{- end }}

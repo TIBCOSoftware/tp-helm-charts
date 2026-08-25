@@ -1,0 +1,105 @@
+{{- if .Values.minio.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-minio
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  replicas: 1
+  # PCP-22409: this selector is intentionally VERSION-FREE. It must NOT include
+  # "mcp-stack.labels" (which emits the version-bearing helm.sh/chart:
+  # mcp-stack-<version> label) because spec.selector is IMMUTABLE — a
+  # version-bearing selector changes on every chart-version bump, so `helm upgrade`
+  # then fails with "spec.selector: field is immutable" on any existing MinIO
+  # install. It mirrors deployment-postgres.yaml, and the pod template below already
+  # carries this same `app: <fullname>-minio` label so the selector stays a subset of
+  # the pod labels. When upgrading FROM a pre-fix release (mcp-stack chart ≤ 1.0.0-RC-25)
+  # whose live MinIO Deployment still has the old version-bearing selector, delete it
+  # ONCE (the PVC and its data are preserved) then re-run the upgrade:
+  #   kubectl delete deployment <release>-mcp-stack-minio --cascade=foreground
+  selector:
+    matchLabels:
+      app: {{ include "mcp-stack.fullname" . }}-minio
+  # PCP-22409: single-writer MinIO on a ReadWriteOnce PVC (minio.persistence.accessModes
+  # defaults to [ReadWriteOnce], replicas: 1). Force non-overlapping updates so a
+  # version-bump rollout tears down the old pod BEFORE starting the new one (mirrors
+  # deployment-postgres.yaml / deployment-redis.yaml). Without this, the default
+  # RollingUpdate (maxSurge 1 / maxUnavailable 0 at replicas:1) surges a second pod
+  # that cannot attach the RWO PVC -> Multi-Attach deadlock (or same-node double-mount)
+  # on every future upgrade once the selector is stable.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-stack.labels" . | nindent 8 }}
+        app.kubernetes.io/component: minio
+        app: {{ include "mcp-stack.fullname" . }}-minio
+    spec:
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: minio
+          securityContext:
+            allowPrivilegeEscalation: false
+          image: "{{ .Values.minio.image.repository }}:{{ .Values.minio.image.tag }}"
+          imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - "minio server /data --console-address :{{ .Values.minio.service.consolePort }}"
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mcp-stack.fullname" . }}-minio{{ end }}
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mcp-stack.fullname" . }}-minio{{ end }}
+                  key: MINIO_ROOT_PASSWORD
+          ports:
+            - name: api
+              containerPort: {{ .Values.minio.service.apiPort }}
+              protocol: TCP
+            - name: console
+              containerPort: {{ .Values.minio.service.consolePort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.minio.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          {{- if .Values.minio.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-stack.fullname" . }}-minio
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,92 @@
+{{- /*
+  PCP-20287 (B4): pod-scoped, OUTBOUND-ONLY egress NetworkPolicy for the standalone
+  dial-home gateway. Mirrors the PCP-20194 (TT-20) opt-in NetworkPolicy idiom.
+
+  The selling point of dial-home: the gateway needs NO ingress and only ONE outbound
+  connection — WSS:443 to the Hub. When enabled this policy enforces that posture: it
+  default-DENIES all egress from the lite gateway pod except the rules below.
+
+  ⚠ Honest scope (design §7.3): a vanilla k8s NetworkPolicy CANNOT restrict egress to
+  "443 to the Hub host" BY DNS HOSTNAME — it matches only ipBlock CIDRs / selectors. So
+  you MUST supply the Hub's external IP/CIDR(s) in hubCIDRs (brittle if the IP rotates).
+  Hostname-scoped egress needs an FQDN-capable CNI (Cilium toFQDNs / Calico DNS policy)
+  or an egress gateway — documented, NOT templated here (out of scope §13).
+
+  ⚠ POD-SCOPED, not container-scoped: a NetworkPolicy selects the whole lite pod, so this
+  governs the egress of EVERY container in it — the gateway's own outbound calls included.
+  The chart's DEFAULT-ON features need in-cluster egress that this policy will DENY unless
+  you add them to extraEgress:
+    * discovery (discovery.enabled, DEFAULT true) → the K8s API server + the in-cluster
+      MCP Services it probes. Arbitrary in-cluster probing is fundamentally at odds with a
+      tight egress posture — disable discovery, or widen extraEgress to the probe targets.
+    * OpenTelemetry (global.otel.enabled, DEFAULT true) → the in-cluster o11y collector
+      (otherwise traces are silently dropped — the export is optional:true / non-fatal).
+    * tp-mcp-gateway-proxy (tibcoProxy.enabled) → the Control Plane (cp-proxy / IdM).
+    * any backend MCP / SOAP / REST / WSDL servers the gateway proxies to.
+  A tight egress posture fits the "dial-home + known external backends" case.
+
+  ⚠ ADDITIVE semantics: K8s NetworkPolicies are a UNION of allows. On a BARE standalone
+  cluster (no platform NP framework) this policy IS your egress posture — authoritative.
+  On a TIBCO DP it composes additively with the platform's internet-egress label policy;
+  set global.networkPolicy.internetAll=disable too for a real lock-down.
+
+  Opt-in (dialHome.egress.enabled), default OFF — existing installs render byte-identically
+  (zero NetworkPolicy emitted). Decoupled from dialHome.enabled so a lite gateway can lock
+  egress independently; the dialHome.egress.* name + this doc carry the standalone intent.
+  Fail-closed: render FAILS when hubCIDRs is empty, so it never emits an egress rule with an
+  empty `to` (which k8s treats as allow-all-egress, defeating the policy).
+  NOTE: extraEgress is passed through verbatim and NOT validated — an entry with an empty/
+  omitted `to:` is allow-all (standard k8s); supply constrained ipBlock/selectors.
+*/}}
+{{- if .Values.dialHome.egress.enabled }}
+{{- if not .Values.dialHome.egress.hubCIDRs }}
+{{- fail "tp-mcp-gateway: dialHome.egress.enabled=true requires dialHome.egress.hubCIDRs — a vanilla NetworkPolicy cannot match egress by the Hub's DNS hostname, so you must supply the Hub's external IP/CIDR(s). Without it the policy would emit an empty egress `to` (= allow-all), defeating the outbound-only posture. Remember this pod-scoped policy also denies the gateway's other egress (discovery/OTel/backends) unless added to dialHome.egress.extraEgress." }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-mcp-gateway-dialhome-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  {{- with .Values.dialHome.egress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- /* The unique per-workload label (NOT selectorLabels, which the discovery
+             sidecar pod also carries → would over-match). Matches lite-deployment.yaml. */}}
+      app: {{ .Release.Name }}-mcp-gateway
+  policyTypes:
+    - Egress
+  egress:
+    # 1) The dial-home control channel: WSS to the Hub on hubPort (443). `to` is
+    #    guaranteed non-empty by the fail-closed guard above.
+    - to:
+        {{- range .Values.dialHome.egress.hubCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dialHome.egress.hubPort | default 443 }}
+    {{- if .Values.dialHome.egress.allowDNS }}
+    # 2) DNS resolution. A non-empty egress policy is default-deny, so the agent cannot
+    #    resolve the Hub hostname without this. Ports-only (no `to`) = allow DNS to any
+    #    destination on :53 — the cluster resolver's IP/namespace is not knowable by the
+    #    chart (varies across k3s/EKS/GKE); this widens egress on port 53 ONLY. (Set
+    #    allowDNS=false only if hubCIDRs are literal IPs and no container needs DNS.)
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+    {{- with .Values.dialHome.egress.extraEgress }}
+    # 3) Operator-supplied extra egress (e.g. K8s API + probe targets for discovery, the
+    #    o11y collector for OTel, backend MCP servers). Verbatim, NOT validated.
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

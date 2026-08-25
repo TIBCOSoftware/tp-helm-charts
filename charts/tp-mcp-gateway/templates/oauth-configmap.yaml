@@ -1,0 +1,52 @@
+{{- /*
+PCP-20050 — APP_DOMAIN + APP_ROOT_PATH for FULL mode (mcp-stack sub-chart).
+
+Helm does not template values passed to a sub-chart, and the sub-chart owns its own
+Deployment, so we cannot inject FQDN/prefix-derived values through mcp-stack.mcpContextForge.config
+(that map is static YAML). Instead we render the derived values into this ConfigMap and feed them
+to the gateway via `mcp-stack.mcpContextForge.extraEnvFrom` (set in values.yaml). Because that
+extraEnvFrom entry is ordered AFTER the sub-chart's own gateway-config ConfigMap in `envFrom`,
+its keys override the sub-chart placeholders.
+
+Keys (each rendered only when its source resolves, so this is additive / no-regression):
+  APP_DOMAIN     — bare public origin (scheme://host). Overrides the sub-chart placeholder
+                   (https://gateway.local). Lite mode sets this inline instead.
+  APP_ROOT_PATH  — the PUBLIC mount prefix (publicApi.pathPrefix). The sub-chart hardcodes
+                   APP_ROOT_PATH to the INTERNAL CP->DP HAProxy prefix
+                   (/tibco/agent/integration/mcp-gateway), which is NOT the public mount and makes
+                   the advertised RFC 9728 resource non-routable. We override it ONLY when
+                   publicApi.pathPrefix is set, so the default-root full deployment keeps the
+                   sub-chart value unchanged.
+
+Rendered for full mode only (lite sets these inline). Name is RELEASE-SCOPED (<release>-oauth) so
+multiple gateways can co-exist per Data Plane without a Helm ownership collision (PCP-20591); the
+mcp-stack.mcpContextForge.extraEnvFrom reference in values.yaml is tpl-rendered by the sub-chart to
+the same release-scoped name.
+*/ -}}
+{{- $mcpStack := index .Values "mcp-stack" -}}
+{{- $appDomain := include "tp-mcp-gateway.appDomain" . -}}
+{{- $rootPath := include "tp-mcp-gateway.pathPrefix" . -}}
+{{- if and (not .Values.lite.enabled) $mcpStack $mcpStack.enabled (or $appDomain $rootPath) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-oauth
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+data:
+  {{- if $appDomain }}
+  # Bare origin (scheme://host); the gateway appends APP_ROOT_PATH + /servers/<id>/mcp.
+  APP_DOMAIN: {{ $appDomain | quote }}
+  {{- end }}
+  {{- if $rootPath }}
+  # Public mount prefix — overrides the sub-chart's internal-HAProxy literal so enforced/advertised
+  # OAuth resource is routable. Only set when publicApi.pathPrefix is configured (no-regression).
+  APP_ROOT_PATH: {{ $rootPath | quote }}
+  {{- end }}
+  {{- if $appDomain }}
+  # Upstream OAuth proxy (PCP-18426) callback — full-mode parity with lite. Full mode sets
+  # DCR_ENABLED but otherwise has NO OAUTH_REDIRECT_URI (it would fall back to a wrong default).
+  # Derived from the public origin + mount prefix; additive (no key in the sub-chart config).
+  OAUTH_REDIRECT_URI: {{ printf "%s%s/oauth/callback" $appDomain $rootPath | quote }}
+  {{- end }}
+{{- end }}

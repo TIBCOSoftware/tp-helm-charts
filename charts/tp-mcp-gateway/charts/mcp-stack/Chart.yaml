@@ -1,0 +1,46 @@
+# --------------------------------------------------------------------
+# CHART METADATA - Helm reads this file to identify and display the
+# chart in registries such as Artifact Hub or ChartMuseum.
+# --------------------------------------------------------------------
+apiVersion: v2
+name: mcp-stack
+
+description: |
+  TIBCO Platform MCP Gateway — full-stack mcp-stack sub-chart.  It bundles:
+    - MCP Gateway application (HTTP / WebSocket server)
+    - PostgreSQL database with persistent storage
+    - Redis cache for sessions & completions
+    - Optional PgAdmin and Redis-Commander web UIs
+
+type: application
+
+# --------------------------------------------------------------------
+# Versioning
+# * version      - chart package version (SemVer).  Bump on *any* chart
+#                  change, even if the app container tag is the same.
+# * appVersion   - upstream application version; shown in UIs but not
+#                  used for upgrade logic.
+# --------------------------------------------------------------------
+version: 1.0.0-RC-34
+appVersion: "1.0.0-RC-4"
+
+# Optional but useful metadata
+keywords:
+  - tibco
+  - mcp
+  - gateway
+  - postgres
+  - redis
+  - llm
+home: https://github.com/tibcosoftware/tp-helm-charts
+
+sources:
+  - https://github.com/tibcosoftware/tp-helm-charts
+
+maintainers:
+  - name: TIBCO Platform Team
+    url: https://github.com/tibcosoftware
+
+# Require Kubernetes ≥1.22: networking v1, recent securityContext fields, and
+# ReadWriteOncePod (PCP-21592) which the default redis/postgres PVCs now request.
+kubeVersion: ">=1.22.0-0"

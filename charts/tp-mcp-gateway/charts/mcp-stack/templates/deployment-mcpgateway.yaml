@@ -1,0 +1,873 @@
+########################################################################
+# DEPLOYMENT - MCP Gateway
+#
+# - Spins up the HTTP / WebSocket gateway pods.
+# - Injects release-scoped hosts for Postgres & Redis.
+# - Pulls ALL other environment variables from the dedicated
+#   ConfigMap + Secret via envFrom (mounted later in this file).
+# - DATABASE_URL and REDIS_URL are declared LAST so that every
+#   $(POSTGRES_*) / $(REDIS_*) placeholder is already defined.
+########################################################################
+{{- /* Single source of truth for "the tp-mcp-gateway-proxy sidecar fronts the pod".
+       The proxy renders (and is the SOLE inbound path) when the proxy is on OR discovery is on
+       (discovery is path-routed IN-POD by the proxy). This ONE boolean gates the sidecar, the
+       Service/ingress backend port (rendered in their own templates with the same expression), the
+       gateway container's loopback-rewire env (HOST/TRUST_PROXY_AUTH/…) AND the gateway probe ports,
+       so they can never drift. Gated on the sub-chart-visible global.tpMcpGateway.* flags (the parent's
+       top-level .Values never reach a sub-chart). KEEP IN SYNC with templates/lite-deployment.yaml
+       ($proxyFronts) and the service/ingress port gating. Keep on upstream mcp-stack
+       (github.com/IBM/mcp-context-forge) re-sync. */}}
+{{- $discoveryOn := dig "tpMcpGateway" "discovery" "enabled" true (.Values.global | default dict) -}}
+{{- $proxyFronts := (or (dig "tpMcpGateway" "tibcoProxy" "enabled" false (.Values.global | default dict)) $discoveryOn) }}
+{{- /* LOCAL TIBCO MOD (PCP-23125) — re-apply on upstream mcp-stack re-vendor.
+       Container-registry indirection: resolve the registry and repository ONCE, file-scoped,
+       from global.cp.containerRegistry via the two zero-logic house helpers. Each image site
+       below composes the EFFECTIVE repository <registry>/<repository>/<bare-name> and passes it
+       to the ONE image helper (mcp-stack.image, PCP-23089/PCP-23214) as the `repository` key, so
+       the tag AND THE DIGEST still travel through that single composition point.
+
+       DO NOT assemble an `image:` string here with the prefix in it. That renders clean, lints
+       clean and deploys — with the digest silently dropped, putting the chart back on a mutable
+       reference, which is exactly the defect PCP-23214 closes. Nothing reports it.
+
+       `merge` is DESTINATION-WINS and MUTATES its first argument, so the destination is always a
+       fresh `dict`: .Values.* is a source only and is never mutated into a later render in the
+       same pass. The bare name goes through mcp-stack.image.bareRepository, which ABORTS the
+       render if the value already carries a registry host instead of prefixing it a second time.
+       KEEP IN SYNC with the parent chart's templates/lite-deployment.yaml. */}}
+{{- /* The closing action below is `}}` and NOT `-}}` ON PURPOSE: it restores the single newline
+       that used to separate the header banner from `apiVersion:`. With the right-trim marker the
+       two join into `####...####apiVersion: apps/v1`, which YAML reads as ONE comment line — the
+       manifest then renders with no apiVersion at all, and neither `helm template` nor a yq
+       container walk notices. Caught by the base-parity diff in redis-external-assert.sh [5]. */}}
+{{- $reg := include "mcp-stack.image.registry" $ -}}
+{{- $rrepo := include "mcp-stack.image.repository" $ }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # <release>-mcp-stack-mcpgateway
+  name: {{ include "mcp-stack.fullname" . }}-mcpgateway
+  labels:
+    {{- /* PCP-19047 LOCAL MOD: emit capability labels (app.kubernetes.io/name=tp-mcp-gateway
+           + platform.tibco.com/*) so the CP capability lookup finds the full-mode gateway.
+           Replaces upstream `mcp-stack.labels`. KEEP IN SYNC with parent tp-mcp-gateway.selectorLabels;
+           do not revert on upstream mcp-stack (github.com/IBM/mcp-context-forge) re-sync. */}}
+    {{- include "mcp-stack.capabilityLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mcpContextForge.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: {{ include "mcp-stack.fullname" . }}-mcpgateway
+
+  template:
+    metadata:
+      {{- if include "mcp-stack.fluentbit.enabled" . }}
+      annotations:
+        # PCP-22768: roll the pod when the fluentbit sidecar config changes.
+        checksum/fluentbit-config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+      {{- end }}
+      labels:
+        {{- /* PCP-19047 LOCAL MOD: pod-template capability labels for tp-dp-monitor-agent
+               discovery + FinOps attribution, at parity with lite mode. The `app:` label
+               below stays the immutable Deployment selector key — do not remove it.
+               KEEP IN SYNC with parent tp-mcp-gateway.selectorLabels. */}}
+        {{- include "mcp-stack.capabilityLabels" . | nindent 8 }}
+        app: {{ include "mcp-stack.fullname" . }}-mcpgateway
+        {{- /* DP namespace NetworkPolicy keys off this label to gate egress
+               to public internet (mirrors dp-flogo-app / dp-bwce-app
+               convention). The value is sourced from the wrapper chart's
+               top-level .Values.networkPolicy.internetAll, propagated into
+               this sub-chart via global. The default ("enable") is set in
+               tp-mcp-gateway/values.yaml. */}}
+        {{- if and .Values.global .Values.global.networkPolicy .Values.global.networkPolicy.internetAll }}
+        networking.platform.tibco.com/internet-egress: {{ .Values.global.networkPolicy.internetAll | quote }}
+        {{- end }}
+        {{- /* LOCAL TIBCO MOD: full-mode discovery sidecar pod label. The DP namespace
+               NetworkPolicy gates K8s-API egress on this label when discovery is on (discovery
+               probes the API server + in-cluster MCP Services). Gated on the sub-chart-visible
+               global flag so `--set global.tpMcpGateway.discovery.enabled=false` removes it.
+               KEEP IN SYNC with templates/lite-deployment.yaml ~lines 37-39. Keep on upstream
+               mcp-stack (github.com/IBM/mcp-context-forge) re-sync.
+               dig default-on: an ABSENT key (e.g. helm upgrade --reuse-values, which does NOT
+               merge new values.yaml defaults) is treated as the intended default (discovery ON);
+               an explicit `false` still disables it. */}}
+        {{- if dig "tpMcpGateway" "discovery" "enabled" true (.Values.global | default dict) }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        {{- end }}
+        {{- /* LOCAL TIBCO MOD: full-mode gateway cluster-egress NetworkPolicy label. Full mode runs
+               against the in-cluster shared Postgres ClusterIP (postgresql.tibco-ext:5432, wired via
+               mcp-stack.postgres.external) which lives in the serviceCidr. Under the DP namespace
+               deny-all default, egress to that ClusterIP is permitted ONLY by the cluster-egress
+               NetworkPolicy, which selects on this label. Emitted UNCONDITIONALLY (no value gate):
+               DB egress is structurally required for full mode to function (unlike the operator-tunable
+               internet-egress label above), and a `helm upgrade --reuse-values` would NOT merge a new
+               value-gated default — so gating it on a value would silently drop the label on upgrade and
+               break DB connectivity. Mirrors the plain form in
+               charts/tibco-cp-ai-agent/templates/deployment.yaml. KEEP IN SYNC: cluster-egress is
+               FULL-MODE-ONLY — lite mode uses an in-pod sqlite DB and needs NO cluster egress, so do
+               NOT copy this label to templates/lite-deployment.yaml. Keep on upstream mcp-stack
+               (github.com/IBM/mcp-context-forge) re-sync. */}}
+        networking.platform.tibco.com/cluster-egress: enable
+        {{- /* LOCAL TIBCO MOD: generic extra pod-template labels passthrough, emitted LAST
+               so it never displaces the immutable `app:` Deployment selector key above. The reserved
+               `app` key is stripped via `omit` so a user-supplied extraPodLabels can never clobber the
+               immutable Deployment selector. Keep on upstream mcp-stack
+               (github.com/IBM/mcp-context-forge) re-sync. */}}
+        {{- with omit (.Values.mcpContextForge.extraPodLabels | default dict) "app" }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+    spec:
+      # Image pull secrets
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      {{- /* LOCAL TIBCO MOD (PCP-20561): the discovery sidecar (PCP-20557) calls the K8s API and
+             reads its projected SA token at /var/run/secrets/kubernetes.io/serviceaccount/token,
+             so the gateway pod MUST automount the token when discovery is on AND an SA is in use.
+             Targeted to THIS pod only — every other mcp-stack workload keeps the default
+             (.Values.serviceAccount.automountServiceAccountToken, default false). Uses the SAME
+             `dig ... default true` default-on semantics as the discovery sidecar below, so a
+             --reuse-values upgrade (absent discovery key) keeps automount on while discovery
+             itself defaults on — sidecar present AND token mounted move together. */}}
+      automountServiceAccountToken: {{ if (and (include "mcp-stack.useServiceAccount" .) (dig "tpMcpGateway" "discovery" "enabled" true (.Values.global | default dict))) }}true{{ else }}{{ .Values.serviceAccount.automountServiceAccountToken }}{{ end }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp-context-forge
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            # [PCP-20209] read-only root filesystem; writable /tmp provided by an emptyDir below.
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- /* LOCAL TIBCO MOD (PCP-23125): compose the effective repository and pass it to the
+                 ONE mcp-stack.image helper. The vendored default is BARE (mcp-context-forge)
+                 rather than ghcr.io/ibm/..., because the call site prefixes unconditionally; the
+                 parent overrides it with tp-mcp-gateway so lite and full run the same TIBCO
+                 image. Keep on upstream re-sync. */}}
+          {{- $cfImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "mcp-stack.image.bareRepository" .Values.mcpContextForge.image.repository))) .Values.mcpContextForge.image }}
+          image: {{ include "mcp-stack.image" $cfImg | quote }}
+          imagePullPolicy: {{ .Values.mcpContextForge.image.pullPolicy }}
+          {{- $pluginsConfigFile := default "plugins/config.yaml" .Values.mcpContextForge.config.PLUGINS_CONFIG_FILE }}
+
+          # Gateway's internal port
+          ports:
+            - containerPort: {{ .Values.mcpContextForge.containerPort }}
+
+          {{- /* LOCAL TIBCO MOD (PCP-21191): wrap the image CMD in a tiny prelude that
+                 rebuilds a URL-encoded DATABASE_URL (and, on any $(VAR)-assembled Redis
+                 auth path, REDIS_URL) from the discrete POSTGRES/REDIS env vars, then exec
+                 the original entrypoint. K8s $(VAR) substitution does not URL-encode, so
+                 reserved chars in a password would corrupt the DSN. exec preserves
+                 PID1/signal semantics and the entrypoint's MCP_RUST_DATABASE_URL derivation.
+                 KEEP-IN-SYNC with Containerfile CMD ["./docker-entrypoint.sh"] + WORKDIR /app
+                 (IBM/mcp-context-forge).
+                 LOCAL TIBCO MOD (PCP-20474): the effective-external path (redis.external.* or
+                 an orchestrator-injected global.cp.resources.redisconfig) assembles REDIS_URL
+                 from $(REDIS_PASSWORD) too, so it MUST run the same encoder — with the injected
+                 scheme (redisExternalTls → rediss://) and db index. The bundled gate therefore
+                 uses redisExternalEnabled (an injected redisconfig leaves redis.external.enabled
+                 false), so exactly ONE branch fires; the existingSecret / external.url paths
+                 carry a pre-encoded REDIS_URL (PCP-20560) and are intentionally skipped. */}}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+{{ include "mcp-stack.databaseUrlEncode" . | indent 14 }}
+{{- if and (not (eq (include "mcp-stack.redisExternalEnabled" .) "true")) .Values.redis.enabled .Values.redis.auth.enabled }}
+{{ include "mcp-stack.redisUrlEncode" (dict "scheme" (ternary "rediss" "redis" (or .Values.redis.tls.enabled (eq (include "mcp-stack.bundledRedisServerTls" .) "true")))) | indent 14 }}
+{{- else if and (eq (include "mcp-stack.renderExternalRedisSecret" .) "true") (not .Values.redis.external.url) }}
+{{ include "mcp-stack.redisUrlEncode" (dict "scheme" (ternary "rediss" "redis" (eq (include "mcp-stack.redisExternalTls" .) "true")) "db" (include "mcp-stack.redisExternalDb" .)) | indent 14 }}
+{{- end }}
+              exec /app/docker-entrypoint.sh
+
+          ################################################################
+          # EXPLICIT ENV-VARS
+          # - DB/cache endpoints must be set here so they can be used as
+          #   placeholders in the derived URL variables declared below.
+          ################################################################
+          env:
+            # ---------- POSTGRES (via PgBouncer if enabled) ----------
+            - name: POSTGRES_HOST
+              {{- if .Values.pgbouncer.enabled }}
+              value: {{ printf "%s-pgbouncer" (include "mcp-stack.fullname" .) }}
+              {{- else if .Values.postgres.external.enabled }}
+              {{- if .Values.postgres.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . }}
+                  key: {{ .Values.postgres.external.hostKey | default "host" }}
+              {{- else }}
+              value: {{ include "mcp-stack.externalPg.host" . | quote }}
+              {{- end }}
+              {{- else }}
+              value: {{ printf "%s-postgres" (include "mcp-stack.fullname" .) }}
+              {{- end }}
+            - name: POSTGRES_PORT
+              {{- if .Values.pgbouncer.enabled }}
+              value: "{{ .Values.pgbouncer.service.port }}"
+              {{- else if .Values.postgres.external.enabled }}
+              {{- if .Values.postgres.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . }}
+                  key: {{ .Values.postgres.external.portKey | default "port" }}
+              {{- else }}
+              value: "{{ include "mcp-stack.externalPg.port" . }}"
+              {{- end }}
+              {{- else }}
+              value: "{{ .Values.mcpContextForge.env.postgres.port }}"
+              {{- end }}
+            - name: POSTGRES_DB
+              {{- if .Values.postgres.external.enabled }}
+              {{- if .Values.postgres.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: {{ .Values.postgres.external.databaseKey | default "dbname" }}
+              {{- else }}
+              value: {{ include "mcp-stack.externalPg.database" . | quote }}
+              {{- end }}
+              {{- else }}
+              value: "{{ .Values.mcpContextForge.env.postgres.db }}"
+              {{- end }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: {{ if .Values.postgres.external.enabled }}{{ .Values.postgres.external.userKey | default "user" }}{{ else }}POSTGRES_USER{{ end }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: {{ if .Values.postgres.external.enabled }}{{ .Values.postgres.external.passwordKey | default "password" }}{{ else }}POSTGRES_PASSWORD{{ end }}
+
+            # ---------- REDIS ----------
+            {{- /* LOCAL TIBCO MOD (PCP-20474): effective external-Redis values. These collapse to the
+                   plain .Values.redis.external.* when no orchestrator-injected
+                   global.cp.resources.redisconfig block is present (default render unchanged), and to the
+                   injected instance when it is. Keep on upstream mcp-stack re-sync. */}}
+            {{- $redisExtEnabled := eq (include "mcp-stack.redisExternalEnabled" .) "true" }}
+            {{- $redisExtHasSecret := eq (include "mcp-stack.renderExternalRedisSecret" .) "true" }}
+            {{- if $redisExtEnabled }}
+            {{- if and (not .Values.redis.external.existingSecret) (not .Values.redis.external.url) }}
+            - name: REDIS_HOST
+              value: {{ include "mcp-stack.redisExternalHost" . | quote }}
+            - name: REDIS_PORT
+              value: "{{ include "mcp-stack.redisExternalPort" . }}"
+            {{- if $redisExtHasSecret }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.redisExternalSecretName" . | quote }}
+                  key: REDIS_PASSWORD
+            {{- end }}
+            {{- end }}
+            {{- else if or .Values.redis.enabled .Values.mcpContextForge.env.redis.host }}
+            - name: REDIS_HOST
+              value: {{ .Values.mcpContextForge.env.redis.host | default (printf "%s-redis" (include "mcp-stack.fullname" .)) | quote }}
+            - name: REDIS_PORT
+              value: "{{ .Values.mcpContextForge.env.redis.port }}"
+            {{- if and .Values.redis.enabled .Values.redis.auth.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.redisSecretName" . | trim | quote }}
+                  key: {{ .Values.redis.auth.passwordKey | default "REDIS_PASSWORD" }}
+            {{- end }}
+            {{- else }}
+            - name: REDIS_HOST
+              value: ""
+            - name: REDIS_PORT
+              value: ""
+            {{- end }}
+
+            # ---------- METRICS ----------
+            {{- if .Values.mcpContextForge.metrics.enabled }}
+            - name: ENABLE_METRICS
+              value: "{{ .Values.mcpContextForge.metrics.enabled }}"
+            {{- if .Values.mcpContextForge.metrics.excludedHandlers }}
+            - name: METRICS_EXCLUDED_HANDLERS
+              value: "{{ .Values.mcpContextForge.metrics.excludedHandlers }}"
+            {{- end }}
+            {{- if .Values.mcpContextForge.metrics.customLabels }}
+            - name: METRICS_CUSTOM_LABELS
+              value: "{{ range $key, $value := .Values.mcpContextForge.metrics.customLabels }}{{ $key }}={{ $value }},{{ end }}"
+            {{- end }}
+            {{- else }}
+            - name: ENABLE_METRICS
+              value: "false"
+            {{- end }}
+
+            # ---------- OPENTELEMETRY (from DP o11y-service ConfigMap) ----------
+            # Same pattern as bwprovisioner. optional: true = graceful when o11y not deployed.
+            # dig-guard global.otel so the subchart renders standalone (no parent global) without a nil-pointer.
+            {{- if dig "otel" "enabled" false (.Values.global | default dict) }}
+            - name: OTEL_ENABLE_OBSERVABILITY
+              value: "true"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_SERVICE_NAME
+              value: {{ dig "otel" "serviceName" "" (.Values.global | default dict) | default "mcp-gateway" | quote }}
+            - name: OBSERVABILITY_ENABLED
+              value: "true"
+            - name: OTEL_TRACES_SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: o11y-service
+                  key: otel-recv-traces-name
+                  optional: true
+            - name: OTEL_TRACES_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: o11y-service
+                  key: otel-recvservice-port
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://$(OTEL_TRACES_SERVICE_NAME).{{ .Release.Namespace }}.svc.cluster.local:$(OTEL_TRACES_SERVICE_PORT)"
+            {{- end }}
+
+            # ---------- DERIVED URLS ----------
+            # LOCAL TIBCO MOD (PCP-21191): DATABASE_URL is NO LONGER declared here.
+            # It is assembled with PERCENT-ENCODED credentials by the container
+            # command prelude (mcp-stack.databaseUrlEncode). K8s $(VAR) substitution
+            # is a literal replace with no URL-encoding, so a POSTGRES_USER/PASSWORD
+            # containing reserved chars (@ : / # ?) would corrupt the DSN. REDIS_URL
+            # is still declared below; on the bundled-Redis+auth path it is likewise
+            # re-exported encoded at runtime by mcp-stack.redisUrlEncode.
+            {{- /* LOCAL TIBCO MOD (PCP-20275): bundled-Redis server-side TLS gate (single source,
+                   identical expression across all templates). When true the bundled server serves
+                   rediss:// and the gateway auto-implies client TLS + the CA mount. Keep on upstream
+                   mcp-stack (github.com/IBM/mcp-context-forge) re-sync. */}}
+            {{- $bundledServerTls := eq (include "mcp-stack.bundledRedisServerTls" .) "true" }}
+            {{- /* LOCAL TIBCO MOD (PCP-20275): serverTls governs ONLY the bundled server. Combining it
+                   with an external/overridden target is a misconfig → fail-fast (not a silent no-op).
+                   LOCAL TIBCO MOD (PCP-20474): an orchestrator-injected redisconfig is also an external
+                   target (redis.external.enabled stays false, so it would slip past the raw checks),
+                   so the OR also triggers on the effective-external/injected path — otherwise serverTls
+                   would suppress the bundled Redis yet leave bundledRedisServerTls true and mount the
+                   bundled self-signed CA against the EXTERNAL Redis (TLS verify failure). */}}
+            {{- if .Values.redis.serverTls.enabled }}
+              {{- if or (not .Values.redis.enabled) .Values.redis.external.enabled .Values.mcpContextForge.env.redis.host (eq (include "mcp-stack.redisConfigInjected" .) "true") }}
+                {{- fail "redis.serverTls.enabled=true governs ONLY the bundled in-cluster Redis. It is incompatible with redis.enabled=false, redis.external.enabled=true, a set mcpContextForge.env.redis.host, or an orchestrator-injected global.cp.resources.redisconfig. Disable serverTls and use redis.tls.enabled=true (with a rediss:// external.url) to target an external TLS Redis." }}
+              {{- end }}
+            {{- end }}
+            {{- /* PCP-20216 / TT-22 — opt-in Redis client TLS. Fail-fast on unsafe combos so the
+                   manifest can never silently produce a broken or plaintext-despite-flag connection.
+                   LOCAL TIBCO MOD (PCP-20275): the bundled-plaintext fail-fast is now narrowed with
+                   (not serverTls.enabled) — client TLS against the bundled server is SAFE once the
+                   server serves TLS, so the both-on combo is allowed; client-TLS-without-server-TLS
+                   against the bundled Redis still fail-fasts. */}}
+            {{- if .Values.redis.tls.enabled }}
+              {{- if and .Values.redis.enabled (not .Values.redis.external.enabled) (not .Values.mcpContextForge.env.redis.host) (not .Values.redis.serverTls.enabled) }}
+                {{- fail "redis.tls.enabled=true is not supported with the bundled in-cluster Redis (redis.enabled=true) unless redis.serverTls.enabled=true (which makes the bundled server serve TLS). Otherwise set redis.enabled=false and target a TLS-capable Redis via redis.external.url=rediss://... or mcpContextForge.env.redis.host." }}
+              {{- end }}
+              {{- if and .Values.redis.external.enabled .Values.redis.external.url (not (hasPrefix "rediss://" .Values.redis.external.url)) }}
+                {{- fail "redis.tls.enabled=true requires redis.external.url to use the rediss:// scheme." }}
+              {{- end }}
+            {{- end }}
+            {{- /* LOCAL TIBCO MOD (PCP-20275): serverTls alone implies the rediss:// scheme — one knob
+                   closes CWE-319 end-to-end without also setting redis.tls.enabled.
+                   LOCAL TIBCO MOD (PCP-20474): client-TLS now also honours the orchestrator-injected
+                   global.cp.resources.redisconfig.redisTls flag (mcp-stack.redisExternalTls collapses to
+                   redis.tls.enabled when no block is injected, so the default render is unchanged). */}}
+            {{- $redisExtClientTls := eq (include "mcp-stack.redisExternalTls" .) "true" }}
+            {{- $redisScheme := ternary "rediss" "redis" (or $redisExtClientTls $bundledServerTls) }}
+            {{- /* Effective TLS = client-tls OR bundled-server-tls OR an explicit rediss:// external.url,
+                   so REDIS_SSL is paired with the scheme in both directions (no warn-state). */}}
+            {{- $effTls := or $redisExtClientTls $bundledServerTls (and $redisExtEnabled .Values.redis.external.url (hasPrefix "rediss://" .Values.redis.external.url)) }}
+            - name: REDIS_URL
+              {{- if $redisExtEnabled }}
+              {{- if .Values.redis.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.external.existingSecret }}
+                  key: {{ .Values.redis.external.urlKey | default "REDIS_URL" }}
+              {{- else if .Values.redis.external.url }}
+              value: {{ .Values.redis.external.url | quote }}
+              {{- else if $redisExtHasSecret }}
+              {{- /* LOCAL TIBCO MOD (PCP-20474): a password is in play (chart value or injected
+                     secretRedisPassword) — embed ':$(REDIS_PASSWORD)@' so the gateway authenticates to
+                     the external Redis. REDIS_PASSWORD is sourced above from the <fullname>-redis-external
+                     Secret. */}}
+              value: "{{ $redisScheme }}://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/{{ include "mcp-stack.redisExternalDb" . }}"
+              {{- else }}
+              value: "{{ $redisScheme }}://$(REDIS_HOST):$(REDIS_PORT)/{{ include "mcp-stack.redisExternalDb" . }}"
+              {{- end }}
+            {{- else if or .Values.redis.enabled .Values.mcpContextForge.env.redis.host }}
+              {{- if and .Values.redis.enabled .Values.redis.auth.enabled }}
+              value: "{{ $redisScheme }}://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+              {{- else }}
+              value: "{{ $redisScheme }}://$(REDIS_HOST):$(REDIS_PORT)/0"
+              {{- end }}
+              {{- else }}
+              value: ""
+              {{- end }}
+            {{- /* PCP-20216 / TT-22 — pair REDIS_SSL=true with the rediss:// scheme. Base TLS comes
+                   from the rediss:// URL itself (redis-py verifies the cert by default); REDIS_SSL=true
+                   makes the gateway apply any advanced TLS kwargs (CA bundle / mTLS / hostname check via
+                   extraEnv) and silences its rediss-without-REDIS_SSL warning (mcpgateway redis_client.py). */}}
+            {{- if $effTls }}
+            - name: REDIS_SSL
+              value: "true"
+            {{- end }}
+            {{- /* LOCAL TIBCO MOD (PCP-20275): auto-trust the bundled server's (self-signed) CA. The
+                   CA is mounted read-only at /tls/ca.crt from the shared redisTlsSecretName secret
+                   (volumeMounts below). The chart sets REDIS_SSL_CA_CERTS=/tls/<caKey> as a sensible
+                   default; an operator MAY override it via mcpContextForge.extraEnv, which is
+                   intentionally emitted LAST (kubelet env is last-wins — see the extraEnv block below).
+                   Keep on re-sync. */}}
+            {{- if $bundledServerTls }}
+            - name: REDIS_SSL_CA_CERTS
+              value: /tls/{{ .Values.redis.serverTls.caKey }}
+            {{- end }}
+
+            # ---------- EXTRA ENV (user-defined) ----------
+            # Placed last so users can override any variable including derived URLs
+            {{- if .Values.mcpContextForge.extraEnv }}
+            {{- toYaml .Values.mcpContextForge.extraEnv | nindent 12 }}
+            {{- end }}
+            {{- if .Values.mcpContextForge.pluginConfig.enabled }}
+            # Keep runtime lookup path in sync with plugin config mount path.
+            # This intentionally comes after extraEnv so it cannot drift.
+            - name: PLUGINS_CONFIG_FILE
+              value: {{ $pluginsConfigFile | quote }}
+            {{- end }}
+            # [PCP-20499] Migration ownership: with migration.enabled=true the dedicated
+            # migration Job (post-install,pre-upgrade hook) owns the schema; gateway pods
+            # skip the inline `alembic upgrade head` and only fast-check schema-at-head, so a
+            # slow external PG's long migration can no longer be SIGKILL'd by the liveness
+            # probe (the exit-137 crash-loop this fixes). With false, each pod runs the
+            # advisory-lock migration itself. Placed after extraEnv so an operator's extraEnv
+            # cannot override the contract. Ported from upstream mcp-stack — keep on re-sync.
+            - name: MCPGATEWAY_SKIP_MIGRATIONS
+              value: {{ ternary "true" "false" .Values.migration.enabled | quote }}
+            {{- if include "mcp-stack.fluentbit.enabled" . }}
+            # PCP-22768: when the fluentbit sidecar is enabled, emit JSON application
+            # logs to a file on the shared 'logs' emptyDir so the sidecar can tail +
+            # ship them (stdout logging is unaffected — ContextForge uses dual handlers).
+            # Explicit `env` entries override the gateway-config ConfigMap defaults
+            # (a container `env` entry always wins over `envFrom`). The container has a
+            # read-only root filesystem, so LOG_FOLDER MUST resolve to the writable
+            # 'logs' emptyDir mounted below.
+            - name: LOG_TO_FILE
+              value: "true"
+            - name: LOG_FOLDER
+              value: /var/log/mcpgateway
+            - name: LOG_FILE
+              value: mcpgateway.jsonl
+            {{- end }}
+            {{- /* LOCAL TIBCO MOD: full-mode tp-mcp-gateway-proxy auth rewire. When the
+                   tp-mcp-gateway-proxy sidecar fronts the pod (gated below), it is the SOLE inbound path —
+                   bind the gateway to loopback and trust the sidecar's X-Authenticated-User header.
+                   Emitted as explicit container `env` entries: explicit `env` ALWAYS takes precedence
+                   over `envFrom` (the bulk config), independent of ordering, so these win regardless of
+                   where the envFrom block sits. KEEP IN SYNC with templates/lite-deployment.yaml.
+                   PCP-20569: gated on $proxyFronts (proxy on OR discovery on), NOT tibcoProxy alone, so
+                   it matches the sidecar/service/ingress port front — in discovery-only mode the proxy
+                   still fronts the pod and is the sole inbound path. Keep on upstream mcp-stack
+                   (github.com/IBM/mcp-context-forge) re-sync. */}}
+            {{- if $proxyFronts }}
+            # sidecar is the sole inbound path — bind loopback only
+            - name: HOST
+              value: "127.0.0.1"
+            - name: TRUST_PROXY_AUTH
+              value: "true"
+            - name: TRUST_PROXY_AUTH_DANGEROUSLY
+              value: "true"
+            - name: PROXY_USER_HEADER
+              value: "X-Authenticated-User"
+            {{- end }}
+
+          ################################################################
+          # BULK ENV-VARS - pulled from ConfigMap + Secret
+          ################################################################
+          envFrom:
+            - secretRef:
+                name: {{ include "mcp-stack.fullname" . }}-gateway-secret
+            - configMapRef:
+                name: {{ include "mcp-stack.fullname" . }}-gateway-config
+            {{- if .Values.mcpContextForge.extraEnvFrom }}
+            {{- /* tpl so a parent-supplied entry may reference a release-scoped ConfigMap/Secret name (PCP-20591) */}}
+            {{- tpl (toYaml .Values.mcpContextForge.extraEnvFrom) . | nindent 12 }}
+            {{- end }}
+
+          ################################################################
+          # HEALTH & READINESS PROBES
+          ################################################################
+          {{- if .Values.migration.enabled }}
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Schema-at-head guard: refuse Ready until alembic_version
+                  # matches the script-directory head. This is the chart-level
+                  # invariant — pods cannot serve traffic against a half-
+                  # migrated DB regardless of which entity (pre-install Job,
+                  # post-install Job, init container, external CD pipeline)
+                  # is responsible for running migrations.
+                  if [ -f /tmp/schema_at_head_done ]; then
+                    exit 0
+                  fi
+                  # LOCAL TIBCO MOD (PCP-21191): this probe is a SEPARATE exec that does
+                  # not inherit the container-command prelude, so it must re-encode
+                  # DATABASE_URL itself before check_schema_at_head reads it. Placed AFTER
+                  # the fast-path marker so a passed check does not re-fork python3 each tick.
+{{ include "mcp-stack.databaseUrlEncode" . | indent 18 }}
+                  python3 -m mcpgateway.utils.check_schema_at_head || exit 1
+                  touch /tmp/schema_at_head_done
+                  exit 0
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 15
+            failureThreshold: 60    # Allow up to 5 minutes for migration to complete
+          {{- else }}
+          {{- with .Values.mcpContextForge.probes.startup }}
+          startupProbe:
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          {{- /* LOCAL TIBCO MOD: when the tp-mcp-gateway-proxy sidecar fronts inbound traffic
+                 on Path B (:80), the gateway listens on loopback only, so the probes must hit the
+                 proxy front (:80) instead of the gateway's own port. Flip ONLY the probe port,
+                 mirroring templates/lite-deployment.yaml. PCP-20569: gated on $proxyFronts (proxy on
+                 OR discovery on, defined at the top of this file), NOT tibcoProxy alone, so the probe
+                 port tracks the same :80 front as the sidecar/service/ingress and the gateway
+                 HOST/TRUST_PROXY_AUTH env above. Keep on upstream mcp-stack
+                 (github.com/IBM/mcp-context-forge) re-sync. */}}
+          {{- with .Values.mcpContextForge.probes.readiness }}
+          {{- $probe := . }}
+          {{- if $proxyFronts }}{{ $probe = merge (dict "port" 80) (deepCopy .) }}{{ end }}
+          readinessProbe:
+{{- include "helpers.renderProbe" (dict "probe" $probe "root" $) | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.mcpContextForge.probes.liveness }}
+          {{- $probe := . }}
+          {{- if $proxyFronts }}{{ $probe = merge (dict "port" 80) (deepCopy .) }}{{ end }}
+          livenessProbe:
+{{- include "helpers.renderProbe" (dict "probe" $probe "root" $) | nindent 12 }}
+          {{- end }}
+
+          # Resource requests / limits
+          resources:
+{{- toYaml .Values.mcpContextForge.resources | nindent 12 }}
+
+          # [PCP-20209] /tmp must be writable under readOnlyRootFilesystem (startup-probe
+          # marker, gunicorn lock/pid + worker heartbeat, migration/leader FileLocks — all
+          # resolve under tempfile.gettempdir() == /tmp). Emitted UNCONDITIONALLY; the plugin
+          # config mount stays conditional inside.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if include "mcp-stack.fluentbit.enabled" . }}
+            # PCP-22768: shared dir where the gateway writes its JSON log file and
+            # the fluentbit sidecar tails it.
+            - name: logs
+              mountPath: /var/log/mcpgateway
+            {{- end }}
+            {{- if .Values.mcpContextForge.pluginConfig.enabled }}
+            - name: plugin-config-volume
+              mountPath: /app/{{ $pluginsConfigFile }}
+              subPath: config.yaml
+            {{- end }}
+            {{- /* LOCAL TIBCO MOD (PCP-20275): mount the bundled server's CA (CA-only projection of
+                   the shared redisTlsSecretName secret) read-only at /tls so the client can verify
+                   the self-signed cert; REDIS_SSL_CA_CERTS points here. Keep on re-sync. */}}
+            {{- if $bundledServerTls }}
+            - name: redis-tls-ca
+              mountPath: /tls
+              readOnly: true
+            {{- end }}
+            {{- /* LOCAL TIBCO MOD (PCP-20275): generic extra volume-mounts passthrough (the ticket's
+                   cert-mount gap; also the vehicle for a future operator mTLS client cert). */}}
+            {{- with .Values.mcpContextForge.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- /* LOCAL TIBCO MOD: generic extra sidecar-containers passthrough, emitted AFTER
+               the gateway container (and before the inlined discovery/tp-mcp-gateway-proxy sidecars below) so it
+               cannot reorder/shadow the gateway container. tpl-rendered so values may reference release
+               scope. Keep on upstream mcp-stack (github.com/IBM/mcp-context-forge) re-sync. */}}
+        {{- with .Values.mcpContextForge.extraContainers }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        {{- /* =====================================================================
+               LOCAL TIBCO MOD: full-mode discovery + tp-mcp-gateway-proxy sidecars.
+               Gated on the sub-chart-visible global.tpMcpGateway.* flags (Helm does not
+               pass the parent's top-level .Values into a sub-chart, so these CANNOT be
+               wired from the parent's mcpContextForge.* values — only global.* reaches
+               here). Content is inlined here, mirroring templates/lite-deployment.yaml
+               (~lines 190-242) and the top-level discovery.* / tibcoProxy.* defaults.
+               IMAGES are value-driven: the image repository/tag are read from
+               global.tpMcpGateway.{discovery,tibcoProxy}.image.* (seeded in the parent
+               values.yaml to mirror the top-level discovery.image / tibcoProxy.image), so
+               they can never drift from lite and are pinned by the automated release.
+               KEEP IN SYNC with templates/lite-deployment.yaml and the parent values.yaml
+               discovery.config / tibcoProxy.* literals that REMAIN inlined here (the env /
+               config keys); the sub-chart can't reference those parent keys, so those are
+               reproduced as literals — keep them in sync on any config change. Namespace +
+               dataplane id are rendered from global (NOT hardcoded). Keep on upstream
+               mcp-stack re-sync.
+               ===================================================================== */}}
+        {{- if $discoveryOn }}
+        # discovery — auto-discovers MCP-enabled BW/Flogo apps (default ON).
+        # KEEP IN SYNC with templates/lite-deployment.yaml discovery container (~lines 190-221).
+        - name: discovery
+          # Image read from global.tpMcpGateway.discovery.image.* (mirrors the parent's
+          # top-level discovery.image). The `dig "" ... | default` form falls back when the
+          # key is absent OR present-but-empty (e.g. --reuse-values / an explicit "") so the
+          # image renders even when global is present without tpMcpGateway.*.image.* keys and
+          # never silently de-pins to a trailing ":" (which kubelet resolves to :latest).
+          {{- /* digest (PCP-23089) deliberately has NO `| default`: an absent digest is the
+                 legitimate un-pinned state, and mcp-stack.image then renders tag-only exactly
+                 as before. A made-up default digest would pin the wrong content.
+                 LOCAL TIBCO MOD (PCP-23125): the repository half is composed the same way as
+                 every other site here, and the `| default` FALLBACK literal goes BARE in lockstep
+                 with the parent's global.tpMcpGateway.discovery.image.repository. Leaving it
+                 fully-qualified would render a DOUBLE-PREFIXED ref on the very path the fallback
+                 exists for — a --reuse-values upgrade that drops the global.tpMcpGateway.*.image
+                 keys. A stale PRESENT-but-qualified value is caught by
+                 mcp-stack.image.bareRepository instead of being prefixed twice. */}}
+          image: {{ include "mcp-stack.image" (dict
+                     "repository" (printf "%s/%s/%s" $reg $rrepo (include "mcp-stack.image.bareRepository" (dig "tpMcpGateway" "discovery" "image" "repository" "" (.Values.global | default dict) | default "tp-mcp-discovery")))
+                     "tag"        (dig "tpMcpGateway" "discovery" "image" "tag" "" (.Values.global | default dict) | default "MUST-BE-SET-BY-PARENT-CHART")
+                     "digest"     (dig "tpMcpGateway" "discovery" "image" "digest" "" (.Values.global | default dict))
+                   ) | quote }}
+          imagePullPolicy: "{{ dig "tpMcpGateway" "discovery" "image" "pullPolicy" "" (.Values.global | default dict) | default "IfNotPresent" }}"
+          ports:
+            - containerPort: 8080
+          env:
+            # Literal mirror of the parent's top-level discovery.config (sub-chart can't read it).
+            - name: DISCOVERY_ANNOTATION_KEY
+              value: "platform.tibco.com/connectors"
+            - name: DISCOVERY_ANNOTATION_MATCH
+              value: "MCP"
+            - name: MCP_PATH_BW
+              value: "/rest/mcp,/soap/mcp"
+            - name: DISCOVERY_PROBE_FALLBACK
+              value: "true"
+            - name: DISCOVERY_PROBE_PATHS
+              value: "/mcp,/rest/mcp,/soap/mcp"
+            - name: DISCOVERY_PROBE_NEGATIVE_TTL_MS
+              value: "450000"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+        {{- /* PCP-20569 (Option B): the tp-mcp-gateway-proxy sidecar fronts inbound traffic when the proxy
+               is on OR discovery is on (discovery is now path-routed IN-POD by the proxy — no dedicated
+               discovery Ingress / :8080 Service). Gated on the sub-chart-visible global equivalents,
+               consistent with the discovery/tp-mcp-gateway-proxy gating above ($proxyFronts, defined at the top
+               of this file). KEEP IN SYNC with templates/lite-deployment.yaml tp-mcp-gateway-proxy container. */}}
+        {{- if $proxyFronts }}
+        # tp-mcp-gateway-proxy — CP auth (Path A :81) + anti-spoofing (Path B :80) + in-pod discovery routing.
+        # KEEP IN SYNC with templates/lite-deployment.yaml tp-mcp-gateway-proxy container (~lines 222-242).
+        - name: tp-mcp-gateway-proxy
+          # Image read from global.tpMcpGateway.tibcoProxy.image.* (mirrors the parent's
+          # top-level tibcoProxy.image). The `dig "" ... | default` form falls back when the
+          # key is absent OR present-but-empty (e.g. --reuse-values / an explicit "") so the
+          # image renders even when global is present without tpMcpGateway.*.image.* keys and
+          # never silently de-pins to a trailing ":" (which kubelet resolves to :latest).
+          {{- /* digest (PCP-23089) deliberately has NO `| default`: an absent digest is the
+                 legitimate un-pinned state, and mcp-stack.image then renders tag-only exactly
+                 as before. A made-up default digest would pin the wrong content.
+                 LOCAL TIBCO MOD (PCP-23125): composed repository + BARE fallback literal,
+                 exactly as for the discovery sidecar above. */}}
+          image: {{ include "mcp-stack.image" (dict
+                     "repository" (printf "%s/%s/%s" $reg $rrepo (include "mcp-stack.image.bareRepository" (dig "tpMcpGateway" "tibcoProxy" "image" "repository" "" (.Values.global | default dict) | default "tp-mcp-gateway-proxy")))
+                     "tag"        (dig "tpMcpGateway" "tibcoProxy" "image" "tag" "" (.Values.global | default dict) | default "MUST-BE-SET-BY-PARENT-CHART")
+                     "digest"     (dig "tpMcpGateway" "tibcoProxy" "image" "digest" "" (.Values.global | default dict))
+                   ) | quote }}
+          imagePullPolicy: "{{ dig "tpMcpGateway" "tibcoProxy" "image" "pullPolicy" "" (.Values.global | default dict) | default "IfNotPresent" }}"
+          ports:
+            - name: external
+              containerPort: 80
+            - name: cp-internal
+              containerPort: 81
+          env:
+            # DATAPLANE_NAME from global.cp.dataplaneId (the recipe dpName is a top-level key the
+            # sub-chart can't see; dataplaneId is the stable identifier the orchestrator injects).
+            # RECIPE CONTRACT: global.cp.dataplaneId MUST equal the top-level dpName (which lite sources
+            # via .Values.dpName) so lite and full emit the SAME DATAPLANE_NAME.
+            {{- /* PCP-20920 LOCAL MOD: dig-guard global.cp so this subchart renders standalone
+                   (no parent global) without a nil-pointer. Parents ship dataplaneId: "", so the
+                   rendered value is unchanged for every real parent render — only the standalone
+                   case changes (nil-pointer error -> ""). Non-rendering comment on purpose: it
+                   keeps the emitted manifest byte-identical. */}}
+            - name: DATAPLANE_NAME
+              value: {{ dig "cp" "dataplaneId" "" (.Values.global | default dict) | quote }}
+            # CP_DOMAIN rendered from global (NOT hardcoded), mirroring tp-mcp-gateway.cp.domain.
+            # KEEP IN SYNC with tp-mcp-gateway.cp.domain helper (templates/_helpers.tpl) — the sub-chart
+            # can't include a parent helper, so this literal reproduces that helper's body.
+            {{- /* PCP-20920 LOCAL MOD: dig-guard as above. Parents ship
+                   serviceaccount.namespace: "", so this already renders
+                   "cp-proxy..svc.cluster.local" today — standalone-only change. */}}
+            - name: CP_DOMAIN
+              value: "cp-proxy.{{ dig "cp" "resources" "serviceaccount" "namespace" "" (.Values.global | default dict) }}.svc.cluster.local"
+            - name: PLATFORM_ADMIN_EMAIL
+              value: "mcp-hub-admin@platform.local"
+            - name: TIBCO_PROXY_TRUST_CP_NETWORK
+              value: "true"
+            # PCP-20569 (Option B): in-pod discovery routing. The proxy path-routes
+            # DISCOVERY_PATH_PREFIX to the in-pod discovery upstream on loopback :8080 — no dedicated
+            # discovery Ingress / Service. Hardcoded literal "/_discovery" because the sub-chart can't
+            # read the parent's discovery.subPath — so a non-default discovery.subPath is honored in
+            # LITE only (full mode is always "/_discovery"; KEEP IN SYNC with the lite default in
+            # tp-mcp-gateway.discoverySubPath). Emitted ONLY when discovery is on: a proxy-on +
+            # discovery-off pod has no in-pod discovery upstream, so advertising http://127.0.0.1:8080
+            # would 502 on /_discovery.
+            {{- if $discoveryOn }}
+            - name: DISCOVERY_PATH_PREFIX
+              value: "/_discovery"
+            - name: DISCOVERY_UPSTREAM
+              value: "http://127.0.0.1:8080"
+            {{- end }}
+          {{- /* PCP-20569: writable /tmp at parity with the gateway/discovery siblings — a
+                 read-only rootfs must not break the proxy if it ever needs scratch space.
+                 Reuses the EXISTING shared pod-level `tmp` emptyDir. KEEP IN SYNC with
+                 templates/lite-deployment.yaml tp-mcp-gateway-proxy volumeMounts. */}}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          {{- /* PCP-20569: harden the tp-mcp-gateway-proxy container at parity with its gateway/discovery
+                 siblings (it now renders by default since discovery is default-on). The proxy writes
+                 nothing to disk, so readOnlyRootFilesystem is safe. KEEP IN SYNC with
+                 templates/lite-deployment.yaml tp-mcp-gateway-proxy securityContext. */}}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+        {{- /* PCP-22768: fluentbit sidecar — tails the gateway's JSON application-log file
+               and ships it to the DP log collector (otel-userapp-logs). Gated so the pod is
+               byte-identical to before when fluentbit is disabled. Hardened
+               (readOnlyRootFilesystem) at parity with the gateway/discovery/proxy siblings;
+               the tail DB + log file live on the writable 'logs' emptyDir and scratch on the
+               shared 'tmp' emptyDir. KEEP IN SYNC with the source chart
+               (tp-mcp-gateway/charts/mcp-stack) and templates/lite-deployment.yaml. */}}
+        {{- if include "mcp-stack.fluentbit.enabled" . }}
+        - name: fluentbit
+          {{- /* LOCAL TIBCO MOD (PCP-23125): container-registry indirection.
+                 global.tibco.logging.fluentbit.image.repository is a SHARED key — this site and
+                 the parent chart's templates/lite-deployment.yaml both read it, so both must
+                 compose the prefix or the half that does not renders a bare, unpullable
+                 `common-fluentbit:<tag>`. No `digest` is declared for it: fluentbit is a mirrored
+                 third-party image that release-alpha.sh does not pin, and the mcp-stack.image
+                 helper treats an absent digest as the tag-only case. Covered by
+                 dev/mcp-gateway-render-tests/container-registry-assert.sh [F]. */}}
+          {{- $fbImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "mcp-stack.image.bareRepository" .Values.global.tibco.logging.fluentbit.image.repository))) .Values.global.tibco.logging.fluentbit.image }}
+          image: {{ include "mcp-stack.image" $fbImg | quote }}
+          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          ports:
+            - name: http-metrics
+              containerPort: 2020
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CONTAINER_NAME
+              value: mcp-context-forge
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/mcpgateway
+            - name: fluentbit-config
+              mountPath: /fluent-bit/etc/
+            - name: tmp
+              mountPath: /tmp
+          resources:
+{{- toYaml .Values.global.tibco.logging.fluentbit.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            # PCP-22768: common-fluentbit runs as root by default; runAsUser MUST be set
+            # or runAsNonRoot rejects it (CreateContainerConfigError). Verified on a real DP.
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.mcpContextForge.pluginConfig.enabled }}
+        - name: plugin-config-volume
+          configMap:
+            name: {{ include "mcp-stack.fullname" . }}-gateway-plugins
+            items:
+              - key: config.yaml
+                path: config.yaml
+        {{- end }}
+        {{- if include "mcp-stack.fluentbit.enabled" . }}
+        # PCP-22768: shared log dir (gateway writes, fluentbit tails) + sidecar config.
+        - name: logs
+          emptyDir: {}
+        - name: fluentbit-config
+          configMap:
+            name: {{ include "mcp-stack.fullname" . }}-fluentbit-config
+        {{- end }}
+        {{- /* LOCAL TIBCO MOD (PCP-20275): CA-only projection of the shared Redis TLS secret. */}}
+        {{- if $bundledServerTls }}
+        - name: redis-tls-ca
+          secret:
+            secretName: {{ include "mcp-stack.redisTlsSecretName" . }}
+            items:
+              - key: {{ .Values.redis.serverTls.caKey }}
+                path: {{ .Values.redis.serverTls.caKey }}
+        {{- end }}
+        {{- /* LOCAL TIBCO MOD (PCP-20275): generic extra volumes passthrough. */}}
+        {{- with .Values.mcpContextForge.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
