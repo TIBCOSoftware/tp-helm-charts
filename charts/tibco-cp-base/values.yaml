@@ -107,9 +107,13 @@ global:
       distrolessDebug:
         tag: 13.5
       cpScripts:
-        tag: "9590"
+        tag: "9669"
       fluentbit:
-        tag: 5.0.9
+        tag: 5.1.0
+    # Capability IDs stripped from every dp-type's mandatoryInfraCapabilityLists.
+    # Validated against the allowlist in tp-cp-core/templates/configmaps.yaml.
+    # Ships with [MFTADAPTER] so MFT is off by default; set to [] to enable all.
+    disabledInfraCapabilities: [MFTADAPTER]
 
   external:
     db_host: ""

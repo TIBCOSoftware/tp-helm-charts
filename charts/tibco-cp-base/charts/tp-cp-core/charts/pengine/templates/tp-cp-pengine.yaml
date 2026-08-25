@@ -12,6 +12,10 @@ metadata:
   namespace: {{ include "tp-cp-pengine.consts.namespace" . }}
   labels:
     {{- include "tp-cp-pengine.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9892"
+    prometheus.io/path: "/metrics"
 spec:
   ports:
   - name: server
@@ -64,6 +68,12 @@ spec:
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/database-egress: enable
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "cp_pengine"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.tpcppengineservice.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.tpcppengineservice.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.tpcppengineservice.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.tpcppengineservice.resources.limits.memory | quote }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

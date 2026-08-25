@@ -160,11 +160,11 @@ elevate_cmd () {
         sudo ${PRESERVE_ENV} -E $cmd
         ;;
     has_sudo__needs_pass)
-        echo "Please supply sudo password for the following command: sudo $cmd"
+        echo "Please supply sudo password for the following command: sudo $cmd" >&2
         sudo ${PRESERVE_ENV} $cmd
         ;;
     *)
-        echo "Please supply root password for the following command: su -c \"$cmd\""
+        echo "Please supply root password for the following command: su -c \"$cmd\"" >&2
         su -c "$cmd"
         ;;
     esac
@@ -231,7 +231,7 @@ generateMicroK8sKubeConfig() {
 ################ check if microk8s is running ######
 isMicrok8sRunning() {
     isRunning=$(elevate_cmd env microk8s status --format yaml |grep -i running: | sed "s/running://g" | tr -d '[:blank:]')
-    [ ${isRunning} == "True" ]
+    [ "${isRunning}" == "True" ]
 }
 ################# check if kubernetes is running ##########
 isK8sRunning() {
@@ -285,7 +285,7 @@ create_snap_alias() {
 ensureHostPathStorage() {
     echo "[INFO] Checking hostpath-storage addon status."
     result=$(elevate_cmd env microk8s status -a hostpath-storage)
-    if [ ${result} != "enabled" ]; then
+    if [ "${result}" != "enabled" ]; then
         elevate_cmd env microk8s enable hostpath-storage
         result=$(elevate_cmd env microk8s status -a hostpath-storage)
         echo "[INFO] Checking hostpath-storage addon status:${result}"
@@ -843,21 +843,19 @@ installNetScalerGatewayController() {
         --set netscalerCpx.resources.requests.memory=512Mi \
         --set netscalerCpx.resources.limits.cpu=1 \
         --set netscalerCpx.resources.limits.memory=1Gi \
-        --set netscalerCpx.service.type=LoadBalancer \
-        --set netscalerCpx.service.spec.externalIPs[0]="${MACHINE_IP}" \
-        --set netscalerCpx.service.ports[0].port=80 \
-        --set netscalerCpx.service.ports[0].targetPort=80 \
-        --set netscalerCpx.service.ports[0].protocol=TCP \
-        --set netscalerCpx.service.ports[0].name=http \
-        --set netscalerCpx.service.ports[1].port=443 \
-        --set netscalerCpx.service.ports[1].targetPort=443 \
-        --set netscalerCpx.service.ports[1].protocol=TCP \
-        --set netscalerCpx.service.ports[1].name=https
-        
+        --set service.spec.type=LoadBalancer
+
         if [ $? -ne 0 ]; then
             echo "[ERROR] Failed to install NetScaler CPX Gateway Controller Helm chart"
             return 1
         fi
+
+        echo "[INFO] Patching NetScaler CPX service with externalIPs: ${MACHINE_IP}"
+        microk8s kubectl patch svc cpx-gateway-controller-cpx-service \
+          -n ${GATEWAY_NS} \
+          -p "{\"spec\":{\"externalIPs\":[\"${MACHINE_IP}\"]}}" && \
+          echo "[INFO] externalIPs patched successfully: ${MACHINE_IP}" || \
+          echo "[WARN] Failed to patch externalIPs, service may remain pending"
 
         echo "[INFO] Creating GatewayClass for NetScaler..."
         SUDO_ENV=${SUDO_ENV_VARS} elevate_cmd env kubectl apply -f - <<EOF
@@ -1999,14 +1997,14 @@ listInstalledControllers() {
     fi
 
     # Check for NetScaler Gateway Controller (check for actual gateway resources)
-    local netscaler_gateway=$(kubectl get gateway -n ingress -o name 2>/dev/null | grep "gateway.gateway.networking.k8s.io" | head -1 || echo "")
+    local netscaler_gateway=$(kubectl get gateway -n netscaler-cpx-gateway -o name 2>/dev/null | grep "gateway.gateway.networking.k8s.io" | head -1 || echo "")
     if [ ! -z "$netscaler_gateway" ]; then
         local netscaler_gateway_name=$(echo "$netscaler_gateway" | cut -d'/' -f2)
         local gateway_class=$(kubectl get gatewayclass -o name 2>/dev/null | grep netscaler || echo "")
         echo "✓ NetScaler CPX Gateway Controller"
         echo "  - Type: Gateway Controller"
         echo "  - GatewayClass: $gateway_class"
-        echo "  - Namespace: ingress"
+        echo "  - Namespace: netscaler-cpx-gateway"
         echo "  - Service: $netscaler_gateway_name"
         echo ""
         found=true
