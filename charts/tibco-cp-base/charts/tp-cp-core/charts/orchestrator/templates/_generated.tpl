@@ -4,5 +4,5 @@
   in the license file that is distributed with this file.
 */}}
 
-{{- define "orchestrator.generated.buildNumber" }}7864{{end -}}
-{{- define "orchestrator.generated.buildTimestamp" }}07-06-26_05.57.00_PM{{end -}}
+{{- define "orchestrator.generated.buildNumber" }}8245{{end -}}
+{{- define "orchestrator.generated.buildTimestamp" }}08-05-26_02.37.00_PM{{end -}}

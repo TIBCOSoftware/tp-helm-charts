@@ -12,6 +12,10 @@ metadata:
   namespace: {{ include "tp-identity-management.consts.namespace" . }}
   labels:
     {{- include "tp-identity-management.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9831"
+    prometheus.io/path: "/metrics"
 spec:
   ports:
   - name: server
@@ -51,6 +55,12 @@ spec:
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/database-egress: enable
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "cp_identity_management"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.idm.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.idm.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.idm.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.idm.resources.limits.memory | quote }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}

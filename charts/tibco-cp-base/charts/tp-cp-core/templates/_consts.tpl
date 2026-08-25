@@ -39,7 +39,7 @@
 {{ end -}}
 {{- define "tpcontrol-plane.consts.computeServiceName" }}compute-services.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.cpQueryNodeServiceName" }}querynode.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.tpCpBCCEServiceName" }}tp-cp-bcce-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpBCCEServiceName" }}tp-cp-bc-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpSBServiceName" }}tp-cp-sb-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBWServiceName" }}tp-cp-bw-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBW5ServiceName" }}tp-cp-bw5-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
@@ -48,7 +48,7 @@
 {{- define "tpcontrol-plane.consts.tpCpFLOGOServiceName" }}tp-cp-flogo-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpEMSServiceName" }}msg-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.19.0/doc/html{{ end -}}
+{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.20.0/doc/html{{ end -}}
 
 {{- define "cp-core-configuration.service-account-name" }}
 {{- if empty .Values.global.tibco.serviceAccount -}}
