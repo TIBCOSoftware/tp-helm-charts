@@ -27,7 +27,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.9
+          tag: 5.1.0
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -48,7 +48,7 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 181-distroless
+  tag: 222-distroless
   pullPolicy: IfNotPresent
 
 debug:
@@ -173,6 +173,16 @@ bwPluginsJobA:
           supportedBWVersions: ""
           supportedBWCEVersions: ""
           endOfSupportDate: ""
+  tci-bw-plugin-auditsafeplatform:
+    tags:
+      - tag: 6.0.0.v11-tci-2.0
+        metadata:
+          displayVersion: "6.0.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-tibco-auditsafe"
+          releaseDate: "July 2026"
+          supportedBWVersions: "6.12.0"
+          supportedBWCEVersions: ""
+          endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sftp:
     tags:
       - tag: 6.2.0.v28.2-tci-2.0
@@ -205,14 +215,14 @@ bwPluginsJobA:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-ibmi:
     tags:
-      - tag: 7.3.0.v20-tci-2.0
+      - tag: 7.3.0.v33-tci-2.0
         metadata:
-          displayVersion: "7.3.0 HF4"
+          displayVersion: "7.3.0 HF5"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-ibm-i"
-          releaseDate: "February 2024"
-          supportedBWVersions: "6.8.0 - 6.10.x"
-          supportedBWCEVersions: "2.7.0 - 2.9.1"
-          endOfSupportDate: ""
+          releaseDate: "July 2026"
+          supportedBWVersions: "6.8.0 - 6.13.0"
+          supportedBWCEVersions: "2.9.0 - 2.10.x"
+          endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobB:
   tci-bw-plugin-salesforce:
