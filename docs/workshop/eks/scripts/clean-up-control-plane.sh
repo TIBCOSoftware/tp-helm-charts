@@ -24,7 +24,7 @@ usage() {
   echo -e "export TP_DELETE_TIBCO_RESOURCE_SET (Default value: true)"
   echo -e "export TP_CROSSPLANE_ROLE (Default value: \${TP_CLUSTER_NAME}-crossplane-\${TP_CLUSTER_REGION})"
   echo -e "export CP_RESOURCE_PREFIX (Required, if you are using crossplane to create AWS resources)"
-  exit 0
+  exit 1
 }
 
 # RDS db instance is a special case since it takes significant time for deletion
@@ -146,6 +146,9 @@ if [ "${TP_CROSSPLANE_ENABLED}" == "true" ]; then
   # we are using RDS aurora db cluster using crossplane, the cluster, subnet group, parameter group and security group identifiers can be found using CP_RESOURCE_PREFIX
   _db_cluster_name=$(kubectl get DBCluster.rds.aws.crossplane.io --no-headers -o custom-columns=":metadata.name" 2> /dev/null | grep "${CP_RESOURCE_PREFIX}-aurora-cluster")
   _db_cluster_parameter_group=$(kubectl get DBClusterParameterGroup.rds.aws.crossplane.io --no-headers -o custom-columns=":metadata.name" 2> /dev/null | grep "${CP_RESOURCE_PREFIX}-aurora-cluster")
+  # 1.10.0 onwards, we do not use crossplane to create cluster parameter group, so the above command will result into an empty string.
+  # following the pattern for cluster parameter group name recommended in the workshop README
+  [ -z "${_db_cluster_parameter_group}" ] && _db_cluster_parameter_group="${CP_RESOURCE_PREFIX}-db-param"
   _db_subnet_group=$(kubectl get DBSubnetGroup.database.aws.crossplane.io --no-headers -o custom-columns=":metadata.name" 2> /dev/null | grep "${CP_RESOURCE_PREFIX}-aurora-cluster")
   _db_security_group_name=$(kubectl get SecurityGroup.ec2.aws.crossplane.io --no-headers -o custom-columns=":metadata.name" 2> /dev/null | grep "${CP_RESOURCE_PREFIX}-aurora-cluster")
   [ -n "${_db_security_group_name}" ] && _db_security_group_id=$(kubectl get SecurityGroup.ec2.aws.crossplane.io ${_db_security_group_name} -o=jsonpath='{@.status.atProvider.securityGroupID}' 2> /dev/null)
