@@ -212,6 +212,17 @@ spec:
             - |
               NAMESPACE={{ .Release.Namespace }}; \
               POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=postgresql -o jsonpath="{.items[0].metadata.name}"); \
+              CUR_TAG_POSTGRES=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.containers[0].image}' | awk -F: '{print $NF}'); \
+              TARGET_TAG={{ .Values.postgresql.image.tag }}; \
+              DEVHUB_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=tibco-developer-hub -o jsonpath="{.items[0].metadata.name}"); \
+              BACKSTAGE_CUR_VERSION=$(kubectl exec -n $NAMESPACE -c backstage-backend $DEVHUB_POD_NAME -- sh -c "printenv BACKSTAGE_VERSION || true"); \
+              TARGET_BACKSTAGE={{ .Values.backstageVersion }}; \
+              PG_ROLLBACK=$(awk -v c="$CUR_TAG_POSTGRES" -v t="$TARGET_TAG" 'BEGIN{n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}'); \
+              BS_ROLLBACK=$(awk -v c="$BACKSTAGE_CUR_VERSION" -v t="$TARGET_BACKSTAGE" 'BEGIN{if(c==""){print "no";exit}n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}'); \
+              if [ "$PG_ROLLBACK" = "yes" ] || [ "$BS_ROLLBACK" = "yes" ]; then \
+                 echo "Detected a rollback/downgrade (PostgreSQL current tag $CUR_TAG_POSTGRES vs target $TARGET_TAG; Backstage current version $BACKSTAGE_CUR_VERSION vs target $TARGET_BACKSTAGE). Skipping backup and scale-down."; \
+                 exit 0; \
+              fi; \
               CUR_VERSION=$(kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- postgres --version | awk '{print $NF}' | awk -F'.' '{print $1}'); \
               if [ "$CUR_VERSION" != "{{ .Values.postgresql.image.version }}" ]; then \
                  DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
@@ -220,7 +231,6 @@ spec:
                  kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'rm /bitnami/postgresql/data_backup.sql; rm -rf /bitnami/postgresql/restore_running; rm -rf {{ .Values.postgresql.postgresqlDataDir }}; PGPASSWORD=$PGPASSWORD pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql;'; \
               else \
                  SCALE_DOWN=false; \
-                 CUR_TAG_POSTGRES=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.containers[0].image}' | awk -F: '{print $NF}'); \
                  DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
                  if [ "$CUR_TAG_POSTGRES" != "{{ .Values.postgresql.image.tag }}" ]; then \
                    echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.version }}, but tag $CUR_TAG_POSTGRES does not match target tag {{ .Values.postgresql.image.tag }}."; \
@@ -230,8 +240,6 @@ spec:
                  else \
                  echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}.Current Tag $CUR_TAG_POSTGRES matches target tag {{ .Values.postgresql.image.tag }} No backup needed."; \
                  fi; \
-                 DEVHUB_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=tibco-developer-hub -o jsonpath="{.items[0].metadata.name}"); \
-                 BACKSTAGE_CUR_VERSION=$(kubectl exec -n $NAMESPACE -c backstage-backend $DEVHUB_POD_NAME -- sh -c "printenv BACKSTAGE_VERSION || true"); \
                  if [ "$BACKSTAGE_CUR_VERSION" != "{{ .Values.backstageVersion }}" ]; then \
                     if [ "$SCALE_DOWN" = false ]; then \
                       kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
