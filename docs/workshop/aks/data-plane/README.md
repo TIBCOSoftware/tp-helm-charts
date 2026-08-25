@@ -56,7 +56,7 @@ export TP_AZURE_REGION="eastus" # region of resource group
 ## Cluster configuration specific variables
 export TP_RESOURCE_GROUP="" # resource group name
 export TP_CLUSTER_NAME="" # name of the cluster provisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.33" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli; use 1.32 or above
+export TP_KUBERNETES_VERSION="1.35" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli; use 1.34 or above
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
 ## Network specific variables

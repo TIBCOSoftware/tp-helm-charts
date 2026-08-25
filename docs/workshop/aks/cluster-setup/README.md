@@ -48,8 +48,8 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * jq (1.8.0)
 * yq (v4.45.4)
 * bash (5.2.37)
-* az (az-cli/2.74.0)
-* kubectl (v1.33.1)
+* az (az-cli/2.88.0)
+* kubectl (v1.34.3)
 * helm (v3.18.0)
 
 For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.
@@ -117,7 +117,7 @@ export TP_AZURE_REGION="eastus" # region of resource group
 ## Cluster configuration specific variables
 export TP_RESOURCE_GROUP="" # set the resource group name in which all resources will be deployed
 export TP_CLUSTER_NAME="tp-cluster" # name of the cluster to be provisioned, used for chart deployment
-export TP_KUBERNETES_VERSION="1.33" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli
+export TP_KUBERNETES_VERSION="1.35" # please refer: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity" # user assigned identity to be associated with cluster
 export KUBECONFIG=`pwd`/${TP_CLUSTER_NAME}.yaml # kubeconfig saved as cluster name yaml
 
@@ -211,7 +211,10 @@ az feature register --namespace "Microsoft.ContainerService" --name "EnableAPISe
 ### Add Preview Extension
 You will also need to [add the aks-preview extension for API Server VNet integration using cli command](https://learn.microsoft.com/en-us/azure/aks/api-server-vnet-integration)
 ```bash
-az extension add --name aks-preview
+# Pin to a version compatible with the azure-cli (2.88.0) shipped in the workshop image.
+# An unpinned `az extension add` pulls the latest aks-preview, which may require a newer
+# azure-cli core and break `az aks create` with "ValueError: too many values to unpack".
+az extension add --name aks-preview --version 21.0.0b10
 ```
 
 ### Create Cluster Script

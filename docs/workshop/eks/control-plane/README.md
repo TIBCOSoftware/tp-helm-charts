@@ -224,6 +224,15 @@ As part of claims, we will create following resources:
 ```bash
 export CP_RESOURCE_PREFIX="platform" # unique id to add to AWS resources as prefix (alphanumeric string of max 10 chars)
 
+# Create a custom parameter group for the Aurora PostgreSQL DB cluster (required to enforce SSL for the cluster created by the claims below)
+aws rds create-db-cluster-parameter-group --db-cluster-parameter-group-name "${CP_RESOURCE_PREFIX}-db-param" --db-parameter-group-family aurora-postgresql16 --description "Custom parameter group for CP RDS cluster"
+
+# Modify the cluster parameter group to enforce SSL connections to the Aurora PostgreSQL DB cluster
+aws rds modify-db-cluster-parameter-group --db-cluster-parameter-group-name "${CP_RESOURCE_PREFIX}-db-param" --parameters "ParameterName=rds.force_ssl,ParameterValue=1,ApplyMethod=immediate"
+
+# You can configure the cluster parameter group according to your requirements following [the AWS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.Reference.ParameterGroups.html)
+
+# Use the following helm command to create crossplane claims for AWS resources
 helm upgrade --install --wait --timeout 1h \
   -n ${CP_INSTANCE_ID}-ns crossplane-claims-aws dp-config-aws \
   --render-subchart-notes \
@@ -266,7 +275,7 @@ crossplane-components:
         autoMinorVersionUpgrade: false
         databaseName: "postgres"
         dbInstanceClass: "db.t3.medium"
-        dbParameterGroupFamily: "aurora-postgresql16"
+        dbClusterParameterGroupName: "${CP_RESOURCE_PREFIX}-db-param"
         engine: "aurora-postgresql"
         engineVersion: "16.8"
         engineMode: "provisioned"
@@ -275,10 +284,6 @@ crossplane-components:
         publiclyAccessible: false
       additionalConfigurationParameters:
         applyImmediately: "true"
-        groupFamilyParameters:
-          - parameterName: rds.force_ssl
-            parameterValue: '1'
-            applyMethod: immediate
         storageEncrypted: "true"
         storageType: aurora
       resourceTags:

@@ -46,8 +46,8 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * jq (1.8.0)
 * yq (v4.45.4)
 * bash (5.2.37)
-* az (az-cli/2.74.0)
-* kubectl (v1.33.1)
+* az (az-cli/2.88.0)
+* kubectl (v1.34.3)
 * helm (v3.18.0)
 * oc (4.18.17)
 

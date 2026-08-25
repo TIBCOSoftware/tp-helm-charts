@@ -45,7 +45,7 @@ The steps mentioned below were run on a Macbook Pro linux/amd64 platform. The fo
 * bash (5.2.37)
 * aws (aws-cli/2.27.31)
 * eksctl (0.210.0)
-* kubectl (v1.33.1)
+* kubectl (v1.34.3)
 * helm (v3.18.0)
 
 For reference, [Dockerfile](../../Dockerfile) with [alpine 3.22](https://hub.docker.com/_/alpine) can be used to build a docker image with all the tools mentioned above, pre-installed.

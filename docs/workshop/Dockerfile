@@ -35,7 +35,7 @@ WORKDIR /azure
 RUN apk add --no-cache --update python3 py3-pip && \
     apk add --no-cache --update --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make && \
     python -m venv .venv && .venv/bin/pip install -U pip && \
-    .venv/bin/pip --no-cache-dir install azure-cli==${AZURE_CLI_VERSION:-2.74.0} && \
+    .venv/bin/pip --no-cache-dir install azure-cli==${AZURE_CLI_VERSION:-2.88.0} && \
     find / -name __pycache__ | xargs -r rm -rf
 
 #---------------------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws
 COPY --from=builder-azure /azure /azure
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /usr/local/bin/az
 
-RUN { [ -n "${KUBECTL_VERSION}" ] || KUBECTL_VERSION="1.33.1"; } && \
+RUN { [ -n "${KUBECTL_VERSION}" ] || KUBECTL_VERSION="1.34.3"; } && \
     echo "KUBECTL_VERSION=${KUBECTL_VERSION}" && \
     curl -sLO https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl && \
     chmod +x ./kubectl && mv -f ./kubectl /usr/local/bin/kubectl && \
