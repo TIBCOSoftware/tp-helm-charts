@@ -10,10 +10,18 @@ metadata:
   name: {{ include "tp-cp-o11y.consts.appName" . }}
   labels:
     {{- include "tp-cp-o11y.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.service.port }}"
+    prometheus.io/path: "/v1/metrics/server"
 spec:
   ports:
     - name: server
       port: {{ .Values.service.port }}
+      protocol: TCP
+      targetPort: {{ .Values.service.targetPort }}
+    - name: monitor-server
+      port: 9820
       protocol: TCP
       targetPort: {{ .Values.service.targetPort }}
   selector:

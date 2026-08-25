@@ -8,6 +8,22 @@
 {{- if or (and .Values.global.tibco.manageDbSchema (eq .Values.global.tibco.is_replica_region false)) (eq .Values.global.tibco.self_hosted_deployment true) }}
 
 ---
+{{/* ServiceAccount for post-delete cleanup jobs - only created when no user-provided SA */}}
+{{- if empty .Values.global.tibco.serviceAccount }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-sa
+  namespace: {{ include "tp-control-plane.consts.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "tp-control-plane.shared.labels.standard" . | nindent 4 }}
+{{- end }}
+
+---
 {{/* Role for cleanup jobs */}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -44,7 +60,7 @@ roleRef:
   name: {{ include "tp-control-plane.consts.appName" . }}-cleanup-role
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.global.tibco.serviceAccount | default "control-plane-sa" }}
+  name: {{ .Values.global.tibco.serviceAccount | default "tp-cp-core-cleanup-sa" }}
   namespace: {{ include "tp-control-plane.consts.namespace" . }}
 
 ---
@@ -260,7 +276,7 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ .Values.global.tibco.serviceAccount | default "control-plane-sa" }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount | default "tp-cp-core-cleanup-sa" }}
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
@@ -305,9 +321,9 @@ spec:
           value: /private/tsc
 {{- if and (and .Values.global.external.db_password .Values.global.external.db_username ) .Values.global.external.db_secret_name }}
         - name: MASTER_PGUSER
-          value: {{ .Values.global.external.db_username }}
+          value: {{ .Values.global.external.db_username | quote }}
         - name: MASTER_PGPASSWORD
-          value: {{ .Values.global.external.db_password }}
+          value: {{ .Values.global.external.db_password | quote }}
 {{- else if .Values.global.external.db_secret_name }}
         - name: MASTER_PGUSER
           valueFrom:
@@ -356,7 +372,7 @@ spec:
       securityContext:
         {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ .Values.global.tibco.serviceAccount | default "control-plane-sa" }}
+      serviceAccountName: {{ .Values.global.tibco.serviceAccount | default "tp-cp-core-cleanup-sa" }}
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never

@@ -40,9 +40,17 @@ This script validates prerequisites for TIBCO Control Plane installation. The sc
 ## Quick Start
 
 1.  **Create your configuration YAML file:**
+    Copy the base chart values file into this directory as your starting point:
     ```bash
-    cp platform_base_values.yaml.template platform_base_values.yaml
+    cp ../../charts/tibco-cp-base/values.yaml platform_base_values.yaml
     ```
+    > **Note:** The base values file already contains the database, container registry,
+    > admin, `controlPlaneInstanceId`, and `serviceAccount` fields the validator reads.
+    > If you also need to validate a private Helm chart repository or SMTP via YAML, add the
+    > `global.tibco.helm` and `global.external.emailServer.smtp` sections shown in the
+    > [Required YAML Configuration Structure](#required-yaml-configuration-structure) below.
+    > Storage class, ingress class, namespace, and resource values are read from
+    > `platform_base_default_config.env`.
     
 2.  **Edit the YAML file with your specific values:**
     ```bash

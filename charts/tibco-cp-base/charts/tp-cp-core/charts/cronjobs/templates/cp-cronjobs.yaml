@@ -12,6 +12,10 @@ metadata:
   namespace: {{ include "tp-cp-cronjobs.consts.namespace" . }}
   labels:
     {{- include "tp-cp-cronjobs.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9602"
+    prometheus.io/path: "/metrics"
 spec:
   ports:
   - name: server
@@ -51,6 +55,12 @@ spec:
         networking.platform.tibco.com/kubernetes-api: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "cp_cronjobs"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.cpcronjobservice.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.cpcronjobservice.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.cpcronjobservice.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.cpcronjobservice.resources.limits.memory | quote }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -309,6 +319,11 @@ spec:
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         - name: ENABLE_HYBRID_CONNECTIVITY
           value: {{ include "tp-cp-cronjobs.consts.enableHybridConnectivity" . | quote }}
+        - name: MANDATORY_INFRA_CAPABILITY_LISTS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: global.mandatoryInfraCapabilityLists
         volumeMounts:
           - name: cp-core-config
             mountPath: /tmp/private/tsc/config

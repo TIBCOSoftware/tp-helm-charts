@@ -100,7 +100,7 @@
                 <br>
                 <span style="padding: 0px 8px 8px 8px;">Hi<a href="#" style="text-decoration:none;color: #212121;">{{if not .NewUser}} {{.FirstName}}{{end}}</a>,</span>
                 <p style="margin:0;padding: 8px 0px 8px 8px;">Thank you for subscribing to TIBCO<sup>&reg;</sup> Platform{{if .ProductDisplayName}}
-                    {{.ProductDisplayName}}.{{else}}.{{end}} {{if .PlanDisplayName}}You have subscribed to our
+                    {{.ProductDisplayName | decodeHTMLSafe}}.{{else}}.{{end}} {{if .PlanDisplayName}}You have subscribed to our
                     {{.PlanDisplayName | trimSymbols}}.{{end}}</p>
 
                 <div style="display: flex;justify-content: center;margin-top: 20px;"><a href="{{.ActionURL}}"

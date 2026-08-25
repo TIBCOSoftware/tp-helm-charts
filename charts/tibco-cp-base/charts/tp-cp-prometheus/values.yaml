@@ -87,7 +87,7 @@ configmapReload:
   prometheus:
     ## If false, the configmap-reload container will not be deployed
     ##
-    enabled: true
+    enabled: false
     image:
       tag: v0.84.0
     ## configmap-reload container name
@@ -1435,6 +1435,40 @@ extraManifests:
               regex: (.*):.*?
               target_label: instance
               replacement: ${1}
+          - job_name: cp_red_metrics
+            scrape_interval: 30s
+            scrape_timeout: 10s
+            honor_labels: true
+            kubernetes_sd_configs:
+              - role: endpoints
+                namespaces:
+                  names:
+                    - {{ .Release.Namespace }}
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+                action: keep
+                regex: true
+              - source_labels: [__meta_kubernetes_endpoint_port_name]
+                action: keep
+                regex: monitor.*
+              - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+                action: replace
+                target_label: __address__
+                regex: (.+?)(?::\d+)?;(\d+)
+                replacement: $1:$2
+              - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                action: replace
+                target_label: __metrics_path__
+                regex: (.+)
+              - source_labels: [__meta_kubernetes_namespace]
+                action: replace
+                target_label: namespace
+              - source_labels: [__meta_kubernetes_service_name]
+                action: replace
+                target_label: service
+              - source_labels: [__meta_kubernetes_pod_name]
+                action: replace
+                target_label: pod
   # - |
   #   apiVersion: v1
   #   kind: ConfigMap

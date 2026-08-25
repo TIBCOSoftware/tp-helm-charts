@@ -14,15 +14,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.19.0",
-      "minCPVersion": "1.19.0",
+      "capabilityVersion": "1.20.0",
+      "minCPVersion": "1.20.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.inframcpserver.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.inframcpserver.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.19.0",
       "minDPVersion": {
          "dp-core-infrastructure": "1.18.0",
-         "dp-configure-namespace": "1.19.0"
+         "dp-configure-namespace": "1.20.0"
       }
     }
   package.json: |
@@ -107,7 +107,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.19.0"
+          value: "1.20.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

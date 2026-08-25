@@ -1,0 +1,17 @@
+versions:
+  # 1.20.0 is where MCP Hub starts releasing externally, so that is the first (and only)
+  # entry — there is no supported upgrade from an earlier line.
+  #
+  # PCP-22686 folded gateways.REGION into 1-up.sql instead of shipping a 2-up.sql: every
+  # customer install is a fresh one, so a migration step would be dead code in the delivered
+  # image and would add a pointless second hop for a brand-new database. mcphub therefore
+  # stays at schema version 1.
+  #
+  # ⚠️ The key is matched against CHART_APP_VERSION, which the Job sources from
+  # mcp-hub-webserver's OWN Chart.yaml appVersion (jobs.yaml -> {{ .Chart.AppVersion }} inside
+  # the subchart) — NOT the parent chart's version or appVersion. resolve_target_schema_version
+  # keeps only keys <= that target, so if this key is ever ahead of that appVersion the lookup
+  # returns nothing and manageDbSchema SKIPS mcphub silently, leaving the database uncreated.
+  # Keep the two in step.
+  "1.20.0":
+    mcphub: 1
