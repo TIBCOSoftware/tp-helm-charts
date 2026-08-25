@@ -19,5 +19,12 @@ spec:
       targetPort: {{ .Values.publicApiService.targetPort }}
       protocol: TCP
       name: publicapihttp
+    # Caching Go module proxy for build jobs (must match FLOGO_APP_BUILD_MODULE_PROXY_URL).
+    # ClusterIP load-balances across provisioner pods; each caches independently (a "wrong",
+    # cold pod just re-fetches + caches there), so no session affinity is needed.
+    - port: 7817
+      targetPort: 7817
+      protocol: TCP
+      name: modproxy
   selector:
     {{- include "flogoprovisioner.selectorLabels" . | nindent 4 }}

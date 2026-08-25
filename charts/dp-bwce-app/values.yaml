@@ -60,7 +60,7 @@ image:
   appInitImageName: "tp-bwce-app-init"
   appInitImageTag: "83"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "5.0.9"
+  fluentBitImageTag: "5.1.0"
   bwceBaseImageName: "tp-bwce-base"
 
 imagePullSecrets: []
@@ -252,6 +252,21 @@ gateway:
   sectionName: ""
   controllerName: ""
   resourceInstanceName: ""
+  # GKE URL Map compatibility. When true, the generated HTTPRoute omits
+  # spec.hostnames and publishes the host on the
+  # platform.tibco.com/gateway-hostname annotation instead.
+  # Use this when the Gateway is shared with existing hostname-less HTTPRoutes
+  # that GKE would otherwise partition into a separate URL Map host rule,
+  # causing 404s on the pre-existing routes.
+  # Caveats when enabled:
+  #  - the route then matches every hostname the parent listener accepts; on
+  #    GKE a hostname-less route acts as the Gateway's default backend, so at
+  #    most one app on a Gateway may use path "/".
+  #  - every app sharing the listener must use a unique, non-overlapping path
+  #    prefix; ties resolve by oldest creation timestamp, then by
+  #    alphabetical "{namespace}/{name}".
+  #  - X-Forwarded-Host is still set from rules[].host.
+  gkeUrlMapEnabled: false
   annotations: {}
   rules:
     - host: example.com

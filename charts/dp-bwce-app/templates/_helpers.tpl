@@ -89,11 +89,9 @@ BW app pod labels
 */}}
 {{- define "dp-bwce-app.bwapp.pod.labels" -}}
 app: bwce-app
-app.kubernetes.io/instance: {{ include "dp-bwce-app.fullname" . }}
 platform.tibco.com/app-name: {{ include "dp-bwce-app.fullname" . }}
 platform.tibco.com/app-version: {{ .Values.appConfig.appVersion | quote }}
 platform.tibco.com/capability-instance-id: {{ .Values.dpConfig.capabilityInstanceId | quote }}
-platform.tibco.com/name: {{ include "dp-bwce-app.fullname" . }}
 platform.tibco.com/app.resources.limits.cpu: {{ (.Values.bwapp.resources.limits).cpu | default "" | quote }}
 platform.tibco.com/app.resources.limits.memory: {{ (.Values.bwapp.resources.limits).memory | default "" | quote }}
 platform.tibco.com/app.resources.requests.cpu: {{ (.Values.bwapp.resources.requests).cpu | default "" | quote }}

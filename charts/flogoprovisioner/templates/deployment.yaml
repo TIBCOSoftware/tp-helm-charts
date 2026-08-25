@@ -50,6 +50,8 @@ spec:
               name: server
             - containerPort: {{ .Values.publicApiService.port }}
               name: publicapiserver
+            - containerPort: 7817
+              name: modproxy
           {{- if .Values.securityContext.flogoprovisioner }}
           securityContext:
             {{- toYaml .Values.securityContext.flogoprovisioner | nindent 12 }}
@@ -97,6 +99,12 @@ spec:
               value: {{ .Values.global.cp.dataplaneId }}
             - name: INSTANCE_ID
               value: {{ .Values.global.cp.instanceId }}
+            # FLOGO-18525: the provisioner creates flogo-build-<id> jobs; the job runs
+            # as the same service account and inherits this serviceconfig ConfigMap.
+            - name: SERVICE_ACCOUNT_NAME
+              value: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName | quote }}
+            - name: SERVICE_CONFIG_MAP_NAME
+              value: {{ $fullName }}-serviceconfig
             - name: FLOGO_PROVISIONER_BUILD
               value: "{{ .Values.global.flogoprovisioner.image.tag }}"
             - name: SERVER_PORT
@@ -226,7 +234,11 @@ spec:
               mountPath: /fluent-bit/etc/
         {{- end }}
       volumes:
-        - emptyDir: {}
+        # Holds /tmp including the module-proxy cache (/tmp/modcache). sizeLimit is the hard
+        # ephemeral-storage cap; keep it above FLOGO_APP_BUILD_MODULE_PROXY_MAX_CACHE (5Gi) so
+        # the LRU budget evicts before the kubelet evicts the pod.
+        - emptyDir:
+            sizeLimit: 6Gi
           name: tmp-workspace
         - emptyDir: {}
           name: logs-share
