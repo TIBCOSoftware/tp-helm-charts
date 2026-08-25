@@ -20,6 +20,9 @@ metadata:
     {{- if $path.serviceDiscoverable }}
     platform.tibco.com/service-description: {{ $path.serviceDescription | squote }}
     {{- end }}
+    {{- if and $.Values.gateway.gkeUrlMapEnabled $rule.host }}
+    platform.tibco.com/gateway-hostname: {{ $rule.host | quote }}
+    {{- end }}
     {{- with $.Values.gateway.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -32,8 +35,10 @@ spec:
     {{- if $.Values.gateway.sectionName }}
     sectionName: {{ $.Values.gateway.sectionName }}
     {{- end }}
+  {{- if not $.Values.gateway.gkeUrlMapEnabled }}
   hostnames:
   - {{ $rule.host | quote }}
+  {{- end }}
   rules:
   - matches:
     - path:

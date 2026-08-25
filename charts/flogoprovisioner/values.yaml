@@ -65,7 +65,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 5.0.9
+          tag: 5.1.0
         resources:
           requests:
             cpu: 10m
@@ -186,11 +186,11 @@ ingress:
 
 resources:
   requests:
-    cpu: "2"
-    memory: 2Gi
+    cpu: 500m
+    memory: 700Mi
   limits:
-    cpu: "4"
-    memory: 4Gi
+    cpu: "1"
+    memory: 1024Mi
 
 autoscaling:
   enabled: false
@@ -245,17 +245,40 @@ extraInitContainers: []
   #   image: busybox
   #   command: ['echo', "hey"]
 
+# Complete set of defaults; the recipe overrides only a subset, so every key needs a
+# working value here. Alphabetical.
 config:
-  ARTIFACT_MANAGER_PORT: "7813"
+  APP_INIT_CPU_LIMIT: "200m"
+  APP_INIT_CPU_REQUEST: "100m"
   APP_INIT_IMAGE_TAG: "78"
-  INFRA_CP_PROXY_IMAGE_TAG: "280"
   # app-init init container resource requests/limits passed by the provisioner
   # to the dp-flogo-app chart (rendered into appInit.resources). See FLOGO-18363.
-  APP_INIT_CPU_LIMIT: "200m"
   APP_INIT_MEMORY_LIMIT: "400Mi"
-  APP_INIT_CPU_REQUEST: "100m"
   APP_INIT_MEMORY_REQUEST: "100Mi"
+  ARTIFACT_MANAGER_PORT: "7813"
   FLOGO_APP_BASE_IMAGE_TAG: "2.26.6-b573"
+  # Flogo app-build Job config (consumed by the provisioner + build job); override per install.
+  # CPU limit blank = uncapped (faster builds). A memory limit is set so an oversized build is
+  # OOM-killed cleanly instead of starving neighbors under node pressure; blank would uncap it.
+  FLOGO_APP_BUILD_CPU_LIMIT: ""
+  FLOGO_APP_BUILD_CPU_REQUEST: "2000m"
+  FLOGO_APP_BUILD_DEBUG: "false"
+  FLOGO_APP_BUILD_JOB_TTL_SECONDS: "3600"
+  FLOGO_APP_BUILD_MAX_QUEUED_SECONDS: "600"
+  FLOGO_APP_BUILD_MEMORY_LIMIT: "4Gi"
+  FLOGO_APP_BUILD_MEMORY_REQUEST: "1.5Gi"
+  # Module proxy: flogoprovisioner caches build-job Go module downloads for faster repeat builds.
+  FLOGO_APP_BUILD_MODULE_PROXY_ENABLED: "true"
+  # LRU byte budget for the on-disk module cache; keep below the tmp-workspace sizeLimit (6Gi).
+  FLOGO_APP_BUILD_MODULE_PROXY_MAX_CACHE: "5Gi"
+  # Allowlisted checksum-DB hosts for the /sumdb/ pass-through. Kept out of the recipe/parent
+  # chart on purpose (rarely changed); override in-cluster by editing this ConfigMap if a
+  # private GOSUMDB is needed.
+  FLOGO_APP_BUILD_MODULE_PROXY_SUMDB_HOSTS: "sum.golang.org"
+  FLOGO_APP_BUILD_MODULE_PROXY_URL: "http://flogoprovisioner:7817"
+  FLOGO_APP_BUILD_TIMEOUT_SECONDS: "300"
+  FLOGO_APP_BUILDER_IMAGE_TAG: "965"
+  INFRA_CP_PROXY_IMAGE_TAG: "280"
 
 publicApi:
   config:
@@ -418,11 +441,52 @@ fluentbit:
             end
           end
 
+          -- Custom attributes (TEXT path only -- "msg" is nil there, set on JSON records):
+          -- promote the engine's trailing " - [k=v, ...]" block to top-level fields and
+          -- strip it from the message, so the ES document matches the JSON path.
+          -- Requiring " - ", an "=", and no nested brackets keeps ordinary messages,
+          -- "[event id ABC]" and "foo-[a=b]" untouched.
+          if record["msg"] == nil then
+            local body = record["message"]
+            if body ~= nil then
+              local attrs = body:match("%s+%-%s+%[(.-)%]%s*$")
+              if attrs ~= nil and attrs:find("=") and not attrs:find("[%[%]]") then
+                -- A fragment with no "=" is not a pair -- every key has one -- so it is the
+                -- continuation of a value containing ", ". Re-join it; dropping it would
+                -- lose the text from the fields and from the stripped message. No key on
+                -- the first fragment means we do not understand the block: leave it alone.
+                local parsed, order, lastKey, understood = {}, {}, nil, true
+                for pair in (attrs .. ", "):gmatch("(.-),%s+") do
+                  local k, v = pair:match("^%s*([^=]+)=(.*)$")
+                  if k ~= nil then
+                    k = (k:gsub("%s+$", ""))
+                    if parsed[k] == nil then order[#order + 1] = k end
+                    parsed[k] = v
+                    lastKey = k
+                  elseif lastKey ~= nil then
+                    parsed[lastKey] = parsed[lastKey] .. ", " .. pair
+                  else
+                    understood = false
+                    break
+                  end
+                end
+                if understood and #order > 0 then
+                  for _, k in ipairs(order) do
+                    record[k] = parsed[k]
+                  end
+                  record["message"] = (body:gsub("%s+%-%s+%[.-%]%s*$", ""))
+                end
+              end
+            end
+          end
+
           -- Drop the raw zap keys now that they are mapped (no-ops on the TEXT path).
           record["msg"] = nil
           record["level"] = nil
           record["logger"] = nil
           record["timestamp"] = nil
+          -- The engine injects custom_fields on the JSON path; nothing consumes it.
+          record["custom_fields"] = nil
 
           return 1, timestamp, record
         end

@@ -24,7 +24,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.0.9
+          tag: 5.1.0
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -83,23 +83,35 @@ securityContext:
 
 flogoprovisioner:
   image:
-    tag: "1027-platform-1.19.0"
+    tag: "1138-platform-1.20.0"
+  # Alphabetical; must match the set rendered in templates/flogo.yaml. Anything absent
+  # falls back to the flogoprovisioner chart default.
   config:
-    APP_INIT_IMAGE_TAG: "81"
-    APP_HELMCHART_VERSION: "1.19.13"
-    INFRA_CP_PROXY_IMAGE_TAG: "348"
+    APP_HELMCHART_VERSION: "1.20.8"
     APP_INIT_CPU_LIMIT: "200m"
-    APP_INIT_MEMORY_LIMIT: "400Mi"
     APP_INIT_CPU_REQUEST: "100m"
+    APP_INIT_IMAGE_TAG: "81"
+    APP_INIT_MEMORY_LIMIT: "400Mi"
     APP_INIT_MEMORY_REQUEST: "100Mi"
-    FLOGO_APP_BASE_IMAGE_TAG: "2.26.6-b584"
+    FLOGO_APP_BASE_IMAGE_TAG: "2.26.7-b632"
+    # Flogo app-build Job config; override per install.
+    # CPU limit blank = uncapped (faster builds); the memory limit OOM-kills an oversized
+    # build instead of starving neighbors. Blank would uncap it.
+    FLOGO_APP_BUILD_CPU_LIMIT: ""
+    FLOGO_APP_BUILD_CPU_REQUEST: "2000m"
+    FLOGO_APP_BUILD_MAX_QUEUED_SECONDS: "600"
+    FLOGO_APP_BUILD_MEMORY_LIMIT: "4Gi"
+    FLOGO_APP_BUILD_MEMORY_REQUEST: "1.5Gi"
+    FLOGO_APP_BUILD_TIMEOUT_SECONDS: "300"
+    FLOGO_APP_BUILDER_IMAGE_TAG: "1001-platform-1.20.0"
+    INFRA_CP_PROXY_IMAGE_TAG: "358"
   resources:
     requests:
-      cpu: "2"
-      memory: 2Gi
+      cpu: 500m
+      memory: 700Mi
     limits:
-      cpu: "4"
-      memory: 4Gi
+      cpu: "1"
+      memory: 1024Mi
 
 scripts:
   resources:
