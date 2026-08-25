@@ -325,8 +325,11 @@ resource-set-operator:
 
 # Default values for otel-collector
 otel-collector:
-  # switch to true to enable otel-collector
-  enabled: true
+  # Disabled by default so that a log server is not a pre-requisite for installing
+  # the control plane base. Switch to true to enable otel-collector -- required only
+  # for features that depend on the log server (audit log, control plane fluentbit
+  # logging).
+  enabled: false
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
