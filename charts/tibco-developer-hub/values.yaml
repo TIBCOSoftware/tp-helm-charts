@@ -57,7 +57,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 5.0.9
+          tag: 5.1.0
         enabled: true
         resources:
           requests:
@@ -162,7 +162,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "1480"
+    tag: "1579"
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -493,7 +493,7 @@ metrics:
 
 fluentbit:
   image:
-    tag: 5.0.9
+    tag: 5.1.0
     pullPolicy: Always
   securityContext:
     runAsNonRoot: false
@@ -580,7 +580,7 @@ backupJob:
 
 image:
   name: infra-cp-proxy
-  tag: 348
+  tag: 358
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -610,6 +610,6 @@ securityContext:
 kubectl:
   image:
     name: dx-kubectl
-    tag: 1.18.0
+    tag: 1.20.1
 
 backstageVersion: 1.51.0
