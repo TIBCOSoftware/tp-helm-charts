@@ -1,0 +1,32 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-minio
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  type: {{ .Values.minio.service.type }}
+  ports:
+    - name: api
+      port: {{ .Values.minio.service.apiPort }}
+      targetPort: api
+      protocol: TCP
+    - name: console
+      port: {{ .Values.minio.service.consolePort }}
+      targetPort: console
+      protocol: TCP
+  # PCP-22409: this Service selector is VERSION-FREE, matching every other Service in the
+  # chart (service-postgres / service-redis / service-mcp / service-pgbouncer all select on
+  # the plain, version-free app label). Although Service selectors are mutable, a
+  # version-bearing selector (mcp-stack.labels emits helm.sh/chart: mcp-stack-<version>)
+  # would, on a version-bump upgrade, stop matching the still-running OLD MinIO pod — whose
+  # helm.sh/chart label still carries the previous chart version — and drop it from the
+  # Service endpoints before the new pod is Ready, a needless endpoint gap. The old pod
+  # already carries app: <fullname>-minio, so a version-free selector keeps it in the
+  # endpoints throughout the rollout. metadata.labels above keep the full mcp-stack.labels.
+  selector:
+    app: {{ include "mcp-stack.fullname" . }}-minio
+    app.kubernetes.io/component: minio
+{{- end }}

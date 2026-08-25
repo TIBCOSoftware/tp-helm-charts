@@ -12,6 +12,9 @@ metadata:
   {{- end }}
 data:
   {{- $storageType := include "collector.storage.type" . | trim -}}
+  {{- if not $storageType -}}
+  {{- $storageType = include "query.storage.type" . | trim -}}
+  {{- end -}}
   {{- $config := deepCopy .Values.userconfig -}}
   {{- if and (eq $storageType "memory") (dig "extensions" "jaeger_storage" "backends" "primary_store" "elasticsearch" nil $config) }}
   {{- $primaryStore := dict "memory" (dict "max_traces" 100000) -}}

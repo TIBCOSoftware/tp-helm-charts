@@ -1,0 +1,150 @@
+{{- /*
+  PCP-22768 — fluentbit sidecar configuration for the MCP Gateway (LITE mode).
+
+  Lite runs entirely from the wrapper chart (the mcp-stack sub-chart is NOT rendered in
+  lite mode), so it needs its OWN fluentbit ConfigMap. Content MIRRORS the full-mode
+  charts/mcp-stack/templates/fluentbit-configmap.yaml. Rendered only when lite is enabled
+  AND global.tibco.logging.fluentbit.enabled is true.
+
+  See the full-mode configmap for why this uses the platform DP-app fluentbit contract
+  (INPUT tail no-parser -> parser FILTER consumes `log` -> OUTPUT Logs_body_key $log ->
+  body is a MAP): real-env verification (PCP-22768) proved the otel-userapp-logs collector
+  rejects a Str body with HTTP 503 "log bodies of type Str cannot be indexed".
+*/ -}}
+{{- if and .Values.lite.enabled (include "tp-mcp-gateway.fluentbit.enabled" .) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-mcp-gateway-fluentbit-config
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush           1
+      Daemon          off
+      Log_Level       error
+      Parsers_File    parsers.conf
+      HTTP_Server     On
+      HTTP_Listen     0.0.0.0
+      HTTP_Port       2020
+      Health_Check    On
+
+    @INCLUDE input-tail.conf
+    @INCLUDE output-otel.conf
+    @INCLUDE filters.conf
+
+  input-tail.conf: |
+    [INPUT]
+      Name              tail
+      Tag               app.*
+      Path              /var/log/mcpgateway/mcpgateway.jsonl
+      DB                /var/log/mcpgateway/flb.db
+      multiline.parser  docker, cri, multiline-regex
+      Mem_Buf_Limit     30MB
+      Read_From_Head    True
+      Buffer_Chunk_Size 10M
+      Buffer_Max_Size   20M
+      skip_long_lines   Off
+
+  filters.conf: |
+    [FILTER]
+      Name   parser
+      Match  app.*
+      key_name log
+      parser  formattedlog
+      parser  jsonlog
+      parser  unformattedlog
+
+    [FILTER]
+      Name   lua
+      Match  app.*
+      Script update_record.lua
+      Call   update_record
+
+  output-otel.conf: |
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                app.*
+      Host                 {{ .Values.global.tibco.logging.fluentbit.otel.host }}
+      Port                 {{ .Values.global.tibco.logging.fluentbit.otel.port }}
+      Log_response_payload False
+      Logs_body_key        $log
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    [MULTILINE_PARSER]
+      name          multiline-regex
+      type          regex
+      key_content   log
+      flush_timeout 1000
+      rule          "start_state"   "/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+|\{.level.:).*/"     "cont"
+      rule          "cont"          "/^(?!\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+|\{.level.:).*/"   "cont"
+
+    [PARSER]
+      Name        formattedlog
+      Format      regex
+      Regex       /^(?<log_time>[^ ]*)\t(?<log_level>INFO|WARN|DEBUG|ERROR|FATAL)\t(?<message>.*)/m
+      Time_Key    time
+      Time_Format %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep   On
+
+    [PARSER]
+      Name        jsonlog
+      Format      json
+
+    [PARSER]
+      Name        unformattedlog
+      Format      regex
+      Regex       /^(?<message>.*)/m
+      Time_Key    time
+      Time_Format %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep   On
+
+  update_record.lua: |
+    function update_record(tag, timestamp, record)
+      -- JSON path: the jsonlog parser promotes zap keys level/timestamp/logger/msg.
+      -- Map them onto the contract fields WITHOUT clobbering an already-structured
+      -- record (the gateway JSON already has message/levelname/asctime → no-ops).
+      if record["message"] == nil and record["msg"] ~= nil then
+        local jmsg = tostring(record["msg"])
+        local jlogger = record["logger"]
+        if jlogger ~= nil and jlogger ~= "" then
+          record["message"] = "[" .. tostring(jlogger) .. "] -\t" .. jmsg
+        else
+          record["message"] = jmsg
+        end
+      end
+      if record["log_level"] == nil and record["level"] ~= nil then
+        record["log_level"] = string.upper(tostring(record["level"]))
+      end
+      if record["log_time"] == nil and record["timestamp"] ~= nil then
+        record["log_time"] = record["timestamp"]
+      end
+      local logger = record["logger"]
+      local msg = record["message"]
+      if logger == "flogo.general.activity.log" then
+        record["log_type"] = "user"
+      elseif msg ~= nil and msg:find("%[flogo%.general%.activity%.log%]") then
+        record["log_type"] = "user"
+      else
+        record["log_type"] = "engine"
+      end
+      if msg ~= nil then
+        local trace_id = msg:match("%[traceID:%s*([%da-fA-F]+)%]")
+        local span_id = msg:match("%[spanID:%s*([%da-fA-F]+)%]")
+        if trace_id then
+          record["trace_id"] = trace_id
+        end
+        if span_id then
+          record["span_id"] = span_id
+        end
+      end
+      record["msg"] = nil
+      record["level"] = nil
+      record["logger"] = nil
+      record["timestamp"] = nil
+      return 1, timestamp, record
+    end
+{{- end }}

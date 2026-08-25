@@ -1,0 +1,628 @@
+{{- if .Values.lite.enabled }}
+{{- /* PCP-20569 (Option B): single source of truth for "the tp-mcp-gateway-proxy sidecar fronts the pod".
+       The proxy renders (and is the SOLE inbound path) when the proxy is on OR discovery is on
+       (discovery is path-routed IN-POD by the proxy). This ONE boolean gates the sidecar, the
+       Service/ingress backend port (rendered in their own templates with the same expression), the
+       gateway container's loopback-rewire env (HOST/TRUST_PROXY_AUTH/…) AND the gateway probe ports,
+       so they can never drift. KEEP IN SYNC with charts/mcp-stack/templates/deployment-mcpgateway.yaml
+       ($proxyFronts) and the service/ingress port gating. */}}
+{{- $proxyFronts := (or .Values.tibcoProxy.enabled .Values.discovery.enabled) -}}
+{{- /* PCP-23125: container-registry indirection. Resolve the registry and repository ONCE,
+       file-scoped, from global.cp.containerRegistry (orchestrator-injected on a live Data
+       Plane) via the two zero-logic house helpers. Each image site below then composes the
+       EFFECTIVE repository <registry>/<repository>/<bare-name> and passes it to the ONE
+       image helper (tp-mcp-gateway.image, PCP-23089/PCP-23214) as the `repository` key, so
+       the tag AND THE DIGEST still travel through that single composition point.
+
+       DO NOT assemble an `image:` string here with the prefix in it. That renders clean,
+       lints clean and deploys — with the digest silently dropped, putting the chart back on
+       a mutable reference, which is exactly the defect PCP-23214 closes. Nothing reports it.
+
+       `merge` is DESTINATION-WINS and MUTATES its first argument, so the destination is
+       always a fresh `dict`: .Values.* is a source only and is never mutated into a later
+       render in the same pass. The bare name goes through tp-mcp-gateway.image.bareRepository,
+       which ABORTS the render if the value already carries a registry host instead of
+       prefixing it a second time. KEEP IN SYNC with
+       charts/mcp-stack/templates/deployment-mcpgateway.yaml, which routes the same images
+       through its own mcp-stack.* twins. */}}
+{{- $reg := include "tp-mcp-gateway.image.registry" $ -}}
+{{- $rrepo := include "tp-mcp-gateway.image.repository" $ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mcp-gateway
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.lite.replicas }}
+  # PCP-22882: k8s defaults this to 600s, which is INSIDE the cold-start budget the
+  # startupProbe below now grants (~20 min). Left at the default, `kubectl rollout status`
+  # and `helm --wait` would report ProgressDeadlineExceeded for a pod that is doing exactly
+  # what the chart asks of it. Kept above the probe budget so the probe stays the authority.
+  progressDeadlineSeconds: {{ .Values.lite.progressDeadlineSeconds | default 1500 }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "tp-mcp-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.plugins.enabled }}
+        checksum/plugins-config: {{ include (print $.Template.BasePath "/lite-plugins-configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if include "tp-mcp-gateway.fluentbit.enabled" . }}
+        # PCP-22768: roll the pod when the fluentbit sidecar config changes.
+        checksum/fluentbit-config: {{ include (print $.Template.BasePath "/lite-fluentbit-configmap.yaml") . | sha256sum }}
+        {{- end }}
+      labels:
+        {{- include "tp-mcp-gateway.labels" . | nindent 8 }}
+        {{- /* Unique per-workload label so the gateway Service selects ONLY
+               this pod. The shared selectorLabels (above) are also carried by
+               the discovery sidecar pod, so a Service that selected on them
+               would round-robin gateway+discovery → intermittent 502. Mirrors
+               the discovery deployment's `app:` label and mcp-stack's
+               `app: <fullname>-mcpgateway` convention. */}}
+        app: {{ .Release.Name }}-mcp-gateway
+        {{- /* DP namespace NetworkPolicy keys off this label to gate egress
+               to public internet (mirrors dp-flogo-app / dp-bwce-app
+               convention). Sourced from global so the same toggle applies
+               to lite + mcp-stack deployments. */}}
+        {{- if and .Values.global .Values.global.networkPolicy .Values.global.networkPolicy.internetAll }}
+        networking.platform.tibco.com/internet-egress: {{ .Values.global.networkPolicy.internetAll | quote }}
+        {{- end }}
+        {{- if .Values.discovery.enabled }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        {{- end }}
+    spec:
+      # [PCP-20234] Pod-level seccomp parity with mcp-stack (covers the mcpgateway,
+      # discovery and tp-mcp-gateway-proxy containers; lite previously had no pod securityContext)
+      securityContext:
+        {{- /* [PCP-22959] /data is a PVC and the gateway runs as the image's non-root user
+               (Containerfile: `groupadd --gid 10001 app`, `USER 10001:10001`). A freshly
+               provisioned volume arrives root:root 0755, so with no fsGroup the kubelet never
+               chowns it, sqlite cannot create /data/mcp.db, and every cold start dies in
+               wait_for_db_ready -> permanent CrashLoopBackOff (observed on EKS StorageClass gp2).
+               Rendered via `dig` with inline defaults rather than `with .Values.lite.podSecurityContext`
+               so the fix still renders when that map is absent -- notably under `helm upgrade
+               --reuse-values`, which replays the OLD values map and would otherwise silently drop
+               a newly-added key and re-break the pod. seccompProfile stays LITERAL below for the
+               same reason (mirrors mcp-stack templates/deployment-postgres.yaml). */}}
+        fsGroup: {{ dig "podSecurityContext" "fsGroup" 10001 .Values.lite }}
+        {{- /* OnRootMismatch keeps the recursive chown off the restart path once ownership is
+               already correct, but still chowns an EXISTING root:root volume on the next mount --
+               that is the recovery path for a pod already stuck in CrashLoopBackOff. */}}
+        fsGroupChangePolicy: {{ dig "podSecurityContext" "fsGroupChangePolicy" "OnRootMismatch" .Values.lite }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      {{- end }}
+      {{- /* Merge the DP orchestrator-created pull secret (dataplaneId) with any
+             bare-cluster global.imagePullSecrets (PCP-20286 / B3) into ONE list, so a
+             standalone customer can pull the private TIBCO images. Empty default =
+             unchanged render. */}}
+      {{- if or .Values.dataplaneId (and .Values.global .Values.global.imagePullSecrets) }}
+      imagePullSecrets:
+        {{- if .Values.dataplaneId }}
+        - name: {{ .Values.dataplaneId }}
+        {{- end }}
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: mcpgateway
+          {{- $liteImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "tp-mcp-gateway.image.bareRepository" .Values.lite.image.repository))) .Values.lite.image }}
+          image: {{ include "tp-mcp-gateway.image" $liteImg | quote }}
+          imagePullPolicy: {{ .Values.lite.image.pullPolicy }}
+          ports:
+            - containerPort: 4444
+          env:
+            {{- /* PCP-20564: lite auth is SECURE-BY-DEFAULT. insecureLocalDev re-opens the auth posture
+                   for genuine local dev — merge the open values over a DEEP COPY (mergeOverwrite mutates
+                   its first arg; deepCopy keeps the global .Values intact for later templates, e.g. the
+                   plugins checksum annotation + NOTES). Strict bool: Helm treats a quoted "false" /
+                   --set-string as truthy, so compare toString == "true". */}}
+            {{- /* Layer order, weakest first — the full-mode equivalent is the envFrom ordering
+                   described in templates/gateway-config-configmap.yaml, and the two MUST agree
+                   or a setting would mean different things per mode:
+                     1. lite.config                  mode defaults (lite-only keys live here)
+                     2. global.tpMcpGateway.config   the SHARED map — one home for a setting that
+                                                     must reach both modes; overrides (1)
+                     3. lite.insecureLocalDev        explicit local-dev escape hatch; overrides all
+                   (3) stays last because its whole purpose is to force auth open regardless of
+                   what the layers below say. It touches only mode-specific keys, which by
+                   construction are never in (2). */}}
+            {{- $liteConfig := mergeOverwrite (deepCopy .Values.lite.config) (dig "tpMcpGateway" "config" dict .Values.global) }}
+            {{- if eq (toString .Values.lite.insecureLocalDev) "true" }}
+            {{- $liteConfig = mergeOverwrite $liteConfig (dict "MCP_REQUIRE_AUTH" "false" "AUTH_REQUIRED" "false" "ALLOW_UNAUTHENTICATED_ADMIN" "true") }}
+            {{- end }}
+            {{- /* Skips: APP_ROOT_PATH (owned by publicApi.pathPrefix, PCP-20050); ALLOWED_ORIGINS
+                   (rendered explicitly below so it tracks the public origin / opt-out with no duplicate
+                   env); MCP_CLIENT_AUTH_ENABLED when the tibcoProxy sidecar fronts auth (emitted "false"
+                   below so the injected identity is read — PCP-20564). */}}
+            {{- /* HOST is excluded here and emitted EXACTLY ONCE below, for both proxy branches.
+                   Excluding it in the range is not enough on its own and neither is dropping the
+                   chart default — both are needed, which two failed attempts established:
+                     · exclude only            → nothing emits HOST when the proxy does not front
+                                                 (measured: HOST unset in EVERY container)
+                     · drop the default only   → any lite.config.HOST still renders here and
+                                                 duplicates the explicit one. `helm upgrade
+                                                 --reuse-values` reintroduces exactly that, because
+                                                 it carries the PREVIOUS chart's lite.config forward.
+                   A duplicate makes the Deployment unpatchable — Kubernetes merges env by `name`:
+                     cannot patch … The order in patch list: [HOST=0.0.0.0, HOST=127.0.0.1, …]
+                     doesn't match $setElementOrder list
+                   MEASURED on ins-syan-54: a config-only upgrade — the operation this chart's
+                   shared-config block exists to serve — failed with that and left the release
+                   `failed`, so gateway settings could not be changed at all. */}}
+            {{- /* KEYS THIS TEMPLATE EMITS ITSELF, collected in ONE place so the range and the
+                   explicit blocks below cannot disagree. Anything emitted explicitly MUST be
+                   excluded here, or the container declares it twice — and Kubernetes merges an env
+                   list by `name`, so a duplicate makes the Deployment UNPATCHABLE:
+
+                     cannot patch … The order in patch list: [K=a, K=b, …]
+                     doesn't match $setElementOrder list
+
+                   That is not theoretical: it happened with HOST on a live gateway and blocked
+                   every config-only upgrade. TRUST_PROXY_AUTH is the same shape and IS reachable —
+                   it is one of the wizard's editable keys, so an operator changing it lands a
+                   second copy in this range. Adding a key to the explicit blocks below without
+                   adding it here re-arms exactly that failure, which is why the set lives here
+                   rather than inline. */}}
+            {{- /* DERIVED — computed by this template from other values (public origin, path
+                   prefix, o11y wiring). A config entry for one of these was never going to take
+                   effect, so excluding it unconditionally removes the duplicate without removing
+                   any working override. */}}
+            {{- $selfManaged := dict "APP_ROOT_PATH" true "ALLOWED_ORIGINS" true "APP_DOMAIN" true "OAUTH_REDIRECT_URI" true
+                                     "OTEL_ENABLE_OBSERVABILITY" true "OTEL_TRACES_EXPORTER" true "OTEL_EXPORTER_OTLP_PROTOCOL" true
+                                     "OTEL_EXPORTER_OTLP_INSECURE" true "OTEL_SERVICE_NAME" true "OBSERVABILITY_ENABLED" true
+                                     "OTEL_TRACES_SERVICE_NAME" true "OTEL_TRACES_SERVICE_PORT" true "OTEL_EXPORTER_OTLP_ENDPOINT" true
+                                     "HOST" true }}
+            {{- /* CONDITIONAL — emitted explicitly only while the feature is on, so they are
+                   excluded only then; with the feature off, a config entry is the operator's and
+                   must still render. */}}
+            {{- if $proxyFronts }}
+            {{- $selfManaged = merge $selfManaged (dict "TRUST_PROXY_AUTH" true "TRUST_PROXY_AUTH_DANGEROUSLY" true "PROXY_USER_HEADER" true) }}
+            {{- end }}
+            {{- if $.Values.tibcoProxy.enabled }}
+            {{- $selfManaged = merge $selfManaged (dict "MCP_CLIENT_AUTH_ENABLED" true) }}
+            {{- end }}
+            {{- if include "tp-mcp-gateway.fluentbit.enabled" . }}
+            {{- $selfManaged = merge $selfManaged (dict "LOG_TO_FILE" true "LOG_FOLDER" true "LOG_FILE" true) }}
+            {{- end }}
+            {{- range $key, $val := $liteConfig }}
+            {{- if not (hasKey $selfManaged $key) }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+            {{- end }}
+            {{- $appDomain := include "tp-mcp-gateway.appDomain" . }}
+            {{- $pp := include "tp-mcp-gateway.pathPrefix" . }}
+            {{- /* PCP-20564: ALLOWED_ORIGINS rendered here (skipped from the config range) so it is
+                   emitted EXACTLY ONCE and tracks the public origin. Precedence: insecureLocalDev →
+                   wildcard; an explicit lite.config.ALLOWED_ORIGINS override (e.g. a standalone caller
+                   preserving "*") wins next; else the public origin when known; else localhost.
+                   allow_credentials=True upstream ⇒ a non-wildcard value is required for browser calls. */}}
+            {{- if eq (toString .Values.lite.insecureLocalDev) "true" }}
+            - name: ALLOWED_ORIGINS
+              value: {{ "[\"*\"]" | quote }}
+            {{- else if .Values.lite.config.ALLOWED_ORIGINS }}
+            - name: ALLOWED_ORIGINS
+              value: {{ .Values.lite.config.ALLOWED_ORIGINS | quote }}
+            {{- else if $appDomain }}
+            - name: ALLOWED_ORIGINS
+              value: {{ printf "[\"%s\",\"http://localhost:4444\"]" $appDomain | quote }}
+            {{- else }}
+            - name: ALLOWED_ORIGINS
+              value: {{ "[\"http://localhost\",\"http://localhost:4444\"]" | quote }}
+            {{- end }}
+            {{- /* PCP-20564: when the tibcoProxy sidecar fronts the pod it terminates auth on Path A and
+                   injects the trusted identity; select the proxy-header auth method so require-auth is
+                   satisfied by it (JWT-only would 401 the header-authenticated request). Gated on
+                   tibcoProxy.enabled — NOT $proxyFronts — since discovery-only path-routes without
+                   injecting identity. Skipped from the config range above so there is exactly one entry. */}}
+            {{- if .Values.tibcoProxy.enabled }}
+            - name: MCP_CLIENT_AUTH_ENABLED
+              value: "false"
+            {{- end }}
+            {{- if $appDomain }}
+            # OAuth upstream proxy (PCP-18426) callback — derived from the public origin + normalized
+            # mount prefix (== APP_ROOT_PATH), so it tracks APP_DOMAIN instead of a hardcoded literal
+            # (PCP-20050). Empty prefix => callback served at the root. For the Hub default prefix
+            # (/tibco/mcp-gateway) this renders the same URL as the old hardcode.
+            - name: OAUTH_REDIRECT_URI
+              value: {{ printf "%s%s/oauth/callback" $appDomain $pp | quote }}
+            {{- end }}
+            {{- if $pp }}
+            - name: APP_ROOT_PATH
+              value: {{ $pp | quote }}
+            {{- end }}
+            {{- if $appDomain }}
+            # APP_DOMAIN (PCP-20050): public BARE ORIGIN the gateway enforces as the inbound
+            # OAuth audience trust anchor. The gateway appends APP_ROOT_PATH + /servers/<id>/mcp
+            # so the enforced aud matches the advertised RFC 9728 resource. Without it the gateway
+            # falls back to http://localhost:4444 and rejects every external-IdP token with 401.
+            - name: APP_DOMAIN
+              value: {{ $appDomain | quote }}
+            {{- end }}
+            {{- if .Values.global.otel.enabled }}
+            # OpenTelemetry — reads collector endpoints from DP o11y-service ConfigMap.
+            # Same pattern as bwprovisioner. optional: true = graceful when o11y not deployed.
+            - name: OTEL_ENABLE_OBSERVABILITY
+              value: "true"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.global.otel.serviceName | quote }}
+            - name: OBSERVABILITY_ENABLED
+              value: "true"
+            - name: OTEL_TRACES_SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-mcp-gateway.o11yservice.configmap" . }}
+                  key: otel-recv-traces-name
+                  optional: true
+            - name: OTEL_TRACES_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tp-mcp-gateway.o11yservice.configmap" . }}
+                  key: otel-recvservice-port
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://$(OTEL_TRACES_SERVICE_NAME).{{ .Release.Namespace }}.svc.cluster.local:$(OTEL_TRACES_SERVICE_PORT)"
+            {{- end }}
+            {{- range $key, $val := .Values.lite.secret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Release.Name }}-mcp-gateway-secret
+                  key: {{ $key }}
+            {{- end }}
+            {{- if include "tp-mcp-gateway.fluentbit.enabled" . }}
+            # PCP-22768: emit JSON application logs to a file on the shared 'logs' emptyDir so
+            # the fluentbit sidecar can tail + ship them (stdout logging is unaffected). Explicit
+            # env overrides lite.config defaults; the lite container has a read-only root
+            # filesystem, so LOG_FOLDER MUST resolve to the writable 'logs' emptyDir mounted below.
+            - name: LOG_TO_FILE
+              value: "true"
+            - name: LOG_FOLDER
+              value: /var/log/mcpgateway
+            - name: LOG_FILE
+              value: mcpgateway.jsonl
+            {{- end }}
+            {{- /* PCP-20569: gated on $proxyFronts (proxy on OR discovery on), NOT tibcoProxy alone,
+                   so it matches the sidecar/service/ingress port front — in discovery-only mode the
+                   proxy still fronts the pod on :80/:81 and is the sole inbound path. */}}
+            {{- if $proxyFronts }}
+            # sidecar is the sole inbound path — bind loopback only
+            - name: HOST
+              value: "127.0.0.1"
+            - name: TRUST_PROXY_AUTH
+              value: "true"
+            - name: TRUST_PROXY_AUTH_DANGEROUSLY
+              value: "true"
+            - name: PROXY_USER_HEADER
+              value: "X-Authenticated-User"
+            {{- else }}
+            # no sidecar in front — the gateway is the inbound path and binds all interfaces.
+            # An operator override still applies: lite.config.HOST wins over this default.
+            - name: HOST
+              value: {{ dig "HOST" "0.0.0.0" $liteConfig | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # [PCP-20209] writable /tmp for readOnlyRootFilesystem (gunicorn lock/pid +
+            # worker heartbeat, FileLocks — all under tempfile.gettempdir() == /tmp).
+            - name: tmp
+              mountPath: /tmp
+            {{- if include "tp-mcp-gateway.fluentbit.enabled" . }}
+            # PCP-22768: shared dir where the gateway writes its JSON log file and the
+            # fluentbit sidecar tails it.
+            - name: logs
+              mountPath: /var/log/mcpgateway
+            {{- end }}
+            {{- if $.Values.plugins.enabled }}
+            - name: plugins-config
+              mountPath: /app/plugins/config.yaml
+              subPath: config.yaml
+            {{- end }}
+          {{- /* PCP-22882: a cold start on a FRESH volume runs the whole alembic revision set
+                 (120 revisions) against sqlite:////data/mcp.db inside the single worker's
+                 lifespan (GUNICORN_WORKERS=1). With no
+                 startupProbe the livenessProbe below owned that window and SIGKILLed at
+                 initialDelaySeconds 60 + failureThreshold 3 x periodSeconds 30 = 150s, so every
+                 restart re-entered the identical cold path — a self-perpetuating CrashLoopBackOff
+                 (observed on EKS dp-cluster-131-new, chart 1.20.0-alpha.33).
+                 A startupProbe is the right instrument: kubelet suspends BOTH liveness and
+                 readiness until it passes, so slow-but-healthy initialisation is waited for
+                 instead of killed, while steady-state liveness stays tight.
+
+                 THE BUDGET IS A SET OF THREE, NOT ONE NUMBER. Raising failureThreshold alone
+                 silently buys nothing, because two other ceilings sit just past it. They are
+                 ordered deliberately so the probe is always the one that decides, and it is the
+                 only one an operator normally has to touch:
+
+                   startupProbe            (120-1) x 10s = ~1190s (~20 min)  <- the authority
+                   progressDeadlineSeconds 1500s (25 min)   <- rollout must not give up first
+                   GUNICORN_TIMEOUT        1800s (30 min)   <- must never fire during a
+                                                               legitimate cold start
+
+                 WHAT THE ~1190s IS AND IS NOT (PCP-22959). It is headroom, not a measurement.
+                 An earlier revision of this comment justified it with "wait_for_db_ready alone
+                 budgets ~13 min (db_max_retries=30, DB_MAX_BACKOFF_SECONDS=30)". That rationale
+                 is RETRACTED -- #10076's own body withdrew it, because on sqlite the readiness
+                 probe succeeds on the FIRST attempt, so those 13 minutes are never spent here.
+                 Measured on a live EKS gp2 pod 2026-08-04: probe -> alembic context 0.18s, and
+                 the whole cold start (container start -> "startup complete; serving", all 120
+                 revisions) 27.3s.
+                 Do NOT re-size off that number yet:
+                   - n=1 and BEST case -- a newly created 1Gi gp2 runs on a full burst-credit
+                     balance, the image was already on the node, the node was idle. A
+                     credit-exhausted volume or a cold image pull is materially slower. It is a
+                     floor, not a representative figure.
+                   - the tempting anchor is invalid: full mode's failureThreshold 60 x 5s = 5 min
+                     (mcp-stack/templates/deployment-mcpgateway.yaml) renders ONLY under
+                     migration.enabled, where a separate Job runs the revisions and the probe is a
+                     schema-at-head CHECK -- not a migration window. #10076 already recorded that
+                     correction; copying it onto lite would repeat the mistake.
+                   - the failure modes are asymmetric: undersizing reproduces PCP-22882, a
+                     self-perpetuating CrashLoopBackOff where every restart re-enters the same
+                     cold path; oversizing costs one slow restart before steady-state liveness
+                     (150s) takes over.
+                 More samples arrive for free once deployments converge on this chart. Re-size
+                 then, from slow storage and an exhausted burst balance -- not from this one.
+
+                 GUNICORN_TIMEOUT is the non-obvious one: gunicorn's arbiter SIGABRTs a worker
+                 whose heartbeat is stale, and under UvicornWorker the heartbeat only starts
+                 after Server.startup() -- which is what runs the lifespan. So a lifespan longer
+                 than GUNICORN_TIMEOUT is an INDEPENDENT kill condition that no probe can
+                 prevent. lite previously inherited run-gunicorn.sh's 600s default while this
+                 probe budgeted ~600s, so the two collided almost exactly and the documented
+                 failureThreshold knob stopped working right where it was needed.
+                 ==> Raising failureThreshold past ~30 min means raising GUNICORN_TIMEOUT
+                     (lite.config) and progressDeadlineSeconds with it. */}}
+          startupProbe:
+            httpGet:
+              path: /health
+              {{- if $proxyFronts }}
+              port: 80
+              {{- else }}
+              port: 4444
+              {{- end }}
+            {{- /* dig, not a direct field walk: `--set lite.startupProbe=null` -- the obvious way
+                   to disable the probe -- used to nil-deref and break the entire render. */}}
+            periodSeconds: {{ dig "startupProbe" "periodSeconds" 10 .Values.lite }}
+            failureThreshold: {{ dig "startupProbe" "failureThreshold" 120 .Values.lite }}
+            # Explicit: the k8s default is 1s, and during migration the proxy front holds the
+            # connection open rather than answering, so a 1s ceiling would fail every tick for
+            # the wrong reason. Full mode uses 15s on its equivalent probe.
+            timeoutSeconds: {{ dig "startupProbe" "timeoutSeconds" 5 .Values.lite }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              {{- /* PCP-20569: probe the proxy front (:80) whenever the proxy fronts the pod
+                     (proxy OR discovery on) — the gateway then listens on loopback only. */}}
+              {{- if $proxyFronts }}
+              port: 80
+              {{- else }}
+              port: 4444
+              {{- end }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              {{- if $proxyFronts }}
+              port: 80
+              {{- else }}
+              port: 4444
+              {{- end }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            # PCP-22882: was inherited (k8s default 3). Stated explicitly so the steady-state
+            # restart budget is a deliberate choice rather than an implicit one.
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.lite.resources | nindent 12 }}
+          # [PCP-20209] harden the gateway container — mirrors the discovery sidecar below.
+          # Image runs as USER 10001 (Containerfile.lite), so runAsNonRoot is a no-op assertion.
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- if .Values.discovery.enabled }}
+        - name: discovery
+          {{- $discoImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "tp-mcp-gateway.image.bareRepository" .Values.discovery.image.repository))) .Values.discovery.image }}
+          image: {{ include "tp-mcp-gateway.image" $discoImg | quote }}
+          imagePullPolicy: {{ .Values.discovery.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            {{- range $key, $val := .Values.discovery.config }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.discovery.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+        {{- /* PCP-20569 (Option B): the tp-mcp-gateway-proxy sidecar fronts inbound traffic when the proxy
+               is on OR discovery is on. In discovery-only mode the proxy still runs (as the :81 front)
+               so it can path-route <DISCOVERY_PATH_PREFIX> to the in-pod discovery upstream
+               (DISCOVERY_UPSTREAM). KEEP IN SYNC with charts/mcp-stack/templates/deployment-mcpgateway.yaml. */}}
+        {{- if $proxyFronts }}
+        - name: tp-mcp-gateway-proxy
+          {{- $proxyImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "tp-mcp-gateway.image.bareRepository" .Values.tibcoProxy.image.repository))) .Values.tibcoProxy.image }}
+          image: {{ include "tp-mcp-gateway.image" $proxyImg | quote }}
+          imagePullPolicy: {{ .Values.tibcoProxy.image.pullPolicy }}
+          ports:
+            - name: external
+              containerPort: 80
+            - name: cp-internal
+              containerPort: 81
+          env:
+            - name: DATAPLANE_NAME
+              value: {{ .Values.dpName | quote }}
+            - name: CP_DOMAIN
+              value: {{ include "tp-mcp-gateway.cp.domain" . }}
+            - name: PLATFORM_ADMIN_EMAIL
+              value: {{ .Values.tibcoProxy.platformAdminEmail | quote }}
+            - name: TIBCO_PROXY_TRUST_CP_NETWORK
+              value: {{ .Values.tibcoProxy.trustCPNetwork | quote }}
+            {{- /* PCP-20569 (Option B): in-pod discovery routing. The proxy path-routes
+                   DISCOVERY_PATH_PREFIX (relative to the gateway haproxy.pathPrefix) to the in-pod
+                   discovery upstream on loopback :8080 — no dedicated discovery Ingress / Service.
+                   Emitted ONLY when discovery is on: a proxy-on + discovery-off pod has no in-pod
+                   discovery upstream, so advertising http://127.0.0.1:8080 would 502 on /_discovery. */}}
+            {{- if .Values.discovery.enabled }}
+            - name: DISCOVERY_PATH_PREFIX
+              value: {{ include "tp-mcp-gateway.discoverySubPath" . | quote }}
+            - name: DISCOVERY_UPSTREAM
+              value: "http://127.0.0.1:8080"
+            {{- end }}
+          {{- /* PCP-20569: writable /tmp at parity with the gateway/discovery siblings — a
+                 read-only rootfs must not break the proxy if it ever needs scratch space.
+                 Reuses the shared pod-level `tmp` emptyDir. */}}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.tibcoProxy.resources | nindent 12 }}
+          {{- /* PCP-20569: harden the tp-mcp-gateway-proxy container at parity with its gateway/discovery
+                 siblings (it now renders by default since discovery is default-on). The proxy writes
+                 nothing to disk, so readOnlyRootFilesystem is safe. */}}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+        {{- if .Values.dialHome.enabled }}
+        {{- /* Standalone-customer dial-home agent (B1 · PCP-20284) — a SEPARATE TIBCO
+               image (B3 · PCP-20286) that dials home to the Hub over WSS. Required values
+               are enforced by templates/dialhome-validate.yaml. Hardened securityContext
+               mirrors the gateway/discovery sidecars (tp-mcp-gateway-proxy has none). */}}
+        - name: dialhome-agent
+          {{- $dialHomeImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "tp-mcp-gateway.image.bareRepository" .Values.dialHome.image.repository))) .Values.dialHome.image }}
+          image: {{ include "tp-mcp-gateway.image" $dialHomeImg | quote }}
+          imagePullPolicy: {{ .Values.dialHome.image.pullPolicy }}
+          env:
+            - name: HUB_URL
+              value: {{ .Values.dialHome.hub.url | quote }}
+            # Bootstrap token from the pre-created existingSecret (never a literal value).
+            - name: HUB_BOOTSTRAP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dialHome.hub.bootstrapTokenSecret.name | quote }}
+                  key: {{ .Values.dialHome.hub.bootstrapTokenSecret.key | quote }}
+          resources:
+            {{- toYaml .Values.dialHome.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+        {{- /* PCP-22768: fluentbit sidecar — tails the gateway's JSON application-log file and
+               ships it to the DP log collector (otel-userapp-logs). Gated so the pod is
+               byte-identical to before when fluentbit is disabled. Hardened
+               (readOnlyRootFilesystem) at parity with the gateway/discovery/proxy siblings; the
+               tail DB + log file live on the writable 'logs' emptyDir, scratch on shared 'tmp'.
+               KEEP IN SYNC with charts/mcp-stack/templates/deployment-mcpgateway.yaml. */}}
+        {{- if include "tp-mcp-gateway.fluentbit.enabled" . }}
+        - name: fluentbit
+          {{- /* PCP-23125: global.tibco.logging.fluentbit.image.repository is a SHARED key — it is
+                 read HERE and by charts/mcp-stack/templates/deployment-mcpgateway.yaml. Both call
+                 sites must route through the resolver, or the half that does not renders a bare,
+                 unpullable `common-fluentbit:<tag>`. No `digest` is declared for it: fluentbit is
+                 a mirrored third-party image that release-alpha.sh does not pin, and the image
+                 helper treats an absent digest as the tag-only case. Covered by
+                 dev/mcp-gateway-render-tests/container-registry-assert.sh [F]. */}}
+          {{- $fbImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "tp-mcp-gateway.image.bareRepository" .Values.global.tibco.logging.fluentbit.image.repository))) .Values.global.tibco.logging.fluentbit.image }}
+          image: {{ include "tp-mcp-gateway.image" $fbImg | quote }}
+          imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+          ports:
+            - name: http-metrics
+              containerPort: 2020
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CONTAINER_NAME
+              value: mcpgateway
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/mcpgateway
+            - name: fluentbit-config
+              mountPath: /fluent-bit/etc/
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.global.tibco.logging.fluentbit.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            # PCP-22768: common-fluentbit runs as root by default; runAsUser MUST be set
+            # or runAsNonRoot rejects it (CreateContainerConfigError). Verified on a real DP.
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-mcp-gateway-data
+        # [PCP-20209] writable /tmp backing for readOnlyRootFilesystem
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.plugins.enabled }}
+        - name: plugins-config
+          configMap:
+            name: {{ .Release.Name }}-mcp-gateway-plugins
+            items:
+              - key: config.yaml
+                path: config.yaml
+        {{- end }}
+        {{- if include "tp-mcp-gateway.fluentbit.enabled" . }}
+        # PCP-22768: shared log dir (gateway writes, fluentbit tails) + sidecar config.
+        - name: logs
+          emptyDir: {}
+        - name: fluentbit-config
+          configMap:
+            name: {{ .Release.Name }}-mcp-gateway-fluentbit-config
+        {{- end }}
+{{- end }}

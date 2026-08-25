@@ -1,0 +1,41 @@
+{{ if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) -}}
+{{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
+{{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $svcName }}-public-gateway-route
+  annotations:
+    {{- with .Values.global.cp.resources.gatewayapi.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    {{- end }}
+    {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ if $pp }}{{ $pp }}/{{ else }}/{{ end }}
+    {{- if $pp }}
+    # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
+    - path:
+        type: PathPrefix
+        value: {{ .Values.publicApi.wellKnownPrefix }}{{ $pp }}
+    {{- end }}
+    backendRefs:
+    - name: {{ $svcName }}
+      port: 80
+      weight: 100
+{{- end }}

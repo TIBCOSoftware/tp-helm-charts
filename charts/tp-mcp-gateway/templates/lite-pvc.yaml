@@ -1,0 +1,19 @@
+{{- if .Values.lite.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-mcp-gateway-data
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  {{- /* PCP-20593: honour the orchestrator-injected global storage class in LITE mode too
+         (lite.storage.className still wins when set). See tp-mcp-gateway.storageClassName. */}}
+  {{- $sc := include "tp-mcp-gateway.storageClassName" (dict "local" .Values.lite.storage.className "ctx" $) }}
+  {{- if $sc }}
+  storageClassName: {{ $sc }}
+  {{- end }}
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.lite.storage.size }}
+{{- end }}

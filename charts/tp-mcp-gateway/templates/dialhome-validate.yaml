@@ -1,0 +1,27 @@
+{{- /*
+  [PCP-20284 / PCP-20286] Render-time required-value guard for dial-home mode.
+  Lives in its OWN template (NOT wrapped by `if .Values.lite.enabled`) so the
+  lite-only constraint still fires when lite.enabled=false. Emits NO manifest —
+  each `fail` aborts `helm template`/install with an actionable message.
+  Rationale: dial-home-control-channel.md §4 / §7.2 / §10.
+*/}}
+{{- if .Values.dialHome.enabled }}
+{{- if not .Values.lite.enabled }}
+{{- fail "dialHome.enabled=true requires lite.enabled=true — dial-home is lite-mode only (PCP-20284; full mcp-stack wiring is a separate step)." }}
+{{- end }}
+{{- if not .Values.tibcoProxy.enabled }}
+{{- fail "dialHome.enabled=true requires tibcoProxy.enabled=true — the proxy provides the loopback/proxy-trust (HOST=127.0.0.1 + X-Authenticated-User) the dial-home auth model depends on; without it local auth silently fails (design §4/§7.2)." }}
+{{- end }}
+{{- if not .Values.dialHome.hub.url }}
+{{- fail "dialHome.enabled=true requires a non-empty dialHome.hub.url (the Hub external WSS endpoint the agent dials)." }}
+{{- end }}
+{{- if not .Values.dialHome.hub.bootstrapTokenSecret.name }}
+{{- fail "dialHome.enabled=true requires dialHome.hub.bootstrapTokenSecret.name — a PRE-CREATED existingSecret holding the bootstrap token (kubectl create secret generic <name> --from-file=token=<file>); never raw --set / chart-generated." }}
+{{- end }}
+{{- if not .Values.dialHome.hub.bootstrapTokenSecret.key }}
+{{- fail "dialHome.enabled=true requires dialHome.hub.bootstrapTokenSecret.key (the key within the existingSecret; default 'token')." }}
+{{- end }}
+{{- if not .Values.dialHome.image.tag }}
+{{- fail "dialHome.enabled=true requires dialHome.image.tag — pin the immutable dial-home agent image tag (built by build-image.yml, PCP-20286/B3). No :latest fallback." }}
+{{- end }}
+{{- end }}

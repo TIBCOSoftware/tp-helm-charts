@@ -1,0 +1,66 @@
+# =====================================================================
+# STANDALONE profile — hub dial-home / no Data Plane (PCP-20668)
+# =====================================================================
+# Use for a gateway the customer installs OUTSIDE a TIBCO Data Plane:
+# a lite gateway with NO orchestrator wiring (no dataplaneId / instanceId,
+# no CP->DP HAProxy chain, no auto-discovery ingress). The Hub reaches it
+# either by an outbound dial-home WebSocket (standalone-dialhome) or by a
+# direct .svc / https URL the customer registers (standalone-direct /
+# cp-standalone).
+#
+# Pass it AFTER the base values:
+#     helm install <rel> tp-mcp-gateway -f values-standalone.yaml [dynamic --set...]
+#
+# This file REPLACES the fixed structural-boolean --set list that the
+# standalone install used to pass (scripts/deploy-gateway.sh COMMON_SET +
+# react/.../register/RegisterGatewayPage.tsx helmCmd):
+#     --set lite.enabled=true        --set mcp-stack.enabled=false
+#     --set haproxy.enabled=false    --set discovery.enabled=false
+#     --set tibcoProxy.enabled=true  --set tibcoProxy.trustCPNetwork=true
+#     --set lite.config.ALLOW_UNAUTHENTICATED_ADMIN=true
+#     --set lite.ingress.enabled=false
+#
+# It does NOT (and cannot) absorb the DYNAMIC per-install leaves — keep
+# these as --set on the command line, since they vary per deployment:
+#     - global.imagePullSecrets[0]=<pull-secret>          (every install)
+#     - dialHome.enabled / dialHome.hub.url /
+#       dialHome.hub.bootstrapTokenSecret.name /
+#       dialHome.image.tag                                (dial-home install)
+#     - lite.image.tag                                    (dev / pinned image)
+#     - lite.ingress.className / host / tls.*             (cp-standalone https)
+# (The pre-created dial-home bootstrap-token Secret must still exist in the
+#  namespace — it is NEVER passed via --set.)
+
+# -- lite mode ON (single pod, SQLite, memory cache); full mcp-stack OFF.
+lite:
+  enabled: true
+  config:
+    # PCP-20564: MIRROR of the standalone --set list applied by the REAL deploy path
+    # (tp-mcp-hub scripts/deploy-gateway.sh COMMON_SET + register useDialhomeConfig.ts).
+    # This profile file is NOT consumed by that path — kept for parity / self-documentation.
+    # The standalone posture is PRESERVED (anonymous + wildcard CORS) after the lite secure-by-
+    # default flip; hardening standalone is deferred (its real protection is
+    # tibcoProxy.trustCPNetwork network trust — the TT-* family, not app-auth).
+    ALLOW_UNAUTHENTICATED_ADMIN: "true"
+    AUTH_REQUIRED: "false"
+    MCP_REQUIRE_AUTH: "false"
+    ALLOWED_ORIGINS: '["*"]'
+
+mcp-stack:
+  enabled: false
+
+# -- No Data Plane → turn OFF the orchestrator-only ingress paths. With no
+# dataplaneId the haproxy / discovery ingress templates would otherwise render
+# the dp-<id>.platform.local / tibco-dp-<id> placeholder route (a broken
+# CP->DP vhost). These are the two "...=false" lines the ticket eliminates.
+haproxy:
+  enabled: false
+
+discovery:
+  enabled: false
+
+# -- tp-mcp-gateway-proxy sidecar ON: terminates Path A auth + anti-spoofing.
+# trustCPNetwork restated (same as the chart default true) for parity.
+tibcoProxy:
+  enabled: true
+  trustCPNetwork: true

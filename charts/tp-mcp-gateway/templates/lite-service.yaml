@@ -1,0 +1,29 @@
+{{- if .Values.lite.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mcp-gateway
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  {{- /* Select the gateway pod via its unique `app` label. */}}
+  selector:
+    app: {{ .Release.Name }}-mcp-gateway
+  ports:
+    {{- /* PCP-20569 (Option B): the tp-mcp-gateway-proxy sidecar fronts the pod whenever the proxy is on
+           OR discovery is on (discovery is now path-routed IN-POD by tp-mcp-gateway-proxy). In that case the
+           proxy's external(:80)+cp-internal(:81) listeners replace the direct gateway :80->:4444 port.
+           There is NO dedicated discovery :8080 Service port anymore — the discovery upstream is reached
+           only in-pod via the proxy (the :8080 containerPort stays for kubelet probes + the proxy target). */}}
+    {{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) }}
+    - name: external
+      port: 80
+      targetPort: 80
+    - name: cp-internal
+      port: 81
+      targetPort: 81
+    {{- else }}
+    - port: 80
+      targetPort: 4444
+    {{- end }}
+{{- end }}

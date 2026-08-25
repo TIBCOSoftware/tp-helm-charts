@@ -24,7 +24,11 @@ rules:
     resources:
       - serviceaccounts
     resourceNames: ["{{ $saName }}"]
-    verbs: ["get", "update", "delete"]
+    # `patch` is required for upgrades: Helm updates existing resources with a
+    # strategic-merge PATCH, and the ServiceAccount carries a helm.sh/chart
+    # label containing the chart version, so it necessarily changes on every
+    # version bump. Without it a capability upgrade fails with a 403.
+    verbs: ["get", "update", "patch", "delete"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources:
       - roles
@@ -35,7 +39,7 @@ rules:
       - roles
       - rolebindings
     resourceNames: ["{{ $saName }}"]
-    verbs: ["get", "update", "delete"]
+    verbs: ["get", "update", "patch", "delete"]
 
 ---
 

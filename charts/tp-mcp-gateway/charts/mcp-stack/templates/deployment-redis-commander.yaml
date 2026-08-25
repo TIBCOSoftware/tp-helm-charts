@@ -1,0 +1,135 @@
+{{- /*
+Redis-Commander Deployment
+*/ -}}
+{{- /* LOCAL TIBCO MOD (PCP-20275): bundled-Redis server-side TLS gate (single source, identical
+       expression across all templates). When true the in-cluster Redis is TLS-only so redis-commander
+       must connect over TLS and trust the generated CA. Keep on upstream mcp-stack re-sync. */}}
+{{- $bundledServerTls := eq (include "mcp-stack.bundledRedisServerTls" .) "true" -}}
+{{- /* LOCAL TIBCO MOD (PCP-20474): effective-external Redis gate/values, mirroring
+       deployment-mcpgateway.yaml. Collapse to plain redis.external.* / bundled when no
+       global.cp.resources.redisconfig block is injected (default render unchanged); to the injected
+       instance (+ <fullname>-redis-external Secret) when it is. Keep on upstream mcp-stack re-sync. */}}
+{{- $redisExtEnabled := eq (include "mcp-stack.redisExternalEnabled" .) "true" -}}
+{{- $redisExtHasSecret := eq (include "mcp-stack.renderExternalRedisSecret" .) "true" -}}
+{{- if and .Values.redisCommander.enabled (or (eq (include "mcp-stack.bundledRedisEnabled" .) "true") $redisExtEnabled) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-redis-commander
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app: redis-commander
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-commander
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: redis-commander
+        release: {{ .Release.Name }}
+    spec:
+      # Image pull secrets
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis-commander
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          image: "{{ .Values.redisCommander.image.repository }}:{{ .Values.redisCommander.image.tag }}"
+          imagePullPolicy: {{ .Values.redisCommander.image.pullPolicy }}
+
+          # Expose HTTP port inside the pod
+          ports:
+            - name: http
+              containerPort: {{ .Values.redisCommander.service.port }}
+
+          # ─── Readiness probe ───
+          {{- with .Values.redisCommander.probes.readiness }}
+          readinessProbe:
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+
+          # ─── Liveness probe ───
+          {{- with .Values.redisCommander.probes.liveness }}
+          livenessProbe:
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+
+          # Point Redis-Commander at the Redis service (internal or external)
+          env:
+            - name: REDIS_HOST
+              {{- if $redisExtEnabled }}
+              value: {{ include "mcp-stack.redisExternalHost" . | quote }}
+              {{- else }}
+              value: {{ .Values.mcpContextForge.env.redis.host | default (printf "%s-redis" (include "mcp-stack.fullname" .)) | quote }}
+              {{- end }}
+            - name: REDIS_PORT
+              {{- if $redisExtEnabled }}
+              value: "{{ include "mcp-stack.redisExternalPort" . }}"
+              {{- else }}
+              value: "{{ .Values.redis.service.port }}"
+              {{- end }}
+            {{- /* LOCAL TIBCO MOD (PCP-20474): password from the external secret when external is in
+                   play, else the bundled redis-secret only when the bundled Redis is enabled. */}}
+            {{- if $redisExtHasSecret }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.redisExternalSecretName" . | quote }}
+                  key: REDIS_PASSWORD
+            {{- else if and (eq (include "mcp-stack.bundledRedisEnabled" .) "true") .Values.redis.auth.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.redisSecretName" . | trim | quote }}
+                  key: {{ .Values.redis.auth.passwordKey | default "REDIS_PASSWORD" }}
+            {{- end }}
+            {{- /* LOCAL TIBCO MOD (PCP-20275): connect over TLS + trust the bundled server's CA when
+                   serverTls on. redis-commander reads REDIS_TLS; its Node runtime trusts the CA via
+                   NODE_EXTRA_CA_CERTS. Keep on re-sync. */}}
+            {{- if $bundledServerTls }}
+            - name: REDIS_TLS
+              value: "true"
+            - name: NODE_EXTRA_CA_CERTS
+              value: /tls/{{ .Values.redis.serverTls.caKey }}
+            {{- end }}
+
+          {{- if $bundledServerTls }}
+          volumeMounts:
+            - name: redis-tls-ca
+              mountPath: /tls
+              readOnly: true
+          {{- end }}
+
+          # ─── Resource limits & requests ───
+          {{- with .Values.redisCommander.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if $bundledServerTls }}
+      volumes:
+        - name: redis-tls-ca
+          secret:
+            secretName: {{ include "mcp-stack.redisTlsSecretName" . }}
+            items:
+              - key: {{ .Values.redis.serverTls.caKey }}
+                path: {{ .Values.redis.serverTls.caKey }}
+      {{- end }}
+{{- end }}

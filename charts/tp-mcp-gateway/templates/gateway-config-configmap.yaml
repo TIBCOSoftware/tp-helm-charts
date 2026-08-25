@@ -1,0 +1,122 @@
+{{- /*
+Shared gateway configuration for FULL mode — the delivery half of global.tpMcpGateway.config.
+
+WHY THIS FILE EXISTS
+A setting that must apply to BOTH deployment modes has exactly one home: `global.*`, because
+Helm shares nothing else with the vendored mcp-stack sub-chart. Lite consumes that map directly
+(templates/lite-deployment.yaml merges it over lite.config). Full mode cannot: the sub-chart owns
+its Deployment and renders env from ITS OWN `mcpContextForge.config`, which is static YAML we do
+not template. So the shared map is rendered here instead and fed to the gateway container through
+`mcp-stack.mcpContextForge.extraEnvFrom` (wired in values.yaml).
+
+WHY IT WINS
+That extraEnvFrom entry is ordered LAST in the container's `envFrom` list — after the sub-chart's
+gateway Secret AND its gateway ConfigMap. Kubernetes resolves duplicate envFrom keys last-wins, so
+these values override both. That ordering is what makes this the single effective override point
+for an operator (and for MCP Hub's deploy wizard, which writes only this map).
+
+WHY THE SUB-CHART IS NOT PATCHED
+`extraEnvFrom` is the sub-chart's own documented extension point ("envFrom is managed by the
+chart. Use extraEnvFrom to add additional sources"). Using it keeps the vendored tree byte-identical
+to upstream — every local edit there becomes a merge conflict on the next upstream rebase, which is
+why the tree marks its unavoidable ones with `LOCAL TIBCO MOD`. This change needs none.
+
+Same shape and rationale as templates/oauth-configmap.yaml (PCP-20591), including the
+RELEASE-SCOPED name so multiple gateways can co-exist on one Data Plane without a Helm ownership
+collision; the extraEnvFrom reference in values.yaml is tpl-rendered by the sub-chart to match.
+
+⚠️ READING THE RENDERED MANIFESTS — the sub-chart's own `<release>-mcp-stack-gateway-config`
+ConfigMap is NOT the effective configuration. For every key moved into the shared map, the parent
+override was removed from `mcp-stack.mcpContextForge.config`, so that ConfigMap now shows the
+SUB-CHART's default, which for three of them is the opposite of what actually runs:
+
+    SECURE_COOKIES               ConfigMap "true"   → effective "false"
+    SSRF_ALLOW_PRIVATE_NETWORKS  ConfigMap "false"  → effective "true"
+    USE_STATEFUL_SESSIONS        ConfigMap "false"  → effective "true"
+
+The values here win (envFrom, last). This is the same read-the-manifest trap the oauth ConfigMap
+already has for APP_ROOT_PATH; the authoritative answer for "what is the gateway actually running
+with" is the container itself:  kubectl exec <pod> -c mcpgateway -- env | sort
+
+A CONFIG-ONLY UPGRADE DOES ROLL THE FULL-MODE PODS, and the content-addressed name above is the
+mechanism. Change a shared setting → the hash changes → this ConfigMap's NAME changes → the
+sub-chart's envFrom entry (which computes the same expression, tpl-rendered) changes → the pod
+template changes → Kubernetes rolls the Deployment on its own. No manual `rollout restart`.
+
+That this was possible at all was a review finding, and a correction: an earlier version of this
+comment argued it could NOT be done without patching the vendored tree, on the grounds that the
+extraEnvFrom reference lives in static values.yaml and so cannot compute a hash. That is wrong —
+the sub-chart tpl-renders that value, so it can. The stable-name version left running pods on the
+old env indefinitely after a config-only upgrade; this one does not.
+
+⚠️ THE COST OF THE NAME MOVING: helm creates the new ConfigMap, patches the Deployment, then prunes
+the old one (it is absent from the new manifest). Pods already running keep the environment they
+materialised at start, so they are fine until replaced — but the OUTGOING ReplicaSet still names the
+deleted ConfigMap. A pod recreated from that ReplicaSet inside the rollout window (a node eviction
+landing exactly there) would fail to populate its env. The window is the rollout itself, and the
+reference is `optional: true`, so such a pod comes up with chart defaults rather than crash-looping.
+Accepted as narrower than the failure it replaces — pods that NEVER pick up a config change.
+
+LITE MODE IS UNAFFECTED — it renders the shared map into the pod's own `env`, so any change to it
+changes the pod template and Kubernetes rolls it automatically. Lite renders nothing here at all.
+
+THE MIGRATION JOB AND THE PRE-HOOK WINDOW. The Job mounts this ConfigMap (extraEnvFrom reaches it,
+last in its list) and runs `python3 -m mcpgateway.bootstrap_db`, which loads the application's
+settings — so the explicit `env:` list says nothing about what it consumes. Reasoned on the phases
+instead:
+
+  post-install / post-upgrade (the DEFAULT)  this ConfigMap and the sub-chart's own already exist;
+                                             the Job sees the shared values like any other consumer.
+  pre-upgrade, full → full                   the hook manifest references THIS revision's hashed
+                                             name, which does not exist yet; it does NOT reference
+                                             the old hashed ConfigMap that is still lying around.
+                                             So the Job gets neither — `optional: true` ⇒ it sees the
+                                             sub-chart's FIXED-name ConfigMap/Secret plus application
+                                             defaults, NOT the previous shared overrides. That can be
+                                             STRICTER than what was running: a previous shared
+                                             REQUIRE_STRONG_SECRETS="false" falls back to the
+                                             sub-chart's "true".
+  pre-install (and lite → full pre-upgrade)  NEITHER this ConfigMap NOR the sub-chart's own exists,
+                                             so settings fall back to the APPLICATION defaults —
+                                             not the sub-chart's.
+
+That last row is the one worth stating precisely, because the obvious assumption ("it falls back to
+the chart default") is wrong. For REQUIRE_STRONG_SECRETS the application default is NOT "true":
+mcpgateway/config.py has `Field(default=False)` plus a validator that sets it to
+`environment == "production"`, and `environment` itself defaults to "development" — so a pre-install
+migration runs with strong-secret validation OFF, where a post-install one runs with the shared
+"true". The difference is real; its direction is permissive (the migration skips weak-secret
+validation), so it cannot fail a migration that would otherwise succeed. It is also not introduced
+here — it is a property of overriding hookPhase to a pre-* phase, where by construction the config
+resources do not exist yet.
+
+⚠️ Before adding a shared key, check it against the APPLICATION default (config.py), not the
+sub-chart default, if a pre-* migration could be affected by it.
+*/ -}}
+{{- $mcpStack := index .Values "mcp-stack" -}}
+{{- $shared := dig "tpMcpGateway" "config" dict .Values.global -}}
+{{- if and (not .Values.lite.enabled) $mcpStack $mcpStack.enabled $shared }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  {{- /* CONTENT-ADDRESSED NAME — this is what rolls the pods.
+         The name carries a hash of the shared map, and mcp-stack.mcpContextForge.extraEnvFrom in
+         values.yaml computes the SAME expression (it is tpl-rendered by the sub-chart, so it can).
+         Change a shared setting and the name changes, which changes the sub-chart's envFrom, which
+         changes the pod template — so Kubernetes rolls the Deployment on its own. Without this the
+         ConfigMap updates in place and running pods keep the old env until something else replaces
+         them.
+         ⚠️ The two expressions MUST stay character-identical. If they drift, the reference points at
+         a ConfigMap that does not exist and `optional: true` turns that into SILENCE: the gateway
+         comes up with chart defaults and nothing reports the override was dropped. A render test
+         asserts the emitted name matches the referenced one. */}}
+  name: {{ .Release.Name }}-gateway-cfg-{{ toJson (dig "tpMcpGateway" "config" dict .Values.global) | sha256sum | trunc 8 }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+data:
+  {{- /* Values are quoted because env values are strings; a bare `true` would render as a bool
+         and fail the ConfigMap schema. */}}
+  {{- range $key, $val := $shared }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
+{{- end }}

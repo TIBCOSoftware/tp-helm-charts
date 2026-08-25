@@ -1,0 +1,58 @@
+{{- /* LOCAL TIBCO MOD (PCP-20275): render this ConfigMap when persistence OR server-side TLS is on
+       (previously persistence-only). serverTls needs a redis.conf to carry the tls-* directives, and
+       persistence defaults to false on the shipped DP path. Keep on upstream mcp-stack re-sync. */}}
+{{- $bundledServerTls := eq (include "mcp-stack.bundledRedisServerTls" .) "true" -}}
+{{- /* LOCAL TIBCO MOD (PCP-20474): bundled-Redis gate (suppressed for the effective-external path). */}}
+{{- if and (eq (include "mcp-stack.bundledRedisEnabled" .) "true") (or .Values.redis.persistence.enabled $bundledServerTls) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-redis-config
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app: {{ include "mcp-stack.fullname" . }}-redis
+data:
+  redis.conf: |
+    {{- if .Values.redis.persistence.enabled }}
+    # Redis persistence configuration
+    # Enable AOF (Append Only File) persistence
+    appendonly yes
+    appendfilename "appendonly.aof"
+
+    # AOF rewrite configuration
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+
+    # RDB configuration (backup snapshots)
+    # PCP-21592: Redis does NOT support inline comments on directives — an inline
+    # comment ("save 900 1 # ...") is a FATAL CONFIG FILE ERROR and CrashLoops the pod.
+    # Keep each comment on its own line (matches the source mcp-stack chart).
+    # Save after 900 sec if at least 1 key changed
+    save 900 1
+    # Save after 300 sec if at least 10 keys changed
+    save 300 10
+    # Save after 60 sec if at least 10000 keys changed
+    save 60 10000
+
+    # Set the directory for persistence files
+    dir /data
+
+    # Other recommended settings for data safety
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    {{- end }}
+    {{- /* LOCAL TIBCO MOD (PCP-20275): server-side TLS — TLS-ONLY (no plaintext listener). The
+           `port 0` line is the actual CWE-319 closer; tls-port keeps the Service port unchanged
+           (6379). The cert/key/CA are mounted at /tls from the shared redisTlsSecretName secret.
+           tls-auth-clients no = server-auth-only (mTLS is a deferred follow-up). */}}
+    {{- if $bundledServerTls }}
+    # ─── Server-side TLS (PCP-20275) ───
+    port 0
+    tls-port {{ .Values.redis.service.port }}
+    tls-cert-file /tls/{{ .Values.redis.serverTls.certKey }}
+    tls-key-file /tls/{{ .Values.redis.serverTls.privateKeyKey }}
+    tls-ca-cert-file /tls/{{ .Values.redis.serverTls.caKey }}
+    tls-auth-clients no
+    {{- end }}
+{{- end }}

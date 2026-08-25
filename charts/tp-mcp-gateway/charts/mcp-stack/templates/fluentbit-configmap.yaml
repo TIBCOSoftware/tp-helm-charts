@@ -1,0 +1,164 @@
+{{- /*
+  PCP-22768 — fluentbit sidecar configuration for the MCP Gateway (full mode).
+
+  Rendered ONLY when global.tibco.logging.fluentbit.enabled is true. The gateway
+  (mcp-context-forge) is configured (via LOG_TO_FILE/LOG_FOLDER/LOG_FILE in the
+  deployment env, gated on the same flag) to write JSON-line application logs to
+  /var/log/mcpgateway/mcpgateway.jsonl on a shared 'logs' emptyDir. This sidecar
+  tails that file and ships it to the Data Plane log collector (otel-userapp-logs)
+  over OpenTelemetry.
+
+  IMPORTANT — this MIRRORS the platform DP-app fluentbit contract (flogoprovisioner
+  otel-config-flogo / dp-flogo-app), which is what the otel-userapp-logs collector
+  actually accepts. Real-env verification (PCP-22768) proved a naive "parse JSON at
+  the INPUT" config makes the collector reject every batch with HTTP 503
+  ("log bodies of type Str cannot be indexed"): the collector's OTTL requires the
+  log BODY to be a structured map. The working contract is:
+    - INPUT tail with NO input-level parser -> the raw JSON line lands in the `log` key
+    - a `parser` FILTER (key_name log, parsers jsonlog/…, Reserve_Data OFF) CONSUMES
+      `log`, so the record becomes the parsed map
+    - OUTPUT `Logs_body_key $log` -> `log` no longer exists, so fluentbit ships the
+      whole parsed record as the log body MAP -> collector indexes body["@timestamp"] OK
+    - update_record.lua maps zap-style keys onto the contract fields (no-op for the
+      gateway's asctime/levelname/message JSON, kept for contract parity)
+  KEEP IN SYNC with the wrapper Lite variant (templates/lite-fluentbit-configmap.yaml)
+  and the source chart (tp-mcp-gateway/charts/mcp-stack).
+*/ -}}
+{{- if include "mcp-stack.fluentbit.enabled" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-fluentbit-config
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush           1
+      Daemon          off
+      Log_Level       error
+      Parsers_File    parsers.conf
+      HTTP_Server     On
+      HTTP_Listen     0.0.0.0
+      HTTP_Port       2020
+      Health_Check    On
+
+    @INCLUDE input-tail.conf
+    @INCLUDE output-otel.conf
+    @INCLUDE filters.conf
+
+  input-tail.conf: |
+    [INPUT]
+      Name              tail
+      Tag               app.*
+      Path              /var/log/mcpgateway/mcpgateway.jsonl
+      DB                /var/log/mcpgateway/flb.db
+      multiline.parser  docker, cri, multiline-regex
+      Mem_Buf_Limit     30MB
+      Read_From_Head    True
+      Buffer_Chunk_Size 10M
+      Buffer_Max_Size   20M
+      skip_long_lines   Off
+
+  filters.conf: |
+    [FILTER]
+      Name   parser
+      Match  app.*
+      key_name log
+      parser  formattedlog
+      parser  jsonlog
+      parser  unformattedlog
+
+    [FILTER]
+      Name   lua
+      Match  app.*
+      Script update_record.lua
+      Call   update_record
+
+  output-otel.conf: |
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                app.*
+      Host                 {{ .Values.global.tibco.logging.fluentbit.otel.host }}
+      Port                 {{ .Values.global.tibco.logging.fluentbit.otel.port }}
+      Log_response_payload False
+      Logs_body_key        $log
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    [MULTILINE_PARSER]
+      name          multiline-regex
+      type          regex
+      key_content   log
+      flush_timeout 1000
+      rule          "start_state"   "/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+|\{.level.:).*/"     "cont"
+      rule          "cont"          "/^(?!\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(INFO|WARN|DEBUG|ERROR|FATAL)\s+|\{.level.:).*/"   "cont"
+
+    [PARSER]
+      Name        formattedlog
+      Format      regex
+      Regex       /^(?<log_time>[^ ]*)\t(?<log_level>INFO|WARN|DEBUG|ERROR|FATAL)\t(?<message>.*)/m
+      Time_Key    time
+      Time_Format %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep   On
+
+    [PARSER]
+      Name        jsonlog
+      Format      json
+
+    [PARSER]
+      Name        unformattedlog
+      Format      regex
+      Regex       /^(?<message>.*)/m
+      Time_Key    time
+      Time_Format %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep   On
+
+  update_record.lua: |
+    function update_record(tag, timestamp, record)
+      -- JSON path: the jsonlog parser promotes zap keys level/timestamp/logger/msg.
+      -- Map them onto the contract fields (log_level/log_time/message) WITHOUT
+      -- clobbering an already-structured record (the gateway JSON already has
+      -- message/levelname/asctime, so these guards are no-ops for it).
+      if record["message"] == nil and record["msg"] ~= nil then
+        local jmsg = tostring(record["msg"])
+        local jlogger = record["logger"]
+        if jlogger ~= nil and jlogger ~= "" then
+          record["message"] = "[" .. tostring(jlogger) .. "] -\t" .. jmsg
+        else
+          record["message"] = jmsg
+        end
+      end
+      if record["log_level"] == nil and record["level"] ~= nil then
+        record["log_level"] = string.upper(tostring(record["level"]))
+      end
+      if record["log_time"] == nil and record["timestamp"] ~= nil then
+        record["log_time"] = record["timestamp"]
+      end
+      local logger = record["logger"]
+      local msg = record["message"]
+      if logger == "flogo.general.activity.log" then
+        record["log_type"] = "user"
+      elseif msg ~= nil and msg:find("%[flogo%.general%.activity%.log%]") then
+        record["log_type"] = "user"
+      else
+        record["log_type"] = "engine"
+      end
+      if msg ~= nil then
+        local trace_id = msg:match("%[traceID:%s*([%da-fA-F]+)%]")
+        local span_id = msg:match("%[spanID:%s*([%da-fA-F]+)%]")
+        if trace_id then
+          record["trace_id"] = trace_id
+        end
+        if span_id then
+          record["span_id"] = span_id
+        end
+      end
+      record["msg"] = nil
+      record["level"] = nil
+      record["logger"] = nil
+      record["timestamp"] = nil
+      return 1, timestamp, record
+    end
+{{- end }}

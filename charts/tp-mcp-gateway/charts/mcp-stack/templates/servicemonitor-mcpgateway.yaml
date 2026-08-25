@@ -1,0 +1,30 @@
+{{- if and .Values.mcpContextForge.metrics.enabled .Values.mcpContextForge.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-mcpgateway
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- /* PCP-19047 LOCAL MOD: the gateway Service (service-mcp.yaml) now carries
+           app.kubernetes.io/name=tp-mcp-gateway (was the <release>-mcp-stack fullname).
+           Match the new value so Prometheus keeps scraping. app.kubernetes.io/instance keeps
+           the selector release-scoped (the old <release>-mcp-stack name value was implicitly
+           per-release; the literal name is not), so co-located gateway releases are not both
+           scraped. Mutable selector — safe to change. Do not revert on upstream mcp-stack
+           (github.com/IBM/mcp-context-forge) re-sync. */}}
+    matchLabels:
+      app.kubernetes.io/name: tp-mcp-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: http
+      path: /metrics/prometheus
+      {{- with .Values.mcpContextForge.metrics.metricsToken }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ .secretName }}
+          key: {{ .key }}
+      {{- end }}
+{{- end }}

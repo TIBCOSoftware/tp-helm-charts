@@ -59,10 +59,14 @@ data:
 {{- $traceRec := "'[otlp]'" -}}
 {{- $traceProc := "'[filter/devnull-traces]'" -}}
 {{- $traceExp := "'[debug]'" }}
-{{- $appLogOtlpUrl := "localhost:4317" }}
-{{- $svcLogOtlpUrl := "localhost:4317" }}
-{{- $metricsOtlpUrl := "localhost:4317" }}
-{{- $traceOtlpUrl := "localhost:4317" }}
+{{- $appLogOtlpGrpcUrl := "localhost:4317" }}
+{{- $appLogOtlpHttpUrl := "http://localhost:4318" }}
+{{- $svcLogOtlpGrpcUrl := "localhost:4317" }}
+{{- $svcLogOtlpHttpUrl := "http://localhost:4318" }}
+{{- $metricsOtlpGrpcUrl := "localhost:4317" }}
+{{- $metricsOtlpHttpUrl := "http://localhost:4318" }}
+{{- $traceOtlpGrpcUrl := "localhost:4317" }}
+{{- $traceOtlpHttpUrl := "http://localhost:4318" }}
 {{- $esEndpoint := "https://elasticsearch-master:9200" }}
 {{- $osEndpoint := "https://opensearch-master:9200" }}
 {{- $appLogExpESOpt := false }}
@@ -101,10 +105,11 @@ data:
   {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.kind "otlp" }}
-  {{- $appLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.endpoint}}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.type "grpc" }}
+  {{- $appLogOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.endpoint}}
   {{- $appLogExp = "'[otlp/logs-export]'" -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.type "http"}}
+  {{- $appLogOtlpHttpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.userApps.otlp.endpoint}}
   {{- $appLogExp = "'[otlphttp/logs-export]'" -}}
   {{- end }}
   {{- end }}
@@ -117,11 +122,12 @@ data:
 ##logsserver:userapp secondary exporter
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.kind "otlp" }}
-  {{- $appLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.type "grpc" }}
+  {{- $appLogOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.endpoint }}
   {{- $appLogExp = printf "%s, %s" (trimAll "'[]'" $appLogExp) "otlp/logs-export" -}}
   {{- $appLogExp = printf "'[%s]'" $appLogExp -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.type "http" }}
+  {{- $appLogOtlpHttpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.userApps.otlp.endpoint }}
   {{- $appLogExp = printf "%s, %s" (trimAll "'[]'" $appLogExp) "otlphttp/logs-export" -}}
   {{- $appLogExp = printf "'[%s]'" $appLogExp -}}
   {{- end }}
@@ -174,10 +180,11 @@ data:
   {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.kind "otlp" }}
-  {{- $svcLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.type "grpc" }}
+  {{- $svcLogOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.endpoint }}
   {{- $svcLogExp = "'[otlp/service-logs-export]'" -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.type "http"}}
+  {{- $svcLogOtlpHttpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporter.services.otlp.endpoint }}
   {{- $svcLogExp = "'[otlphttp/service-logs-export]'" -}}
   {{- end }}
   {{- end }}
@@ -190,11 +197,12 @@ data:
 ##logsserver:service secondary exporter
 {{- if .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.kind "otlp" }}
-  {{- $svcLogOtlpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.type "grpc" }}
+  {{- $svcLogOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.endpoint }}
   {{- $svcLogExp = printf "%s, %s" (trimAll "'[]'" $svcLogExp) "otlp/service-logs-export" -}}
   {{- $svcLogExp = printf "'[%s]'" $svcLogExp -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.type "http" }}
+  {{- $svcLogOtlpHttpUrl = .Values.global.cp.resources.o11yv3.logsServer.config.exporterSecondary.services.otlp.endpoint }}
   {{- $svcLogExp = printf "%s, %s" (trimAll "'[]'" $svcLogExp) "otlphttp/service-logs-export" -}}
   {{- $svcLogExp = printf "'[%s]'" $svcLogExp -}}
   {{- end }}
@@ -261,11 +269,12 @@ data:
   {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "otlp" }}
-  {{- $metricsOtlpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.type "grpc" }}
+  {{- $metricsOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.endpoint }}
   {{- $appMetricsExp = "'[otlp/metrics-export]'" -}}
   {{- $promMetricsExp = "'[otlp/metrics-export]'" -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.type "http"}}
+  {{- $metricsOtlpHttpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.endpoint }}
   {{- $appMetricsExp = "'[otlphttp/metrics-export]'" -}}
   {{- $promMetricsExp = "'[otlphttp/metrics-export]'" -}}
   {{- end }}
@@ -283,13 +292,14 @@ data:
 ##metricsserver:secondary exporter
 {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.kind "otlp" }}
-  {{- $metricsOtlpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.type "grpc" }}
+  {{- $metricsOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.endpoint }}
   {{- $appMetricsExp = printf "%s, %s" (trimAll "'[]'" $appMetricsExp) "otlp/metrics-export" -}}
   {{- $appMetricsExp = printf "'[%s]'" $appMetricsExp -}}
   {{- $promMetricsExp = printf "%s, %s" (trimAll "'[]'" $promMetricsExp) "otlp/metrics-export" -}}
   {{- $promMetricsExp = printf "'[%s]'" $promMetricsExp -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.type "http"}}
+  {{- $metricsOtlpHttpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporterSecondary.otlp.endpoint }}
   {{- $appMetricsExp = printf "%s, %s" (trimAll "'[]'" $appMetricsExp) "otlphttp/metrics-export" -}}
   {{- $appMetricsExp = printf "'[%s]'" $appMetricsExp -}}
   {{- $promMetricsExp = printf "%s, %s" (trimAll "'[]'" $promMetricsExp) "otlphttp/metrics-export" -}}
@@ -323,10 +333,11 @@ data:
   {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind "otlp" }}
-  {{- $traceOtlpUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.type "grpc" }}
+  {{- $traceOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.endpoint }}
   {{- $traceExp = "'[otlp/traces-export]'" -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.type "http" }}
+  {{- $traceOtlpHttpUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.otlp.endpoint }}
   {{- $traceExp = "'[otlphttp/traces-export]'" -}}
   {{- end }}
   {{- end }}
@@ -339,11 +350,12 @@ data:
 ##traceserver:secondary exporter
 {{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.enabled }}
   {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.kind "otlp" }}
-  {{- $traceOtlpUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.endpoint }}
   {{- if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.type "grpc" }}
+  {{- $traceOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.endpoint }}
   {{- $traceExp = printf "%s, %s" (trimAll "'[]'" $traceExp) "otlp/traces-export" -}}
   {{- $traceExp = printf "'[%s]'" $traceExp -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.type "http" }}
+  {{- $traceOtlpHttpUrl = .Values.global.cp.resources.o11yv3.tracesServer.config.exporterSecondary.otlp.endpoint }}
   {{- $traceExp = printf "%s, %s" (trimAll "'[]'" $traceExp) "otlphttp/traces-export" -}}
   {{- $traceExp = printf "'[%s]'" $traceExp -}}
   {{- end }}
@@ -368,10 +380,14 @@ data:
   LOGS_EXPORTER_AUDITSAFE_OS_ENDPOINT: {{ $osEndpoint }}
 {{- end }}
   PLATFORM_POD_ALERT_EVENT_EXPORTER_OTLP_URL: {{ $platformPodAlertEventOtlpUrl }}
-  LOGS_EXPORTER_APP_OTLP_URL: {{ $appLogOtlpUrl }}
-  LOGS_EXPORTER_SVC_OTLP_URL: {{ $svcLogOtlpUrl }}
-  METRICS_EXPORTER_OTLP_URL: {{ $metricsOtlpUrl }}
-  TRACES_EXPORTER_OTLP_URL: {{ $traceOtlpUrl }}
+  LOGS_EXPORTER_APP_OTLPGRPC_URL: {{ $appLogOtlpGrpcUrl }}
+  LOGS_EXPORTER_APP_OTLPHTTP_URL: {{ $appLogOtlpHttpUrl }}
+  LOGS_EXPORTER_SVC_OTLPGRPC_URL: {{ $svcLogOtlpGrpcUrl }}
+  LOGS_EXPORTER_SVC_OTLPHTTP_URL: {{ $svcLogOtlpHttpUrl }}
+  METRICS_EXPORTER_OTLPGRPC_URL: {{ $metricsOtlpGrpcUrl }}
+  METRICS_EXPORTER_OTLPHTTP_URL: {{ $metricsOtlpHttpUrl }}
+  TRACES_EXPORTER_OTLPGRPC_URL: {{ $traceOtlpGrpcUrl }}
+  TRACES_EXPORTER_OTLPHTTP_URL: {{ $traceOtlpHttpUrl }}
 ##pipeline:userapp logs
   app_logs_receiver: {{ $appLogRec }}
   app_logs_processor: {{ $appLogProc }}

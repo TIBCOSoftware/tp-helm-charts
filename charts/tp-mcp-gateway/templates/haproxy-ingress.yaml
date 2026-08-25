@@ -1,0 +1,36 @@
+{{- if .Values.haproxy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-haproxy
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  annotations:
+    haproxy.org/cors-enable: "true"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/src-ip-header: X-Real-IP
+    ingress.kubernetes.io/path-rewrite: {{ .Values.haproxy.pathPrefix | trimSuffix "/" }}/(.*) /\1
+spec:
+  ingressClassName: tibco-dp-{{ .Values.dataplaneId }}
+  rules:
+    - host: {{ tpl .Values.global.cp.dpUrl.host . }}
+      http:
+        paths:
+          - path: {{ .Values.haproxy.pathPrefix | trimSuffix "/" }}/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tp-mcp-gateway.serviceName" . }}
+                port:
+                  {{- /* Route to the tp-mcp-gateway-proxy front (:81 cp-internal) whenever the proxy
+                         sidecar is present. PCP-20569 (Option B): discovery is now served IN-POD
+                         by the tp-mcp-gateway-proxy sidecar (it path-routes <prefix>/_discovery to the
+                         discovery upstream), so discovery.enabled ALSO implies the :81 front —
+                         there is no dedicated discovery Ingress / :8080 Service anymore. */}}
+                  {{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) }}
+                  number: 81
+                  {{- else }}
+                  number: 80
+                  {{- end }}
+{{- end }}

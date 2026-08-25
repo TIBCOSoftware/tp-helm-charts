@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-mcpgateway
+  labels:
+    {{- /* PCP-19047 LOCAL MOD: this Service is the CP capability-discovery target in full mode.
+           Emit app.kubernetes.io/name=tp-mcp-gateway + platform.tibco.com/* — the same
+           capability label set the lite path applies via parent tp-mcp-gateway.selectorLabels
+           (plus helm.sh/chart + managed-by; app.kubernetes.io/version is omitted, see the helper).
+           Replaces upstream `mcp-stack.labels`. The ServiceMonitor selector in
+           servicemonitor-mcpgateway.yaml matches this name value — keep the two in lockstep.
+           Do not revert on upstream mcp-stack re-sync. */}}
+    {{- include "mcp-stack.capabilityLabels" . | nindent 4 }}
+  {{- with .Values.mcpContextForge.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.mcpContextForge.service.type }}
+  selector:
+    app: {{ include "mcp-stack.fullname" . }}-mcpgateway
+  ports:
+    {{- /* LOCAL TIBCO MOD: full-mode tp-mcp-gateway-proxy front. When the proxy sidecar fronts the pod
+           it is the sole inbound path; the managed http(:80 -> :4444) port is REPLACED by the
+           proxy's external(:80) + cp-internal(:81) listeners, mirroring templates/lite-service.yaml
+           exactly (gated http vs proxy ports — never both, so port 80 is never duplicated).
+           PCP-20569 (Option B): the proxy now also fronts the pod when discovery is on (discovery
+           is path-routed IN-POD by the proxy), so gate on tibcoProxy OR discovery. There is NO
+           dedicated discovery :8080 Service port anymore — the discovery upstream is reached only
+           in-pod via the proxy (the :8080 containerPort stays for kubelet probes + the proxy target).
+           Gated on the sub-chart-visible global flags. Keep on upstream mcp-stack
+           (github.com/IBM/mcp-context-forge) re-sync. */}}
+    {{- if (or (dig "tpMcpGateway" "tibcoProxy" "enabled" false (.Values.global | default dict)) (dig "tpMcpGateway" "discovery" "enabled" true (.Values.global | default dict))) }}
+    - name: external
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: cp-internal
+      port: 81
+      targetPort: 81
+      protocol: TCP
+    {{- else }}
+    - name: http
+      port: {{ .Values.mcpContextForge.service.port }}
+      targetPort: {{ .Values.mcpContextForge.containerPort }}
+      protocol: TCP
+    {{- end }}
+    {{- /* LOCAL TIBCO MOD: generic extra service-ports passthrough, appended after the
+           managed ports. Keep on upstream mcp-stack (github.com/IBM/mcp-context-forge) re-sync. */}}
+    {{- with .Values.mcpContextForge.service.extraPorts }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}

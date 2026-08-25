@@ -1,0 +1,59 @@
+# =====================================================================
+# CP profile — orchestrator -> Data Plane install (PCP-20668)
+# =====================================================================
+# Use for the gateway as a TIBCO Platform Data Plane capability: the CP
+# Orchestrator installs it into a DP namespace, fronted by the CP->DP
+# HAProxy chain + the auto-discovery sidecar, with the gateway wired into
+# the DP's identity (dataplaneId / instanceId / ingress vhost).
+#
+# Pass it AFTER the base values:
+#     helm install <rel> tp-mcp-gateway -f values-cp.yaml [dynamic --set...]
+#
+# WHY THIS FILE IS NOT EMPTY: the chart DEFAULTS are NEUTRAL (full mode:
+# lite.enabled=false, mcp-stack.enabled=true, tibcoProxy.enabled=false),
+# NOT CP-shaped. The CP recipe flips the same lite/full/tibcoProxy booleans
+# the standalone install does. The ONLY axis where CP differs from
+# standalone is the ingress posture: CP KEEPS haproxy + discovery ON
+# (chart defaults true) to render the CP->DP path + the discovery sidecar,
+# whereas standalone turns both OFF. So this file sets the shared flips and
+# leaves haproxy/discovery at their `true` defaults — captured here for
+# parity/symmetry with values-standalone.yaml.
+#
+# This mirrors the FIXED (non-placeholder) values in the orchestrator recipe
+#   tp-helm-charts: charts/tibco-cp-mcp-hub/charts/mcp-hub-recipes/templates/mcp-gateway.yaml
+# It does NOT (and cannot) carry the DYNAMIC per-DP leaves the Hub /
+# orchestrator substitute at deploy time — those stay in the recipe, e.g.:
+#     - dataplaneId / dpName / namespace        (= ${DATAPLANE_ID} / ...)
+#     - global.imagePullSecrets[0]              (= ${DATAPLANE_ID})
+#     - global.tibco.logging.fluentbit.enabled  (= ${ENABLE_APPS_FLUENTBIT_SIDECAR})
+#     - haproxy.pathPrefix                       (= ${MCP_GATEWAY_PRIVATE_PATH})
+#     - publicApi.pathPrefix                     (= ${INGRESS_PATH_PREFIX})
+#     - lite.image.tag / storage / resources    (recipe-pinned)
+#     - the per-controller public ingress        (global.cp.resources.ingress.*)
+
+global:
+  # Full-mode (mcp-stack subchart) sidecar parity with lite. Helm shares only
+  # global.* with the vendored subchart, so these mirror the top-level
+  # discovery.enabled (default true) / tibcoProxy.enabled toggles so a full-mode
+  # install also gets the discovery + tp-mcp-gateway-proxy sidecars. [PCP-20576]
+  tpMcpGateway:
+    discovery:
+      enabled: true
+    tibcoProxy:
+      enabled: true
+
+# -- lite mode ON (single pod, SQLite); full mcp-stack OFF (same flips as standalone).
+lite:
+  enabled: true
+
+mcp-stack:
+  enabled: false
+
+# -- tp-mcp-gateway-proxy sidecar ON: CP->DP auth termination on Path A.
+tibcoProxy:
+  enabled: true
+
+# -- haproxy.enabled (default true) + discovery.enabled (default true) are LEFT
+# at their chart defaults on purpose: CP renders the CP->DP HAProxy path and the
+# in-pod discovery sidecar. (This is the one axis where CP differs from the
+# standalone profile, which sets both to false.) Documented here, not overridden.

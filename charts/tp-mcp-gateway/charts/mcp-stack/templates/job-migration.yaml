@@ -1,0 +1,169 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mcp-stack.fullname" . }}-migration
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    # [PCP-20712] Hook phase is configurable; default post-install,post-upgrade so the migration
+    # runs AFTER the main-manifest phase has created its deps (postgres + gateway secret/config) on
+    # BOTH fresh install and a lite->full upgrade. The old default post-install,pre-upgrade fired the
+    # upgrade migration BEFORE those deps existed on a lite->full transition (mcp-stack was off in
+    # lite, so none of its resources pre-existed) -> CreateContainerConfigError. Keep the knob so an
+    # externally-managed-Postgres profile (e.g. OCP PGO, where the DB secret pre-exists) can opt back
+    # into pre-install,pre-upgrade.
+    "helm.sh/hook": {{ .Values.migration.hookPhase | default "post-install,post-upgrade" }}
+    # [PCP-20712] Run before the other post-upgrade hooks: registration-jobs (weight 0, needs the
+    # migrated schema) and postgres-migration-check (weight 10, verifies schema-at-head).
+    "helm.sh/hook-weight": "-5"
+    # Delete old Job before new one and clean up succeeded ones
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  # Job configuration
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-stack.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: {{ .Values.migration.restartPolicy }}
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: migration
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- /* LOCAL TIBCO MOD (PCP-23125) — re-apply on upstream mcp-stack re-vendor.
+                 The migration Job runs the SAME image as the gateway, so it composes it the same
+                 way: the effective repository <registry>/<repository>/<bare-name> from
+                 global.cp.containerRegistry, passed to the ONE mcp-stack.image helper so tag and
+                 digest still go through a single composition point (see
+                 templates/deployment-mcpgateway.yaml). */}}
+          {{- $migImg := merge (dict "repository" (printf "%s/%s/%s" (include "mcp-stack.image.registry" $) (include "mcp-stack.image.repository" $) (include "mcp-stack.image.bareRepository" .Values.migration.image.repository))) .Values.migration.image }}
+          image: {{ include "mcp-stack.image" $migImg | quote }}
+          imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
+
+          # Migration workflow: wait for DB → run migrations
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              set -e
+              # LOCAL TIBCO MOD (PCP-21191): assemble a percent-encoded DATABASE_URL
+              # from the discrete POSTGRES_* env before waitForDb/migrate (which read
+              # settings.database_url). K8s $(VAR) substitution does not URL-encode.
+{{ include "mcp-stack.databaseUrlEncode" . | indent 14 }}
+              echo "🔍 Waiting for database to be ready..."
+              {{ .Values.migration.command.waitForDb }}
+              echo "✅ Database is ready!"
+              echo "🚀 Running database migrations..."
+              {{ .Values.migration.command.migrate }}
+              echo "✅ Migration job completed successfully!"
+
+          env:
+            # ---------- POSTGRES ----------
+            - name: POSTGRES_HOST
+              {{- if .Values.postgres.external.enabled }}
+              {{- if .Values.postgres.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . }}
+                  key: {{ .Values.postgres.external.hostKey | default "host" }}
+              {{- else }}
+              value: {{ include "mcp-stack.externalPg.host" . | quote }}
+              {{- end }}
+              {{- else }}
+              value: {{ printf "%s-postgres" (include "mcp-stack.fullname" .) }}
+              {{- end }}
+            - name: POSTGRES_PORT
+              {{- if .Values.postgres.external.enabled }}
+              {{- if .Values.postgres.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . }}
+                  key: {{ .Values.postgres.external.portKey | default "port" }}
+              {{- else }}
+              value: "{{ include "mcp-stack.externalPg.port" . }}"
+              {{- end }}
+              {{- else }}
+              value: "{{ .Values.mcpContextForge.env.postgres.port }}"
+              {{- end }}
+            - name: POSTGRES_DB
+              {{- if .Values.postgres.external.enabled }}
+              {{- if .Values.postgres.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . }}
+                  key: {{ .Values.postgres.external.databaseKey | default "dbname" }}
+              {{- else }}
+              value: {{ include "mcp-stack.externalPg.database" . | quote }}
+              {{- end }}
+              {{- else }}
+              value: "{{ .Values.mcpContextForge.env.postgres.db }}"
+              {{- end }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: {{ if .Values.postgres.external.enabled }}{{ .Values.postgres.external.userKey | default "user" }}{{ else }}POSTGRES_USER{{ end }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-stack.postgresSecretName" . | trim }}
+                  key: {{ if .Values.postgres.external.enabled }}{{ .Values.postgres.external.passwordKey | default "password" }}{{ else }}POSTGRES_PASSWORD{{ end }}
+            # ---------- DERIVED URLS ----------
+            # LOCAL TIBCO MOD (PCP-21191): DATABASE_URL is assembled with percent-encoded
+            # credentials in the args prelude above (mcp-stack.databaseUrlEncode), not here.
+            # ---------- LOGGING ----------
+            - name: LOG_LEVEL
+              value: "INFO"
+          envFrom:
+            # [PCP-20712] optional so a pre-* hookPhase override cannot CreateContainerConfigError on
+            # these main-phase resources before they exist (the post-upgrade default always has them).
+            - secretRef:
+                name: {{ include "mcp-stack.fullname" . }}-gateway-secret
+                optional: true
+            - configMapRef:
+                name: {{ include "mcp-stack.fullname" . }}-gateway-config
+                optional: true
+            {{- if .Values.mcpContextForge.extraEnvFrom }}
+            {{- /* tpl so a parent-supplied entry may reference a release-scoped ConfigMap/Secret name (PCP-20591) */}}
+            {{- tpl (toYaml .Values.mcpContextForge.extraEnvFrom) . | nindent 12 }}
+            {{- end }}
+          # [PCP-20234] Writable /tmp so the migration runs under readOnlyRootFilesystem
+          # (general temp surface for the gateway image; mirrors PCP-20209)
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          # Resource limits
+          resources:
+{{- toYaml .Values.migration.resources | nindent 12 }}
+
+      # [PCP-20234] emptyDir backing the container's /tmp mount under RORFS
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+{{- end }}

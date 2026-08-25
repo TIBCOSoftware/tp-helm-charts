@@ -36,6 +36,9 @@ metadata:
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+    {{- with .Values.global.cp.resources.gatewayapi.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   parentRefs:
   - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
@@ -74,6 +77,9 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     haproxy.router.openshift.io/rewrite-target: /v1/logs
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if .Values.global.cp.resources.ingress.fqdn }}
   host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
@@ -113,15 +119,18 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /v1/logs
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haProxy" }}
     haproxy.org/request-set-header: |
       X-Forwarded-Host %[req.hdr(host)]
       X-Forwarded-Port 443
       X-Forwarded-Proto https
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs
-    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs/(.*) /\1
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/logs.* /v1/logs
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-logs-rewrite@kubernetescrd
+    {{- end }}
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -186,6 +195,9 @@ metadata:
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+    {{- with .Values.global.cp.resources.gatewayapi.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   parentRefs:
   - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
@@ -224,6 +236,9 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     haproxy.router.openshift.io/rewrite-target: /v1/traces
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if .Values.global.cp.resources.ingress.fqdn }}
   host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
@@ -263,15 +278,18 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /v1/traces
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haProxy" }}
     haproxy.org/request-set-header: |
       X-Forwarded-Host %[req.hdr(host)]
       X-Forwarded-Port 443
       X-Forwarded-Proto https
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces
-    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces/(.*) /\1
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/traces.* /v1/traces
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-traces-rewrite@kubernetescrd
+    {{- end }}
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -336,6 +354,9 @@ metadata:
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+    {{- with .Values.global.cp.resources.gatewayapi.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   parentRefs:
   - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
@@ -374,6 +395,9 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     haproxy.router.openshift.io/rewrite-target: /v1/metrics
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if .Values.global.cp.resources.ingress.fqdn }}
   host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
@@ -413,15 +437,18 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /v1/metrics
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haProxy" }}
     haproxy.org/request-set-header: |
       X-Forwarded-Host %[req.hdr(host)]
       X-Forwarded-Port 443
       X-Forwarded-Proto https
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics
-    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics/(.*) /\1
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/metrics.* /v1/metrics
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-metrics-rewrite@kubernetescrd
+    {{- end }}
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
@@ -486,6 +513,9 @@ metadata:
     {{- include "o11y-service.labels" . | nindent 4 }}
   annotations:
     platform.tibco.com/controller-name: {{ .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | quote }}
+    {{- with .Values.global.cp.resources.gatewayapi.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   parentRefs:
   - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
@@ -524,6 +554,9 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
     haproxy.router.openshift.io/rewrite-target: /metrics
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if .Values.global.cp.resources.ingress.fqdn }}
   host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
@@ -563,15 +596,18 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /metrics
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haproxy" }}
+    {{- else if eq .Values.global.cp.resources.ingress.ingressController "haProxy" }}
     haproxy.org/request-set-header: |
       X-Forwarded-Host %[req.hdr(host)]
       X-Forwarded-Port 443
       X-Forwarded-Proto https
       X-Forwarded-Prefix /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics
-    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics/(.*) /\1
+    haproxy.org/path-rewrite: /tibco/agent/o11y/{{ $.Values.global.cp.dataplaneId }}/exporter/metrics.* /metrics
     {{- else if eq .Values.global.cp.resources.ingress.ingressController "traefik" }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-bm-{{ .Values.global.cp.resources.ingress.ingressClassName }}-metrics-export-rewrite@kubernetescrd
+    {{- end }}
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   {{- if and .Values.global.cp.dataplane.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}

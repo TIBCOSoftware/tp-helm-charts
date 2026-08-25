@@ -1,0 +1,465 @@
+{{/* -------------------------------------------------------------------
+     DEPLOYMENT - Postgres
+     -------------------------------------------------------------------
+     - Pods are labelled <release>-mcp-stack-postgres so the Service
+       selector (also templated) matches correctly.
+     - Adds exec-based readiness & liveness probes (pg_isready).
+     - Adds resource requests / limits pulled from values.yaml.
+     ------------------------------------------------------------------- */}}
+
+{{- $targetVersion := .Values.postgres.upgrade.targetVersion | toString -}}
+{{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089): re-apply on upstream mcp-stack re-vendor.
+       Container-registry indirection — compose the EFFECTIVE repository
+       <registry>/<repository>/<bare-name> ONCE, file-scoped, from global.cp.containerRegistry
+       via the two zero-logic house helpers, then pass it to the ONE mcp-stack.image helper as
+       the `repository` key of the image block. Assembling the `image:` string here instead
+       would silently drop the digest and put the chart back on a mutable reference — it would
+       still render, still lint and still deploy, with nothing reporting it (PCP-23214).
+
+       THE TWO-MAJOR TRAP, and why the tag is overridden in the DESTINATION dict. This ONE image
+       block is rendered at TWO majors: the three restore init containers must keep running PG17
+       binaries against the PG17 data directory while the main container and the migration-check
+       Job run 18. `merge` is DESTINATION-WINS, so an explicit `"tag" "17"` / `"tag" "18"` in the
+       fresh destination dict beats .Values.postgres.image.tag and the literal major survives.
+       Rendered proof lives in dev/mcp-gateway-render-tests/container-registry-assert.sh [8].
+       postgres.image declares NO `digest` key — in values.yaml and in values.schema.json — for
+       the same reason: no single digest can describe both majors, and a digest riding along to
+       a site whose tag was deliberately overridden would run the WRONG major's binaries under
+       the right major's tag (the runtime obeys the digest, not the tag). Do not add one.
+
+       `merge` MUTATES its first argument, so the destination is always a fresh `dict` and
+       .Values.postgres.image is only ever a source. The NAME half goes through
+       "mcp-stack.image.bareRepository", which aborts the render when postgres.image.repository
+       already carries a registry host instead of prefixing it a second time into an unpullable
+       ref. That check is SCOPED to the paths that actually render the image — see the note on
+       the gate below. The default surface is still covered, at a different time and without the
+       blast radius, by the values-level [D2] assertion in image-provenance-assert.sh. */ -}}
+{{- /* Computed ONLY when a bundled-postgres path can actually render. mcp-stack.image.bareRepository
+       fails the render on a host-qualified value, and this file's gates all require postgres.enabled
+       or postgres.upgrade.enabled -- so evaluating it unconditionally would abort the WHOLE chart on a
+       stale postgres.image.repository carried in by `helm upgrade --reuse-values` from a pre-PCP-23125
+       release, for a database that is disabled by default and would never be deployed. Redis gets this
+       right by evaluating inside its gate (deployment-redis.yaml:69); this keeps the two consistent. */ -}}
+{{- $pgRepo := "" -}}
+{{- if or .Values.postgres.enabled .Values.postgres.upgrade.enabled -}}
+{{- $pgRepo = printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository) -}}
+{{- end -}}
+{{- /* PG17 restore init containers: literal major, pinned in the destination dict. */ -}}
+{{- $postgresImage17 := include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "17") (omit .Values.postgres.image "digest")) -}}
+{{- $postgresImage := "" -}}
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") -}}
+{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "18") (omit .Values.postgres.image "digest")) -}}
+{{- else -}}
+{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo) .Values.postgres.image) -}}
+{{- end -}}
+
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.minio.enabled) -}}
+{{- fail "postgres.upgrade.enabled=true requires minio.enabled=true (chart uses MinIO for PostgreSQL upgrade backup/restore flow)" -}}
+{{- end -}}
+
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.external.enabled) .Values.networkPolicies.enabled -}}
+{{- if or (and .Values.networkPolicies.postgres.enabled (not .Values.networkPolicies.postgres.allowUpgradeJobs)) (and .Values.networkPolicies.minio.enabled (not .Values.networkPolicies.minio.allowUpgradeJobs)) -}}
+{{- fail "postgres.upgrade.enabled=true with networkPolicies.enabled=true requires allowUpgradeJobs=true on each enabled NetworkPolicy component: networkPolicies.postgres.allowUpgradeJobs (when networkPolicies.postgres.enabled) and networkPolicies.minio.allowUpgradeJobs (when networkPolicies.minio.enabled), so the pre-upgrade postgres-backup Job can reach Postgres and MinIO; leaving one false on an NP-enforcing cluster silently stalls the upgrade (PCP-22375). To bypass NetworkPolicy enforcement entirely, set networkPolicies.enabled=false." -}}
+{{- end -}}
+{{- end -}}
+
+{{- if and .Values.postgres.enabled (not .Values.postgres.external.enabled) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # <release>-mcp-stack-postgres
+  name: {{ include "mcp-stack.fullname" . }}-postgres
+  labels:
+    {{- include "mcp-stack.labels" . | nindent 4 }}
+    app: {{ include "mcp-stack.fullname" . }}-postgres
+spec:
+  replicas: 1                   # one DB pod; use StatefulSet if you ever scale
+  selector:
+    matchLabels:
+      app: {{ include "mcp-stack.fullname" . }}-postgres
+  # Force non-overlapping updates for single-writer Postgres PVCs.
+  # StatefulSet is the long-term direction; Recreate is immediate protection.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: {{ include "mcp-stack.fullname" . }}-postgres
+    spec:
+      # Image pull secrets
+      {{- if (.Values.global).imagePullSecrets }}
+      imagePullSecrets:
+        {{- range (.Values.global).imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- if (include "mcp-stack.useServiceAccount" .) }}
+      serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- with .Values.postgres.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: {{ .Values.postgres.terminationGracePeriodSeconds }}
+      initContainers:
+      {{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted }}
+        # ---------------------------------------------------------------------
+        # PostgreSQL 17 -> 18 upgrade (PCP-21528)
+        # Split into THREE init steps so the NFS PVC is never touched by root and
+        # a healthy already-upgraded pod does no network work on restart.
+        # The original single init ran as root and `chown -R`ed pgdata, which
+        # EPERMs on an NFS root_squash export (root -> nobody). PCP-20654 already
+        # runs postgres as uid 999, so the data on the PVC is owned 999:999 and
+        # a squashed-root process cannot even read/move it. The fix:
+        #   1. postgres-restore-check   : uid 999 (data owner), reads PG_VERSION on
+        #        the PVC (root_squash-safe) and writes a .needs-restore marker into
+        #        the shared initdb emptyDir ONLY when the data is PG17.
+        #   2. postgres-restore-fetch   : root, mounts ONLY the initdb emptyDir
+        #        (node-local, NOT the PVC -> root_squash never applies). Skips ALL
+        #        work unless .needs-restore exists, then installs the MinIO client
+        #        and stages the latest dump; hands the emptyDir to uid 999.
+        #   3. postgres-restore-prepare : uid 999 (data owner), mounts the PVC and
+        #        RENAMES the old PG17 pgdata aside to pgdata-pg17-bak (in-PVC, instant,
+        #        crash-safe) then recreates an empty pgdata WITHOUT any chown, only
+        #        when a restore is pending and a dump was actually staged.
+        # Crash-safety: the finalize hook (staged by fetch) writes a durable
+        # completion marker inside pgdata after a successful reload; pgdata-pg17-bak is
+        # retained until then. A crash that recreates the POD before completion resumes
+        # the restore (check re-detects the missing marker) and never wipes a completed
+        # DB. NOTE (pre-existing limitation, tracked as a follow-up): an in-place
+        # restart of ONLY the postgres container mid-reload -- e.g. a liveness/OOM kill,
+        # cf. PCP-20499 -- does NOT re-run these init containers, so the entrypoint may
+        # serve a partially-reloaded DB until the pod is recreated. See the
+        # postgres.upgrade note in values.yaml.
+        # ---------------------------------------------------------------------
+        - name: postgres-restore-check
+          image: {{ $postgresImage17 | quote }}  # PostgreSQL 17 image (only needs a shell)
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+
+              # Decide whether a pg17->18 restore is actually pending, with NO network
+              # and NO root. Runs as uid 999 (the data owner) so it can read the
+              # 999-owned pgdata even on an NFS root_squash export -- a root process
+              # would be squashed to nobody and could not read it. The decision is
+              # handed to the later steps via a marker in the shared initdb emptyDir,
+              # so the root fetch step (which cannot read the PVC) does zero work once
+              # the DB is already on PG18 (avoids re-downloading on every restart).
+              PGDATA="/var/lib/postgresql/data/pgdata"
+              PG17_BAK="/var/lib/postgresql/data/pgdata-pg17-bak"
+              INITDB_DIR="/docker-entrypoint-initdb.d"
+
+              # The initdb emptyDir survives an in-place pod-sandbox restart, so a
+              # stale marker or dump left by a previous run could otherwise re-trigger
+              # a wipe of an already-healthy PG18 database. Reset the coordination dir
+              # and recompute the decision fresh from durable PVC state on every run.
+              rm -f "$INITDB_DIR/.needs-restore" "$INITDB_DIR/.backup-ready"
+              find "$INITDB_DIR" -mindepth 1 -maxdepth 1 -type f ! -name '.*' -delete 2>/dev/null || true
+
+              # Determine restore state from DURABLE PVC signals only (PG_VERSION
+              # alone is insufficient: the postgres:18 entrypoint writes PG_VERSION=18
+              # EARLY during initdb, before it reloads the dump). Two markers:
+              #   - $PGDATA/.pcp21528-upgrade-complete : POSITIVE proof the reload
+              #     fully finished (written by the finalize hook). Authoritative.
+              #   - pgdata-pg17-bak : the old PG17 data, retained until the finalize
+              #     hook removes it. Its presence WITHOUT the completion marker means
+              #     an upgrade was started but not confirmed finished.
+              # Checking the positive marker FIRST means a lingering pgdata-pg17-bak
+              # (e.g. its best-effort removal failed) can never cause a healthy,
+              # fully-upgraded PG18 database to be re-wiped and rolled back.
+              if [ -f "$PGDATA/.pcp21528-upgrade-complete" ]; then
+                echo "Upgrade already completed (completion marker present) -> no restore needed"
+              elif [ -d "$PG17_BAK" ] && [ -f "$PG17_BAK/PG_VERSION" ]; then
+                echo "Incomplete pg17->18 upgrade detected (pgdata-pg17-bak present, no completion marker) -> (re)running restore"
+                touch "$INITDB_DIR/.needs-restore"
+              elif [ -f "$PGDATA/PG_VERSION" ]; then
+                CURRENT_VERSION=$(cat "$PGDATA/PG_VERSION" 2>/dev/null || echo "")
+                echo "On-disk PostgreSQL data version: '$CURRENT_VERSION'"
+                if [ "$CURRENT_VERSION" = "17" ]; then
+                  echo "PostgreSQL 17 data present -> pg17->18 restore is pending"
+                  touch "$INITDB_DIR/.needs-restore"
+                else
+                  echo "Data is already on PostgreSQL $CURRENT_VERSION and the upgrade completed -> no restore needed"
+                fi
+              else
+                echo "No PostgreSQL data and no PG17 backup dir -> fresh install; no restore."
+                echo "(For legacy pre-PCP-20654 root-owned pgdata on root_squash see the postgres.upgrade note in values.yaml.)"
+              fi
+          volumeMounts:
+            - name: postgredb
+              mountPath: /var/lib/postgresql/data
+              readOnly: true
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d
+          # uid 999 (from pod-level securityContext) so it can read the 999-owned
+          # pgdata under root_squash without needing root.
+          {{- with .Values.postgres.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: postgres-restore-fetch
+          image: {{ $postgresImage17 | quote }}  # PostgreSQL 17 image (only needs a shell + apt)
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -eo pipefail
+
+              # Skip ALL work (apt-get, internet download, MinIO query) unless the
+              # check step flagged a pending pg17->18 restore. This keeps a healthy,
+              # already-upgraded PG18 pod's restart free of any external-network
+              # dependency -- otherwise an air-gapped cluster or a dl.min.io outage
+              # would wedge a perfectly healthy database in Init:Error.
+              if [ ! -f /docker-entrypoint-initdb.d/.needs-restore ]; then
+                echo "No pending pg17->18 restore -> skipping backup download"
+                exit 0
+              fi
+
+              # Install the MinIO client and jq. This needs root, but it only
+              # writes to the container filesystem and the node-local emptyDir
+              # (/docker-entrypoint-initdb.d) -- never the NFS PVC -- so it is
+              # safe under root_squash (mirrors the root postgres-backup Job).
+              apt-get update && apt-get install -y wget jq
+              # Pick the MinIO client build matching the node architecture (amd64/arm64).
+              MC_ARCH=amd64
+              case "$(uname -m)" in aarch64|arm64) MC_ARCH=arm64 ;; esac
+              wget "https://dl.min.io/client/mc/release/linux-${MC_ARCH}/mc" -O /tmp/mc
+              chmod +x /tmp/mc
+
+              # Configure MinIO client
+              /tmp/mc alias set minio http://{{ include "mcp-stack.fullname" . }}-minio:{{ .Values.minio.service.apiPort }} $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+
+              # List the backups. Distinguish a MinIO ERROR (network/auth) from a
+              # genuinely EMPTY bucket: on error, FAIL so kubelet retries this init
+              # container and it self-heals once MinIO is reachable -- rather than
+              # silently concluding "no backup" and wedging the upgrade. Only a
+              # successful-but-empty listing falls through to the graceful no-backup
+              # branch below. (awk, not head, so a large listing cannot SIGPIPE sort
+              # under `set -eo pipefail`.)
+              if ! BACKUP_LIST=$(/tmp/mc ls --json minio/postgres-backups/ 2>/tmp/mc-ls.err); then
+                echo "ERROR: could not list the MinIO postgres-backups bucket (network/auth?):"
+                cat /tmp/mc-ls.err || true
+                exit 1
+              fi
+              LATEST_BACKUP=$(printf '%s\n' "$BACKUP_LIST" | jq -r '"\(.time) \(.key)"' 2>/dev/null | sort -r | awk 'NR==1' | cut -d' ' -f2-)
+
+              if [ -z "$LATEST_BACKUP" ]; then
+                echo "No backup file found in MinIO - not staging a dump; the prepare step will refuse to remove existing data"
+                exit 0  # no .backup-ready marker -> prepare step will NOT wipe PG17 data
+              fi
+
+              echo "Found backup file: $LATEST_BACKUP"
+
+              # Download the backup file to the initdb directory (emptyDir)
+              /tmp/mc cp "minio/postgres-backups/$LATEST_BACKUP" /docker-entrypoint-initdb.d/
+
+              # Stage a finalize hook that the postgres:18 entrypoint runs AFTER the
+              # dump has fully reloaded (it sorts last in /docker-entrypoint-initdb.d).
+              # It removes pgdata-pg17-bak, which is the durable "upgrade complete"
+              # signal the check step keys on -- so a crash DURING the reload (bak
+              # still present) re-runs the restore instead of serving a half-loaded DB.
+              cat > /docker-entrypoint-initdb.d/zzzz-pcp21528-finalize.sh <<'FINALIZE'
+              #!/bin/bash
+              set -e
+              # pg17->18 upgrade finalize: reached only after the dump reload succeeded.
+              # Write the POSITIVE, durable completion marker inside pgdata FIRST -- it is
+              # the authoritative "upgrade complete" signal the check step trusts, so a
+              # failed/partial removal of pgdata-pg17-bak below can never later cause a
+              # healthy PG18 database to be re-wiped and rolled back to the old dump.
+              # `set -e` above guarantees we do NOT remove pgdata-pg17-bak unless the
+              # completion marker was durably written -- if the marker write fails, the
+              # backup is left in place and the next start resumes the restore.
+              touch /var/lib/postgresql/data/pgdata/.pcp21528-upgrade-complete
+              rm -rf /var/lib/postgresql/data/pgdata-pg17-bak || true
+              echo "pg17->18 upgrade finalized (completion marker written; pgdata-pg17-bak removed)"
+              FINALIZE
+              chmod +x /docker-entrypoint-initdb.d/zzzz-pcp21528-finalize.sh
+
+              # Signal the prepare step that a dump is staged and ready to reload
+              touch /docker-entrypoint-initdb.d/.backup-ready
+
+              # Hand the emptyDir to the postgres uid so the non-root prepare step
+              # and the postgres:18 entrypoint can read the dump. This targets a
+              # node-local emptyDir, where root is NOT squashed, so it is always
+              # permitted (unlike a chown of the NFS PVC). The uid/gid track the
+              # pod-level securityContext so a custom runAsUser stays consistent.
+              chown -R {{ .Values.postgres.podSecurityContext.runAsUser | default 999 }}:{{ .Values.postgres.podSecurityContext.fsGroup | default 999 }} /docker-entrypoint-initdb.d
+              chmod -R g+rX /docker-entrypoint-initdb.d
+
+              echo "Backup staged for PostgreSQL 18 initialization"
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mcp-stack.fullname" . }}-minio{{ end }}
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mcp-stack.fullname" . }}-minio{{ end }}
+                  key: MINIO_ROOT_PASSWORD
+          volumeMounts:
+            # ONLY the node-local emptyDir -- deliberately NOT the NFS PVC.
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d
+          securityContext:
+            # Do NOT drop all capabilities here: this step installs the MinIO client
+            # via apt-get, which needs CHOWN/DAC_OVERRIDE/FOWNER/SETGID/SETUID -- a
+            # blanket `drop: [ALL]` breaks the install on the Debian postgres image
+            # (verified). This matches the postgres-backup Job, which does the same
+            # apt+mc work as root with default caps. The container mounts only the
+            # node-local emptyDir (never the PVC), so the blast radius stays small.
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false  # opt out of pod-level runAsNonRoot; apt-get needs root (emptyDir only, no PVC)
+            runAsUser: 0
+        - name: postgres-restore-prepare
+          image: {{ $postgresImage17 | quote }}  # PostgreSQL 17 image to access the old data
+          command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+
+              PGDATA="/var/lib/postgresql/data/pgdata"
+              PG17_BAK="/var/lib/postgresql/data/pgdata-pg17-bak"
+
+              # Nothing to do unless the check step flagged a pending restore.
+              if [ ! -f /docker-entrypoint-initdb.d/.needs-restore ]; then
+                echo "No pending pg17->18 restore -> leaving the data directory untouched"
+                exit 0
+              fi
+
+              # A restore is pending. Only touch the data if the fetch step actually
+              # staged a dump; otherwise fail loudly rather than let postgres:18
+              # silently crash-loop on an incompatible PG17 data dir.
+              if [ ! -f /docker-entrypoint-initdb.d/.backup-ready ]; then
+                echo "ERROR: restore pending but no backup was staged from MinIO."
+                echo "Refusing to touch the data. Ensure the pre-upgrade backup Job succeeded"
+                echo "(a dump exists in the postgres-backups bucket) before enabling the upgrade."
+                exit 1
+              fi
+
+              # Defensive: never destroy a datadir that already carries the durable
+              # completion marker (a fully-reloaded PG18). The check step should not
+              # have set .needs-restore in that case, but guard against any edge path
+              # so a healthy database can never be wiped here.
+              if [ -f "$PGDATA/.pcp21528-upgrade-complete" ]; then
+                echo "pgdata already marked upgrade-complete -> refusing to touch it"
+                exit 0
+              fi
+
+              # Preserve the PG17 data by RENAMING it aside within the PVC (instant,
+              # same-filesystem, no copy, no chown -> root_squash-safe as uid 999 the
+              # owner) and keep it DURABLE on the PVC as the "upgrade in progress"
+              # signal. NEVER clobber an existing pgdata-pg17-bak: if it already
+              # exists the real PG17 data is safely there (first attempt already done,
+              # or a prior reload was interrupted) and pgdata may hold a partial /
+              # half-initialized tree -- just clear that partial pgdata and let the
+              # reload retry. The finalize hook removes pgdata-pg17-bak only after a
+              # successful reload.
+              if [ -d "$PG17_BAK" ]; then
+                echo "Resuming upgrade: pgdata-pg17-bak already holds the PG17 data; clearing partial pgdata"
+                rm -rf "$PGDATA"
+              else
+                echo "Renaming PostgreSQL 17 data to pgdata-pg17-bak so PostgreSQL 18 initializes fresh and reloads from the dump"
+                mv "$PGDATA" "$PG17_BAK"
+              fi
+
+              # Recreate an empty, correctly-owned pgdata for the postgres:18 fresh
+              # init. 0700 is required or initdb refuses the directory.
+              mkdir -p "$PGDATA"
+              chmod 0700 "$PGDATA"
+
+              echo "Prepare container completed successfully"
+          volumeMounts:
+            - name: postgredb
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d
+          # Run as the postgres uid (999, from pod-level securityContext) so all
+          # PVC writes are done by the data owner -- no chown, no root_squash EPERM.
+          {{- with .Values.postgres.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- end }}
+      containers:
+        - name: postgres
+          {{- with .Values.postgres.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ $postgresImage | quote }}
+          imagePullPolicy: "{{ .Values.postgres.image.pullPolicy }}"
+
+          # Expose Postgres TCP port inside the pod
+          ports:
+            - containerPort: {{ .Values.postgres.service.port }}
+
+          # ─── Readiness probe ───
+          {{- with .Values.postgres.probes.readiness }}
+          readinessProbe:
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+
+          # ─── Liveness probe ───
+          {{- with .Values.postgres.probes.liveness }}
+          livenessProbe:
+{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+          {{- end }}
+
+          # Secret stores POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB.
+          envFrom:
+            - secretRef:
+                name: {{ include "mcp-stack.postgresSecretName" . | trim | quote }}
+
+          # Set PGDATA to a subdirectory to avoid mount point issues
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          {{- if .Values.postgres.lifecycle.preStop.enabled }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "PreStop hook: stopping PostgreSQL cleanly"
+                    PGDATA_DIR="${PGDATA:-/var/lib/postgresql/data/pgdata}"
+                    if [ -d "$PGDATA_DIR" ]; then
+                      pg_ctl -D "$PGDATA_DIR" -m fast -w stop || true
+                    fi
+          {{- end }}
+
+          # Mount PVC for data durability
+          volumeMounts:
+            - name: postgredb
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d
+
+          # ─── Resource limits & requests ───
+          resources:
+{{- toYaml .Values.postgres.resources | nindent 12 }}
+
+      volumes:
+        - name: postgredb
+          {{- if .Values.postgres.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-stack.fullname" . }}-postgres-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: postgres-initdb
+          emptyDir: {}
+{{- end }}

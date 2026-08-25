@@ -1,0 +1,34 @@
+{{- /*
+  [PCP-20562] Render-time guard for the two gateway MODE toggles
+  (lite.enabled / mcp-stack.enabled) + the lite/SQLite single-replica constraint.
+
+  A single-select "mode" is modelled as two INDEPENDENT booleans, so 2 of the 4
+  combinations are meaningless yet representable and were previously un-guarded:
+    - both true  -> a lite Deployment AND the full mcp-stack both render (two
+                    gateway workloads; _helpers.tpl serviceName picks lite, so the
+                    full stack is orphaned and full-mode OAuth wiring is gated out).
+    - both false -> no gateway renders, and the ingress backend points at a
+                    Service that does not exist.
+  Separately, lite mode uses SQLite (per-pod FileLock, single-writer), so
+  lite.replicas > 1 is unsafe.
+
+  Lives in its OWN template (NOT wrapped by a mode `if`) so the both-false case
+  still fires when neither mode renders anything. Emits NO manifest — each `fail`
+  aborts `helm template`/install with an actionable message. It is evaluated
+  against the FINAL merged values (Helm merges the recipe base + any override
+  before render), so a recipe+override that merges to a valid pair is unaffected.
+
+  Mirrors templates/dialhome-validate.yaml. See docs/plan/PCP-20562-plan.md.
+*/}}
+{{- $lite := .Values.lite.enabled }}
+{{- $stack := index .Values "mcp-stack" }}
+{{- $full := and $stack $stack.enabled }}
+{{- if and $lite $full }}
+{{- fail "tp-mcp-gateway: both lite.enabled and mcp-stack.enabled are true — enable exactly ONE gateway mode. For lite (SQLite) also set mcp-stack.enabled=false; for full (mcp-stack) set lite.enabled=false." }}
+{{- end }}
+{{- if and (not $lite) (not $full) }}
+{{- fail "tp-mcp-gateway: neither lite.enabled nor mcp-stack.enabled is true — enable exactly ONE gateway mode (set lite.enabled=true for lite/SQLite, OR mcp-stack.enabled=true for full/PostgreSQL)." }}
+{{- end }}
+{{- if and $lite (gt (int .Values.lite.replicas) 1) }}
+{{- fail (printf "tp-mcp-gateway: lite mode uses SQLite (single-writer, per-pod FileLock) — lite.replicas must not exceed 1 (got %v). Set lite.replicas=1, or use full mode (mcp-stack.enabled=true) for horizontal scaling." .Values.lite.replicas) }}
+{{- end }}
