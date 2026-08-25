@@ -398,24 +398,27 @@ Always set the env vars (with empty defaults) so ${env:...} references in userco
 */}}
 {{- define "jaeger.es.env" -}}
 {{- if include "isO11yv3" . -}}
-{{- if .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled -}}
-{{- $kind := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind | lower -}}
-{{- if or (eq $kind "elasticsearch") (eq $kind "opensearch") -}}
-- name: ES_SERVER_URLS
-  value: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.endpoint }}
-- name: ES_USERNAME
-  value: {{ .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.elasticSearch.username }}
-- name: ES_PASSWORD
-  value: {{ .Values.global.cp.resources.o11yv3.tracesServer.secret.exporter.elasticSearch.password }}
-{{- else -}}
-- name: ES_SERVER_URLS
-  value: ""
-- name: ES_USERNAME
-  value: ""
-- name: ES_PASSWORD
-  value: ""
+{{- $ts := .Values.global.cp.resources.o11yv3.tracesServer -}}
+{{- $endpoint := "" -}}
+{{- $username := "" -}}
+{{- $password := "" -}}
+{{- $exporterKind := $ts.config.exporter.kind | lower -}}
+{{- $proxyKind := $ts.config.proxy.kind | lower -}}
+{{- if and $ts.config.exporter.enabled (or (eq $exporterKind "elasticsearch") (eq $exporterKind "opensearch")) -}}
+{{- $endpoint = $ts.config.exporter.elasticSearch.endpoint -}}
+{{- $username = $ts.config.exporter.elasticSearch.username -}}
+{{- $password = $ts.secret.exporter.elasticSearch.password -}}
+{{- else if and $ts.config.proxy.enabled (or (eq $proxyKind "elasticsearch") (eq $proxyKind "opensearch")) -}}
+{{- $endpoint = $ts.config.proxy.elasticSearch.endpoint -}}
+{{- $username = $ts.config.proxy.elasticSearch.username -}}
+{{- $password = $ts.secret.proxy.elasticSearch.password -}}
 {{- end -}}
-{{- end -}}
+- name: ES_SERVER_URLS
+  value: {{ $endpoint | quote }}
+- name: ES_USERNAME
+  value: {{ $username | quote }}
+- name: ES_PASSWORD
+  value: {{ $password | quote }}
 {{- else -}}
 {{- if .Values.global.cp.resources.o11y.tracesServer.enabled -}}
 - name: ES_SERVER_URLS
