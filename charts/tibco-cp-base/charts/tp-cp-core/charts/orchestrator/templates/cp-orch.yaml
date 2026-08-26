@@ -12,6 +12,10 @@ metadata:
   namespace: {{ include "tp-cp-orchestrator.consts.namespace" . }}
   labels:
     {{- include "tp-cp-orchestrator.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9833"
+    prometheus.io/path: "/metrics"
 spec:
   ports:
   - name: server
@@ -82,6 +86,12 @@ spec:
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/database-egress: enable
         networking.platform.tibco.com/emailServer-egress: enable
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "cp_orchestrator"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.cporchservice.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.cporchservice.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.cporchservice.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.cporchservice.resources.limits.memory | quote }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -530,6 +540,11 @@ spec:
           value: file:///private/tsc/config/emailservice/emailservice.json
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
+        - name: MANDATORY_INFRA_CAPABILITY_LISTS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: global.mandatoryInfraCapabilityLists
         volumeMounts:
           - name: store-vol
             mountPath: /private/tsc/config
@@ -908,6 +923,19 @@ spec:
         enableRedirects: false
   - path: /cp-orchestrator/v1/dataplanes/([^/]+)/helm-repo
     internalPath: /v1/dataplanes/$1/helm-repo
+    port: 8833
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_DNS_DOMAIN}
+        methods:
+          - GET
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+  - path: /cp-orchestrator/v2/dataplanes/([^/]+)/helm-repo
+    internalPath: /v2/dataplanes/$1/helm-repo
     port: 8833
     protocol: http
     proxies:

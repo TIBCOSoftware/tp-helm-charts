@@ -14,6 +14,13 @@ metadata:
 data:
     {{/* Defined the Global scope to access the variables from Values.yaml */}}
     {{- $currentScope := . -}}
+    {{- $disabledCaps := .Values.global.tibco.disabledInfraCapabilities | default list -}}
+    {{- $validCaps := list "MONITORINGAGENT" "CPPROXY" "O11Y" "HAWKCONSOLE" "BWADAPTER" "MFTADAPTER" -}}
+    {{- range $disabledCaps -}}
+      {{- if not (has . $validCaps) -}}
+        {{- fail (printf "global.tibco.disabledInfraCapabilities: unknown capability '%s'. Valid values: %s" . (join ", " $validCaps)) -}}
+      {{- end -}}
+    {{- end -}}
     {{- with $currentScope}}
       {{- $finalPath := "files/common.yaml" -}}
       {{ $content := .Files.Get ( printf "%s" $finalPath ) | fromYaml }}
@@ -21,7 +28,15 @@ data:
         {{- $typeParent := typeOf $val -}}
         {{- if eq $typeParent "map[string]interface {}" -}}
           {{- range $nestedKey, $nestedValue := $val -}}
-                 {{ printf "%s.%s" $key $nestedKey | trim | nindent 2 }}: {{ $nestedValue | quote }}
+            {{- if and $disabledCaps (eq $nestedKey "mandatoryInfraCapabilityLists") -}}
+              {{- $capVal := $nestedValue -}}
+              {{- range $disabledCaps -}}
+                {{- $capVal = $capVal | replace (printf ", '%s'" .) "" | replace (printf "'%s', " .) "" | replace (printf "'%s'" .) "" -}}
+              {{- end -}}
+                   {{ printf "%s.%s" $key $nestedKey | trim | nindent 2 }}: {{ $capVal | quote }}
+            {{- else -}}
+                   {{ printf "%s.%s" $key $nestedKey | trim | nindent 2 }}: {{ $nestedValue | quote }}
+            {{- end -}}
           {{- end -}}
         {{- else -}}
           {{ $key | trim | nindent 2 }}: {{ $val | quote }}

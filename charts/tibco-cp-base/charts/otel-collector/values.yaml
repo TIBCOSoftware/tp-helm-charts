@@ -173,7 +173,7 @@ config:
   exporters:
     elasticsearch/log:
       mapping:
-        mode: bodymap
+        mode: none
       endpoints:
         - ${env:CP_LOGSERVER_URL}
       logs_index: ${env:CP_LOGSERVER_INDEX}
@@ -238,6 +238,12 @@ config:
         - context: scope
           statements:
             - set(attributes["elastic.mapping.mode"], "bodymap")
+
+    transform/es-none:
+      log_statements:
+        - context: scope
+          statements:
+            - set(attributes["elastic.mapping.mode"], "none")
 
     k8sattributes/general:
       auth_type: "serviceAccount"
@@ -489,9 +495,9 @@ config:
           - elasticsearch/log
         processors:
           - k8sattributes/general
+          - transform/es-none
           - memory_limiter
           - batch
-          - transform/es-bodymap
         receivers:
           - otlp
       logs/audit:
@@ -500,9 +506,9 @@ config:
           - count/audit
         processors:
           - transform/audit-attrs
+          - transform/es-bodymap
           - memory_limiter
           - batch
-          - transform/es-bodymap
         receivers:
           - otlp/audit
       metrics/audit:

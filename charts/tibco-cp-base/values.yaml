@@ -107,9 +107,13 @@ global:
       distrolessDebug:
         tag: 13.5
       cpScripts:
-        tag: "9590"
+        tag: "9669"
       fluentbit:
-        tag: 5.0.9
+        tag: 5.1.0
+    # Capability IDs stripped from every dp-type's mandatoryInfraCapabilityLists.
+    # Validated against the allowlist in tp-cp-core/templates/configmaps.yaml.
+    # Ships with [MFTADAPTER] so MFT is off by default; set to [] to enable all.
+    disabledInfraCapabilities: [MFTADAPTER]
 
   external:
     db_host: ""
@@ -321,8 +325,11 @@ resource-set-operator:
 
 # Default values for otel-collector
 otel-collector:
-  # switch to true to enable otel-collector
-  enabled: true
+  # Disabled by default so that a log server is not a pre-requisite for installing
+  # the control plane base. Switch to true to enable otel-collector -- required only
+  # for features that depend on the log server (audit log, control plane fluentbit
+  # logging).
+  enabled: false
   # Resource values for production-like setup
   # requests: Minimum amount of resources required for the application to run.
   # limits: Maximum amount of resources the application can use.
