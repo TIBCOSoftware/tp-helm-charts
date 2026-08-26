@@ -9125,6 +9125,24 @@ entries:
   tibco-cp-devhub:
   - apiVersion: v2
     appVersion: 1.20.0
+    created: "2026-08-26T05:41:02.68507474Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.20.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.20.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: ca06e470450289c8899a3ff5c4c041f99a937cb72b72444cbbda7bdfeffda75d
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.20.0-alpha.8/tibco-cp-devhub-1.20.0-alpha.8.tgz
+    version: 1.20.0-alpha.8
+  - apiVersion: v2
+    appVersion: 1.20.0
     created: "2026-08-25T04:44:12.706262243Z"
     dependencies:
     - condition: tibcohub-recipes.enabled
@@ -9215,24 +9233,6 @@ entries:
     version: 1.19.0
   - apiVersion: v2
     appVersion: 1.19.0
-    created: "2026-07-29T09:45:31.525340142Z"
-    dependencies:
-    - condition: tibcohub-recipes.enabled
-      name: tibcohub-recipes
-      repository: ""
-      version: 1.19.*
-    - condition: tibcohub-contrib.enabled
-      name: tibcohub-contrib
-      repository: ""
-      version: 1.19.*
-    description: TIBCO Platform base for Developer Hub Capability
-    digest: 2f5eba78b16eb8b190f6c540c2e30130767d523978ca4905ae9d79264ac046dc
-    name: tibco-cp-devhub
-    urls:
-    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.19.0-alpha.9/tibco-cp-devhub-1.19.0-alpha.9.tgz
-    version: 1.19.0-alpha.9
-  - apiVersion: v2
-    appVersion: 1.19.0
     created: "2026-07-29T07:50:00.13451042Z"
     dependencies:
     - condition: tibcohub-recipes.enabled
@@ -9263,6 +9263,24 @@ entries:
       version: 1.19.*
     description: TIBCO Platform base for Developer Hub Capability
     digest: 0c901db860d2ce810eae034220ded0158f728ce5efc4db9efedf456a01f1fd6b
+    name: tibco-cp-devhub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.19.0-alpha.9/tibco-cp-devhub-1.19.0-alpha.9.tgz
+    version: 1.19.0-alpha.9
+  - apiVersion: v2
+    appVersion: 1.19.0
+    created: "2026-07-29T09:45:31.525340142Z"
+    dependencies:
+    - condition: tibcohub-recipes.enabled
+      name: tibcohub-recipes
+      repository: ""
+      version: 1.19.*
+    - condition: tibcohub-contrib.enabled
+      name: tibcohub-contrib
+      repository: ""
+      version: 1.19.*
+    description: TIBCO Platform base for Developer Hub Capability
+    digest: 2f5eba78b16eb8b190f6c540c2e30130767d523978ca4905ae9d79264ac046dc
     name: tibco-cp-devhub
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-devhub-1.19.0-alpha.9/tibco-cp-devhub-1.19.0-alpha.9.tgz
@@ -10070,6 +10088,26 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-messaging-1.11.15/tibco-cp-messaging-1.11.15.tgz
     version: 1.11.15
   tibco-developer-hub:
+  - apiVersion: v2
+    appVersion: 1.20.0
+    created: "2026-08-26T05:41:02.961432985Z"
+    dependencies:
+    - name: common
+      repository: ""
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: ""
+      version: 18.x.x
+    description: A Helm chart for TIBCO® Developer Hub
+    digest: 3b723d127e8201016791993a69a0d28f5007cb8fe9a6728294ccc5472ce3ba85
+    name: tibco-developer-hub
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.20.8/tibco-developer-hub-1.20.8.tgz
+    version: 1.20.8
   - apiVersion: v2
     appVersion: 1.20.0
     created: "2026-08-25T04:24:40.927830325Z"
@@ -17427,4 +17465,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-08-25T07:35:08.947029153Z"
+generated: "2026-08-26T05:41:02.962532658Z"
