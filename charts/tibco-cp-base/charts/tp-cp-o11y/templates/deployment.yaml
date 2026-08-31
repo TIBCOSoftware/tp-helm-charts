@@ -28,6 +28,12 @@ spec:
         networking.platform.tibco.com/logServer-egress: enable
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/cluster-egress: enable
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "o11y_service"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.o11yservice.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.o11yservice.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.o11yservice.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.o11yservice.resources.limits.memory | quote }}
     spec:
       terminationGracePeriodSeconds: 30
 {{- if (include "tp-cp-o11y.container-registry.secret" .) }}

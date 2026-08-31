@@ -19,6 +19,10 @@ metadata:
   namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
   labels:
     {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "4000"
+    prometheus.io/path: "/metrics"
 spec:
   ports:
   - name: server
@@ -29,7 +33,7 @@ spec:
     port: 3001
     protocol: TCP
     targetPort: 3001
-  - name: health-port
+  - name: monitor-server
     port: 4000
     protocol: TCP
     targetPort: 4000
@@ -80,6 +84,12 @@ spec:
     metadata:
       labels:
         {{- include "tp-cp-web-server.shared.labels.standard" . | nindent 8 }}
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "cp_web_server"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.cpwebserver.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.cpwebserver.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.cpwebserver.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.cpwebserver.resources.limits.memory | quote }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
@@ -148,12 +158,12 @@ spec:
         - containerPort: 3001
           name: admin-server
         - containerPort: 4000
-          name: health-port
+          name: monitor-server
         readinessProbe:
           httpGet:
             scheme: HTTP
             path: "/ready"
-            port: health-port
+            port: monitor-server
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -163,7 +173,7 @@ spec:
           httpGet:
             scheme: HTTP
             path: "/healthz"
-            port: health-port
+            port: monitor-server
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -340,6 +350,8 @@ spec:
           value: {{ include "tp-cp-web-server.consts.http.request.timeout" . | quote }}
         - name: IDLE_TIME_SECONDS
           value: {{ .Values.global.tibco.idleSessionTimeoutInSeconds | quote }}
+        - name: DISABLED_INFRA_CAPABILITIES
+          value: {{ .Values.global.tibco.disabledInfraCapabilities | default list | join "," | quote }}
         - name: CUSTOM_CONTENT_SECURITY_POLICY_HEADER
           valueFrom:
             configMapKeyRef:
@@ -416,6 +428,8 @@ spec:
           value: {{ .Values.cpwebserver.provisionWizardModalCapabilities | default "" | quote }}
         - name: INFRA_MCP_SERVER_ENABLED
           value: {{ .Values.cpwebserver.infraMcpServerEnabled | quote }}
+        - name: CP_EXTENDED_RESOURCES_ENABLED
+          value: {{ .Values.cpwebserver.extendedResourcesEnabled | quote }}
         - name: DEPLOYMENT_REGION
           valueFrom:
             configMapKeyRef:

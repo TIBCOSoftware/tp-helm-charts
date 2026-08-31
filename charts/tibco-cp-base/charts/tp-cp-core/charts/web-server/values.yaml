@@ -53,6 +53,9 @@ cpwebserver:
   provisionWizardModalCapabilities: "AS,INFRAMCPSERVER"
   # Enable the Infra MCP Server capability in the web-server UI
   infraMcpServerEnabled: true
+  # PCP-22688: gates Oracle/MSSQL DB types, SSL support in DBCONFIG, and SEARCHCONFIG resource type.
+  # Default true = nothing hidden. Set to false to restrict extended resource features.
+  extendedResourcesEnabled: false
   resources:
     requests:
       cpu: 200m
@@ -95,7 +98,7 @@ cpmcpserver:
   enabled: false
   image:
     name: infra-cp-mcp-server
-    tag: "888-distroless"
+    tag: "992-distroless"
   logLevel: "INFO"
   resources:
     requests:

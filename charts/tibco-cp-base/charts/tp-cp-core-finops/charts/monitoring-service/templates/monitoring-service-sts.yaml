@@ -11,6 +11,10 @@ metadata:
   namespace: {{ include "monitoring-service.consts.namespace" . }}
   labels:
     {{- include "monitoring-service.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9831"
+    prometheus.io/path: "/metrics"
 spec:
   ports:
   - name: server
@@ -53,7 +57,12 @@ spec:
         networking.platform.tibco.com/cluster-egress: enable
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/database-egress: enable
-
+        platform.tibco.com/cp-service-type: "infra"
+        platform.tibco.com/cp-component: "cp_monitoring"
+        platform.tibco.com/cp.resources.requests.cpu: {{ .Values.monitoringservice.resources.requests.cpu | quote }}
+        platform.tibco.com/cp.resources.requests.memory: {{ .Values.monitoringservice.resources.requests.memory | quote }}
+        platform.tibco.com/cp.resources.limits.cpu: {{ .Values.monitoringservice.resources.limits.cpu | quote }}
+        platform.tibco.com/cp.resources.limits.memory: {{ .Values.monitoringservice.resources.limits.memory | quote }}
       annotations:
         rollme: {{ randAlphaNum 5 | quote }}
 {{- if (include "cp-core-configuration.enableLogging" .) }}

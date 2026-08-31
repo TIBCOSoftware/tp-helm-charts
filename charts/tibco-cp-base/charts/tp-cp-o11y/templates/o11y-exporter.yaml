@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.19.0",
+      "capabilityVersion": "1.20.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -684,23 +684,27 @@ data:
                       tls:
                         insecure: true
                     otlphttp/logs-export:
-                      endpoint: ${env:LOGS_EXPORTER_APP_OTLP_URL}
+                      endpoint: ${env:LOGS_EXPORTER_APP_OTLPHTTP_URL}
                       tls:
                         insecure_skip_verify: true
+                      headers: ${env:headers_logs_otlp_expo_userapp}
                     otlp/logs-export:
-                      endpoint: ${env:LOGS_EXPORTER_APP_OTLP_URL}
+                      endpoint: ${env:LOGS_EXPORTER_APP_OTLPGRPC_URL}
                       tls:
                         insecure: true
                         insecure_skip_verify: true
+                      headers: ${env:headers_logs_otlp_expo_userapp}
                     otlphttp/traces-export:
-                      endpoint: ${env:TRACES_EXPORTER_OTLP_URL}
+                      endpoint: ${env:TRACES_EXPORTER_OTLPHTTP_URL}
                       tls:
                         insecure_skip_verify: true
+                      headers: ${env:headers_traces_otlp_exporter}
                     otlp/traces-export:
-                      endpoint: ${env:TRACES_EXPORTER_OTLP_URL}
+                      endpoint: ${env:TRACES_EXPORTER_OTLPGRPC_URL}
                       tls:
                         insecure: true
                         insecure_skip_verify: true
+                      headers: ${env:headers_traces_otlp_exporter}
                     kafka/logs-export-auth:
                       brokers: ${env:LOGS_EXPORTER_APP_KAFKA_BROKERS}
                       protocol_version: ${env:LOGS_EXPORTER_APP_KAFKA_PROTOCOL_VERSION}
@@ -744,14 +748,16 @@ data:
                         insecure_skip_verify: true
                       headers: ${env:headers_logs_expo_services}
                     otlphttp/service-logs-export:
-                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLP_URL}
+                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLPHTTP_URL}
                       tls:
                         insecure_skip_verify: true
+                      headers: ${env:headers_logs_otlp_expo_services}
                     otlp/service-logs-export:
-                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLP_URL}
+                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLPGRPC_URL}
                       tls:
                         insecure: true
                         insecure_skip_verify: true
+                      headers: ${env:headers_logs_otlp_expo_services}
                     kafka/service-logs-export-auth:
                       brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
                       protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
@@ -1387,14 +1393,16 @@ data:
                       resource_to_telemetry_conversion:
                         enabled: true
                     otlphttp/metrics-export:
-                      endpoint: ${env:METRICS_EXPORTER_OTLP_URL}
+                      endpoint: ${env:METRICS_EXPORTER_OTLPHTTP_URL}
                       tls:
                         insecure_skip_verify: true
+                      headers: ${env:headers_metrics_otlp_exporter}
                     otlp/metrics-export:
-                      endpoint: ${env:METRICS_EXPORTER_OTLP_URL}
+                      endpoint: ${env:METRICS_EXPORTER_OTLPGRPC_URL}
                       tls:
                         insecure: true
                         insecure_skip_verify: true
+                      headers: ${env:headers_metrics_otlp_exporter}
                     kafka/metrics-export-auth:
                       brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
                       protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
@@ -1630,7 +1638,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.19.0"
+          value: "1.20.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
