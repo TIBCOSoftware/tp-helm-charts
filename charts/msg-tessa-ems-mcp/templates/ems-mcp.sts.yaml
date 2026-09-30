@@ -1,0 +1,153 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+#
+{{- $params := include "need.msg.emsmcp.params" . | fromYaml -}}
+{{- $gwname := printf "%s" "tp-msg-gateway"  -}}
+#
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: "{{ $params.emsmcp.name }}"
+    namespace: "{{ .Release.Namespace }}"
+    labels:
+      {{ include "msg-emsmcp.std.labels" $params | nindent 6 }}
+      app.kubernetes.io/component: tp-msg-emsmcp
+      tib-msg-stsname: "{{ $params.emsmcp.name }}"
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+          tib-msg-stsname: "{{ $params.emsmcp.name }}"
+    template:
+        metadata:
+            labels:
+              {{ include "msg-emsmcp.std.labels" $params | nindent 14 }}
+              {{ include "msg.dp.net.egress" . | indent 14 }}
+              networking.platform.tibco.com/kubernetes-api: enable
+              app.kubernetes.io/component: tp-msg-emsmcp
+              tib-msg-stsname: "{{ $params.emsmcp.name }}"
+            name: {{ $params.emsmcp.name }}
+            annotations:
+              rollme: {{ randAlphaNum 5 | quote }}
+        spec:
+            {{- if ne "none" $params.dp.pullSecret }}
+            imagePullSecrets:
+            - name: {{ $params.dp.pullSecret }}
+            {{- end }}
+            enableServiceLinks: false
+            nodeSelector:
+              kubernetes.io/os: linux
+            containers:
+            - name: "{{ $params.emsmcp.name }}"
+              workingDir: /logs
+              image: "{{ $params.emsmcp.image }}"
+              imagePullPolicy: "Always"
+              resources:
+{{ $params.emsmcp.resources | toYaml | indent 16 }}
+              # Usage: ./ems-mcp-server <ems-server-url> [--user <username>] [--pass <password>] [-p <mcp-server-port>] [--debug]
+              # Default port is: [8080]
+              env:
+              - name: RESTD_VIEW_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: "tp-msggw-mcp-credentials"
+                    key: EMS_VIEW_USER
+              - name: RESTD_VIEW_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: "tp-msggw-mcp-credentials"
+                    key: EMS_VIEW_PASSWORD
+              - name: RESTD_URL
+                value: "http://{{ $gwname }}.{{ .Release.Namespace }}.svc:9014"
+              {{ include "msg.dp.stdenv" $params | indent  14 }}
+              - name: ACCEPT_EUA
+                value: "y"
+              - name: HAPROXY_CONFIG
+                value: "{{ $params.emsmcp.haproxyConfig }}"
+              - name: MCP_LISTEN
+                value: "127.0.0.1:8081"
+              - name: GOTRACEBACK
+                value: "crash"
+              - name: WATCHDOG_TYPE
+                value: candidate
+              - name: WATCHDOG_LOG_FILE
+                value: /logs/watchdog.log
+              - name: WATCHDOG_CONFIG
+                value: "/logs/boot/watchdog.yaml"
+              - name: WATCHDOG_HOSTPORT
+                value: "0.0.0.0:7520"
+              command: ['bash', '-c' ]
+              args:
+                - |
+                  mkdir -p /logs/boot
+                  cp /boot/* /logs/boot/
+                  exec /logs/boot/start-watchdog.sh
+              ports:
+              # WATCHDOG_PORT=7520
+              # EMSMCP_PORT=8081
+              # HAPROXY_PORT=8080
+              - name: mcp
+                containerPort: 8080
+              {{ include "msg.dp.security.container" $params | nindent 14 }}
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: 8080
+                initialDelaySeconds: 3
+                periodSeconds: 15
+                successThreshold: 1
+                failureThreshold: 4
+              volumeMounts:
+              - mountPath: /boot
+                name: scripts-vol
+                readOnly: true
+              - mountPath: /tmp
+                name: tmp-vol
+              - mountPath: /logs
+                name: tmp-vol
+            volumes:
+            - name: scripts-vol
+              configMap:
+                name: "{{ $params.emsmcp.name }}-scripts"
+                defaultMode: 0755
+            - name: tmp-vol
+              emptyDir:
+                sizeLimit: "2Gi"
+            # NOTE: Need pod affinity for tp-msg-gateway-0
+            {{ include "msg.dp.security.pod" $params | nindent 12 }}
+            # The service account allows access to helm/kubectl actions
+            serviceAccountName: "default"
+            terminationGracePeriodSeconds: 10
+            affinity:
+              # This keeps MCP-0 with Gateway-0 (The rule we just made)
+              podAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 10
+                  podAffinityTerm:
+                    labelSelector:
+                      matchExpressions:
+                      - key: statefulset.kubernetes.io/pod-name
+                        operator: In
+                        values:
+                        - tp-msg-gateway-0
+                    topologyKey: "kubernetes.io/hostname"
+                  
+              # This keeps MCP replicas away from each other
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchExpressions:
+                      - key: tib-msg-group-name
+                        operator: In
+                        values:
+                        - tp-msg-emsmcp
+                    topologyKey: "kubernetes.io/hostname"
+...

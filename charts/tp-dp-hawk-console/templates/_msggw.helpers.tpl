@@ -93,8 +93,8 @@ need.msg.gateway.params
 */}}
 {{ define "need.msg.gateway.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-30" $dpParams.dp.registry $dpParams.dp.repository -}}
-{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.4.3-8" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.1-34" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $gwDefaultFullImage := printf "%s/%s/msg-gateway-all:10.5.1-18" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.msggw.basename | default "tp-msg-gateway" -}}
 #
 {{ include "need.msg.dp.params" . }}
@@ -114,6 +114,12 @@ msggw:
     storageName: {{ $basename }}-scripts
     readOnly: true
     defaultMode: 0777
+  credentials:
+    volName: credentials-vol
+    storageType: secret
+    storageName: tp-msggw-ems-credentials
+    optional: true
+    defaultMode: 0775
   hawk: 
     volName: hawk
     storageType: sharedPvc
@@ -136,7 +142,9 @@ msggw:
       memory: "4Gi"
       cpu: "3"
     {{ end }}
-enableIngress: {{ .Values.enableIngress | default true }}
+enableIngress: {{ if hasKey .Values "enableIngress" }}{{ .Values.enableIngress }}{{ else }}true{{ end }}
+route:
+  cpHost: "{{ .Values.global.cp.cpHostname }}"
 securityProfile: "{{ .Values.securityProfile | default "pss-restrictive" }}"
 job:
   resources:
@@ -156,14 +164,10 @@ job:
 msg.gateway.mon.labels $params - Generate CP monitoring labels
 */}}
 {{- define "msg.gateway.mon.labels" }}
-tib-dp-release: {{ .dp.release }}
-tib-dp-msgbuild: "1.20.0.8"
-tib-dp-chart: {{ .dp.chart }}
 platform.tibco.com/app-type: "msg-gateway"
 platform.tibco.com/scrape_finops: "true"
 platform.tibco.com/workload-type: "capability-service"
 platform.tibco.com/dataplane-id: "{{ .dp.name }}"
-platform.tibco.com/cpHostname: "{{ .dp.cpHostname }}"
 platform.tibco.com/environmentType: "{{ .dp.environmentType }}"
 prometheus.io/scrape: "true"
 {{ end }}
@@ -177,6 +181,7 @@ prometheus.io/port: "{{ .msggw.ports.gatewayApiPort }}"
 prometheus.io/scheme: "http"
 prometheus.io/path: /dp/metric/health
 prometheus.io/insecure_skip_verify: "true"
+platform.tibco.com/cpHostname: "{{ .dp.cpHostname }}"
 {{ end }}
 
 {{/*
@@ -191,10 +196,13 @@ platform.tibco.com/dataplane-id: "{{ .dp.name }}"
 
 app.cloud.tibco.com/created-by: tp-msg
 app.cloud.tibco.com/tenant-name: messaging
+tib-dp-release: {{ .dp.release }}
+tib-dp-msgbuild: "1.21.0.20"
+tib-dp-chart: {{ .dp.chart }}
 release: "{{ .dp.release }}"
 tib-dp-name: "{{ .dp.name }}"
 tib-dp-app: msg-gateway
-tib-msgdp-mm-version: "1.20.0-0"
+tib-msgdp-mm-version: "1.21.0-0"
 tib-msg-group-name: "{{ .msggw.basename }}"
 app.kubernetes.io/name: "{{ .msggw.basename }}"
 app.kubernetes.io/part-of: tp-hawk-console
@@ -310,7 +318,8 @@ msg.pv.vol.def - Generate a volumes: section from a standard volSpec structure
       {{- end }}
 {{- else if eq "emptyDir" .storageType -}}
 - name: {{ $volName }}
-  emptyDir: {}
+  emptyDir:
+    sizeLimit: {{ .storageSize | default "2Gi" }}
 {{- else if eq "storageClass" .storageType -}}
 {{- else if not (hasPrefix "use-" .storageType) -}}
   {{ fail (printf "unknown storageType: %s" .storageType) }}

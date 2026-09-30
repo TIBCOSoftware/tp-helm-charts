@@ -6,7 +6,7 @@ in the license file that is distributed with this file.
 
 {{/* Find standard CP global settings */}}
 {{- define "hawk.cp.global" -}}
-CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME: {{ "tibco-container-registry-credentials" }}
+CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME: {{ if (dig "Values" "global" "tibco" "containerRegistry" "secret" "" .) }}{{ dig "Values" "global" "tibco" "containerRegistry" "secret" "" . | quote }}{{ else if and (dig "Values" "global" "tibco" "containerRegistry" "username" "" .) (dig "Values" "global" "tibco" "containerRegistry" "password" "" .) }}"tibco-container-registry-credentials"{{ else }}""{{ end }}
 CP_CONTAINER_REGISTRY_REPO: {{ dig "Values" "global" "tibco" "containerRegistry" "repository" "tibco-platform-docker-prod" . }}
 CP_CONTAINER_REGISTRY: {{ dig "Values" "global" "tibco" "containerRegistry" "url" "csgprdusw2reposaas.jfrog.io" . }}
 CP_DNS_DOMAIN: {{ dig "Values" "global" "external" "dnsDomain" "local" . }}

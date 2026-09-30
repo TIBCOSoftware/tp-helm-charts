@@ -9,7 +9,7 @@
 #
 {{- $emsParams := include "need.msg.ems.params" . | fromYaml -}}
 {{- $dataPvc := $emsParams.ems.logs.storageName -}}
-{{- $jobname := printf "%s-ems-ini-up-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
+{{- $jobname := printf "%s-ems-configure-%s" $emsParams.ems.name (randAlphaNum 4 | lower) -}}
 {{- $stsname := printf "%s-ems" $emsParams.ems.name -}}
 {{- $svcEms := printf "%s-%s" $emsParams.ems.name "ems" -}}
 {{- $svcEmsHost := printf "%s.%s.svc" $svcEms $emsParams.ems.namespace -}}
@@ -54,10 +54,13 @@ spec:
           {{ include "msg.dp.security.pod" $emsParams | nindent 10 }}
           restartPolicy: Never
           volumes:
+          {{ include "msg.pv.vol.def" $emsParams.ems.credentials | nindent 10 }}
+          - name: tmp-vol
+            emptyDir: {}
           - name: scripts-vol
             configMap:
               name: "{{ $emsParams.ems.name }}-scripts"
-              defaultMode: 0777
+              defaultMode: 0775
           - name: "ems-log"
             {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
             persistentVolumeClaim:
@@ -78,15 +81,19 @@ spec:
                 ( mkdir -p /data/boot ; cd /data/boot ;
                     for x in /boot/mk-*.sh ; do bash < $x ; done | tee boot.out ) ;
                 mkdir -p /logs/boot ; cd /logs/boot ;
-                bash < /boot/ems-init-upgrade.sh ; 
+                bash < /boot/ems-configure.sh ; 
               image: "{{ $emsParams.ems.image }}"
               imagePullPolicy: "{{ $emsParams.dp.pullPolicy }}"
               resources:
                 {{ $emsParams.job.resources | toYaml | nindent 16 }}
               {{ include "msg.dp.security.container" $emsParams | nindent 14 }}
               volumeMounts:
+              - name: tmp-vol
+                mountPath: /tmp
               - mountPath: /boot
                 name: scripts-vol
+              - mountPath: /credentials
+                {{ include "msg.pv.vol.mount" $emsParams.ems.credentials | nindent 16 }}
               - mountPath: /logs
                 name: "ems-log"
                 {{ if eq "sharedPvc" $emsParams.ems.logs.storageType }}
@@ -113,6 +120,10 @@ spec:
                 value: "y"
               - name: STS_NAME
                 value: "{{ $stsname }}"
+              - name: MY_DATAPLANE_ID
+                value: "{{ $emsParams.dp.name }}"
+              - name: MY_INSTANCE_ID
+                value: "{{ $emsParams.dp.instanceId }}"
               - name: MY_POD_DOMAIN
                 value: "{{ $emsParams.ems.headlessDomain }}"
               - name: FTL_SERVICE
@@ -125,17 +136,33 @@ spec:
                 value: "{{ $emsParams.ems.ports.tcpPort }}"
               - name: EMS_SSL_PORT
                 value: "{{ $emsParams.ems.ports.sslPort }}"
-              {{ if .Values.ems.tcpEnable }}
+          {{- $podDomain := printf "%s.%s.svc" $emsParams.ems.headless .Release.Namespace -}}
+          {{- $scheme := ternary "tcp" "ssl" .Values.ems.tcpEnable -}}
+          {{- $podPort := ternary $emsParams.ems.ports.tcpPort $emsParams.ems.ports.sslPort .Values.ems.tcpEnable | int -}}
+          {{- $clientPods := printf "%s://%s-0.%s:%d,%s://%s-1.%s:%d,%s://%s-2.%s:%d" $scheme $stsname $podDomain $podPort $scheme $stsname $podDomain $podPort $scheme $stsname $podDomain $podPort }}
+          {{- $scheme = "http" -}}
+          {{- $podPort := $emsParams.ems.ports.httpPort | int -}}
+          {{- $monPods := printf "%s://%s-0.%s:%d,%s://%s-1.%s:%d,%s://%s-2.%s:%d" $scheme $stsname $podDomain $podPort $scheme $stsname $podDomain $podPort $scheme $stsname $podDomain $podPort }}
+          {{ if .Values.ems.tcpEnable }}
               - name: EMS_CLIENT_URL
                 value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT),tcp://{{ $svcEmsHost }}:$(EMS_TCP_PORT)"
               - name: EMS_ACTIVE_URL
                 value: "tcp://{{ $svcEmsActiveHost }}:$(EMS_TCP_PORT)"
-              {{ else if .Values.ems.sslEnable }}
+          {{ else if .Values.ems.sslEnable }}
+          {{- $scheme := "ssl"}}
               - name: EMS_CLIENT_URL
                 value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT),ssl://{{ $svcEmsHost }}:$(EMS_SSL_PORT)"
               - name: EMS_ACTIVE_URL
                 value: "ssl://{{ $svcEmsActiveHost }}:$(EMS_SSL_PORT)"
-              {{ end }}
+          {{ end }}
+              - name: EMS_CAP_NAME
+                value: "{{ $emsParams.ems.capabilityName }}"
+              - name: EMS_DP_CREDENTIALS
+                value: "/credentials/gems.credentials.yaml"
+              - name: EMS_PODS_URL
+                value: "{{ $clientPods }}"
+              - name: EMS_PODS_MONURL
+                value: "{{ $monPods }}"
               - name: EMS_INIT_JSON
                 value: "/data/boot/tibemsd-ftl.json"
               - name: EMS_HTTP_PORT

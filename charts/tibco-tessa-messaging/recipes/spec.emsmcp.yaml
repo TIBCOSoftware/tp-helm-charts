@@ -1,0 +1,125 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+top: platform/emsmcp
+# latest is first in versions.json
+files:
+  platform/emsmcp/versions.json: |
+    [
+      {
+        "capabilityVersion": "1.21.0",
+        "minRollbackVersion": "1.21.0",
+        "minCPVersion": "1.19.0",
+        "maxCPVersion": "",
+        "releaseDate": "2026/09/28",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.19.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.19.0",
+          "dp-configure-namespace": "1.19.0"
+        }
+      },
+      {
+        "capabilityVersion": "1.19.0",
+        "minRollbackVersion": "1.19.0",
+        "minCPVersion": "1.19.0",
+        "maxCPVersion": "",
+        "releaseDate": "2026/09/28",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.19.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.19.0",
+          "dp-configure-namespace": "1.19.0"
+        }
+      }
+    ]
+  platform/emsmcp/1.21.0/recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: msg-tessa-ems-mcp
+          namespace: ${NAMESPACE}
+          version: "1.21.23"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+  platform/emsmcp/1.21.0/package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-msg-emsmcp",
+            "description": "Messaging Tessa EMS MCP Services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "mcpServer": {
+          "endpointPath": "/tibco/agent/msgdp/tessa/ems/mcp"
+        },
+        "dependsOn": [
+    	      {
+    		      "version": [
+    		        1,
+    		        9,
+    		        0
+    		      ],
+    		      "capabilityId": "MSGCORE",
+    		      "capabilityType": "INFRA"
+    	      }
+    	    ],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "supportProvisionFrescoWizard": true,
+        "supportUpgradeFrescoWizard": true,
+        "capabilityResourceDependencies": []
+      }
+    }
+  platform/emsmcp/1.19.0/recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: msg-tessa-ems-mcp
+          namespace: ${NAMESPACE}
+          version: "1.21.20"
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+  platform/emsmcp/1.19.0/package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-msg-emsmcp",
+            "description": "Messaging Tessa EMS MCP Services",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [
+    	      {
+    		      "version": [
+    		        1,
+    		        9,
+    		        0
+    		      ],
+    		      "capabilityId": "MSGCORE",
+    		      "capabilityType": "INFRA"
+    	      }
+    	    ],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": []
+      }
+    }

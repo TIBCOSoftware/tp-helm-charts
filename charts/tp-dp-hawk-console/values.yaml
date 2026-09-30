@@ -20,7 +20,7 @@ replicaCount: "1"
 
 image:
   name: hawk-console
-  imageTag: "1.20.0.8"
+  imageTag: "1.21.0.20"
   pullPolicy: IfNotPresent
 
 nodeSelector:
@@ -43,6 +43,20 @@ global:
       authToken: ""
       metricAuthToken: ""
     enableResourceConstraints: true
+    routeResources:
+      pathPrefix: /tibco/agent   # per-DP prefix; OHC2 control planes send "" or a custom value
+      controllerServiceDNS: cpdpproxy   # service DNS for tibtunnel (hybrid connectivity)
+      ingress:
+        ingressController: ""    # "" | "haProxy" (default) | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""
+        fqdn: ""
+        annotations: {}
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     resources:
       storage:
         storageClassName: ""
@@ -62,7 +76,7 @@ global:
         enabled: true
         image:
           name: common-fluentbit
-          tag: 5.1.0
+          tag: 5.1.2
         # Resources
         # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
@@ -82,7 +96,7 @@ global:
 enableIngress: true
 ingress:
   annotations: {}
-  pathPrefix: /tibco/agent/infra/hawkconsole/
+  pathPrefix: /infra/hawkconsole/
   className: "tibco-dp-{{ .Values.global.cp.dataplaneId}}"  # Ex: nginx, haproxy
   hostName: "dp-{{ .Values.global.cp.dataplaneId}}.platform.local"
 
@@ -190,3 +204,25 @@ dp:
   repo: ""
   pullPolicy: ""
   serviceAccount: ""
+  routing:
+    enabled:
+      haProxy: true
+      traefik: true
+      nginx: true
+      openshiftRouter: true
+      gatewayapi: true
+    gatewayapi:
+      # Lowercase cp-provided controller names. Empty list = allow any once the gate above is on.
+      allowedControllers:
+        - haproxy
+        - openshiftrouter
+        - traefik
+        - nginx
+        - istio
+        - netscaler
+        - gke
+        # named in the OHC2 design doc
+        - envoy
+        - kong
+    traefik:
+      insecureSkipVerify: true

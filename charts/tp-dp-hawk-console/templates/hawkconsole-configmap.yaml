@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+{{- if .Values.enableIngress }}
+{{- $en := default dict .Values.dp.routing.enabled -}}
+{{- $ic := include "msg.dp.routing.ic" . -}}
+{{- if and (eq $ic "gatewayapi") $en.gatewayapi }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}-ca-cm
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  ca.crt: |
+    {{- include "tp-dp-hawk-console.getSecretCa" (dict "key" "ca.crt" "context" .) | nindent 4 }}
+{{- end }}
+{{- end }}

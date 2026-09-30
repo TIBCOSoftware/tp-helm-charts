@@ -113,7 +113,7 @@ spec:
                                   command: ['bash', '-c'] 
                                   args:
                                   - |
-                                    for dir in "pulsar" "ems" "pulsar.old" "ems.old" "../infra/msgcore" ; do
+                                    for dir in "platform/ems" "infra/msgcore" ; do
                                         dirpath="{{ $recipesParams.recipes.TARGET_PATH }}/\$dir"
                                         if [ -d "{{ $recipesParams.recipes.TARGET_PATH }}/\$dir" ]; then
                                             echo "Changing ownership of \$dirpath to $uid:$gid"

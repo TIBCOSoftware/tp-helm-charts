@@ -6,6 +6,13 @@
 # in the license file that is distributed with this file.
 #
 
+function createOldCredentials {
+    _creds=${1:?filename-required.}
+    echo "=== Retrying with old style credentials - for legacy installs"
+    cat $EMS_DP_CREDENTIALS | egrep -v view > $_creds
+    cat $EMS_DP_CREDENTIALS | egrep admin | sed -e 's/admin/view/' >> $_creds
+}
+
 # export TIBEMS_OAUTH2_ACCESS_TOKEN=$MSG_ADMIN_BEARER
 # expect initially MSG_CLI_APPNAME=ems-ct
 export cliDir="/logs/cli/$RANDOM"
@@ -16,6 +23,12 @@ mkdir -p $cliDir && pushd $cliDir
 if [[ "$MSG_CLI_APPNAME" =~ ^ems ]]; then
     echo "Using app = $MSG_CLI_APPNAME"
     /app/ems-registration tibemsadmin "$MSG_CLI_RIID"
+    if [ $? -ne 0 ] ; then
+        # RETRY in case this is a pre 1.21.0 EMS instance without a viewUser
+        createOldCredentials tmp.credentials.yaml
+        EMS_DP_CREDENTIALS="$PWD/tmp.credentials.yaml" /app/ems-registration tibemsadmin "$MSG_CLI_RIID"
+        # rm -f tmp.credentials.yaml
+    fi
 elif [[ "$MSG_CLI_APPNAME" =~ ^as ]]; then
     echo "Using app = $MSG_CLI_APPNAME"
     /app/ems-registration tibdg "$MSG_CLI_RIID"

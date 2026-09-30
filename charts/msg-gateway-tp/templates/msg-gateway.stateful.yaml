@@ -110,6 +110,8 @@ spec:
               volumeMounts:
               - mountPath: /boot
                 {{ include "msg.pv.vol.mount" $params.msggw.boot | nindent 16 }}
+              - mountPath: /credentials
+                {{ include "msg.pv.vol.mount" $params.msggw.credentials | nindent 16 }}
               - mountPath: /data
                 {{ include "msg.pv.vol.mount" $params.msggw.data | nindent 16 }}
               - mountPath: /logs
@@ -122,7 +124,10 @@ spec:
               terminationMessagePolicy: File
               envFrom:
                 - secretRef:
-                    name : "{{ $basename }}-tibadmin"
+                    name: "{{ $basename }}-tibadmin"
+                    optional: true
+                - secretRef:
+                    name: "tp-msggw-mcp-credentials"
                     optional: true
               env:
               {{ include "msg.dp.stdenv" $params | indent  14 }}
@@ -134,12 +139,16 @@ spec:
                 value: "force"
               - name: COMMAND
                 value: /logs/boot/ops-msg-gateway-shell.sh
+              - name: EMS_DP_CREDENTIALS
+                value: "/credentials/gems.credentials.yaml"
               - name: EMS_CERT_DIR
                 value: "/data/certs"
               - name: EMS_RESTD_DIR
                 value: "/logs/restd-api"
               - name: EMS_RESTD_URL
                 value: "http://localhost:{{ $params.msggw.ports.restdPort | default 9014 }}"
+              - name: DP_SUPPORT_SHELL_ENABLED
+                value: {{ $params.msggw.supportShellEnabled | default "no" | quote }}
               - name: MY_DATAPLANE
                 value: "{{ $params.dp.name }}"
               - name: MSG_DP_TYPE
@@ -153,8 +162,6 @@ spec:
                 value: "no"
               - name: DP_CLOUDTYPE
                 value: "{{ $params.dp.hostCloudType }}"
-              - name: DP_SUPPORT_SHELL_ENABLED
-                value: {{ $params.msggw.supportShellEnabled | default "no" | quote }}
               - name: CLI_ROUTE_PATH
                 value: "/tibco/agent/msg/$(MY_DATAPLANE)/ops/cli/toolset"
               - name: CLOUDSHELL_CTL
@@ -164,7 +171,8 @@ spec:
               - name: MY_SVC_HOST
                 value: "$(MY_POD_NAME).{{ $stsname }}.{{ .Release.Namespace }}.svc"
               - name: ALLOWED_HOSTNAMES
-                value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ include "msg.dp.dpUrl.host" . }},dp-$(MY_DATAPLANE).platform.local,{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}"
+                {{- /* extra entries only when a custom IC/gateway is selected: its fqdn, in-cluster Service DNS, and the Gateway API hostname */}}
+                value: "localhost,127.0.0.1,$(MY_SVC_HOST),{{ include "msg.dp.dpUrl.host" . }},dp-$(MY_DATAPLANE).platform.local,{{ $params.dp.cpHostname | default "no-cp-host" }},{{ $params.msggw.lbHost}}{{ if or .Values.global.cp.routeResources.ingress.ingressController .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName }}{{ with .Values.global.cp.routeResources.ingress.fqdn }},{{ . }}{{ end }}{{ with .Values.global.cp.routeResources.controllerServiceDNS }},{{ . }}{{ end }}{{ with .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName }},{{ . }}{{ end }}{{ end }}"
               - name: ACCEPT_EUA
                 value: "y"
               - name: EMS_REG_DEBUG
@@ -183,6 +191,7 @@ spec:
                 value: "$(MY_POD_NAME):$(TCM_WD_PORT)"
             volumes:
             {{ include "msg.pv.vol.def" $params.msggw.boot | nindent 12 }}
+            {{ include "msg.pv.vol.def" $params.msggw.credentials | nindent 12 }}
             {{ include "msg.pv.vol.def" $params.msggw.data | nindent 12 }}
             - name: tmp-vol
               emptyDir:
