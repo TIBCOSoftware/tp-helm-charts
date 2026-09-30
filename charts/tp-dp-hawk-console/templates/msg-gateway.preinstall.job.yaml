@@ -61,32 +61,79 @@ spec:
         command: ['/compliance/check_eua', 'bash', '-c' ]
         args:
         - |
-          # Prevent downgrades
+          # Prevent downgrades ;
           {{ include "msg.rollback.protection" (dict "v" .Chart.Version "cr" $stsname ) | nindent 10 }}
           # Cleanup old hook jobs
           {{ include "msg.oldjob.cleanup" ( $jobLabel ) | nindent 10 }}
-          echo "Checking for tibadmin secret ... " ; 
-          set -x ;
-          secretName="{{ $basename }}-tibadmin" ;
-          if kubectl get secret $secretName -n {{ .Release.Namespace }} ; then
-            echo "Secret $secretName exists, using existing secret" ;
-          else
-            echo "Secret $secretName does not exist" ;
-            echo "Creating secret $secretName" ;
-            kubectl create secret generic $secretName -n {{ .Release.Namespace }} \
-              --from-literal=EMS_ADMIN_USER={{ $dpAdminUser }} --from-literal=EMS_ADMIN_PASSWORD={{ $dpAdminPwd }} \
-              --from-literal=DP_ADMIN_USER={{ $dpAdminUser }} --from-literal=DP_ADMIN_PASSWORD={{ $dpAdminPwd }} \
-              --from-literal=DP_VIEW_USER={{ $dpViewUser }} --from-literal=DP_VIEW_PASSWORD={{ $dpViewPwd }} \
-              ; 
-            kubectl label secret/$secretName -n {{ .Release.Namespace }} tib-dp-release=$MY_RELEASE ; 
-          fi ;
+          echo "Checking for tibadmin secret ... "
+          secretName="{{ $basename }}-tibadmin"
+          source "/opt/tibco/pod-tools/bin/preinstall.bash" 
+          # Create secrets: tp-msggw-mcp-credentials, $basename-tibadmin, tp-msggw-ems-credentials
+          # $basename-tibadmin secret is now deprecated, scheduled for future removal.
+          labels=()
+          literals=()
+          files=()
+          # Labels are shared across all secrets 
+          labels+=("tib-dp-release: {{ .Release.Name }}")
+          labels+=("tib-msg-group-name: {{ $params.msggw.basename }}")
+          labels+=("app.kubernetes.io/component: msg-gateway")
+
+          # TODO: Schedule phase-out of $basename-tibadmin secret
+          # tibadmin : Add legacy secret settings for backward compatibility with older versions
+          literals=()
+          literals+=("EMS_ADMIN_USER {{ $dpAdminUser }}")
+          literals+=("EMS_ADMIN_PASSWORD {{ $dpAdminPwd }}")
+          literals+=("DP_ADMIN_USER {{ $dpAdminUser }}")
+          literals+=("DP_ADMIN_PASSWORD {{ $dpAdminPwd }}")
+          literals+=("DP_VIEW_USER {{ $dpViewUser }}")
+          literals+=("DP_VIEW_PASSWORD {{ $dpViewPwd }}")
+          createSecretIfMissing $secretName literals files labels "{{ .Release.Namespace }}"
+          # New Gems EMS DP secret yaml format
+          # tp-msg-dp-credentials: same labels
+          # Migrate any existing credentials to new secret format
+          DP_ADMIN_USER=${DP_ADMIN_USER:-"{{ $dpAdminUser }}"}
+          DP_ADMIN_PASSWORD=${DP_ADMIN_PASSWORD:-"{{ $dpAdminPwd }}"}
+          DP_VIEW_USER=${DP_VIEW_USER:-"{{ $dpViewUser }}"}
+          DP_VIEW_PASSWORD=${DP_VIEW_PASSWORD:-"{{ $dpViewPwd }}"}
+          # MCP secret
+          literals=()
+          literals+=("EMS_VIEW_USER $DP_VIEW_USER")
+          literals+=("EMS_VIEW_PASSWORD $DP_VIEW_PASSWORD")
+          createSecretIfMissing "tp-msggw-mcp-credentials" literals files labels "{{ .Release.Namespace }}"
+          literals=()
+          # K8DPs use fluentbit export of ftlserver logs
+          # CTDPs use emslog exporter
+          # loggingDurable: tibco-gems-{{ $params.dp.instanceId }}
+          cat <<! > /tmp/gems.creds.yaml
+          ems:
+            adminUser: $DP_ADMIN_USER
+            adminPassword: $DP_ADMIN_PASSWORD
+            viewUser: $DP_VIEW_USER
+            viewPassword: $DP_VIEW_PASSWORD
+            loggingDurable: ""
+          !
+          files+=("gems.credentials.yaml /tmp/gems.creds.yaml")
+          createSecretIfMissing "tp-msggw-ems-credentials" literals files labels "{{ .Release.Namespace }}"
+          rtc=$?
+          # sleep 600
+          exit $rtc
         image: "{{ $params.msggw.image }}"
         resources:
           {{ $params.job.resources | toYaml | nindent 10 }}
         imagePullPolicy: "{{ $params.dp.pullPolicy }}"
         {{ include "msg.dp.security.container" $params | nindent 8 }}
+        envFrom:
+          - secretRef:
+              name: "{{ $basename }}-tibadmin"
+              optional: true
         env:
         # CAUTION! Setting Names here overrides envFrom values
         {{ include "msg.dp.stdenv" $params | indent  8 }}
         - name: ACCEPT_EUA
           value: "y"
+        volumeMounts:
+          - name: tmp-vol
+            mountPath: /tmp
+      volumes:
+        - name: tmp-vol
+          emptyDir: {}

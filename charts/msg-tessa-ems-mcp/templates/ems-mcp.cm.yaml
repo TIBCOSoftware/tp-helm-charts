@@ -1,0 +1,176 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+#
+{{- $params := include "need.msg.emsmcp.params" . | fromYaml -}}
+{{- $gwname := printf "%s" "tp-msg-gateway"  -}}
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: "{{ $params.emsmcp.name }}-scripts"
+    namespace: "{{ .Release.Namespace }}"
+    labels:
+      {{ include "msg-emsmcp.std.labels" $params | nindent 6 }}
+      app.kubernetes.io/component: tp-msg-emsmcp
+data:
+  start-haproxy.sh:  |
+    #!/bin/bash
+    export PATH=$PATH:/opt/haproxy/sbin
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/haproxy/lib
+    export HAPROXY_CONFIG=${HAPROXY_CONFIG:-/logs/boot/haproxy.cfg}
+    exec haproxy -4 -f $HAPROXY_CONFIG -db
+  start-watchdog.sh:  |
+    #!/bin/bash
+    exec /opt/tibco/pod-tools/bin/watchdog
+  start-mcp.sh:  |
+    #!/bin/bash
+    # Usage: ./ems-mcp-server <ems-server-url> [--user <username>] [--pass <password>] [-p <mcp-server-port>] [--debug]
+    export options=()
+    options+=(--user "$RESTD_VIEW_USER")
+    options+=(--pass "$RESTD_VIEW_PASSWORD")
+    options+=(--listen "$MCP_LISTEN")
+    [ "$LOG_LEVEL" == "debug" ] && options+=(--debug)
+    exec /opt/tibco/ems-mcp-server/ems-mcp-server $RESTD_URL "${options[@]}"
+  watchdog.yaml: |
+    services:
+      - name: haproxy
+        config:
+          cmd: /logs/boot/start-haproxy.sh
+          cwd: /logs/haproxy
+          log:
+            size: 5
+            num: 10
+            rotateonfirststart: true
+      - name: mcp
+        config:
+          cmd: /logs/boot/start-mcp.sh
+          cwd: /opt/tibco/ems-mcp-server
+          ctl: /logs/mcp
+          log:
+            size: 5
+            num: 10
+            rotateonfirststart: true
+
+  auth-subrequest.lua: |
+    core.register_action("check_ems_auth", { "http-req" }, function(txn)
+        -- 1. Extract the headers you need from the incoming request
+        -- Using txn.http:req_get_headers() returns a table of headers
+        local incoming_headers = txn.http:req_get_headers()
+    
+        -- 2. Prepare the headers for the sub-request
+        -- We specifically want to pass 'Authorization' and 'Host' (or others)
+        local sub_headers = {
+            ["content-type"] = { "application/json" }
+        }
+    
+        -- Map specific headers from the client to the auth request
+        if incoming_headers["host"] then
+            sub_headers["host"] = incoming_headers["host"]
+            -- sub_headers["host"] = "cpdpproxy.{{.Release.Namespace}}.svc.cluster.local"
+        end
+        if incoming_headers["authorization"] then
+            sub_headers["authorization"] = incoming_headers["authorization"]
+        end
+    
+        if incoming_headers["x-atmosphere-token"] then
+            sub_headers["x-atmosphere-token"] = incoming_headers["x-atmosphere-token"]
+        end
+    
+        -- 3. Perform the sub-request
+        local auth_ip = txn.get_var(txn, "txn.auth_ip")
+        core.log(core.info, "Auth via: " .. tostring(auth_ip))
+        local httpc = core.httpclient()
+        local ok, response = pcall(httpc.get, httpc, {
+            -- url = "http://tp-msg-gateway.{{.Release.Namespace}}.svc.cluster.local:8376/api/admin/credentials",
+            url = "http://" .. auth_ip .. ":8376/api/admin/credentials",
+            headers = sub_headers,
+            timeout  = 5000
+        })
+    
+        -- 4. Handle the result
+        if not ok then
+            core.log(core.err, "Auth subrequest error: " .. tostring(response))
+            txn.set_var(txn, "txn.auth_failed", true)
+        elseif not response or response.status ~= 200 then
+            txn.set_var(txn, "txn.auth_failed", true)
+            core.log(core.info, "Auth check failed, status: " .. tostring(response and response.status or "nil"))
+        end
+    end)
+
+  haproxy.cfg: |
+    # External haproxy port 8080
+    # internal MCP_SERVER_PORT=8081
+    global
+        log stdout local0 debug
+        # log /dev/log local0
+        # log /dev/log local1 notice
+        tune.lua.bool-sample-conversion normal
+        # Load the Lua script
+        lua-load /logs/boot/auth-subrequest.lua
+        presetenv RES_OPTIONS "retrans:1 retry:1 timeout:1"
+
+    resolvers k8s
+        parse-resolv-conf
+        hold valid 10s
+    
+    defaults
+        log     global
+        mode    http
+        option  httplog
+        timeout connect 5s
+        timeout client  50s
+        timeout server  50s
+    
+    frontend http_in
+        bind 0.0.0.0:8080
+        monitor-uri /healthz
+
+        # Use HAProxy's native fetch to resolve the IP before Lua runs
+        # (bad) http-request set-var(txn.auth_ip) do_resolve(tp-msg-gateway.vdp2.svc.cluster.local,k8s)
+        # The syntax is: do_resolve(<var_name>, <resolvers_section>, <ipv4/ipv6>)
+        # http-request do-resolve(txn.auth_ip, k8s, ipv4) hdr(host)
+        http-request do-resolve(txn.auth_ip,k8s,ipv4) str(tp-msg-gateway.{{.Release.Namespace}}.svc.cluster.local)
+        
+        # 1. Execute the Lua script action
+        http-request lua.check_ems_auth
+        
+        # 2. Deny the request if the Lua script flagged a failure
+        http-request deny if { var(txn.auth_failed) -m bool }
+    
+        # 3. If passed, route to the backend
+        default_backend emsmcp_backend
+    
+    backend emsmcp_backend
+        server emsmcp_local 127.0.0.1:8081 check
+
+    
+  haproxy.noauth.cfg: |
+    # External haproxy port 8080
+    # internal MCP_SERVER_PORT=8081
+    global
+        log stdout local0 debug
+        # log /dev/log local1 notice
+
+    defaults
+        log     global
+        mode    http
+        option  httplog
+        timeout connect 5s
+        timeout client  50s
+        timeout server  50s
+    
+    frontend http_in
+        bind 0.0.0.0:8080
+        monitor-uri /healthz
+        default_backend emsmcp_backend
+    
+    backend emsmcp_backend
+        server emsmcp_local 127.0.0.1:8081 check
+
+    

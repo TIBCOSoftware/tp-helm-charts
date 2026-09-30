@@ -61,6 +61,15 @@ function parseCmdOptions {
   fi
 }
 
+function emsCapabilityName {
+  local emsName="$1" emsUse="$2"
+  if [ -n "$emsUse" ] ; then
+    echo "$emsName-$emsUse"
+  else
+    echo "$emsName"
+  fi
+}
+
 function k8EmsRegistrationPayload {
   export groupName="${1:-"myems"}"
   export outfile="${2:-groupName.reg.json}"
@@ -69,7 +78,9 @@ function k8EmsRegistrationPayload {
   export clientUrl="tcp://$podBase-0.$podDom:9011,tcp://$podBase-1.$podDom:9011,tcp://$podBase-2.$podDom:9011"
   export monitorUrl="http://$podBase-0.$podDom:9010,http://$podBase-1.$podDom:9010,http://$podBase-2.$podDom:9010"
   export capabilityId="$(kubectl get cm/"$groupName-clients" -o=jsonpath='{.metadata.labels.tib-dp-capability-instance-id}')"
-  export capabilityName="$(kubectl get cm/$groupName-clients -o=jsonpath='{.metadata.labels.tib-msg-ems-name}-{.metadata.labels.tib-msg-ems-use}')"
+  emsName="$(kubectl get cm/"$groupName-clients" -o=jsonpath='{.metadata.labels.tib-msg-ems-name}')"
+  emsUse="$(kubectl get cm/"$groupName-clients" -o=jsonpath='{.metadata.labels.tib-msg-ems-use}')"
+  export capabilityName="$(emsCapabilityName "$emsName" "$emsUse")"
   export resourceInstanceId="$capabilityId"
   echo >&2 "#+: CAP = $capabilityId, $capabilityName"
   cat - <<EOF > $outfile

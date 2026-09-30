@@ -85,6 +85,8 @@ spec:
           image: {{ include "tp-hawk-infra-querynode.image.registry" . }}{{"/"}}{{ include "tp-hawk-infra-querynode.image.repository" . }}{{"/"}}{{ .Values.images.querynode.image.name }}:{{ .Values.images.querynode.image.tag }}
           imagePullPolicy: {{ .Values.images.querynode.image.pullPolicy }}
           env:
+            - name: hawkconsole_context_root
+              value: /infra/hawkconsole
             - name: unity.services.rest.host
               value: 0.0.0.0
             - name: unity.services.rest.port

@@ -3,6 +3,16 @@
 # in the license file that is distributed with this file.
 
 {{- if .Values.enableIngress }}
+
+{{- $rr := .Values.global.cp.routeResources -}}
+{{- $en := default dict .Values.dp.routing.enabled -}}
+{{- $ic := include "msg.dp.routing.ic" . -}}
+{{- /* ingressClassName is only honoured when an IC was explicitly selected; otherwise the built-in per-DP class wins. */ -}}
+{{- $className := tpl .Values.ingress.className . -}}
+{{- if and $rr.ingress.ingressController $rr.ingress.ingressClassName }}{{- $className = $rr.ingress.ingressClassName -}}{{- end }}
+
+{{- /* haProxy default */ -}}
+{{- if and (eq $ic "haProxy") $en.haProxy }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,20 +20,25 @@ metadata:
   namespace: {{ .Release.Namespace}}
   annotations:
     haproxy.org/server-ssl: "true"
-    ingress.kubernetes.io/path-rewrite: "/tibco/agent/infra/hawkconsole/(.*) /hawkconsole/\\1"
+    ingress.kubernetes.io/path-rewrite: "{{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/(.*) /hawkconsole/\\1"
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    haproxy-ingress.github.io/rewrite-target: "/hawkconsole/"
+    haproxy-ingress.github.io/secure-backends: "true"
     {{- with .Values.ingress.annotations }}
     {{- tpl (toYaml .) $ | nindent 4}}
     {{- end }}
   labels:
     {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
 spec:
-  ingressClassName: {{ tpl .Values.ingress.className . }}
+  ingressClassName: {{ $className | quote }}
   rules:
   - host: dp-{{ .Values.global.cp.dataplaneId }}
     http:
       paths:
         - pathType: Prefix
-          path: {{ .Values.ingress.pathPrefix }}
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}{{ .Values.ingress.pathPrefix }}
           backend:
             service:
               name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
@@ -33,7 +48,7 @@ spec:
     http:
       paths:
         - pathType: Prefix
-          path: {{ .Values.ingress.pathPrefix }}
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}{{ .Values.ingress.pathPrefix }}
           backend:
             service:
               name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
@@ -43,10 +58,201 @@ spec:
     http:
       paths:
         - pathType: Prefix
-          path: {{ .Values.ingress.pathPrefix }}
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}{{ .Values.ingress.pathPrefix }}
           backend:
             service:
               name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
               port:
                 number: 9687
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if include "tp-dp-hawk-console.traefikIngressActive" . }}
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}-transport
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  insecureSkipVerify: {{ .Values.dp.routing.traefik.insecureSkipVerify | default true }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}-strip-prefix
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/infra
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "tp-dp-hawk-console.consts.appName" . }}-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (toYaml .) $ | nindent 4}}
+    {{- end }}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+        - pathType: Prefix
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+        - pathType: Prefix
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if and (eq $ic "openshiftRouter") $en.openshiftRouter }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /hawkconsole/
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (toYaml .) $ | nindent 4}}
+    {{- end }}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/
+  to:
+    kind: Service
+    name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+    weight: 100
+  port:
+    targetPort: 9687
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if and (eq $ic "nginx") $en.nginx }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /hawkconsole/$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (toYaml .) $ | nindent 4}}
+    {{- end }}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+        - pathType: ImplementationSpecific
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/(.*)
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+        - pathType: ImplementationSpecific
+          path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/(.*)
+          backend:
+            service:
+              name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+              port:
+                number: 9687
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if and (eq $ic "gatewayapi") $en.gatewayapi }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  - "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/hawkconsole/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /hawkconsole/
+    backendRefs:
+    - name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+      port: 9687
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+type: kubernetes.io/tls
+metadata:
+  name: {{ include "tp-dp-hawk-console.consts.appName" . }}
+  namespace: {{ .Release.Namespace}}
+  labels:
+    {{- include "tp-dp-hawk-console.shared.labels.standard" .| nindent 4}}
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: {{ include "tp-dp-hawk-console.consts.appName" . }}-connect
+  validation:
+    hostname: {{ include "tp-dp-hawk-console.consts.appName" . }}.{{ .Release.Namespace}}
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: {{ include "tp-dp-hawk-console.consts.appName" . }}-ca-cm
+{{- end }}
+
 {{- end }}

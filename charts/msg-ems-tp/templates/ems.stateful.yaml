@@ -95,8 +95,9 @@ spec:
                 matchLabels:
                   tib-msg-stsname: "{{ $stsname }}"
                   tib-dp-release: "{{ .Release.Name }}"
+      {{- if ne "none" $emsParams.ems.zoneLabel }}
             - maxSkew: 1
-              topologyKey: topology.kubernetes.io/zone
+              topologyKey: {{ $emsParams.ems.zoneLabel }}
               {{- if eq "no" ( $emsParams.ems.allowZoneSkew | default "yes" ) }}
               whenUnsatisfiable: DoNotSchedule
               {{- else }}
@@ -106,6 +107,7 @@ spec:
                 matchLabels:
                   tib-msg-stsname: "{{ $stsname }}"
                   tib-dp-release: "{{ .Release.Name }}"
+      {{- end }}
             containers:
             - name: "{{ $stsname }}"
               image: "{{ $emsParams.ems.image }}"

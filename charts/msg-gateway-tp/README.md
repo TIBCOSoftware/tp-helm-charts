@@ -14,7 +14,7 @@ helm upgrade --install k8-gateway tp-helm-charts/msg-gateway-tp --version=1.9.13
 * With a K8DP kubeconfig
 ```bash
 kubectl exec -ti tp-msg-gateway-0 -- bash
-source /logs/boot/plt-functions.sh
+source /logs/boot/qa-functions.sh
 restdHealth
 ```
 * Sample health output

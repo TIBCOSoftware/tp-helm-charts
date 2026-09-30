@@ -25,8 +25,8 @@ need.msg.as.params
 */}}
 {{ define "need.msg.as.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $asDefaultFullImage := printf "%s/%s/msg-as-all:5.2.0-3" $dpParams.dp.registry $dpParams.dp.repository -}}
-{{- $k8bashDefaultFullImage := printf "%s/%s/msg-ubu-k8bash:24.04.0-21" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $asDefaultFullImage := printf "%s/%s/msg-as-all:5.2.0-7" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $k8bashDefaultFullImage := printf "%s/%s/msg-ubu-k8bash:24.04.0-22" $dpParams.dp.registry $dpParams.dp.repository -}}
 {{- $basename :=  .Values.as.basename | default "tp-as" -}}
 {{- $numCopysets :=  .Values.as.numCopysets | default 1 -}}
 {{- $numProxies :=  .Values.as.numProxies | default 2 -}}

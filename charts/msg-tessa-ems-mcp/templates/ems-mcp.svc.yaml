@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{- $params := include "need.msg.emsmcp.params" . | fromYaml -}}
+#
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ $params.emsmcp.name }}"
+  labels:
+    {{- include "msg-emsmcp.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-emsmcp-service
+    tib-msg-stsname: "{{ $params.emsmcp.name }}"
+spec:
+  ports:
+  - name: mcp
+    port: 8080
+    protocol: TCP
+  selector:
+    tib-msg-stsname: "{{ $params.emsmcp.name }}"

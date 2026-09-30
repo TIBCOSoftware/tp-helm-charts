@@ -11,34 +11,47 @@
 {{- $svcname := $basename -}}
 #
 {{- if $params.enableIngress }}
+
+{{- $rr := .Values.global.cp.routeResources -}}
+{{- $en := default dict .Values.dp.routing.enabled -}}
+{{- $ic := include "msg.dp.routing.ic" . -}}
+{{- /* ingressClassName is only honoured when an IC was explicitly selected; otherwise the built-in per-DP class wins. */ -}}
+{{- $className := printf "tibco-dp-%s" $params.dp.name -}}
+{{- if and $rr.ingress.ingressController $rr.ingress.ingressClassName }}{{- $className = $rr.ingress.ingressClassName -}}{{- end }}
+
+{{- /* haProxy default */ -}}
+{{- if and (eq $ic "haProxy") $en.haProxy }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: "{{ $basename }}-ops"
   namespace: {{ .Release.Namespace }}
   annotations:
-    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ops/shell/toolset/(.*) /\1'
+    ingress.kubernetes.io/path-rewrite: '{{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/(.*) /\1'
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "msg-gateway.std.labels" $params | nindent 4 }}
     app.kubernetes.io/component: msg-gateway-ingress
 spec:
-  ingressClassName: "tibco-dp-{{ $params.dp.name }}"
+  ingressClassName: {{ $className | quote }}
   rules:
   - host: {{ include "msg.dp.dpUrl.host" . }}
     http:
       paths:
       - pathType: Prefix
-        path: /tibco/agent/msg/ops/shell/toolset/
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
         backend:
           service:
             name: "{{ $svcname}}"
             port:
               number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
-  - host: "{{ .Values.global.cp.cpHostname | default "sub.cp.platform.local" }}"
+  - host: "{{ $params.route.cpHost }}"
     http:
       paths:
       - pathType: Prefix
-        path: /tibco/agent/msg/ops/shell/toolset/
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
         backend:
           service:
             name: "{{ $svcname}}"
@@ -51,18 +64,22 @@ metadata:
   name: "{{ $basename }}-api"
   namespace: {{ .Release.Namespace }}
   annotations:
-    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ct/toolset/(.*) /\1'
+    ingress.kubernetes.io/path-rewrite: '{{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/(.*) /\1'
+    haproxy.org/timeout-server: 90s
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "msg-gateway.std.labels" $params | nindent 4 }}
     app.kubernetes.io/component: msg-gateway-ingress
 spec:
-  ingressClassName: "tibco-dp-{{ $params.dp.name }}"
+  ingressClassName: {{ $className | quote }}
   rules:
   - host: {{ include "msg.dp.dpUrl.host" . }}
     http:
       paths:
       - pathType: Prefix
-        path: /tibco/agent/msg/ct/toolset/
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/
         backend:
           service:
             name: "{{ $svcname}}"
@@ -75,23 +92,481 @@ metadata:
   name: "{{ $basename }}-restd"
   namespace: {{ .Release.Namespace }}
   annotations:
-    ingress.kubernetes.io/path-rewrite: '/tibco/agent/msg/ct/restd/(.*) /\1'
+    ingress.kubernetes.io/path-rewrite: '{{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/(.*) /\1'
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "msg-gateway.std.labels" $params | nindent 4 }}
     app.kubernetes.io/component: msg-gateway-ingress
 spec:
-  ingressClassName: "tibco-dp-{{ $params.dp.name }}"
+  ingressClassName: {{ $className | quote }}
   rules:
   - host: {{ include "msg.dp.dpUrl.host" . }}
     http:
       paths:
       - pathType: Prefix
-        path: /tibco/agent/msg/ct/restd/
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/
         backend:
           service:
             name: "{{ $svcname}}"
             port:
-              # FIXME: Values setting
-              number: 9014
+              number: {{ int $params.msggw.ports.restdPort | default 9014 }}
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if and (eq $ic "traefik") $en.traefik }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: "{{ $basename }}-ops-strip-prefix"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-ops"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $basename }}-ops-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: "{{ $basename }}-api-strip-prefix"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-api"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $basename }}-api-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: "{{ $basename }}-restd-strip-prefix"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-restd"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $basename }}-restd-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.restdPort | default 9014 }}
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.restdPort | default 9014 }}
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if and (eq $ic "openshiftRouter") $en.openshiftRouter }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ $basename }}-ops"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
+  to:
+    kind: Service
+    name: "{{ $svcname}}"
+    weight: 100
+  port:
+    targetPort: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+  wildcardPolicy: None
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ $basename }}-api"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/
+  to:
+    kind: Service
+    name: "{{ $svcname}}"
+    weight: 100
+  port:
+    targetPort: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+  wildcardPolicy: None
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ $basename }}-restd"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/
+  to:
+    kind: Service
+    name: "{{ $svcname}}"
+    weight: 100
+  port:
+    targetPort: {{ int $params.msggw.ports.restdPort | default 9014 }}
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if and (eq $ic "nginx") $en.nginx }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-ops"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/(.*)
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/(.*)
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-api"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "90"
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/(.*)
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/(.*)
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $basename }}-restd"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/(.*)
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.restdPort | default 9014 }}
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/(.*)
+        backend:
+          service:
+            name: "{{ $svcname}}"
+            port:
+              number: {{ int $params.msggw.ports.restdPort | default 9014 }}
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if and (eq $ic "gatewayapi") $en.gatewayapi }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: "{{ $basename }}-ops"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  - "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ops/shell/toolset/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: "{{ $svcname}}"
+      port: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: "{{ $basename }}-api"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  - "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/toolset/
+    timeouts:
+      request: 90s
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: "{{ $svcname}}"
+      port: {{ int $params.msggw.ports.gatewayApiPort | default 8376 }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: "{{ $basename }}-restd"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "msg-gateway.std.labels" $params | nindent 4 }}
+    app.kubernetes.io/component: msg-gateway-ingress
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  - "{{ .Values.global.cp.routeResources.controllerServiceDNS | default "cpdpproxy" }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/msg/ct/restd/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: "{{ $svcname}}"
+      port: {{ int $params.msggw.ports.restdPort | default 9014 }}
+{{- end }}
 
 {{- end }}

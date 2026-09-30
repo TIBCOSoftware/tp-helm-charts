@@ -43,6 +43,11 @@ if [ -n "$leader" ] ; then
       echo "POD=$x"; done ; 
     bash < /boot/health-watcher.sh ;
     rtc=$?
+    
+    # FIXME: For now run Gems User Migration code on upgrade
+    # Set ACLs for GEMS users - after pod restarts in case there are pending user changes
+    [ $rtc -eq 0 ] && bash < /boot/k8GemsSetup.sh
+    rtc=$?
 else
     # INITIALIZING
     echo "Loading initial tibemsd.json ..."
@@ -60,9 +65,8 @@ else
     wait_for_active
     sleep 2  ; # wait DNS resolver
     
-    # Set Password for GEMS user
-    bash < /boot/k8DpadminSetup.sh
+    # Set ACLs for GEMS users
+    bash < /boot/k8GemsSetup.sh
     rtc=$?
 fi
-
 exit $rtc

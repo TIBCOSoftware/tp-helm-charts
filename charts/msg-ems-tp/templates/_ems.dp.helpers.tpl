@@ -14,13 +14,20 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.0-30" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.1-34" $dpParams.dp.registry $dpParams.dp.repo -}}
 #{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-56" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
 {{- $namespace := .Values.namespace | default .Release.Namespace -}}
 {{- $sizing := ternary  "small" .Values.ems.sizing ( not  .Values.ems.sizing ) -}}
-{{- $use := ternary  "dev" .Values.ems.use ( not  .Values.ems.use ) -}}
+{{- $use := .Values.ems.use | default "" | toString -}}
+{{- if eq $use "${EMS_USE}" -}}
+  {{- $use = "" -}}
+{{- end -}}
+{{- $capabilityName := $name -}}
+{{- if $use -}}
+  {{- $capabilityName = printf "%s-%s" $name $use -}}
+{{- end -}}
 {{- $tcpListen := printf "tcp://0.0.0.0:%d" ( .Values.ems.ports.tcpPort | int ) -}}
 {{- $sslListen := printf "ssl://0.0.0.0:%d" ( .Values.ems.ports.sslPort | int ) -}}
 {{- $emsListens := $tcpListen -}}
@@ -34,6 +41,9 @@ need.msg.ems.params
     {{- fail "ERROR: at least one of TCP or SSL listen must be enabled." -}}
   {{- end -}}
 {{- $isProduction := false -}}
+  {{- if hasKey .Values.ems "isProduction" -}}
+    {{- $isProduction = .Values.ems.isProduction -}}
+  {{- end -}}
 {{- $cpuReq := "0.3" -}}
 {{- $cpuLim := "3" -}}
 {{- $memReq := "1Gi" -}}
@@ -118,8 +128,10 @@ ems:
   namespace: {{ $namespace }}
   image: {{ $emsImage }}
   sizing: {{ $sizing }}
-  use: {{ $use }}
+  use: "{{ $use }}"
+  capabilityName: "{{ $capabilityName }}"
   isProduction: {{ $isProduction }}
+  zoneLabel: {{ .Values.ems.zoneLabel | default "topology.kubernetes.io/zone" }}
   pvcShareName: {{ $pvcShareName }}
   pvcShareSize: {{ $pvcShareSize }}
   activationSecret: "{{ .Values.ems.activationSecret | default "cp-license-file-secret" }}"
@@ -140,6 +152,12 @@ ems:
     storageType: configMap
     storageName: {{ $name }}-scripts
     readOnly: true
+  credentials:
+    volName: credentials-vol
+    storageType: secret
+    storageName: tp-msggw-ems-credentials
+    optional: true
+    defaultMode: 0775
   certs:
     volName: certs-vol
     storageType: secret
@@ -229,7 +247,7 @@ note: expects a $emsParams as its argument
 {{- define "ems.std.labels" }}
 release: "{{ .dp.release }}"
 tib-dp-app: msg-ems-ftl
-tib-msgdp-mm-version: "1.19.0-0"
+tib-msgdp-mm-version: "1.21.0-0"
 tib-msg-group-name: "{{ .ems.name }}"
 tib-msg-ems-name: "{{ .ems.name }}"
 tib-msg-ems-sizing: "{{ .ems.sizing }}"

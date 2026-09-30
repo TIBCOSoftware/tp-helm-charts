@@ -60,7 +60,7 @@ spec:
                   done
                   # -- Do uninstall
                   pushd "$TARGET_PATH"
-                  CAPS="infra/msgcore platform/ems platform/pulsar"
+                  CAPS="infra/msgcore platform/ems platform/pulsar platform/as platform/ftl infra/emsmcp platform/emsmcp"
                   echo "--- Before Uninstall ---"
                   find $CAPS -type f -ls 
                   for capdir in $CAPS ; do 

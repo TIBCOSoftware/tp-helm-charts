@@ -28,24 +28,11 @@ if [ -n "$EMS_CP_OWNER" ] ; then
     # adminList="$adminList"' {"name":"dmiller@tibco.com"},'
     # adminList="$adminList"' {"name":"bhorst@tibco.com"},'
     adminList="$adminList"' {"name":"'$EMS_CP_OWNER'"},'
-    gemsDescription="CP Owner with admin priviledges"
-    gemsList='{"name":"'$EMS_CP_OWNER'"}'
-    gemsList="$gemsList"',{"name":"'$EMS_ADMIN_USER'"}'
-    msgGemsGrp='{"description":"'"$gemsDescription"'","members":['"$gemsList"'],"name":"msg-gems-admin"},'
-fi
-if [ -n "$EMS_ADMIN_USER" ] ; then 
-    adminList="$adminList"' {"name":"'$EMS_ADMIN_USER'"},'
-    tibAdminUser='{ "description":"Tibco DP Admin credentials", "name":"'$EMS_ADMIN_USER'", "password":"locked" },'
 fi
 
 cat - <<EOF > $outfile
 {
   "acls": [
-    {
-      "type": "admin",
-      "group": "msg-gems-admin",
-      "all": true
-    }
   ],
   "bridges":[],
   "channels":[],
@@ -101,7 +88,6 @@ cat - <<EOF > $outfile
     }
   ],
   "groups":[
-    $msgGemsGrp
     {
       "description":"Administrators",
       "members":[

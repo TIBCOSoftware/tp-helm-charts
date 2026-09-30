@@ -1,0 +1,202 @@
+#
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+#
+# HELPER VARIABLE DEFINITIONS
+{{- $params := include "need.msg.emsmcp.params" . | fromYaml -}}
+{{- $svcname := printf "%s" $params.emsmcp.name -}}
+{{- $rr := .Values.global.cp.routeResources -}}
+{{- $en := default dict .Values.dp.routing.enabled -}}
+{{- $ic := include "msg.dp.routing.ic" . -}}
+{{- $prefix := printf "%s/msg/tessa/ems" $rr.pathPrefix -}}
+{{- $path := printf "%s/" $prefix -}}
+{{- /* ingressClassName is only honoured when an IC was explicitly selected; otherwise the built-in per-DP class wins. */ -}}
+{{- $className := printf "tibco-dp-%s" $params.dp.name -}}
+{{- if and $rr.ingress.ingressController $rr.ingress.ingressClassName }}{{- $className = $rr.ingress.ingressClassName -}}{{- end }}
+
+{{- /* haProxy default */ -}}
+{{- if and (eq $ic "haProxy") $en.haProxy }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $svcname }}-emsmcp"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: '{{ $path }}(.*) /\1'
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    app.kubernetes.io/component: msg-emsmcp-ingress
+spec:
+  ingressClassName: {{ $className | quote }}
+  rules:
+  - host: {{ include "msg.dp.dpUrl.host" . }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ $path }}
+        backend:
+          service:
+            name: "{{ $svcname }}"
+            port:
+              number: 8080
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if and (eq $ic "traefik") $en.traefik }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: "{{ $svcname }}-emsmcp-strip-prefix"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: msg-emsmcp-ingress
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ $path }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $svcname }}-emsmcp"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $svcname }}-emsmcp-strip-prefix@kubernetescrd
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    app.kubernetes.io/component: msg-emsmcp-ingress
+spec:
+  ingressClassName: {{ $rr.ingress.ingressClassName }}
+  rules:
+  - host: {{ $rr.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ $path }}
+        backend:
+          service:
+            name: "{{ $svcname }}"
+            port:
+              number: 8080
+  - host: "{{ $rr.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ $path }}
+        backend:
+          service:
+            name: "{{ $svcname }}"
+            port:
+              number: 8080
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if and (eq $ic "openshiftRouter") $en.openshiftRouter }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ $svcname }}-emsmcp"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    app.kubernetes.io/component: msg-emsmcp-ingress
+spec:
+  {{- with $rr.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ $path }}
+  to:
+    kind: Service
+    name: "{{ $svcname }}"
+    weight: 100
+  port:
+    targetPort: 8080
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if and (eq $ic "nginx") $en.nginx }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ $svcname }}-emsmcp"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ $prefix }}
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    app.kubernetes.io/component: msg-emsmcp-ingress
+spec:
+  ingressClassName: {{ $rr.ingress.ingressClassName }}
+  rules:
+  - host: {{ $rr.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ $path }}(.*)
+        backend:
+          service:
+            name: "{{ $svcname }}"
+            port:
+              number: 8080
+  - host: "{{ $rr.controllerServiceDNS | default "cpdpproxy" }}"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ $path }}(.*)
+        backend:
+          service:
+            name: "{{ $svcname }}"
+            port:
+              number: 8080
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if and (eq $ic "gatewayapi") $en.gatewayapi }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: "{{ $svcname }}-emsmcp"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: msg-emsmcp-ingress
+spec:
+  parentRefs:
+  - name: {{ $rr.gatewayapi.gatewayName }}
+    namespace: {{ $rr.gatewayapi.gatewayNamespace }}
+    {{- with $rr.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ $rr.gatewayapi.gatewayHostOrDomainName | quote }}
+  - "{{ $rr.controllerServiceDNS | default "cpdpproxy" }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ $path }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: "{{ $svcname }}"
+      port: 8080
+{{- end }}

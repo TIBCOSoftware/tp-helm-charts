@@ -34,12 +34,12 @@ spec:
       enableServiceLinks: false
       nodeSelector:
         kubernetes.io/os: linux
+      {{- if (include "tp-cp-hawk-console-recipes.container-registry.secret" .) }}
       imagePullSecrets:
-        {{- if (include "tp-cp-hawk-console-recipes.container-registry.secret" .) }}
         - name: {{ include "tp-cp-hawk-console-recipes.container-registry.secret" . }}
-        {{- end }}
+      {{- end }}
       restartPolicy: Never
-      serviceAccountName: {{ .Values.global.tibco.serviceAccount }}
+      serviceAccountName: {{ include "tp-hawk-infra.service-account-name" . }}
       volumes:
         - name: efs-vol
           persistentVolumeClaim:
