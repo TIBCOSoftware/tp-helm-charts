@@ -4,6 +4,10 @@
 
 -- Rollback database schema changes for 1.20.0 (reverse of 23-up.sql)
 
+-- ============================================================================
+-- PCP-21666 / PCP-21580 rollback
+-- ============================================================================
+
 -- PCP-21580: MFTADAPTER as an INFRA Capability for Control Tower data planes
 DELETE FROM V3_CAPABILITY_METADATA WHERE CAPABILITY_ID = 'MFTADAPTER' AND CAPABILITY_TYPE = 'INFRA';
 

@@ -32,7 +32,13 @@
   {{ .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
-{{- define "cp-core-configuration.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-core-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/* Control plane DNS domain. default value cp1 */}}
 {{- define "cp-core-configuration.cp-dns-domain" }}

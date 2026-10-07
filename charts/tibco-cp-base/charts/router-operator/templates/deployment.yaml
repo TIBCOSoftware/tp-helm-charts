@@ -239,5 +239,7 @@ spec:
             defaultMode: 420
             secretName: {{ include "router-operator.consts.webhook" . }}-tls
 {{- end }}
+      {{- if (include "router-operator.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "router-operator.container-registry.secret" . }}
+      {{- end }}
