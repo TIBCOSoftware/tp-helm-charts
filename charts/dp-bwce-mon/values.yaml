@@ -13,6 +13,21 @@ global:
     dpUrl:
       host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
       port: 443
+    # routeResources controls the internal control-plane -> data-plane route (via dp-proxy) for this component.
+    # PCP-18809: the routing path is split into a configurable prefix + a fixed /integration/<instanceId>/dp-bwce-mon tail.
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the /integration/... tail is hardcoded in the templates
+      ingress:
+        ingressController: ""    # "" (default: bundled haProxy) | "haProxy" | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is "haProxy", "nginx", or "traefik"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     containerRegistry:
       secret: ""
       url: ""
@@ -28,6 +43,23 @@ global:
         dbms: rdbms
         persistenceType: postgres
         secretDbPassword: password
+        # SSL to the monitoring database, injected from the CP DBCONFIG resource.
+        # Honoured for postgres and mysql only; oracle and mssql are in the wizard
+        # for other capabilities and are ignored here.
+        # These are strings, not booleans -- the wizard renders "true"/"false"
+        # dropdowns, so "false" is a non-empty (truthy) string in a template.
+        sslEnabled: "false"
+        # Secret in the dp-bwce-mon namespace holding the certificate files.
+        sslCertSecretName: ""
+        # Keys within that Secret. Each key becomes a filename under
+        # dbSslCertsMountPath, and that filename is what the monitoring backend
+        # receives in DB_SSL_CA / DB_SSL_KEY / DB_SSL_CERT.
+        sslCACertSecretKey: ""
+        sslClientPrivateKeySecretKey: ""
+        sslClientCertSecretKey: ""
+        # Left empty, the monitoring backend applies its own default of true.
+        # Only an explicit value from the wizard is passed through.
+        sslRejectUnauthorized: ""
       serviceaccount:
         namespace: ""
         serviceAccountName: ""
@@ -41,7 +73,7 @@ global:
       fluentbit:
         enabled: true
         image:
-          tag: 5.1.0
+          tag: 5.1.2
         resources:
           requests:
             cpu: 10m
@@ -110,6 +142,11 @@ securityContext:
       drop:
         - ALL
         - CAP_NET_RAW
+
+# Directory the database SSL certificate files are mounted into. The monitoring
+# backend reads them as clientcerts/<filename>, where <filename> is the Secret
+# key carried in DB_SSL_CA / DB_SSL_KEY / DB_SSL_CERT.
+dbSslCertsMountPath: /clientcerts
 
 service:
   type: ClusterIP
