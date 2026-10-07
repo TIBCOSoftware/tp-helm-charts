@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -13,6 +13,21 @@ global:
     dpUrl:
       host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
       port: 443
+    # routeResources controls the internal control-plane -> data-plane route (via dp-proxy) for this component.
+    # PCP-18809: the routing path is split into a configurable prefix + a fixed /integration/<instanceId>/bwadapter tail.
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the /integration/... tail is hardcoded in the templates
+      ingress:
+        ingressController: ""    # "" (default: bundled haProxy) | "haProxy" | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is "haProxy", "nginx", or "traefik"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     containerRegistry:
       secret: ""
       url: ""
@@ -61,7 +76,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 5.1.0
+          tag: 5.1.2
         resources:
           requests:
             cpu: 10m

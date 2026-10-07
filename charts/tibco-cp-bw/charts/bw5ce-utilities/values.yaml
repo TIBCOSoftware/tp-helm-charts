@@ -8,6 +8,8 @@ global:
       url: ""
       username: ""
       password: ""
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
       repository: ""
       imagePullSecretName: ""
       customCertSecret: ""
@@ -27,7 +29,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.0
+          tag: 5.1.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +56,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.5
+    tag: 13.6
 
 nameOverride: ""
 
@@ -249,6 +251,15 @@ bwPluginsJobB:
           releaseDate: "September 2024"
           supportedBWVersions: "5.9.0 - 5.16.1"
           endOfSupportDate: "EoS not Announced"
+  tci-bw-plugin-amqp:
+    tags:
+      - tag: 5.0.0.v8-tci-2.0
+        metadata:
+          displayVersion: "5.0.0"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amqp"
+          releaseDate: "September 2026"
+          supportedBWVersions: ""
+          endOfSupportDate: "EoS not Announced"
 
 bwPluginsJobC:
   tci-bw-plugin-restjson:
@@ -393,7 +404,7 @@ buildtypeImages:
 - name: tp-bw5ce-buildtype
   extract_image: true
   path: /var/lib/bw5ce/buildtypes
-  tag: BW-5.16.1-HF6-TRA-5.13.0-HF6
+  tag: BW-5.16.1-HF7-TRA-5.13.0-HF7
   target_location: bw5ce/buildtypes
 
 probes:

@@ -9,6 +9,8 @@ global:
       url: ""
       username: ""
       password: ""
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
       repository: ""
       imagePullSecretName: ""
       customCertSecret: ""
@@ -28,7 +30,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.0
+          tag: 5.1.2
           pullPolicy: IfNotPresent
         resources:
           requests:

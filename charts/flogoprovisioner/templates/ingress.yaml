@@ -6,6 +6,9 @@
 {{- $dot := . }}
 {{- $fullName := include "flogoprovisioner.fullname" . -}}
 {{- $releaseName := .Release.Name -}}
+
+{{- /* built-in haProxy (default): no custom ingress controller and no gateway api */ -}}
+{{- if and (empty .Values.global.cp.routeResources.ingress.ingressController) (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
@@ -27,7 +30,7 @@ metadata:
   annotations:
     meta.helm.sh/release-namespace: {{ .Values.global.cp.namespace }}
     meta.helm.sh/release-name: {{ $fullName }}
-    ingress.kubernetes.io/path-rewrite: /tibco/agent/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/(.*) /\1
+    ingress.kubernetes.io/path-rewrite: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/(.*) /\1
     {{- with .Values.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -68,7 +71,7 @@ spec:
             {{- end }}
         {{- else}}
         paths:
-          - path: /tibco/agent/integration/{{ $.Values.global.cp.instanceId }}/flogoprovisioner/
+          - path: {{ $.Values.global.cp.routeResources.pathPrefix }}/integration/{{ $.Values.global.cp.instanceId }}/flogoprovisioner/
             pathType: Prefix
             backend:
               service:
@@ -77,4 +80,192 @@ spec:
                   number: {{ $.Values.service.port }}
         {{- end }}
   {{- end }}
+{{- end }}
+
+{{- /* custom haProxy (user-managed HAProxy ingress controller, not the bundled one) */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "haProxy" }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: haproxy-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "flogoprovisioner.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    ingress.kubernetes.io/path-rewrite: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/(.*) /\1
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn | quote }}
+    http:
+      paths:
+      - path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "nginx" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "flogoprovisioner.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn | quote }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/(.*)
+        backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "traefik" }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-private-strip-prefix
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "flogoprovisioner.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "flogoprovisioner.labels" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-private-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn | quote }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/
+        backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "flogoprovisioner.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/
+  to:
+    kind: Service
+    name: {{ $fullName }}
+    weight: 100
+  port:
+    targetPort: {{ .Values.service.port }}
+  wildcardPolicy: None
+{{- end }}
+
+{{- /*
+gatewayapi. The leading --- is load-bearing: this block is gated independently of the four
+ingressController blocks above, so an ingressController and a gatewayAPIControllerName can both
+be set. Without the separator the preceding Ingress and this HTTPRoute merge into a single YAML
+document and the Ingress is silently lost - helm template still exits 0.
+*/ -}}
+{{- if not (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "flogoprovisioner.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/{{ .Values.global.cp.instanceId }}/flogoprovisioner/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: {{ $fullName }}
+      port: {{ .Values.service.port }}
+{{- end }}
 {{- end }}
