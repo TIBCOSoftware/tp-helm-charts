@@ -334,6 +334,20 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_DP_PROXY_HOST
+        # Host and port must stay paired: the internal receiver Service listens on 8081; the
+        # public :8080 MCP surface does not serve /v1/mcp-aggregator/discovery/refresh.
+        - name: TP_CP_MCP_AGGREGATOR_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MCP_AGGREGATOR_INTERNAL_HOST
+        - name: TP_CP_MCP_AGGREGATOR_PORT
+          value: "8081"
+        # mcpAggregator.enabled gates both the aggregator Deployment and this callback; they must
+        # move together or the orchestrator pushes to a Service that does not exist. It defaults to
+        # true in tibco-cp-base/values.yaml, so `| default false` only covers a null/absent value.
+        - name: TP_CP_MCP_AGGREGATOR_CALLBACK_ENABLED
+          value: "{{ .Values.global.tibco.mcpAggregator.enabled | default false }}"
         - name: SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST
           valueFrom:
             configMapKeyRef:

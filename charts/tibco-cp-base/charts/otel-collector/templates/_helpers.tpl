@@ -274,7 +274,13 @@ Create ConfigMap checksum annotation if configMap.existingPath is defined, other
 {{- end }}
 
 
-{{- define "otel-collector.container-registry.secret" }}tibco-container-registry-credentials{{end}}
+{{- define "otel-collector.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/*
 List of upstream community OpenTelemetry Collector distributions that do NOT include

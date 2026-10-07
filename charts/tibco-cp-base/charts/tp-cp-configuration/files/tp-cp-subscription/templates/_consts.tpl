@@ -39,7 +39,13 @@
   {{- end -}}
 {{- end -}}
 
-{{- define "tp-cp-subscription.container-registry.secret" }}{{ .Values.global.tibco.containerRegistry.secret }}{{end}}
+{{- define "tp-cp-subscription.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{- define "tp-cp-subscription.image.registry" }}
     {{- .Values.global.tibco.containerRegistry.url }}

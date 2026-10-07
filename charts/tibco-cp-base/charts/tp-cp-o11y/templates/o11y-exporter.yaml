@@ -3,6 +3,8 @@
   This file is subject to the license terms contained
   in the license file that is distributed with this file.
 */}}
+{{- /* PCP-23522: metricsPush gate — disk-buffered OTLP push for otel-userapp-metrics (default OFF). */ -}}
+{{- $mp := .Values.capabilities.o11y.withResources.metricsPush | default dict -}}
 
 apiVersion: v1
 kind: ConfigMap
@@ -14,7 +16,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.20.0",
+      "capabilityVersion": "1.21.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.o11y.withResources.releaseDate | quote }},
@@ -914,9 +916,29 @@ data:
                       - key: hawktargets
                         path: hawktargets.yml
                       name: o11y-service
+                {{- if $mp.enabled }}
+                  - name: metrics-queue
+                    # PCP-23522: node-ephemeral disk for the file_storage queue. NOT medium: Memory
+                    # (that would reinstate RAM pressure). Survives container restart / OOM-kill in
+                    # place (replay); a pod reschedule wipes it, an accepted loss <= today's pull
+                    # gaps. sizeLimit is a HARD cap (pod eviction if exceeded) so it is kept above
+                    # the SUM of the disk-buffered queues. PCP-24428: a BYO DP runs TWO queues on this
+                    # one volume (the BYO leg — otlp or kafka — plus otlphttp/cp-metrics), so sizeLimit
+                    # must clear ~2x queue.sizeBytes + boltdb overhead (default bumped to 1Gi;
+                    # perf-validate the dual-queue worst case per the PCP-23710 method). Queue sheds first.
+                    # Ownership: the
+                    # subchart podSecurityContext (fsGroup 1000 + fsGroupChangePolicy Always) lets
+                    # the uid-1000 collector write it — no chown initContainer needed.
+                    emptyDir:
+                      sizeLimit: {{ dig "emptyDir" "sizeLimit" "512Mi" $mp | quote }}
+                {{- end }}
                 extraVolumeMounts:
                   - mountPath: /conf/hawkconsole
                     name: hawktargets
+                {{- if $mp.enabled }}
+                  - mountPath: /var/lib/otelcol/metrics-queue
+                    name: metrics-queue
+                {{- end }}
                 extraEnvs:
                   - name: KUBE_NODE_NAME
                     valueFrom:
@@ -974,6 +996,18 @@ data:
                               - http://*
                               - https://*
                           endpoint: 0.0.0.0:4318
+                    # PCP-23799: scrape THIS collector's own :8888 self-telemetry (otelcol_*) so the
+                    # pipeline-degradation signals (queue depth / drops / send failures / receiver
+                    # backpressure / RSS) ride the same delivery to CP Prometheus. Static localhost
+                    # target — no kubernetes_sd, so it needs no RBAC (works in ns-role or clusterrole
+                    # mode); dataplane_id is stamped downstream by transform/msg.
+                    prometheus/otelcol-self:
+                      config:
+                        scrape_configs:
+                         - job_name: otelcol-self
+                           scrape_interval: 30s
+                           static_configs:
+                           - targets: ['localhost:8888']
                     prometheus/receive-ns:
                       config:
                         scrape_configs:
@@ -1167,7 +1201,22 @@ data:
                       check_interval: 5s
                       limit_percentage: 80
                       spike_limit_percentage: 25
-                    batch: {}
+                    batch:
+                      # PCP-23711: deliberate ~30s cadence (matches the o11ymetrics CP scrape), not the
+                      # raw otelcol default (batch: {} = 200ms/8192 ~ a 5 req/s firehose to CP under the
+                      # continuous appengines OTLP stream). send_batch_size bounds request SIZE; a
+                      # timeout-only batch buffers ~30s in RAM (~3.8x RSS) and would reinstate the
+                      # cardinality memory this push fix removes (measured, PCP-23711).
+                      timeout: 30s
+                      send_batch_size: 8192
+                    {{- if $mp.enabled }}
+                    # PCP-23522: convert delta->cumulative before pushing to the Prometheus OTLP
+                    # receiver (cumulative-only). max_streams bounds the state map so it does not
+                    # reintroduce the cardinality-proportional memory this fix removes.
+                    deltatocumulative:
+                      max_stale: {{ dig "deltatocumulative" "maxStale" "5m" $mp }}
+                      max_streams: {{ dig "deltatocumulative" "maxStreams" 100000 $mp | int64 }}
+                    {{- end }}
                     filter/devnull:
                       error_mode: ignore
                       metrics:
@@ -1380,6 +1429,60 @@ data:
                         statements:
                         - set(attributes["app_id"], resource.attributes["capability_instance_id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
                         - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
+                    {{- if $mp.enabled }}
+                    # PCP-23925: the CP-System push exporter (otlphttp/cp-metrics) has no
+                    # resource_to_telemetry_conversion (otlphttp structurally can't), unlike the
+                    # pull prometheus/ext exporter which promoted OTLP resource attributes ->
+                    # per-series Prometheus labels. Reproduce that rtc on the push path by merging
+                    # the metric's resource (envelope) attributes into its datapoint attributes so
+                    # they land as series labels on CP Prometheus (app_type/dataplane_id/app_id/
+                    # capability_instance_id/workload_type/k8s_*/service_name/...). Wired into
+                    # metrics/appengines only when push is enabled; pull-mode render stays
+                    # byte-identical. See tasks/PCP-23925-fix-handoff.md.
+                    transform/userapp-promote-resource:
+                      metric_statements:
+                      - context: datapoint
+                        statements:
+                        - merge_maps(attributes, resource.attributes, "upsert")
+                    # PCP-23925 (prom/scrape slice): restore rtc-equivalent label promotion on the
+                    # prometheus/receive scrape pipeline under push. Card-critical k8s_namespace_name
+                    # + service_name are resource attrs (k8sattributes/pa + the prometheus receiver)
+                    # dropped by otlphttp on push. Promote them onto the datapoint with explicit,
+                    # nil-guarded set()s (NOT merge_maps — merge_maps did not land on this pipeline
+                    # live). CRITICAL: use the DOTTED resource key names ("k8s.namespace.name",
+                    # "service.name") verbatim — NOT the underscore label names. The BYO pull exporter
+                    # prometheus/user has resource_to_telemetry_conversion, which promotes the SAME
+                    # resource attrs as CONSTANT labels; a datapoint attr keyed "service_name"
+                    # (underscore) collides with rtc's "service_name" constant → the prometheus
+                    # exporter fails with "duplicate label names in constant and variable labels" and
+                    # DROPS those series from :4319 (breaks BYO pull — live-proven). Keying the
+                    # datapoint attr "service.name" (dotted, == rtc's source key) dedupes cleanly, so
+                    # :4319 is byte-identical while CP-push (otlphttp, no rtc) still gains the labels.
+                    # Surgical (only card-critical labels) so it never overwrites transform/msg's
+                    # datapoint app_id/dataplane_id. Wired AFTER transform/msg. Scope/HTTP-target
+                    # attrs (otel_scope_*, server_*, url_scheme, service_instance_id) are accepted
+                    # push-model differences (per-card acceptance).
+                    transform/prom-promote-resource:
+                      metric_statements:
+                      - context: datapoint
+                        statements:
+                        - set(attributes["k8s.namespace.name"], resource.attributes["k8s.namespace.name"]) where resource.attributes["k8s.namespace.name"] != nil
+                        - set(attributes["service.name"], resource.attributes["service.name"]) where resource.attributes["service.name"] != nil
+                        # PCP-24403: EMS (job="ems-pod", app_type="msg-ems") cards filter on
+                        # capability_instance_id (+ the msg envelope), resource attrs lost under push
+                        # (otlphttp, no rtc). This processor runs on the SHARED metrics/prom pipeline, so
+                        # every set() is scoped defensively to EMS datapoints (app_type == "msg-ems"):
+                        # non-EMS series (o11y-svc, hawkconsole, monitoring-agent) are untouched by
+                        # construction (predicate false -> no-op), so no non-EMS label/cardinality change.
+                        # Each set() key MUST also match its resource source key verbatim
+                        # (underscore/hyphen/dotted) so the :4319 rtc exporter dedupes it — a mismatched key
+                        # trips "duplicate label names" and drops the series from BYO pull.
+                        - set(attributes["capability_instance_id"], resource.attributes["capability_instance_id"]) where resource.attributes["app_type"] == "msg-ems" and resource.attributes["capability_instance_id"] != nil
+                        - set(attributes["app_type"], resource.attributes["app_type"]) where resource.attributes["app_type"] == "msg-ems"
+                        - set(attributes["workload_type"], resource.attributes["workload_type"]) where resource.attributes["app_type"] == "msg-ems" and resource.attributes["workload_type"] != nil
+                        - set(attributes["tib-msg-group-name"], resource.attributes["tib-msg-group-name"]) where resource.attributes["app_type"] == "msg-ems" and resource.attributes["tib-msg-group-name"] != nil
+                        - set(attributes["k8s.pod.name"], resource.attributes["k8s.pod.name"]) where resource.attributes["app_type"] == "msg-ems" and resource.attributes["k8s.pod.name"] != nil
+                    {{- end }}
                   exporters:
                     debug: {}
                     prometheus/user:
@@ -1397,12 +1500,67 @@ data:
                       tls:
                         insecure_skip_verify: true
                       headers: ${env:headers_metrics_otlp_exporter}
+                      {{- if $mp.enabled }}
+                      # PCP-23522: same disk-buffered queue for the user's BYO OTLP endpoint.
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
                     otlp/metrics-export:
                       endpoint: ${env:METRICS_EXPORTER_OTLPGRPC_URL}
                       tls:
                         insecure: true
                         insecure_skip_verify: true
                       headers: ${env:headers_metrics_otlp_exporter}
+                      {{- if $mp.enabled }}
+                      # PCP-24428: disk-buffer the BYO OTLP gRPC leg too (parity with the http BYO
+                      # exporter above and the cp-metrics push exporter). exporterhelper's
+                      # sending_queue + file_storage works identically for otlp (grpc) and otlphttp.
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
+                    {{- if $mp.enabled }}
+                    # PCP-23522: CP-System metrics PUSH exporter, disk-buffered (file_storage-backed
+                    # persistent sending_queue) — collector emits-and-forgets, so memory tracks queue
+                    # depth, not live cardinality. Replaces the :4320 pull for CP-System delivery.
+                    otlphttp/cp-metrics:
+                      # No custom headers: the DP reaches CP via cp-proxy, which injects the DP
+                      # OAuth bearer that the CP secure listener validates (PCP-23524 route).
+                      endpoint: ${env:CP_METRICS_OTLPHTTP_URL}
+                      tls:
+                        insecure_skip_verify: true
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                    {{- end }}
                     kafka/metrics-export-auth:
                       brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
                       protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
@@ -1412,18 +1570,70 @@ data:
                         plain_text:
                           username: ${env:METRICS_EXPORTER_KAFKA_USERNAME}
                           password: ${env:METRICS_EXPORTER_KAFKA_PASSWORD}
+                      {{- if $mp.enabled }}
+                      # PCP-24428: disk-buffer the BYO kafka leg too. The kafka exporter uses
+                      # exporterhelper, so it takes the same file_storage-backed sending_queue as the
+                      # otlp/otlphttp legs (the Sarama producer's own buffering sits behind this queue).
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
                     kafka/metrics-export:
                       brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
                       protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
                       metrics:
                         topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
+                      {{- if $mp.enabled }}
+                      # PCP-24428: disk-buffer the BYO kafka leg too (see kafka/metrics-export-auth).
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
                   extensions:
                     health_check: {}
+                    {{- if $mp.enabled }}
+                    # PCP-23522: on-disk WAL backing the persistent sending_queue.
+                    file_storage/metrics:
+                      directory: /var/lib/otelcol/metrics-queue
+                      timeout: 10s
+                      fsync: true
+                    {{- end }}
                   service:
                     telemetry:
                       logs: {}
+                      # PCP-23799: expose otelcol_* self-telemetry on :8888 (level detailed includes
+                      # the exporter queue-depth metrics) for pipeline-degradation RCA.
+                      metrics:
+                        level: detailed
+                        readers:
+                          - pull:
+                              exporter:
+                                prometheus:
+                                  host: 0.0.0.0
+                                  port: 8888
                     extensions:
                       - health_check
+                      {{- if $mp.enabled }}
+                      - file_storage/metrics
+                      {{- end }}
                     pipelines:
                       metrics/appengines:
                         receivers: ${env:metrics_appengines_rec}
@@ -1432,6 +1642,14 @@ data:
                       metrics/prom:
                         receivers: ${env:metrics_prom_rec}
                         processors: ${env:metrics_prom_proc}
+                        exporters: ${env:metrics_prom_exp}
+                      # PCP-23799: collector self-telemetry pipeline — otelcol_* scraped from :8888,
+                      # dataplane_id-stamped (transform/msg), delivered via the SAME CP-System exporter
+                      # selection as metrics/prom (env-driven: push, or the :4320 pull on fallback).
+                      # Hard-wired, delivery-agnostic, always on.
+                      metrics/otelcol-self:
+                        receivers: [prometheus/otelcol-self]
+                        processors: [memory_limiter, transform/msg, batch]
                         exporters: ${env:metrics_prom_exp}
                       metrics/ext:
                         receivers: [nop]
@@ -1638,7 +1856,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.20.0"
+          value: "1.21.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
