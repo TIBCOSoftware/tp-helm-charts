@@ -1,0 +1,53 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v2
+name: tibco-cp-mcp-hub
+# PCP-24140: bumping to an ALREADY-PUBLISHED version is a SILENT no-publish under
+# chart-releaser's skip_existing (same hazard the tp-mcp-gateway Chart.yaml records).
+# Re-check the published tags immediately before merge, from the git-refs API — local tags go stale.
+# PCP-21327: .28, skipping .26 and .27 -- BOTH are already published (17:38Z and 18:02Z), cut
+# from automation/mcp-hub-alpha-1.21, which release-chart.yaml publishes into this same tag
+# namespace. Cutting .26 here would have hit skip_existing and published NOTHING, shipping
+# tibco-cp-base and tp-mcp-gateway while silently withholding the chart that carries the recipe
+# fix -- the one chart this change is actually about. The automation lane minted those two 24
+# minutes apart, so re-check from the git-refs API immediately before merge, not from this line.
+version: 1.21.0-alpha.31
+# PCP-23334: main is the 1.21 development line, so the chart family moves onto 1.21 here.
+# 1.20 shipped from releases/1.20 and is done; keeping main on 1.20.0-alpha.N would mean the
+# trunk kept minting alphas against a line that has already GA'd. Picked .8 because
+# 1.21.0-alpha.1..7 are already published to gh-pages.
+#
+# PCP-23074: .10, skipping .9 — 1.21.0-alpha.9 is ALREADY published (git tag + gh-pages), even
+# though this file still said .8. release-alpha normally owns this bump, but it has been failing
+# since 2026-08-27 (set_yaml refuses to rewrite the cpScripts pin because the value '9669' also
+# appears in the comments above it), so this release is being cut by hand. Take the next N from
+# the highest PUBLISHED tag, not from this line — they had drifted apart.
+#
+# PCP-24083: .16, skipping .15 — 1.21.0-alpha.15 is already published from the automation lane.
+# The bump is NOT optional here even though this change is "only" a pin move: ct lint requires a
+# version bump for any touched chart, and chart-releaser runs with skip_existing, so editing the
+# chart without bumping would silently publish nothing and leave main's tree permanently diverged
+# from its own published tag. Note this file's own history above records the same trap twice.
+#
+# appVersion is metadata only on THIS parent chart — nothing reads it, because each subchart's
+# templates resolve {{ .Chart.AppVersion }} against its OWN Chart.yaml.
+#
+# Note the family is deliberately NOT uniform on appVersion right now: mcp-hub-recipes is 1.21.0
+# but mcp-hub-webserver is still 1.20.0, because ITS appVersion is load-bearing — it is the
+# CHART_APP_VERSION the db-setup Job validates against the version-map baked into the pinned
+# core-cp-scripts image, and no published image carries a 1.21.0 mcp-hub key yet. See that
+# chart's Chart.yaml. Do not "tidy" the three into agreement without reading it first.
+appVersion: 1.21.0
+description: TIBCO Controlplane chart for MCP Hub Capability
+dependencies:
+  # These constraints track the SUBCHART versions, not this chart's version, and both subcharts
+  # move to 1.21.0 in this change — so these must move with them or dependency resolution finds
+  # nothing.
+  - name: mcp-hub-recipes
+    version: "1.21.*"
+    condition: mcp-hub-recipes.enabled
+  - name: mcp-hub-webserver
+    version: "1.21.*"
+    condition: mcp-hub-webserver.enabled

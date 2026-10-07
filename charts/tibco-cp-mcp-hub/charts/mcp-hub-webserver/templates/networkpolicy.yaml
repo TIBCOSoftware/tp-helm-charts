@@ -1,0 +1,66 @@
+{{- /*
+  PCP-20194 (TT-20): pod-scoped INGRESS NetworkPolicy for the MCP Hub webserver.
+
+  Defense-in-depth for the secret/master-key-holding Hub pod: restricts which sources may reach
+  :{{ .Values.backend.port }} (incl. the /api/mcp-hub/tables/* UTM-REST surface). Most valuable when
+  the platform deny-all baseline is NOT active (where, without this, :3000 is reachable by any pod).
+
+  Ingress-ONLY by design: the Hub's egress is governed by its platform egress label (cluster-egress);
+  K8s NetworkPolicies are additive, so an egress rule here could not narrow that grant — adding one
+  would be misleading. Restricting same-plane east-west / gateway egress is owned by the platform
+  baseline (dp-configure-namespace / tibco-cp-base) and is tracked as a separate handoff.
+
+  Double-gated:
+    * CP mode only — standalone fronts the Hub with a plain Ingress and has no platform NP framework.
+    * Opt-in (networkPolicy.enabled), default OFF so existing installs are unaffected.
+  Enabling REQUIRES networkPolicy.nodeCIDRs: kubelet liveness/readiness/startup probes are
+  httpGet :{{ .Values.backend.port }} sourced from the NODE IP, so the node CIDR must be allowed or
+  the pod CrashLoops. The chart fails to render when nodeCIDRs is unset, so it never emits an ingress
+  rule with an empty `from` from default/empty values (K8s treats an empty `from` as allow-from-all).
+  You should ALSO set allowIngressFrom to the CP edge/Traefik source, or the Hub is unreachable by
+  users when the platform deny-all baseline is inactive (when it IS active, the platform `default`
+  policy covers same-CP-instance ingress additively).
+  NOTE: allowIngressFrom / extraIngressRules are passed through verbatim and NOT validated by the
+  chart — an empty `{}` peer or a `from`-less raw rule is allow-all (standard k8s); supply
+  constrained selectors.
+*/}}
+{{- if and (eq (.Values.global.tibco.mcpHub.mode | default "cp") "cp") .Values.networkPolicy.enabled }}
+{{- if not .Values.networkPolicy.nodeCIDRs }}
+{{- fail "mcp-hub-webserver: networkPolicy.enabled=true requires networkPolicy.nodeCIDRs — kubelet probes hit :3000 from the node IP and would be dropped (CrashLoop) without it. Also set networkPolicy.allowIngressFrom to the CP edge/Traefik source so the Hub stays reachable when the platform baseline is inactive." }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+  {{- with .Values.networkPolicy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcp-hub-webserver.shared.labels.selector" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow :{{ .Values.backend.port }} from the kubelet node CIDR(s) (liveness/readiness/startup
+    # probes) plus any configured CP-edge / Traefik ingress source. 'from' is guaranteed non-empty
+    # by the guard above, so this never silently opens the port.
+    - from:
+        {{- range .Values.networkPolicy.nodeCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+        {{- with .Values.networkPolicy.allowIngressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.port }}
+    {{- with .Values.networkPolicy.extraIngressRules }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,100 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+# Standalone (no-Control-Plane) values overlay for tibco-cp-mcp-hub (PCP-19630).
+#
+# Runs MCP Hub independently of a TIBCO Control Plane using the gateway-centric
+# model (register gateways by URL): sqlite persistence, a plain k8s Ingress at
+# "/", and NO CP_* integration. The CP_* env vars and the CP TibcoRoute are
+# gated on mode=cp in the templates, so flipping mode=standalone here drops them
+# and renders the Ingress instead.
+#
+# Install (supply your registry + ingress host):
+#   helm install mcp-hub charts/tibco-cp-mcp-hub \
+#     -f charts/tibco-cp-mcp-hub/values-standalone.yaml \
+#     --set global.tibco.containerRegistry.url=<registry-host> \
+#     --set global.tibco.containerRegistry.repository=<repo-path> \
+#     --set mcp-hub-webserver.ingress.host=<your-host>
+#
+# Full guide: tp-mcp-hub repo -> docs/guides/standalone-deploy.md
+
+global:
+  tibco:
+    # No CP postgres to provision — skip the pre-install schema Job (it is also
+    # auto-skipped because db.type=sqlite below, this is belt-and-suspenders).
+    manageDbSchema: false
+    logging:
+      fluentbit:
+        # No CP o11y-service to ship logs to in standalone — drop the sidecar.
+        enabled: false
+    mcpHub:
+      # Flip the backend off the CP integration path. Gates every CP_* env var
+      # and the TibcoRoute (Ingress is rendered instead) and serves the SPA at
+      # "/" (APP_ROOT_PATH=/).
+      mode: standalone
+      # PCP-20301 — turn the standalone entry UI ON. This overlay IS the
+      # standalone-test-deploy vehicle, so it opts the entry in (the base chart
+      # default stays OFF so cp/MFE installs never get it). Set to false here to
+      # deploy standalone with the entry still gated off.
+      standaloneEntry:
+        enabled: true
+      # sqlite = the Hub is single-replica (single-writer file on an RWO PVC), so the
+      # webserver HorizontalPodAutoscaler and PodDisruptionBudget are auto-suppressed
+      # (their templates gate on db.type=postgres). This is intentional: standalone/sqlite
+      # is a single-replica SPOF by design. Use db.type=postgres for a multi-replica,
+      # autoscaled Hub with a PDB.
+      #
+      # ⚠️ PCP-22935 — if you DO flip db.type to postgres here, supply the database
+      # credentials yourself. With standalone=true the backend reads its postgres
+      # connection from DB_CONF (this values tree), NOT from the CP's
+      # `mcphub-postgres-credential` Secret — and the chart now ships a BLANK password
+      # rather than a guessable default. Set BOTH of these (they are separate keys —
+      # there is no brace-expansion in Helm paths), plus host/port/user/name:
+      #   global.tibco.mcpHub.db.configuration.postgres.read.password
+      #   global.tibco.mcpHub.db.configuration.postgres.write.password
+      # Left blank it fails loudly at connect; it does not fall back to a working default.
+      #
+      # Note this credential is unavoidably visible in the rendered pod environment and in
+      # the Helm release data (DB_CONF is a plain toJson of this tree, so it cannot be a
+      # secretKeyRef). Prefer a dedicated least-privilege database user here, and avoid
+      # passing it via `--set` on a shared machine (it lands in shell history and process
+      # listings) — use a private values file instead.
+      db:
+        # Hub owns its own sqlite DB on a chart-provisioned local PV + PVC.
+        type: sqlite
+        standalone: true
+        pv:
+          # PCP-20304: standalone sqlite uses a DYNAMIC PVC off the cluster's default
+          # StorageClass (k3s local-path → 0777 dir, non-root pod writable, no chown).
+          # Leave storageClassName empty to bind the default SC; set it only on a
+          # cluster with no default SC. (The old root-owned hostPath PV CrashLooped the
+          # non-root container — removed.)
+          storageClassName: ""
+          storage: 1Gi
+
+# The recipe-extraction subchart only copies the gateway provisioning recipe into
+# the CP capability store; it has no role without a Control Plane.
+mcp-hub-recipes:
+  enabled: false
+
+mcp-hub-webserver:
+  enabled: true
+  # PCP-20304 DEV-ONLY: standalone registers gateways BY URL. Allow an in-cluster
+  # (http:// / private-host / *.svc) ContextForge to be registered: relax the direct-
+  # transport guard AND allowlist the cluster-private CIDRs. These are dev-convenience
+  # ONLY — NEVER set them in a CP / production install (CP defaults keep both off).
+  backend:
+    allowInsecureTransport: true
+    gatewayEgressAllowlist: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+  # Plain k8s Ingress fronting the Hub at "/". Set host/className per environment
+  # (or pass --set mcp-hub-webserver.ingress.host=...). Leaving host empty matches
+  # all hosts (dev only).
+  ingress:
+    enabled: true
+    className: ""
+    host: ""
+    annotations: {}
+    tls:
+      enabled: false
+      secretName: ""
