@@ -69,9 +69,9 @@ spec:
             - "https://{{ .Values.global.cp.resources.ingress.fqdn }}"
             {{- end }}
             - -c
-            - /api/auth/tibco-control-plane/handler/frame
+            - {{ .Values.ingress.pathPrefix }}/api/auth/tibco-control-plane/handler/frame
             - -l
-            - /api/oidc/backchannel-logout
+            - {{ .Values.ingress.pathPrefix }}/api/oidc/backchannel-logout
           env:
             - name: DATAPLANE_ID
               value: {{ .Values.global.cp.dataplaneId }}
@@ -84,8 +84,10 @@ spec:
           volumeMounts:
             - name: logs
               mountPath: /tmp/logs
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+      {{- end }}
       volumes:
         - name: logs
           emptyDir: {}
@@ -154,8 +156,10 @@ spec:
               value: {{ .Values.global.cp.instanceId }}
             - name: CP_DOMAIN
               value: {{ include "tibcohub.cp.domain" . }}
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+      {{- end }}
       volumes:
         - name: logs
           emptyDir: {}
@@ -179,6 +183,7 @@ metadata:
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
   backoffLimit: 2
+  activeDeadlineSeconds: 3600 # fail (rather than hang the whole helm upgrade) if the backup runs longer than 1h
   ttlSecondsAfterFinished: 18000 #cleanup after 5hr
   template:
     metadata:
@@ -210,52 +215,50 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              NAMESPACE={{ .Release.Namespace }}; \
-              POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=postgresql -o jsonpath="{.items[0].metadata.name}"); \
-              CUR_TAG_POSTGRES=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.containers[0].image}' | awk -F: '{print $NF}'); \
-              TARGET_TAG={{ .Values.postgresql.image.tag }}; \
-              DEVHUB_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=tibco-developer-hub -o jsonpath="{.items[0].metadata.name}"); \
-              BACKSTAGE_CUR_VERSION=$(kubectl exec -n $NAMESPACE -c backstage-backend $DEVHUB_POD_NAME -- sh -c "printenv BACKSTAGE_VERSION || true"); \
-              TARGET_BACKSTAGE={{ .Values.backstageVersion }}; \
-              PG_ROLLBACK=$(awk -v c="$CUR_TAG_POSTGRES" -v t="$TARGET_TAG" 'BEGIN{n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}'); \
-              BS_ROLLBACK=$(awk -v c="$BACKSTAGE_CUR_VERSION" -v t="$TARGET_BACKSTAGE" 'BEGIN{if(c==""){print "no";exit}n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}'); \
-              if [ "$PG_ROLLBACK" = "yes" ] || [ "$BS_ROLLBACK" = "yes" ]; then \
-                 echo "Detected a rollback/downgrade (PostgreSQL current tag $CUR_TAG_POSTGRES vs target $TARGET_TAG; Backstage current version $BACKSTAGE_CUR_VERSION vs target $TARGET_BACKSTAGE). Skipping backup and scale-down."; \
-                 exit 0; \
-              fi; \
-              CUR_VERSION=$(kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- postgres --version | awk '{print $NF}' | awk -F'.' '{print $1}'); \
-              if [ "$CUR_VERSION" != "{{ .Values.postgresql.image.version }}" ]; then \
-                 DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
-                 kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
-                 echo "Backing up data from PostgreSQL version $CUR_VERSION before upgrade to {{ .Values.postgresql.image.tag }}"; \
-                 kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'rm /bitnami/postgresql/data_backup.sql; rm -rf /bitnami/postgresql/restore_running; rm -rf {{ .Values.postgresql.postgresqlDataDir }}; PGPASSWORD=$PGPASSWORD pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql;'; \
-              else \
-                 SCALE_DOWN=false; \
-                 DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
-                 if [ "$CUR_TAG_POSTGRES" != "{{ .Values.postgresql.image.tag }}" ]; then \
-                   echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.version }}, but tag $CUR_TAG_POSTGRES does not match target tag {{ .Values.postgresql.image.tag }}."; \
-                   DEPLOYMENT_NAME={{ include "common.names.fullname" . }}; \
-                   kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
-                   SCALE_DOWN=true; \
-                 else \
-                 echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}.Current Tag $CUR_TAG_POSTGRES matches target tag {{ .Values.postgresql.image.tag }} No backup needed."; \
-                 fi; \
-                 if [ "$BACKSTAGE_CUR_VERSION" != "{{ .Values.backstageVersion }}" ]; then \
-                    if [ "$SCALE_DOWN" = false ]; then \
-                      kubectl scale deployment/$DEPLOYMENT_NAME --replicas=0 -n $NAMESPACE; \
-                    fi; \
-                    echo "Backstage version $BACKSTAGE_CUR_VERSION does not match target version {{ .Values.backstageVersion }}. Backing up data before upgrade."; \
-                    kubectl exec -n $NAMESPACE -c postgresql $POD_NAME -- env PGPASSWORD=$PGPASSWORD bash -c 'rm /bitnami/postgresql/data_backup.sql; rm -rf /bitnami/postgresql/restore_running; rm -rf {{ .Values.postgresql.postgresqlDataDir }}; PGPASSWORD=$PGPASSWORD pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql;'; \
-                 else \
-                 echo "PostgreSQL version $CUR_VERSION matches target version {{ .Values.postgresql.image.tag }}.Backstage version $BACKSTAGE_CUR_VERSION matches target version {{ .Values.backstageVersion }}. No backup needed."; \
-                 fi; \
-              fi; \
+              set -e
+              NAMESPACE={{ .Release.Namespace }}
+              DEPLOYMENT_NAME={{ include "common.names.fullname" . }}
+              TARGET_TAG={{ .Values.postgresql.image.tag }}
+              TARGET_PG_MAJOR={{ .Values.postgresql.image.version }}
+              TARGET_BACKSTAGE={{ .Values.backstageVersion }}
+              # Discover the current PostgreSQL pod. It is required for every decision below, so abort if it is missing rather than risk a destructive action against nothing.
+              POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=postgresql -o jsonpath="{.items[0].metadata.name}")
+              if [ -z "$POD_NAME" ]; then echo "ERROR: no PostgreSQL pod found in $NAMESPACE; aborting before any destructive action."; exit 1; fi
+              CUR_TAG_POSTGRES=$(kubectl get pod "$POD_NAME" -n "$NAMESPACE" -o jsonpath='{.spec.containers[0].image}' | awk -F: '{print $NF}')
+              # Discover the current Backstage version from the running Dev Hub pod ONLY.
+              # Do NOT read it from the Deployment spec: during an upgrade the Deployment already carries the NEW chart's BACKSTAGE_VERSION, which would mask a real version change and skip a needed backup.
+              DEVHUB_POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=tibco-developer-hub,app.kubernetes.io/component=backstage -o jsonpath="{.items[0].metadata.name}")
+              if [ -z "$DEVHUB_POD_NAME" ]; then echo "ERROR: no running Dev Hub pod found; cannot read the current Backstage version. Aborting the upgrade so a needed backup is never skipped."; exit 1; fi
+              BACKSTAGE_CUR_VERSION=$(kubectl exec -n "$NAMESPACE" -c backstage-backend "$DEVHUB_POD_NAME" -- sh -c 'printenv BACKSTAGE_VERSION || true' 2>/dev/null || true)
+              if [ -z "$BACKSTAGE_CUR_VERSION" ]; then echo "ERROR: could not read BACKSTAGE_VERSION from the running Dev Hub pod $DEVHUB_POD_NAME. Aborting the upgrade so a needed backup is never skipped."; exit 1; fi
+              # Rollback/downgrade guard: never overwrite newer data with a backup when moving to an older version.
+              PG_ROLLBACK=$(awk -v c="$CUR_TAG_POSTGRES" -v t="$TARGET_TAG" 'BEGIN{n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}')
+              BS_ROLLBACK=$(awk -v c="$BACKSTAGE_CUR_VERSION" -v t="$TARGET_BACKSTAGE" 'BEGIN{if(c==""){print "no";exit}n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}')
+              if [ "$PG_ROLLBACK" = "yes" ] || [ "$BS_ROLLBACK" = "yes" ]; then echo "Detected a rollback/downgrade (PostgreSQL tag $CUR_TAG_POSTGRES -> $TARGET_TAG; Backstage $BACKSTAGE_CUR_VERSION -> $TARGET_BACKSTAGE). Skipping backup and scale-down."; exit 0; fi
+              # Decide whether a backup is actually required, comparing live versions against the target chart values.
+              CUR_PG_MAJOR=$(kubectl exec -n "$NAMESPACE" -c postgresql "$POD_NAME" -- postgres --version | awk '{print $NF}' | awk -F'.' '{print $1}')
+              NEED_BACKUP=false
+              if [ "$CUR_PG_MAJOR" != "$TARGET_PG_MAJOR" ]; then echo "PostgreSQL major version change detected ($CUR_PG_MAJOR -> $TARGET_PG_MAJOR)."; NEED_BACKUP=true; fi
+              if [ "$CUR_TAG_POSTGRES" != "$TARGET_TAG" ]; then echo "PostgreSQL image tag change detected ($CUR_TAG_POSTGRES -> $TARGET_TAG)."; NEED_BACKUP=true; fi
+              if [ "$BACKSTAGE_CUR_VERSION" != "$TARGET_BACKSTAGE" ]; then echo "Backstage version change detected ($BACKSTAGE_CUR_VERSION -> $TARGET_BACKSTAGE)."; NEED_BACKUP=true; fi
+              if [ "$NEED_BACKUP" != "true" ]; then echo "No PostgreSQL/Backstage change requiring a backup. Nothing to do."; exit 0; fi
+{{ if .Values.autoscaling.enabled }}
+              # Remove the HPA first so it cannot scale the Deployment back up mid-backup; Helm recreates it after the pre-upgrade hooks complete. Non-fatal if RBAC disallows it.
+              kubectl delete hpa {{ include "common.names.fullname" . }} -n "$NAMESPACE" --ignore-not-found || echo "WARNING: could not delete HPA; it may scale the Deployment back up during the backup."
+{{ end }}
+              # Quiesce writers so nothing writes to the database during the backup.
+              kubectl scale deployment/"$DEPLOYMENT_NAME" --replicas=0 -n "$NAMESPACE"
+              # Back up safely: dump FIRST to a temp file, verify it is non-empty, promote it, and only THEN remove the target data directory so a fresh restore can run. If the dump fails, set -e aborts the job before anything is deleted.
+              kubectl exec -n "$NAMESPACE" -c postgresql "$POD_NAME" -- env PGPASSWORD="$PGPASSWORD" bash -c 'set -e; rm -f /bitnami/postgresql/data_backup.sql.tmp; rm -rf /bitnami/postgresql/restore_running; PGPASSWORD="$PGPASSWORD" pg_dumpall -U postgres > /bitnami/postgresql/data_backup.sql.tmp; if [ ! -s /bitnami/postgresql/data_backup.sql.tmp ]; then echo "ERROR: pg_dumpall produced an empty backup"; exit 1; fi; mv -f /bitnami/postgresql/data_backup.sql.tmp /bitnami/postgresql/data_backup.sql; rm -rf {{ .Values.postgresql.postgresqlDataDir }}'
+              echo "Backup verified and target data directory {{ .Values.postgresql.postgresqlDataDir }} prepared for restore."
           {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.backupJob.resources }}
           resources:
             {{- toYaml . | nindent 12}}
           {{- end }}
           {{- end }}
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
 {{- end }}
