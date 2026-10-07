@@ -175,6 +175,13 @@ To deploy the Kubernetes metrics server in your virtual cluster, please follow t
 
 Connect to the DP vCluster and execute the DP registeration commands.
 
+> [!NOTE]
+> If you are using a Git Bash terminal, run the following command before registering the data plane:
+>
+> ```bash
+> export MSYS_NO_PATHCONV=1
+> ```
+
 
 ## Clean-up
 
