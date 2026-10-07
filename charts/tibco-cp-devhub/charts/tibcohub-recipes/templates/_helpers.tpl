@@ -90,7 +90,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if .Values.imagePullSecret }}
   {{- .Values.imagePullSecret }}
 {{- else }}
-  {{- if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
+  {{- if .Values.global.tibco.containerRegistry.secret }}
+     {{- .Values.global.tibco.containerRegistry.secret }}
+  {{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
      {{- "tibco-container-registry-credentials" }}
   {{- end }}
 {{- end }}
