@@ -79,7 +79,7 @@ probes:
 image:
   name: "o11y-service"
   pullPolicy: IfNotPresent
-  tag: 5456
+  tag: 6118
 
 tibcoRouter:
   path: /o11y
@@ -118,13 +118,36 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.20.5"
+        version: "1.21.9"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
-        version: "0.156.2"
+        version: "0.156.3"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
         version: "4.8.3"
+      # PCP-23522: disk-buffered OTLP push for the otel-userapp-metrics collector.
+      # Default ON for this feature branch (GCP deployment testing) — the collector gains a
+      # file_storage-backed persistent sending_queue on an OTLP push exporter (otlphttp/cp-metrics)
+      # so CP-System metrics are PUSHED instead of pull-scraped (:4320), removing the
+      # high-cardinality OOM. Set false to fall back to the pull/scrape path (prometheus/ext :4320
+      # is kept). Must match the o11y-service selection knob
+      # global.cp.resources.o11yv3.metricsServer.config.exporter.push.enabled.
+      metricsPush:
+        enabled: true
+        queue:
+          # sending_queue byte bound (file_storage-backed, soft cap → drop-oldest). Keep < emptyDir.sizeLimit.
+          sizeBytes: 268435456   # 256Mi
+        emptyDir:
+          # Node-ephemeral disk backing the queue (survives container restart/OOM in place; wiped on
+          # pod reschedule). HARD cap — pod is evicted if exceeded, so keep it > queue.sizeBytes.
+          sizeLimit: 512Mi
+        deltatocumulative:
+          # App OTLP metrics may be delta; converted to cumulative before pushing to the
+          # cumulative-only Prometheus OTLP receiver. maxStreams bounds the (cardinality-
+          # proportional) state map so it never reinstates the OOM — size vs the collector's
+          # memory limit under the target app cardinality.
+          maxStale: 5m
+          maxStreams: 100000
     withResources:
       # if set to true then existing recipe will be overwritten by latest recipe.
       overwriteRecipe: "false"
@@ -136,13 +159,40 @@ capabilities:
       releaseNotes: "Enhancements, Bug fixes, etc."
       # helm chart and image version for o11y service, default helm chart version is latest
       o11yservice:
-        version: "1.20.5"
+        version: "1.21.9"
       # helm chart and image version for opentelemetry collector, default helm chart version is latest
       opentelemetryCollector:
-        version: "0.156.2"
+        version: "0.156.3"
       # helm chart and image version for jaeger, default helm chart version is latest
       jaeger:
         version: "4.8.3"
+      # PCP-23522: disk-buffered OTLP push for the otel-userapp-metrics collector.
+      # Default ON for this feature branch (GCP deployment testing) — the collector gains a
+      # file_storage-backed persistent sending_queue on an OTLP push exporter (otlphttp/cp-metrics)
+      # so CP-System metrics are PUSHED instead of pull-scraped (:4320), removing the
+      # high-cardinality OOM. Set false to fall back to the pull/scrape path (prometheus/ext :4320
+      # is kept). Must match the o11y-service selection knob
+      # global.cp.resources.o11yv3.metricsServer.config.exporter.push.enabled.
+      metricsPush:
+        enabled: true
+        queue:
+          # sending_queue byte bound (file_storage-backed, soft cap → drop-oldest). Keep < emptyDir.sizeLimit.
+          sizeBytes: 268435456   # 256Mi
+        emptyDir:
+          # Node-ephemeral disk backing the queue (survives container restart/OOM in place; wiped on
+          # pod reschedule). HARD cap — pod is evicted if exceeded, so keep it above the SUM of the
+          # disk-buffered queues. PCP-24428: a BYO DP runs TWO queues on this volume (the BYO leg —
+          # otlp or kafka — plus otlphttp/cp-metrics), so this default is 1Gi (~2x queue.sizeBytes +
+          # boltdb overhead). CP-only DPs (prometheus/default recipe) run a single queue and fit well
+          # under it. Perf-validate the dual-queue worst case per the PCP-23710 method.
+          sizeLimit: 1Gi
+        deltatocumulative:
+          # App OTLP metrics may be delta; converted to cumulative before pushing to the
+          # cumulative-only Prometheus OTLP receiver. maxStreams bounds the (cardinality-
+          # proportional) state map so it never reinstates the OOM — size vs the collector's
+          # memory limit under the target app cardinality.
+          maxStale: 5m
+          maxStreams: 100000
 
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -181,7 +231,7 @@ o11ymcpserver:
   enabled: false
   image:
     name: cp-o11y-mcp-server
-    tag: "791"
+    tag: "829"
   resources:
     requests:
       cpu: 100m

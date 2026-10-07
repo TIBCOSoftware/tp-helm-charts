@@ -8,6 +8,10 @@
 
 {{- define "tp-cp-mcp-server.consts.appName" }}tp-cp-mcp-server{{ end -}}
 
+{{- define "tp-cp-mcp-aggregator.consts.appName" }}tp-cp-mcp-aggregator{{ end -}}
+
+{{- define "tp-cp-mcp-aggregator-internal.consts.appName" }}tp-cp-mcp-aggregator-internal{{ end -}}
+
 {{- define "tp-cp-web-server.consts.component" }}cp{{ end -}}
 
 {{- define "tp-cp-web-server.consts.team" }}tp-cp{{ end -}}
@@ -21,7 +25,13 @@
   {{- .Values.global.tibco.containerRegistry.url }}
 {{- end }}
 
-{{- define "cp-core-configuration.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-core-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{- define "cp-core-configuration.pvc-name" }}
 {{- if .Values.global.external.storage.pvcName }}
@@ -58,7 +68,9 @@
   {{- .Values.global.tibco.containerRegistry.repository -}}
 {{- end -}}
 
-{{- define "cp-core-configuration.container-registry-image-pull-secret-name" }}tibco-container-registry-credentials{{ end }}
+{{- define "cp-core-configuration.container-registry-image-pull-secret-name" -}}
+{{- include "cp-core-configuration.container-registry.secret" . -}}
+{{- end }}
 
 {{- define "cp-core-configuration.cp-container-registry-username" }}
   {{- .Values.global.tibco.containerRegistry.username | b64enc -}}

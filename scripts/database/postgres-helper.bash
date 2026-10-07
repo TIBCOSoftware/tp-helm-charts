@@ -168,6 +168,11 @@ resolve_target_schema_version() {
   while IFS= read -r v; do
     [ -z "${v}" ] && continue
     val=$(_yaml_get_service_version "${map_file}" "${v}" "${service}")
+    # -1 means the service was explicitly removed at this version; skip it.
+    if [ "${val}" = "-1" ]; then
+      echo ""
+      return 0
+    fi
     if [ -n "${val}" ] && [ "${val}" != "null" ]; then
       echo "${val}"
       return 0
@@ -213,7 +218,7 @@ check-schema-version() {
     if [[ "${PSQL_SCRIPTS_LOCATION}" == *"tibco-cp-hawk"* ]]; then
       echo "Available services: rtmon"
     else
-      echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscscheduler, tscutd"
+      echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscutd"
     fi
     return 1
   fi
@@ -248,7 +253,7 @@ check-schema-version() {
     if [[ "${PSQL_SCRIPTS_LOCATION}" == *"tibco-cp-hawk"* ]]; then
       echo "Available services: rtmon"
     else
-      echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscscheduler, tscutd"
+      echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscutd"
     fi
     return 1
   fi
@@ -1233,19 +1238,9 @@ deleteDatabaseSchemaUser() {
             psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "DROP DATABASE IF EXISTS \"${PGDATABASE}\""
             __exit_code=$?
             if [ ${__exit_code} -eq 0 ]; then
-                if [[ "${SERVICE_NAME}" == "tscscheduler" ]] ; then
-                    export schedulerUser=${PGUSER}
-                    echo "...Skipping ${PGUSER} deletion (will be dropped with UTD DB)"
-                elif [[ "${SERVICE_NAME}" == "tscutd" ]] ; then
-                    echo "...Dropping users '${PGUSER}' and '${schedulerUser}'"
-                    psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "DROP USER IF EXISTS \"${PGUSER}\""
-                    psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "DROP USER IF EXISTS \"${schedulerUser}\""
-                    __exit_code=$?
-                else
-                    echo "...Dropping user '${PGUSER}'"
-                    psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "DROP USER IF EXISTS \"${PGUSER}\""
-                    __exit_code=$?
-                fi
+                echo "...Dropping user '${PGUSER}'"
+                psql -h ${PGHOST} -p ${PGPORT} -d "${MASTER_PGDATABASE}" -U "${MASTER_PGUSER}" -c "DROP USER IF EXISTS \"${PGUSER}\""
+                __exit_code=$?
                 
                 if [ ${__exit_code} -ne 0 ]; then
                     echo "******* ERROR: Failed to drop user '${PGUSER}'. Exit code: ${__exit_code}"
@@ -1878,7 +1873,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             if [[ "${PSQL_SCRIPTS_LOCATION}" == *"tibco-cp-hawk"* ]]; then
               echo "Available services: rtmon"
             else
-              echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscscheduler, tscutd"
+              echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscutd"
             fi
             exit 1
         fi
@@ -1966,7 +1961,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 if [[ "${PSQL_SCRIPTS_LOCATION}" == *"tibco-cp-hawk"* ]]; then
                   echo "Available services: rtmon"
                 else
-                  echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscscheduler, tscutd"
+                  echo "Available services: idm, tasdataserver, tscorch, pengine, rtmon, monitoringdb, defaultidp, tasdomainserver, tscutd"
                 fi
                 exit 1
             fi
