@@ -34,8 +34,10 @@ spec:
         networking.platform.tibco.com/proxy-egress: enable
         networking.platform.tibco.com/userApps: enable
     spec:
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
-      - name: {{ .Values.global.cp.containerRegistry.secret }}
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       {{- end }}
@@ -125,8 +127,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            {{- if .Values.global.cp.containerRegistry.secret }}
             - name: IMAGE_PULL_SECRET
               value: {{ .Values.global.cp.containerRegistry.secret }}
+            {{- end }}
             - name: APP_INIT_SOURCE_REGISTRY
               value: {{ include "flogoprovisioner.image.registry" .}}{{"/"}}{{ include "flogoprovisioner.appinit.image.repository" .}}{{"/"}}
             - name: SOURCE_REGISTRY

@@ -9,6 +9,8 @@ global:
       url: ""
       username: ""
       password: ""
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
       repository: ""
       imagePullSecretName: ""
       customCertSecret: ""
@@ -28,7 +30,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.0
+          tag: 5.1.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -51,16 +53,16 @@ flogo-recipes:
   enabled: true
   flogoprovisioner:
     image:
-      tag: "1138-platform-1.20.0"
+      tag: "1164-platform-1.21.0"
     # Alphabetical; mirrored in flogo-recipes.
     config:
-      APP_HELMCHART_VERSION: "1.20.8"
+      APP_HELMCHART_VERSION: "1.21.9"
       APP_INIT_CPU_LIMIT: "200m"
       APP_INIT_CPU_REQUEST: "100m"
-      APP_INIT_IMAGE_TAG: "81"
+      APP_INIT_IMAGE_TAG: "86"
       APP_INIT_MEMORY_LIMIT: "400Mi"
       APP_INIT_MEMORY_REQUEST: "100Mi"
-      FLOGO_APP_BASE_IMAGE_TAG: "2.26.7-b632"
+      FLOGO_APP_BASE_IMAGE_TAG: "2.26.8-b700"
       # Flogo app-build Job config; override per install.
       # CPU limit blank = uncapped (faster builds); the memory limit OOM-kills an oversized
       # build instead of starving neighbors. Blank would uncap it.
@@ -70,8 +72,8 @@ flogo-recipes:
       FLOGO_APP_BUILD_MEMORY_LIMIT: "4Gi"
       FLOGO_APP_BUILD_MEMORY_REQUEST: "1.5Gi"
       FLOGO_APP_BUILD_TIMEOUT_SECONDS: "300"
-      FLOGO_APP_BUILDER_IMAGE_TAG: "1001-platform-1.20.0"
-      INFRA_CP_PROXY_IMAGE_TAG: "358"
+      FLOGO_APP_BUILDER_IMAGE_TAG: "1032-platform-1.21.0"
+      INFRA_OAUTH_CLIENT_IMAGE_TAG: "1007"
     resources:
       requests:
         cpu: 500m

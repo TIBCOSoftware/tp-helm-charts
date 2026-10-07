@@ -15,6 +15,19 @@ global:
     dpUrl:
       host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
       port: 443
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the /integration/... tail is hardcoded in the templates
+      ingress:
+        ingressController: ""    # "" (default: bundled haProxy) | "haProxy" | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is "haProxy", "nginx", or "traefik"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     containerRegistry:
       secret: ""
       url: ""
@@ -65,7 +78,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 5.1.0
+          tag: 5.1.2
         resources:
           requests:
             cpu: 10m
@@ -145,7 +158,7 @@ securityContext:
       drop:
         - ALL
         - CAP_NET_RAW
-  infraCPProxy:
+  infraOAuthClient:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
     capabilities:
@@ -250,13 +263,13 @@ extraInitContainers: []
 config:
   APP_INIT_CPU_LIMIT: "200m"
   APP_INIT_CPU_REQUEST: "100m"
-  APP_INIT_IMAGE_TAG: "78"
+  APP_INIT_IMAGE_TAG: "86"
   # app-init init container resource requests/limits passed by the provisioner
   # to the dp-flogo-app chart (rendered into appInit.resources). See FLOGO-18363.
   APP_INIT_MEMORY_LIMIT: "400Mi"
   APP_INIT_MEMORY_REQUEST: "100Mi"
   ARTIFACT_MANAGER_PORT: "7813"
-  FLOGO_APP_BASE_IMAGE_TAG: "2.26.6-b573"
+  FLOGO_APP_BASE_IMAGE_TAG: "2.26.8-b678"
   # Flogo app-build Job config (consumed by the provisioner + build job); override per install.
   # CPU limit blank = uncapped (faster builds). A memory limit is set so an oversized build is
   # OOM-killed cleanly instead of starving neighbors under node pressure; blank would uncap it.
@@ -277,8 +290,8 @@ config:
   FLOGO_APP_BUILD_MODULE_PROXY_SUMDB_HOSTS: "sum.golang.org"
   FLOGO_APP_BUILD_MODULE_PROXY_URL: "http://flogoprovisioner:7817"
   FLOGO_APP_BUILD_TIMEOUT_SECONDS: "300"
-  FLOGO_APP_BUILDER_IMAGE_TAG: "965"
-  INFRA_CP_PROXY_IMAGE_TAG: "280"
+  FLOGO_APP_BUILDER_IMAGE_TAG: "1032-platform-1.21.0"
+  INFRA_OAUTH_CLIENT_IMAGE_TAG: "1007"
 
 publicApi:
   config:
@@ -296,7 +309,7 @@ publicApi:
             port: 7814
             requestPath: /v1/liveness
 
-infraCPProxy:
+infraOAuthClient:
   resources:
     requests:
       cpu: 50m

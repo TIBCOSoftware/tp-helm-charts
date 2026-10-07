@@ -13,13 +13,13 @@ data:
   version.json: |
     {
       "capabilityVersion": {{ .Chart.AppVersion | quote }},
-      "minCPVersion": "1.19.0",
+      "minCPVersion": "1.21.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.19.0",
+        "dp-core-infrastructure": "1.21.0",
         "dp-configure-namespace": "1.15.0"
       }
     }
@@ -73,7 +73,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.20.10"
+          version: "1.21.12"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -103,7 +103,7 @@ data:
                   FLOGO_APP_BUILD_MEMORY_REQUEST: {{ .Values.flogoprovisioner.config.FLOGO_APP_BUILD_MEMORY_REQUEST | quote }}
                   FLOGO_APP_BUILD_TIMEOUT_SECONDS: {{ .Values.flogoprovisioner.config.FLOGO_APP_BUILD_TIMEOUT_SECONDS | quote }}
                   FLOGO_APP_BUILDER_IMAGE_TAG: {{ .Values.flogoprovisioner.config.FLOGO_APP_BUILDER_IMAGE_TAG | quote }}
-                  INFRA_CP_PROXY_IMAGE_TAG: {{ .Values.flogoprovisioner.config.INFRA_CP_PROXY_IMAGE_TAG | quote }}
+                  INFRA_OAUTH_CLIENT_IMAGE_TAG: {{ .Values.flogoprovisioner.config.INFRA_OAUTH_CLIENT_IMAGE_TAG | quote }}
                 resources:
                   {{- toYaml .Values.flogoprovisioner.resources | nindent 18 }}
                 publicApi:

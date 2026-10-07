@@ -35,8 +35,10 @@ spec:
         networking.platform.tibco.com/proxy-egress: enable
         networking.platform.tibco.com/userApps: enable
     spec:
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
       - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       {{- end }}
@@ -97,6 +99,11 @@ spec:
               mountPath: /tmp/bwce-logs
             - name: uploads
               mountPath: /usr/src/app/modules/uploads
+            {{- if include "dp-bwce-mon.dbSslEnabled" . }}
+            - name: db-ssl-certs
+              mountPath: {{ .Values.dbSslCertsMountPath }}
+              readOnly: true
+            {{- end }}
         {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
           image: {{ include "dp-bwce-mon.image.registry" .}}{{"/"}}{{ include "dp-bwce-mon.integration.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
@@ -141,6 +148,12 @@ spec:
           emptyDir: {}
         - name: uploads
           emptyDir: {}
+      {{- if include "dp-bwce-mon.dbSslEnabled" . }}
+        - name: db-ssl-certs
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.global.cp.resources.dbconfig.sslCertSecretName }}
+      {{- end }}
       {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit-config
           configMap:

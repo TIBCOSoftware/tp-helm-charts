@@ -32,8 +32,10 @@ spec:
         networking.platform.tibco.com/internet-egress: enable
         networking.platform.tibco.com/tea: enable
     spec:
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
       - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
       {{- end }}
@@ -88,8 +90,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            {{- if .Values.global.cp.containerRegistry.secret }}
             - name: IMAGE_PULL_SECRET
               value: {{ .Values.global.cp.containerRegistry.secret }}
+            {{- end }}
             - name: SOURCE_REGISTRY
               value: {{ include "bwadapter.image.registry" .}}{{"/"}}{{ include "bwadapter.image.repository" .}}{{"/"}}
           volumeMounts:

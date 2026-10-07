@@ -1,4 +1,4 @@
-# Copyright © 2025. Cloud Software Group, Inc.
+# Copyright © 2026. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
@@ -100,6 +100,23 @@ spec:
         {{- end }}
         - name: BW_PROFILE
           value: {{ .Values.appConfig.bwProfile }}
+        {{- if .Values.appConfig.adapterApp }}
+        {{- /* BW-22761: let the container decide whether to skip bwengine, by
+             reading the EAR it already exploded, rather than passing it a
+             verdict from analyze time that can go stale. earutils.sh gates that
+             on this switch because skipping the engine is only safe once the
+             probes are exec probes - which is the other half of what
+             appConfig.adapterApp turns on, so the two cannot drift apart.
+
+             Quote is required - an unquoted boolean renders as "value: true"
+             and the API server rejects a non-string env value. Emitted only
+             when true so a false value produces byte-identical output to the
+             pre-BW-22761 chart for every existing app. Placed before the
+             bwapp.envs merge so a user-supplied override still wins, env being
+             last-wins in the kubelet. */}}
+        - name: ADAPTER_ONLY_APP_AUTODETECT
+          value: "true"
+        {{- end }}
         {{- with .Values.bwapp.envs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -126,12 +143,37 @@ spec:
         image: {{ .Values.image.repository }}{{ .Values.image.bw5ceBaseImageName }}:{{ .Values.appConfig.bw5ceBaseImageTag }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- /* BW-22761: probes are fixed at Helm render time, before any
+             container runs, so runtime detection alone can never keep an
+             adapter-only pod healthy. bwengine IS the :8090 health server, so
+             skipping it and keeping the httpGet probes guarantees
+             CrashLoopBackOff - the switch has to happen here. The "with" guards
+             are load-bearing: toYaml of an empty map renders literal {}, which
+             the API server rejects with "must specify a handler type".
+
+             BW-22761 follow-up: three kinds of pod - engine only, engine plus
+             agents, agents only - but only two probe sets, off one flag.
+             adapterhealth.sh distinguishes the latter two itself at runtime, by
+             whether start.sh wrote engine.pid, so the chart only has to answer
+             the one question it can answer at render time: does this app have
+             adapters at all? An app with none keeps the unchanged httpGet
+             probes. */}}
+        {{- $probes := .Values.bwapp }}
+        {{- if .Values.appConfig.adapterApp }}
+        {{- $probes = .Values.bwapp.adapterProbes }}
+        {{- end }}
+        {{- with $probes.startupProbe }}
         startupProbe:
-          {{- toYaml .Values.bwapp.startupProbe | nindent 10 }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $probes.livenessProbe }}
         livenessProbe:
-          {{- toYaml .Values.bwapp.livenessProbe | nindent 10 }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $probes.readinessProbe }}
         readinessProbe:
-          {{- toYaml .Values.bwapp.readinessProbe | nindent 10 }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         resources:
           {{- toYaml .Values.bwapp.resources | nindent 10 }}
         {{- with .Values.bwapp.lifecycle }}

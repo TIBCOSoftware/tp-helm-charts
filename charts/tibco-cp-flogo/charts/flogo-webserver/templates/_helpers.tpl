@@ -63,8 +63,8 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
 {{- define "flogo-webserver.container-registry.secret" }}
-{{- if .Values.imagePullSecret }}
-  {{- .Values.imagePullSecret }}
+{{- if .Values.global.tibco.containerRegistry.secret }}
+  {{- .Values.global.tibco.containerRegistry.secret }}
 {{- else }}
   {{- if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
      {{- "tibco-container-registry-credentials" }}

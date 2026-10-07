@@ -47,12 +47,48 @@ platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
 platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
 {{- end }}
 
+{{/*
+Whether SSL to the monitoring database is wired. Returns a non-empty string when
+the CP DBCONFIG resource has SSL enabled, names a cert secret to mount, and the
+engine is one BWCE Mon supports -- postgres and mysql only; oracle and mssql are
+in the wizard for other capabilities.
+
+sslEnabled is a wizard dropdown of dataType string, so its value is the string
+"true" or "false". A bare truthiness test would read "false" as enabled, hence
+the comparison against "true" rather than an if on the value itself.
+*/}}
+{{- define "dp-bwce-mon.dbSslEnabled" -}}
+{{- $db := .Values.global.cp.resources.dbconfig -}}
+{{- if and (eq ($db.sslEnabled | toString | lower) "true") $db.sslCertSecretName (has ($db.persistenceType | toString | lower) (list "postgres" "mysql")) -}}
+true
+{{- end -}}
+{{- end }}
+
 {{- define "dp-bwce-mon.bwcemonConfig" -}}
+{{- $db := .Values.global.cp.resources.dbconfig -}}
 PERSISTENCE_TYPE: {{ .Values.global.cp.resources.dbconfig.persistenceType | quote }}
 DB_HOST: {{ .Values.global.cp.resources.dbconfig.dbHost | quote }}
 DB_PORT: {{ .Values.global.cp.resources.dbconfig.dbPort | quote }}
 DB_NAME: {{ .Values.global.cp.resources.dbconfig.dbName | quote }}
 DB_USER: {{ .Values.global.cp.resources.dbconfig.dbUser | quote }}
+{{- if include "dp-bwce-mon.dbSslEnabled" . }}
+{{- if eq ($db.persistenceType | toString | lower) "postgres" }}
+DB_SSL_POSTGRES: "true"
+{{- else }}
+DB_SSL_MYSQL: "true"
+{{- end }}
+DB_SSL_CA: {{ $db.sslCACertSecretKey | quote }}
+DB_SSL_KEY: {{ $db.sslClientPrivateKeySecretKey | quote }}
+DB_SSL_CERT: {{ $db.sslClientCertSecretKey | quote }}
+{{- /* Emitted whenever a value was supplied, including a false that arrives as a
+       YAML boolean rather than a string -- a truthiness test would drop it and
+       silently fall back to the backend default of true. Absent or empty is
+       left unset so that backend default applies. */}}
+{{- $rejectUnauthorized := $db.sslRejectUnauthorized }}
+{{- if and (not (kindIs "invalid" $rejectUnauthorized)) (ne ($rejectUnauthorized | toString) "") }}
+SSL_REJECT_UNAUTHORIZED: {{ $rejectUnauthorized | toString | lower | quote }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{- define "dp-bwce-mon.bwcemonConfigSecret" -}}

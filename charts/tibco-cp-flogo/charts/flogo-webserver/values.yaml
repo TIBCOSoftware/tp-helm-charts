@@ -10,6 +10,8 @@ global:
       url: ""
       username: ""
       password: ""
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
       repository: ""
       imagePullSecretName: ""
     controlPlaneInstanceId: ""
@@ -27,7 +29,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.0
+          tag: 5.1.2
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -55,7 +57,7 @@ global:
 config:
   HTTP_REQUEST_TIMEOUT: "120000"
   WEB_SERVER_LOG_ENABLED: "true"
-  FLOGO_WEBSERVER_IMAGE_TAG: "738-platform-1.20.0"
+  FLOGO_WEBSERVER_IMAGE_TAG: "865-platform-1.21.0"
 
 replicaCount: 1
 
@@ -107,7 +109,7 @@ mcpserver:
   enabled: false
   image:
     name: tp-flogo-mcp-server
-    tag: "99"
+    tag: "115"
   logLevel: "INFO"
   resources:
     requests:
