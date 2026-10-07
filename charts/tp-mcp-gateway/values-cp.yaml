@@ -57,3 +57,12 @@ tibcoProxy:
 # at their chart defaults on purpose: CP renders the CP->DP HAProxy path and the
 # in-pod discovery sidecar. (This is the one axis where CP differs from the
 # standalone profile, which sets both to false.) Documented here, not overridden.
+
+# -- global.cp.routeResources (PCP-21876, per-DP custom routing) is likewise LEFT at
+# its chart defaults. The recipe renders the block from mcp-hub-recipes values, and
+# those defaults are identical to the chart's: an empty ingressController selects the
+# bundled-HAProxy CP->DP route above, which is exactly the CP posture. Mirroring the
+# block here would duplicate the chart defaults without changing any rendered output,
+# so — as with haproxy/discovery — it is documented rather than overridden. An operator
+# fronting the DP with their own nginx/traefik/OpenShift/Gateway-API controller sets
+# global.cp.routeResources.ingress.* (or .gatewayapi.*) at install time.

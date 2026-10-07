@@ -19,6 +19,12 @@
        (github.com/IBM/mcp-context-forge) re-sync. */}}
 {{- $discoveryOn := dig "tpMcpGateway" "discovery" "enabled" true (.Values.global | default dict) -}}
 {{- $proxyFronts := (or (dig "tpMcpGateway" "tibcoProxy" "enabled" false (.Values.global | default dict)) $discoveryOn) }}
+{{- /* PCP-23986: the proxy listen ports are operator-configurable and default ABOVE 1024.
+       Resolved ONCE here so the containerPort, the gateway probe ports and the proxy env can
+       never drift. KEEP IN SYNC with templates/lite-deployment.yaml. */}}
+{{- $proxyExtPort := int (include "mcp-stack.tibcoProxy.port" (dict "root" $ "key" "external"   "default" 8880)) -}}
+{{- $proxyCPPort  := int (include "mcp-stack.tibcoProxy.port" (dict "root" $ "key" "cpInternal" "default" 8881)) -}}
+{{- if $proxyFronts }}{{- include "mcp-stack.tibcoProxy.assertPorts" (dict "ext" $proxyExtPort "cp" $proxyCPPort "gw" .Values.mcpContextForge.containerPort) -}}{{- end -}}
 {{- /* LOCAL TIBCO MOD (PCP-23125) — re-apply on upstream mcp-stack re-vendor.
        Container-registry indirection: resolve the registry and repository ONCE, file-scoped,
        from global.cp.containerRegistry via the two zero-logic house helpers. Each image site
@@ -538,15 +544,23 @@ spec:
             timeoutSeconds: 15
             failureThreshold: 60    # Allow up to 5 minutes for migration to complete
           {{- else }}
+          {{- /* PCP-23986: gate the startupProbe on $proxyFronts too. It was the ONLY probe
+                 left un-flipped, harmless in practice only because the default is an exec
+                 probe — but an operator setting probes.startup.type=http got a probe against
+                 the gateway port on a loopback-bound gateway, which can never answer.
+                 Mirrors the readiness/liveness treatment below. */}}
           {{- with .Values.mcpContextForge.probes.startup }}
+          {{- $probe := . }}
+          {{- if $proxyFronts }}{{ $probe = merge (dict "port" $proxyExtPort) (deepCopy .) }}{{ end }}
           startupProbe:
-{{- include "helpers.renderProbe" (dict "probe" . "root" $) | nindent 12 }}
+{{- include "helpers.renderProbe" (dict "probe" $probe "root" $) | nindent 12 }}
           {{- end }}
           {{- end }}
 
           {{- /* LOCAL TIBCO MOD: when the tp-mcp-gateway-proxy sidecar fronts inbound traffic
-                 on Path B (:80), the gateway listens on loopback only, so the probes must hit the
-                 proxy front (:80) instead of the gateway's own port. Flip ONLY the probe port,
+                 on Path B, the gateway listens on loopback only, so the probes must hit the
+                 proxy front ($proxyExtPort -- PCP-23986 made it configurable, it is no longer a
+                 hardcoded :80) instead of the gateway's own port. Flip ONLY the probe port,
                  mirroring templates/lite-deployment.yaml. PCP-20569: gated on $proxyFronts (proxy on
                  OR discovery on, defined at the top of this file), NOT tibcoProxy alone, so the probe
                  port tracks the same :80 front as the sidecar/service/ingress and the gateway
@@ -554,14 +568,14 @@ spec:
                  (github.com/IBM/mcp-context-forge) re-sync. */}}
           {{- with .Values.mcpContextForge.probes.readiness }}
           {{- $probe := . }}
-          {{- if $proxyFronts }}{{ $probe = merge (dict "port" 80) (deepCopy .) }}{{ end }}
+          {{- if $proxyFronts }}{{ $probe = merge (dict "port" $proxyExtPort) (deepCopy .) }}{{ end }}
           readinessProbe:
 {{- include "helpers.renderProbe" (dict "probe" $probe "root" $) | nindent 12 }}
           {{- end }}
 
           {{- with .Values.mcpContextForge.probes.liveness }}
           {{- $probe := . }}
-          {{- if $proxyFronts }}{{ $probe = merge (dict "port" 80) (deepCopy .) }}{{ end }}
+          {{- if $proxyFronts }}{{ $probe = merge (dict "port" $proxyExtPort) (deepCopy .) }}{{ end }}
           livenessProbe:
 {{- include "helpers.renderProbe" (dict "probe" $probe "root" $) | nindent 12 }}
           {{- end }}
@@ -699,6 +713,11 @@ spec:
                consistent with the discovery/tp-mcp-gateway-proxy gating above ($proxyFronts, defined at the top
                of this file). KEEP IN SYNC with templates/lite-deployment.yaml tp-mcp-gateway-proxy container. */}}
         {{- if $proxyFronts }}
+        {{- /* PCP-23986: the `#` line below is EMITTED into the rendered manifest, so its text
+               is part of the render and editing it shows up as chart-wide parity drift. Left
+               byte-identical on purpose. Read its :81/:80 as the SERVICE ports, which are
+               unchanged; the proxy's CONTAINER ports now come from
+               global.tpMcpGateway.tibcoProxy.ports.* and default to 8881/8880. */}}
         # tp-mcp-gateway-proxy — CP auth (Path A :81) + anti-spoofing (Path B :80) + in-pod discovery routing.
         # KEEP IN SYNC with templates/lite-deployment.yaml tp-mcp-gateway-proxy container (~lines 222-242).
         - name: tp-mcp-gateway-proxy
@@ -720,9 +739,9 @@ spec:
           imagePullPolicy: "{{ dig "tpMcpGateway" "tibcoProxy" "image" "pullPolicy" "" (.Values.global | default dict) | default "IfNotPresent" }}"
           ports:
             - name: external
-              containerPort: 80
+              containerPort: {{ $proxyExtPort }}
             - name: cp-internal
-              containerPort: 81
+              containerPort: {{ $proxyCPPort }}
           env:
             # DATAPLANE_NAME from global.cp.dataplaneId (the recipe dpName is a top-level key the
             # sub-chart can't see; dataplaneId is the stable identifier the orchestrator injects).
@@ -745,8 +764,16 @@ spec:
               value: "cp-proxy.{{ dig "cp" "resources" "serviceaccount" "namespace" "" (.Values.global | default dict) }}.svc.cluster.local"
             - name: PLATFORM_ADMIN_EMAIL
               value: "mcp-hub-admin@platform.local"
+            {{- /* PCP-23986: trust flag is now a VALUE, matching lite. The default is still
+                   true, so behaviour is unchanged — this only makes the safer posture
+                   REACHABLE for an operator whose cp-proxy/IdM exchange is wired. */}}
             - name: TIBCO_PROXY_TRUST_CP_NETWORK
-              value: "true"
+              value: {{ dig "tpMcpGateway" "tibcoProxy" "trustCPNetwork" true (.Values.global | default dict) | quote }}
+            {{- /* PCP-23986: listen ports. Same values that render the containerPorts above. */}}
+            - name: TIBCO_PROXY_EXT_PORT
+              value: {{ $proxyExtPort | quote }}
+            - name: TIBCO_PROXY_CP_PORT
+              value: {{ $proxyCPPort | quote }}
             # PCP-20569 (Option B): in-pod discovery routing. The proxy path-routes
             # DISCOVERY_PATH_PREFIX to the in-pod discovery upstream on loopback :8080 — no dedicated
             # discovery Ingress / Service. Hardcoded literal "/_discovery" because the sub-chart can't

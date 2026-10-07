@@ -3,11 +3,13 @@
   This file is subject to the license terms contained
   in the license file that is distributed with this file.
 */}}
-
 {{ if .Values.ingress.enabled -}}
 {{- $dot := . }}
 {{- $fullName := include "o11y-service.fullname" . -}}
 {{- $releaseName := .Release.Name -}}
+
+{{- /* built-in haProxy (default): no custom ingress controller and no gateway api */ -}}
+{{- if and (empty .Values.global.cp.routeResources.ingress.ingressController) (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
@@ -79,4 +81,263 @@ spec:
                   number: {{ $.Values.service.port }}
         {{- end }}
   {{- end }}
+{{- end }}
+
+{{- /* custom haProxy (user-managed HAProxy ingress controller, not the bundled one) */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "haProxy" }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: haproxy-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    ingress.kubernetes.io/path-rewrite: "{{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ .Values.global.cp.instanceId }}/o11y-service/(.*) /\\1"
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+    {{- if .host }}
+    - host: {{ .host | quote }}
+    {{- else }}
+    - host: {{ $.Values.global.cp.routeResources.ingress.fqdn | quote }}
+    {{- end }}
+      http:
+        paths:
+        - pathType: Prefix
+          path: {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ $.Values.global.cp.instanceId }}/o11y-service/
+          backend:
+            service:
+              name: {{ $fullName }}
+              port:
+                number: {{ $.Values.service.port }}
+  {{- end }}
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "nginx" }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: nginx-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ .Values.global.cp.instanceId }}/o11y-service
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+    {{- if .host }}
+    - host: {{ .host | quote }}
+    {{- else }}
+    - host: {{ $.Values.global.cp.routeResources.ingress.fqdn | quote }}
+    {{- end }}
+      http:
+        paths:
+        - pathType: ImplementationSpecific
+          path: {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ $.Values.global.cp.instanceId }}/o11y-service/(.*)
+          backend:
+            service:
+              name: {{ $fullName }}
+              port:
+                number: {{ $.Values.service.port }}
+  {{- end }}
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "traefik" }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: o11y-strip-prefix
+  labels:
+    {{- include "o11y-service.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ .Values.global.cp.instanceId }}/o11y-service/
+---
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: traefik-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Values.global.cp.resources.serviceaccount.namespace }}-o11y-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+    {{- if .host }}
+    - host: {{ .host | quote }}
+    {{- else }}
+    - host: {{ $.Values.global.cp.routeResources.ingress.fqdn | quote }}
+    {{- end }}
+      http:
+        paths:
+        - pathType: Prefix
+          path: {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ $.Values.global.cp.instanceId }}/o11y-service/
+          backend:
+            service:
+              name: {{ $fullName }}
+              port:
+                number: {{ $.Values.service.port }}
+  {{- end }}
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: o11y-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ .Values.global.cp.instanceId }}/o11y-service/
+  to:
+    kind: Service
+    name: {{ $fullName }}
+    weight: 100
+  port:
+    targetPort: server # named service port so the OpenShift router resolves via the service port list (not a raw pod port)
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if not (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: o11y-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ $.Values.global.cp.routeResources.pathPrefix }}/o11y/{{ .Values.global.cp.instanceId }}/o11y-service/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: {{ $fullName }}
+      port: {{ .Values.service.port }}
+{{- /* GKE needs an explicit HealthCheckPolicy so the gateway backend probes the o11y-service health endpoint, not the default "/" */ -}}
+{{- if eq .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName "GKE" }}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: o11y-{{ $fullName }}-hc
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "o11y-service.labels" . | nindent 4 }}
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: {{ .Values.service.port }}
+        requestPath: /v1/healthz
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ $fullName }}
+{{- end }}
+{{- end }}
 {{- end -}}

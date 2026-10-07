@@ -22,10 +22,13 @@
        Job run 18. `merge` is DESTINATION-WINS, so an explicit `"tag" "17"` / `"tag" "18"` in the
        fresh destination dict beats .Values.postgres.image.tag and the literal major survives.
        Rendered proof lives in dev/mcp-gateway-render-tests/container-registry-assert.sh [8].
-       postgres.image declares NO `digest` key — in values.yaml and in values.schema.json — for
-       the same reason: no single digest can describe both majors, and a digest riding along to
-       a site whose tag was deliberately overridden would run the WRONG major's binaries under
-       the right major's tag (the runtime obeys the digest, not the tag). Do not add one.
+       postgres.image declares no singular `digest` key for the same reason: no single digest can
+       describe both majors, and a digest riding along to a site whose tag was deliberately
+       overridden would run the WRONG major's binaries under the right major's tag (the runtime
+       obeys the digest, not the tag). What it declares instead is `digests`, a map KEYED BY
+       MAJOR (PCP-23215) — each build site looks up its own major, so :17 can only ever carry
+       the 17 digest and :18 only the 18 one. The singular key stays refused out loud
+       (mcp-stack.postgres.assertImageKeys); do not re-add it.
 
        `merge` MUTATES its first argument, so the destination is always a fresh `dict` and
        .Values.postgres.image is only ever a source. The NAME half goes through
@@ -40,17 +43,122 @@
        stale postgres.image.repository carried in by `helm upgrade --reuse-values` from a pre-PCP-23125
        release, for a database that is disabled by default and would never be deployed. Redis gets this
        right by evaluating inside its gate (deployment-redis.yaml:69); this keeps the two consistent. */ -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       ONE name for "does this manifest actually render", shared with the `if` that emits it
+       below and with the digest look-ups. Two copies of a four-term condition is exactly how a
+       look-up drifts away from the container it is meant to describe. */ -}}
+{{- $rendersDeployment := and .Values.postgres.enabled (not .Values.postgres.external.enabled) -}}
+{{- $rendersRestoreInit := and $rendersDeployment .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted -}}
 {{- $pgRepo := "" -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       Per-major digests (postgres.image.digests), resolved once per build site. DECLARED at file
+       scope and only ASSIGNED inside the gates below — a `:=` inside an if-block is invisible
+       outside it, the same reason $pgRepo is written this way. "" is the shipped default and the
+       un-pinned case: mcp-stack.image renders tag-only for it, byte-identical to the pre-PCP-23215
+       output. */ -}}
+{{- $pgDigest17 := "" -}}
+{{- $pgDigestMain := "" -}}
 {{- if or .Values.postgres.enabled .Values.postgres.upgrade.enabled -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       Enforce the two-major rule the banner above states in prose: the SINGULAR
+       postgres.image.digest aborts the render wherever a bundled database can actually be built,
+       naming postgres.image.digests as the way to say it. INSIDE this gate, and not at the top of
+       the file, for the same reason $pgRepo is computed here — dead config must not fail the
+       render (bundled-image-digest-assert.sh (E)). The three postgres templates each carry their
+       own include: they are separately renderable, and a guard on one of them says nothing about
+       the other two. */ -}}
+{{- include "mcp-stack.postgres.assertImageKeys" . -}}
 {{- $pgRepo = printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository) -}}
+{{- /* Each look-up is scoped to the container it pins, NOT to this coarse gate: the map is
+       all-or-nothing per RENDER, so asking for a major this render never builds — a :17 digest
+       from an install that has no restore init containers, or a :18 one from a plain non-upgrade
+       install — would fail over a container nobody deploys. */ -}}
+{{- if $rendersRestoreInit -}}
+{{- $pgDigest17 = include "mcp-stack.postgres.digestFor" (dict "ctx" . "major" "17") -}}
 {{- end -}}
-{{- /* PG17 restore init containers: literal major, pinned in the destination dict. */ -}}
-{{- $postgresImage17 := include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "17") (omit .Values.postgres.image "digest")) -}}
-{{- $postgresImage := "" -}}
-{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") -}}
-{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "18") (omit .Values.postgres.image "digest")) -}}
+{{- if $rendersDeployment -}}
+{{- /* LOCAL TIBCO MOD (PCP-23127): `backupCompleted` belongs in the :18 SELECTION, not only on
+       the restore init containers. The three restore steps below are gated on
+       `upgrade.enabled AND targetVersion 18 AND upgrade.backupCompleted`; this was gated on
+       the first two ONLY. So PHASE 1 of the documented two-step upgrade — enabled=true with
+       backupCompleted=false, the step whose entire purpose is to let the pre-upgrade backup Job
+       dump the CURRENT database — started the main container on the PG18 image against an
+       untouched PG17 data directory with NO restore init containers rendered at all, and the
+       postgres:18 entrypoint refuses it outright ("database files are incompatible with
+       server"). That is a terminal CrashLoopBackOff on the live database, taken DURING the
+       upgrade the operator is following step by step, with the dump not yet in MinIO.
+       The invariant is that these two conditions stay IDENTICAL: the main container may only
+       move to 18 in the same render that stages the restore. Phase 1 therefore falls to the
+       else branch and keeps postgres.image.tag (17).
+
+       MERGE NOTE (PCP-23215 + PCP-23127): the digest look-up below must branch on the SAME
+       three-part condition as the tag, or the two disagree in Phase 1 — the container would
+       render :17 while the map was asked for major 18, which either pins the wrong major's
+       bytes under the right major's tag or aborts the render over a major nothing builds. The
+       tag selection further down and NOTES.txt's $pgMajor use this identical expression; keep
+       all three in lockstep. */ -}}
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted -}}
+{{- $pgDigestMain = include "mcp-stack.postgres.digestFor" (dict "ctx" . "major" "18") -}}
 {{- else -}}
-{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo) .Values.postgres.image) -}}
+{{- $pgDigestMain = include "mcp-stack.postgres.digestFor" (dict "ctx" . "major" .Values.postgres.image.tag) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- /* PG17 restore init containers: literal major, pinned in the destination dict — tag AND digest
+       together, so the 17 image can only ever carry the 17 digest.
+       LOCAL TIBCO MOD (PCP-23215): the source block is stripped of BOTH digest keys. `merge` is
+       destination-wins only for NON-EMPTY destination values (sprig uses mergo), so an un-pinned
+       "" in the destination would be back-filled from the source — measured — and a stray
+       singular `digest` would leak onto a site whose major it was never meant for. Do NOT drop
+       the omit, and do NOT "fix" these into blocks that pass .Values.postgres.image whole. */ -}}
+{{- /* COMPOSED ONLY WHEN A BUNDLED-POSTGRES PATH CAN RENDER, via the declare-then-assign idiom
+       (a `:=` inside an if-block is invisible outside it — same reason $pgRepo uses it).
+       mcp-stack.image VALIDATES what it is handed and aborts on a malformed tag or digest, so
+       evaluating these unconditionally lets a stray postgres.image value — replayed by
+       `helm upgrade --reuse-values` from an older release, say — kill the ENTIRE gateway render
+       for a database that is disabled on the shipped surface and will never be deployed. That is
+       the "dead config must not fail the render" doctrine container-registry-assert.sh:918-931
+       already fixed once for postgres.image.repository. Pinned by
+       bundled-image-digest-assert.sh (E). */ -}}
+{{- $postgresImage17 := "" -}}
+{{- $postgresImage := "" -}}
+{{- if or .Values.postgres.enabled .Values.postgres.upgrade.enabled -}}
+{{- $postgresImage17 = include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "17" "digest" $pgDigest17) (omit .Values.postgres.image "digest" "digests")) -}}
+{{- /* THREE-PART condition (PCP-23127), and it MUST match the digest look-up above and NOTES.txt's
+       $pgMajor exactly. `backupCompleted` is load-bearing: without it, PHASE 1 of the two-step
+       upgrade (enabled=true, backupCompleted=false) puts the main container on :18 against an
+       untouched PG17 data directory with no restore init containers rendered, and the postgres:18
+       entrypoint refuses to start — a terminal CrashLoopBackOff on the live database, mid-upgrade,
+       before the dump reaches MinIO. Phase 1 must fall to the else branch and keep the values tag.
+       If you change this expression, change it in all three places or the tag and the digest will
+       name different majors. */ -}}
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted -}}
+{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "18" "digest" $pgDigestMain) (omit .Values.postgres.image "digest" "digests")) -}}
+{{- else -}}
+{{- /* No tag override here: the main container follows postgres.image.tag, and $pgDigestMain was
+       looked up under that very tag. */ -}}
+{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo "digest" $pgDigestMain) (omit .Values.postgres.image "digest" "digests")) -}}
+{{- end -}}
+{{- end -}}
+
+{{- /* LOCAL TIBCO MOD (PCP-23127): re-apply on upstream mcp-stack re-vendor.
+       The MinIO SERVER image, composed through the SAME container-registry resolver and in the
+       same three-line shape as minio-deployment.yaml. It is rendered here because it ships the
+       `mc` CLIENT at /usr/bin/mc: the minio-client-copy init container below runs this image and
+       copies that binary into a shared emptyDir for the Debian postgres containers to execute.
+       That is what replaced the `apt-get install wget` + `wget https://dl.min.io/...` this file
+       used to carry, which could not work on a Data Plane with no public egress.
+
+       EVALUATED INSIDE THE GATE, exactly like $pgRepo above and $minioRepo in
+       minio-deployment.yaml: mcp-stack.image.bareRepository ABORTS the render on a value that is
+       not a bare name, and `helm upgrade --reuse-values` from any pre-PCP-23127 release replays
+       the old `minio/minio`. Computing it unconditionally would kill the WHOLE chart render over
+       an object store that is disabled by default. The gate is the USE-SITE condition, verbatim,
+       so the variable exists exactly when the container that consumes it renders. */ -}}
+{{- $minioImage := "" -}}
+{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted .Values.minio.enabled -}}
+{{- $minioRepo := printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.minio.image.repository) -}}
+{{- $minioImage = include "mcp-stack.image" (merge (dict "repository" $minioRepo) .Values.minio.image) -}}
 {{- end -}}
 
 {{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.minio.enabled) -}}
@@ -63,7 +171,7 @@
 {{- end -}}
 {{- end -}}
 
-{{- if and .Values.postgres.enabled (not .Values.postgres.external.enabled) }}
+{{- if $rendersDeployment }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -105,10 +213,10 @@ spec:
           type: RuntimeDefault
       terminationGracePeriodSeconds: {{ .Values.postgres.terminationGracePeriodSeconds }}
       initContainers:
-      {{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted }}
+      {{- if $rendersRestoreInit }}
         # ---------------------------------------------------------------------
-        # PostgreSQL 17 -> 18 upgrade (PCP-21528)
-        # Split into THREE init steps so the NFS PVC is never touched by root and
+        # PostgreSQL 17 -> 18 upgrade (PCP-21528, air-gapped by PCP-23127)
+        # Split into init steps so the NFS PVC is never touched by root and
         # a healthy already-upgraded pod does no network work on restart.
         # The original single init ran as root and `chown -R`ed pgdata, which
         # EPERMs on an NFS root_squash export (root -> nobody). PCP-20654 already
@@ -117,11 +225,14 @@ spec:
         #   1. postgres-restore-check   : uid 999 (data owner), reads PG_VERSION on
         #        the PVC (root_squash-safe) and writes a .needs-restore marker into
         #        the shared initdb emptyDir ONLY when the data is PG17.
-        #   2. postgres-restore-fetch   : root, mounts ONLY the initdb emptyDir
+        #   2. minio-client-copy        : uid 999, runs the MinIO SERVER image purely
+        #        to lift its bundled /usr/bin/mc into the minio-client emptyDir, so
+        #        step 3 has a MinIO client without reaching dl.min.io (PCP-23127).
+        #   3. postgres-restore-fetch   : uid 999, mounts ONLY the two emptyDirs
         #        (node-local, NOT the PVC -> root_squash never applies). Skips ALL
-        #        work unless .needs-restore exists, then installs the MinIO client
-        #        and stages the latest dump; hands the emptyDir to uid 999.
-        #   3. postgres-restore-prepare : uid 999 (data owner), mounts the PVC and
+        #        work unless .needs-restore exists, then stages the latest dump from
+        #        MinIO using the mc binary staged by step 2.
+        #   4. postgres-restore-prepare : uid 999 (data owner), mounts the PVC and
         #        RENAMES the old PG17 pgdata aside to pgdata-pg17-bak (in-PVC, instant,
         #        crash-safe) then recreates an empty pgdata WITHOUT any chown, only
         #        when a restore is pending and a dump was actually staged.
@@ -149,7 +260,7 @@ spec:
               # 999-owned pgdata even on an NFS root_squash export -- a root process
               # would be squashed to nobody and could not read it. The decision is
               # handed to the later steps via a marker in the shared initdb emptyDir,
-              # so the root fetch step (which cannot read the PVC) does zero work once
+              # so the fetch step (which does not mount the PVC) does zero work once
               # the DB is already on PG18 (avoids re-downloading on every restart).
               PGDATA="/var/lib/postgresql/data/pgdata"
               PG17_BAK="/var/lib/postgresql/data/pgdata-pg17-bak"
@@ -203,8 +314,72 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+        {{- if .Values.minio.enabled }}
+        {{- /* LOCAL TIBCO MOD (PCP-23127): re-apply on upstream mcp-stack re-vendor.
+               THE AIR-GAP FIX. The fetch step needs a MinIO client; it used to `apt-get install`
+               one and `wget` the binary from https://dl.min.io, so the upgrade simply could not
+               run on a Data Plane with no public egress. The MinIO SERVER image this chart
+               already deploys SHIPS that client at /usr/bin/mc (a ~30MB static Go binary) and
+               ships /bin/sh (proved in-tree: minio-deployment.yaml runs `command: [/bin/sh, -c,
+               "minio server /data ..."]` on the very same image), so the client is lifted out of
+               the mirrored image instead of fetched from the internet. Nothing is installed and
+               nothing is downloaded.
+
+               WHY IT IS HERE AND NOT FIRST. It sits AFTER postgres-restore-check on purpose: the
+               check step is what writes the .needs-restore marker the later steps skip on, and a
+               step placed before it could never be reasoned about as skippable.
+
+               WHY IT IS GATED ON minio.enabled AS WELL. It is already inside the
+               `upgrade.enabled AND targetVersion 18 AND backupCompleted` block, and the file's
+               fail-fast above refuses that combination without minio.enabled — but the extra
+               condition is not redundant: it is the condition under which $minioImage is
+               composed at all, and it keeps this container from being the one thing that pins a
+               DATABASE pod to an OBJECT-STORE image on a path where the object store is off. Do
+               not drift the two apart. Once the upgrade has completed, the ONLY end state that
+               stops the database pod pulling this image is retiring the whole upgrade block in
+               one pass — postgres.image.tag "18" AND upgrade.enabled false AND minio.enabled
+               false. Flipping upgrade.enabled off alone drops the main container back to
+               postgres.image.tag (17) on a PG18 data directory, and flipping minio.enabled off
+               alone trips the fail-fast above; the supported alternative is to leave the whole
+               block in place. See the operator note on minio.enabled in values.yaml and
+               "Cleanup After Successful Upgrade" in the operator runbook
+               (docs/docs/manage/postgres-upgrade-process.md). */}}
+        - name: minio-client-copy
+          image: {{ $minioImage | quote }}  # MinIO server image, used ONLY for its bundled /usr/bin/mc
+          imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          # THE SAME SKIP GUARD the fetch and prepare steps below carry. postgres-restore-check
+          # writes .needs-restore only when the PVC still holds PG17 data or an unfinished
+          # upgrade, so on a healthy, already-upgraded pod this step exits at once instead of
+          # copying ~30MB on every restart. BE PRECISE ABOUT WHAT IT BUYS: it avoids the COPY, NOT the image PULL —
+          # kubelet pulls an init container's image before it runs the container, so the MinIO
+          # image is still fetched (or served from the node cache under IfNotPresent) on every
+          # restart for as long as the upgrade block is in place. Retiring that block, per the
+          # end-state note above, is the only thing that stops the pull.
+          args: ["[ -f /docker-entrypoint-initdb.d/.needs-restore ] || { echo 'no pending restore -> skipping mc stage'; exit 0; }; install -m 0755 /usr/bin/mc /opt/minio-client/mc"]
+          volumeMounts:
+            - name: minio-client
+              mountPath: /opt/minio-client
+            # READ-ONLY, and ONLY to read the marker. The binary is deliberately NOT staged in
+            # this directory: the check step `find`s and deletes every non-dot file in it on
+            # each start, and the postgres:18 entrypoint then executes what it finds there, so
+            # a 30MB binary parked here would be deleted before use or run as an init script.
+            # readOnly makes it impossible for this step to disturb the dir at all, and it is
+            # safe to look: the check step's delete ran in the PREVIOUS container.
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          # Same non-root posture as the postgres init containers around it. mc is read
+          # world-executable in the image and the emptyDir is group-owned by fsGroup, so
+          # uid 999 can both read the source and write the destination -- verified against
+          # the pinned MinIO image, not assumed.
+          {{- with .Values.postgres.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
         - name: postgres-restore-fetch
-          image: {{ $postgresImage17 | quote }}  # PostgreSQL 17 image (only needs a shell + apt)
+          image: {{ $postgresImage17 | quote }}  # PostgreSQL 17 image (only needs a shell)
           command:
             - /bin/bash
             - -c
@@ -212,29 +387,33 @@ spec:
               #!/bin/bash
               set -eo pipefail
 
-              # Skip ALL work (apt-get, internet download, MinIO query) unless the
-              # check step flagged a pending pg17->18 restore. This keeps a healthy,
-              # already-upgraded PG18 pod's restart free of any external-network
-              # dependency -- otherwise an air-gapped cluster or a dl.min.io outage
-              # would wedge a perfectly healthy database in Init:Error.
+              # Skip ALL work (MinIO query, dump download) unless the check step
+              # flagged a pending pg17->18 restore. This keeps a healthy,
+              # already-upgraded PG18 pod's restart free of any dependency on
+              # anything outside the pod -- otherwise a MinIO outage would wedge a
+              # perfectly healthy database in Init:Error. (The apt-get and the
+              # dl.min.io download this rationale used to name went away with them in
+              # PCP-23127; the property it protects did not, and this guard is still
+              # the thing that protects it.)
               if [ ! -f /docker-entrypoint-initdb.d/.needs-restore ]; then
                 echo "No pending pg17->18 restore -> skipping backup download"
                 exit 0
               fi
 
-              # Install the MinIO client and jq. This needs root, but it only
-              # writes to the container filesystem and the node-local emptyDir
-              # (/docker-entrypoint-initdb.d) -- never the NFS PVC -- so it is
-              # safe under root_squash (mirrors the root postgres-backup Job).
-              apt-get update && apt-get install -y wget jq
-              # Pick the MinIO client build matching the node architecture (amd64/arm64).
-              MC_ARCH=amd64
-              case "$(uname -m)" in aarch64|arm64) MC_ARCH=arm64 ;; esac
-              wget "https://dl.min.io/client/mc/release/linux-${MC_ARCH}/mc" -O /tmp/mc
-              chmod +x /tmp/mc
+              # The MinIO client is ALREADY here: the minio-client-copy init container
+              # lifted /usr/bin/mc out of the MinIO server image into the shared
+              # minio-client emptyDir. Nothing is installed and nothing is downloaded --
+              # the `apt-get install wget jq` + `wget https://dl.min.io/...` that used to
+              # sit at this point is exactly what made the upgrade impossible on a Data
+              # Plane with no public egress (PCP-23127). It also took the per-arch
+              # download logic with it: the mc that ships in the MinIO image is by
+              # construction built for the same architecture as the image itself.
+              # --config-dir is deliberate and container-local: mc refuses to start when
+              # it cannot create its config dir, and $HOME is not writable here.
+              MC=/opt/minio-client/mc
 
               # Configure MinIO client
-              /tmp/mc alias set minio http://{{ include "mcp-stack.fullname" . }}-minio:{{ .Values.minio.service.apiPort }} $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+              "$MC" --config-dir /tmp/.mc alias set minio http://{{ include "mcp-stack.fullname" . }}-minio:{{ .Values.minio.service.apiPort }} $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 
               # List the backups. Distinguish a MinIO ERROR (network/auth) from a
               # genuinely EMPTY bucket: on error, FAIL so kubelet retries this init
@@ -243,12 +422,33 @@ spec:
               # successful-but-empty listing falls through to the graceful no-backup
               # branch below. (awk, not head, so a large listing cannot SIGPIPE sort
               # under `set -eo pipefail`.)
-              if ! BACKUP_LIST=$(/tmp/mc ls --json minio/postgres-backups/ 2>/tmp/mc-ls.err); then
+              if ! BACKUP_LIST=$("$MC" --config-dir /tmp/.mc ls --json minio/postgres-backups/ 2>/tmp/mc-ls.err); then
                 echo "ERROR: could not list the MinIO postgres-backups bucket (network/auth?):"
                 cat /tmp/mc-ls.err || true
                 exit 1
               fi
-              LATEST_BACKUP=$(printf '%s\n' "$BACKUP_LIST" | jq -r '"\(.time) \(.key)"' 2>/dev/null | sort -r | awk 'NR==1' | cut -d' ' -f2-)
+              # Pick the newest dump, WITHOUT jq -- it was the second thing this step
+              # apt-got (PCP-23127). `mc ls --json` emits one JSON object per line, so the
+              # object key is lifted with an ANCHORED sed. Three properties are load-bearing:
+              #   - the pattern is the EXACT filename the backup Job mints
+              #     (postgres-dump-$(date +%Y%m%d-%H%M%S).sql, job-postgres-backup.yaml), so
+              #     nothing else that happens to be in the bucket can ever be selected as a
+              #     database to restore;
+              #   - that filename is FIXED-WIDTH UTC, which is what makes a plain
+              #     filename-descending `sort -r` a newest-first sort. This REPRODUCES the
+              #     previous behaviour rather than changing it: the old jq asked for `.time`,
+              #     a field mc does not emit (it emits `lastModified`), so every row was
+              #     "null <key>" and the sort was already on the filename. Do not "fix" this
+              #     into a lastModified sort -- that is a new behaviour change on a
+              #     destructive path;
+              #   - `sed -n` exits 0 when nothing matches, so an empty or non-matching
+              #     listing falls through to the graceful no-backup branch below instead of
+              #     killing the container under `set -eo pipefail`. `grep -o` would exit 1
+              #     and turn that deliberate branch into an Init:Error retry loop with an
+              #     empty log. (awk, not head, for the SIGPIPE reason noted above.)
+              LATEST_BACKUP=$(printf '%s\n' "$BACKUP_LIST" \
+                | sed -n 's/.*"key"[[:space:]]*:[[:space:]]*"\(postgres-dump-[0-9]\{8\}-[0-9]\{6\}\.sql\)".*/\1/p' \
+                | sort -r | awk 'NR==1')
 
               if [ -z "$LATEST_BACKUP" ]; then
                 echo "No backup file found in MinIO - not staging a dump; the prepare step will refuse to remove existing data"
@@ -258,7 +458,7 @@ spec:
               echo "Found backup file: $LATEST_BACKUP"
 
               # Download the backup file to the initdb directory (emptyDir)
-              /tmp/mc cp "minio/postgres-backups/$LATEST_BACKUP" /docker-entrypoint-initdb.d/
+              "$MC" --config-dir /tmp/.mc cp "minio/postgres-backups/$LATEST_BACKUP" /docker-entrypoint-initdb.d/
 
               # Stage a finalize hook that the postgres:18 entrypoint runs AFTER the
               # dump has fully reloaded (it sorts last in /docker-entrypoint-initdb.d).
@@ -285,14 +485,11 @@ spec:
               # Signal the prepare step that a dump is staged and ready to reload
               touch /docker-entrypoint-initdb.d/.backup-ready
 
-              # Hand the emptyDir to the postgres uid so the non-root prepare step
-              # and the postgres:18 entrypoint can read the dump. This targets a
-              # node-local emptyDir, where root is NOT squashed, so it is always
-              # permitted (unlike a chown of the NFS PVC). The uid/gid track the
-              # pod-level securityContext so a custom runAsUser stays consistent.
-              chown -R {{ .Values.postgres.podSecurityContext.runAsUser | default 999 }}:{{ .Values.postgres.podSecurityContext.fsGroup | default 999 }} /docker-entrypoint-initdb.d
-              chmod -R g+rX /docker-entrypoint-initdb.d
-
+              # No `chown -R` / `chmod -R` here any more (PCP-23127). Handing the
+              # emptyDir over was only necessary because this step ran as ROOT and every
+              # file it created was root-owned; it now runs as the postgres uid itself,
+              # so the dump and the finalize hook are already owned by the uid that has
+              # to read them, in a directory the kubelet group-owns by fsGroup.
               echo "Backup staged for PostgreSQL 18 initialization"
           env:
             - name: MINIO_ROOT_USER
@@ -306,19 +503,29 @@ spec:
                   name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mcp-stack.fullname" . }}-minio{{ end }}
                   key: MINIO_ROOT_PASSWORD
           volumeMounts:
-            # ONLY the node-local emptyDir -- deliberately NOT the NFS PVC.
+            # ONLY the node-local emptyDirs -- deliberately NOT the NFS PVC.
             - name: postgres-initdb
               mountPath: /docker-entrypoint-initdb.d
+            # The mc binary staged by minio-client-copy. Mounted read-only: this step
+            # only executes it.
+            - name: minio-client
+              mountPath: /opt/minio-client
+              readOnly: true
+          # uid 999 (from pod-level securityContext), the same non-root posture as the
+          # check and prepare steps either side of it. PCP-23127 is what made that
+          # possible: the ONLY reason this step ran as root with default capabilities
+          # was the `apt-get install` of wget/jq, which needs
+          # CHOWN/DAC_OVERRIDE/FOWNER/SETGID/SETUID and breaks under `drop: [ALL]`.
+          # Nothing is installed any more -- the mc binary arrives pre-staged in an
+          # emptyDir -- and every write this step makes goes either to that
+          # node-local, fsGroup-owned emptyDir or to /tmp, so the root carve-out and
+          # the capability exemption are both gone with the apt-get that justified
+          # them. (mc is a static binary and runs fine as uid 999 with --config-dir
+          # under /tmp; verified against the pinned image, not assumed.)
+          {{- with .Values.postgres.containerSecurityContext }}
           securityContext:
-            # Do NOT drop all capabilities here: this step installs the MinIO client
-            # via apt-get, which needs CHOWN/DAC_OVERRIDE/FOWNER/SETGID/SETUID -- a
-            # blanket `drop: [ALL]` breaks the install on the Debian postgres image
-            # (verified). This matches the postgres-backup Job, which does the same
-            # apt+mc work as root with default caps. The container mounts only the
-            # node-local emptyDir (never the PVC), so the blast radius stays small.
-            allowPrivilegeEscalation: false
-            runAsNonRoot: false  # opt out of pod-level runAsNonRoot; apt-get needs root (emptyDir only, no PVC)
-            runAsUser: 0
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         - name: postgres-restore-prepare
           image: {{ $postgresImage17 | quote }}  # PostgreSQL 17 image to access the old data
           command:
@@ -462,4 +669,26 @@ spec:
           {{- end }}
         - name: postgres-initdb
           emptyDir: {}
+        {{- /* LOCAL TIBCO MOD (PCP-23127): the staging area for the mc binary the
+               minio-client-copy init container lifts out of the MinIO image. It is its OWN
+               volume, NOT a corner of postgres-initdb, and that is not tidiness: the check step
+               `find`s and deletes every non-dot file in the initdb dir on EVERY start, and the
+               postgres:18 entrypoint then scans that same directory and executes what it finds
+               there. A 30MB binary parked in it would be deleted before it could be used, or
+               handed to the entrypoint as an init script. sizeLimit caps a node-local emptyDir
+               that only ever holds that one ~30MB binary.
+
+               GATED ON THE USE-SITE CONDITION, VERBATIM. Rendering this volume unconditionally
+               would put it in the pod template of every postgres pod, including the ordinary
+               bundled-PG install that has no upgrade in flight and no container to mount it —
+               and because this Deployment uses `strategy: Recreate`, the resulting pod-template
+               change means the next chart bump takes the DATABASE DOWN to add an empty volume
+               nothing reads. The condition therefore matches the minio-client-copy init
+               container exactly (and the read-only mount on postgres-restore-fetch); do not
+               drift the three apart. */}}
+        {{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") .Values.postgres.upgrade.backupCompleted .Values.minio.enabled }}
+        - name: minio-client
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- end }}
 {{- end }}

@@ -31,7 +31,7 @@ spec:
               - ReadWriteOnce
             resources:
               requests:
-                storage: 10Gi
+                storage: {{ .Values.es.storage.size | default "10Gi" }}
             storageClassName: {{ .Values.es.storage.name }}
   http:
     service:

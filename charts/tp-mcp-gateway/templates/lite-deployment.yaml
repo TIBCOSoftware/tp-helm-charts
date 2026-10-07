@@ -7,6 +7,15 @@
        so they can never drift. KEEP IN SYNC with charts/mcp-stack/templates/deployment-mcpgateway.yaml
        ($proxyFronts) and the service/ingress port gating. */}}
 {{- $proxyFronts := (or .Values.tibcoProxy.enabled .Values.discovery.enabled) -}}
+{{- /* PCP-23986: operator-configurable proxy listen ports, defaulting ABOVE 1024.
+       Resolved ONCE so containerPort, all three probes and the proxy env cannot drift.
+       KEEP IN SYNC with charts/mcp-stack/templates/deployment-mcpgateway.yaml.
+       The gateway comparand is the literal 4444 because lite hardcodes
+       `containerPort: 4444` below — .Values.mcpContextForge is a SUB-CHART path and
+       referencing it here renders "nil pointer evaluating interface {}.containerPort". */}}
+{{- $proxyExtPort := int (include "tp-mcp-gateway.tibcoProxy.port" (dict "root" $ "key" "external"   "default" 8880)) -}}
+{{- $proxyCPPort  := int (include "tp-mcp-gateway.tibcoProxy.port" (dict "root" $ "key" "cpInternal" "default" 8881)) -}}
+{{- if $proxyFronts }}{{- include "tp-mcp-gateway.tibcoProxy.assertPorts" (dict "ext" $proxyExtPort "cp" $proxyCPPort "gw" 4444) -}}{{- end -}}
 {{- /* PCP-23125: container-registry indirection. Resolve the registry and repository ONCE,
        file-scoped, from global.cp.containerRegistry (orchestrator-injected on a live Data
        Plane) via the two zero-logic house helpers. Each image site below then composes the
@@ -392,7 +401,7 @@ spec:
             httpGet:
               path: /health
               {{- if $proxyFronts }}
-              port: 80
+              port: {{ $proxyExtPort }}
               {{- else }}
               port: 4444
               {{- end }}
@@ -407,10 +416,11 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              {{- /* PCP-20569: probe the proxy front (:80) whenever the proxy fronts the pod
+              {{- /* PCP-20569: probe the proxy front whenever the proxy fronts the pod
+                     (PCP-23986: that front is $proxyExtPort, no longer a hardcoded :80)
                      (proxy OR discovery on) — the gateway then listens on loopback only. */}}
               {{- if $proxyFronts }}
-              port: 80
+              port: {{ $proxyExtPort }}
               {{- else }}
               port: 4444
               {{- end }}
@@ -420,7 +430,7 @@ spec:
             httpGet:
               path: /health
               {{- if $proxyFronts }}
-              port: 80
+              port: {{ $proxyExtPort }}
               {{- else }}
               port: 4444
               {{- end }}
@@ -483,9 +493,9 @@ spec:
           imagePullPolicy: {{ .Values.tibcoProxy.image.pullPolicy }}
           ports:
             - name: external
-              containerPort: 80
+              containerPort: {{ $proxyExtPort }}
             - name: cp-internal
-              containerPort: 81
+              containerPort: {{ $proxyCPPort }}
           env:
             - name: DATAPLANE_NAME
               value: {{ .Values.dpName | quote }}
@@ -495,6 +505,11 @@ spec:
               value: {{ .Values.tibcoProxy.platformAdminEmail | quote }}
             - name: TIBCO_PROXY_TRUST_CP_NETWORK
               value: {{ .Values.tibcoProxy.trustCPNetwork | quote }}
+            {{- /* PCP-23986: listen ports. Same values that render the containerPorts above. */}}
+            - name: TIBCO_PROXY_EXT_PORT
+              value: {{ $proxyExtPort | quote }}
+            - name: TIBCO_PROXY_CP_PORT
+              value: {{ $proxyCPPort | quote }}
             {{- /* PCP-20569 (Option B): in-pod discovery routing. The proxy path-routes
                    DISCOVERY_PATH_PREFIX (relative to the gateway haproxy.pathPrefix) to the in-pod
                    discovery upstream on loopback :8080 — no dedicated discovery Ingress / Service.

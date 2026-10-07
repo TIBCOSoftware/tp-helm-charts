@@ -4,6 +4,23 @@
   in the license file that is distributed with this file.
 */}}
 
+{{/*
+  Jaeger writes DATE-NAMED daily indices (jaeger-span-YYYY-MM-DD): the Jaeger Elasticsearch
+  backend configured in tp-cp-o11y runs without `use_aliases`, so it never writes through the
+  jaeger-span-write alias. This template must therefore NOT grant that alias — when it did, every
+  new daily index claimed `is_write_index: true` while the previous day's index still held it, so
+  from the data plane's second UTC day onward Elasticsearch rejected every bulk write with
+  "alias [jaeger-span-write] has more than one write index" and all spans were silently dropped
+  (PCP-24038; the alias was added by PCP-15628 / #7225).
+
+  For the same reason there is no `rollover_alias` here and no rollover action in the lifecycle
+  policy: retention is age-based, driven off each daily index's creation date. If Jaeger is ever
+  switched to `use_aliases: true`, the write alias belongs on a bootstrap index and STILL not in
+  this template — Elasticsearch rejects a rollover whose alias is duplicated in a matching index
+  template ("Rollover alias [x] can point to multiple indices, found duplicated alias [x] in
+  index template [y]").
+*/}}
+
 {{ if .Values.index.enabled -}}
 apiVersion: es.eck.github.com/v1alpha1
 kind: IndexTemplate
@@ -19,10 +36,7 @@ spec:
       "index_patterns": ["*jaeger-span-*"],
       "template": {
         "aliases": {
-          "jaeger-span-read": {},
-          "jaeger-span-write": {
-            "is_write_index": true
-          }
+          "jaeger-span-read": {}
         },
         "settings": {
           "index.number_of_shards": 6,
@@ -30,8 +44,7 @@ spec:
           "index.mapping.nested_fields.limit": 50,
           "index.requests.cache.enable": true,
           "lifecycle": {
-            "name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy",
-            "rollover_alias": "jaeger-span-write"
+            "name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy"
           }
         },
         "mappings": {

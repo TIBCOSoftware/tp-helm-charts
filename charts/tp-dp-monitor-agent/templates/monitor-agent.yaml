@@ -104,8 +104,10 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       terminationGracePeriodSeconds: 10
+      {{- if .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. omitted entirely if secret name is not provided */}}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       containers:
       - name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
         image: {{ include "tp-dp-monitor-agent.image.registry" .}}{{"/"}}{{ include "tp-dp-monitor-agent.image.repository" .}}{{"/"}}tel-monitor-agent:{{ include "tp-dp-monitor-agent.generated.buildNumber" . }}

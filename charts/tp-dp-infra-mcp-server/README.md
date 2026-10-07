@@ -79,7 +79,7 @@ the capability chart only handles workload resources.
 | Service | `tp-dp-infra-mcp-server` | ClusterIP with ports `rest` (80->8091) and `mcp` (8092->8092) |
 | ServiceAccount | `tp-dp-infra-mcp-server` | Created when `serviceAccount.create: true` |
 | ConfigMap | `tp-dp-infra-mcp-server-config` | kubectl/helm security policies (allowlists) |
-| Ingress (HAProxy) | `haproxy-infra-mcp-server` | Private CP-to-DP ingress to the REST service port (enabled by default; the only ingress this chart creates) |
+| Ingress (HAProxy) | `haproxy-infra-mcp-server` | Private CP-to-DP ingress to the REST service port (default; replaced by a custom-controller route when `global.cp.routeResources` selects one — see [Custom routing](#custom-routing-globalcprouteresources)) |
 | FluentBit ConfigMap | `tp-dp-infra-mcp-server-fluentbit-config` | Optional sidecar logging config |
 
 ## Service Account & RBAC
@@ -197,14 +197,73 @@ the shared DP service account to manage only the infra-mcp-server's SA:
 |-----------|---------|-------------|
 | `serviceAccount.create` | `true` | Create a dedicated ServiceAccount |
 | `serviceAccount.name` | `""` | Override SA name (defaults to chart fullname) |
-| `image.tag` | `"70"` | Container image tag |
+| `image.name` | `infra-mcp-server` | Container image name (no `tp-` prefix; PCP-23235) |
+| `image.tag` | `"121"` | Container image tag — moves with `image.name` |
 | `config.LOG_LEVEL` | `"info"` | Application log level |
 | `config.KUBECTL_TIMEOUT` | `"30"` | kubectl command timeout (seconds) |
 | `config.HELM_TIMEOUT` | `"30"` | helm command timeout (seconds) |
-| `haproxy.enabled` | `true` | Enable HAProxy ingress for CP-to-DP routing |
-| `haproxy.pathPrefix` | `/tibco/agent/integration/infra-mcp-server` | HAProxy path prefix |
+| `haproxy.enabled` | `true` | Enable the bundled HAProxy ingress for CP-to-DP routing |
+| `haproxy.pathPrefix` | `/tibco/agent/integration/infra-mcp-server` | HAProxy path prefix (bundled HAProxy route only) |
+| `imagePullSecret` | `""` | Name of a pre-existing image-pull Secret. Break-glass override for a manual `helm upgrade`; see below |
+| `global.cp.containerRegistry.secret` | `""` | Pull-secret name supplied by the platform. When empty the `imagePullSecrets` key is omitted entirely |
 | `global.cp.logging.fluentbit.enabled` | `false` | Enable FluentBit sidecar for log shipping |
 | `global.cp.enableResourceConstraints` | `true` | Apply CPU/memory limits |
+
+### Custom routing (`global.cp.routeResources`)
+
+The private control-plane to data-plane route is selected by `global.cp.routeResources`, which the
+orchestrator injects per data plane. The routed path is a configurable prefix plus this capability's
+fixed tail `/integration/infra-mcp-server`.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `global.cp.routeResources.pathPrefix` | `/tibco/agent` | Configurable routing prefix |
+| `global.cp.routeResources.ingress.ingressController` | `""` | `""` (bundled HAProxy) \| `haProxy` \| `nginx` \| `traefik` \| `openshiftRouter` |
+| `global.cp.routeResources.ingress.ingressClassName` | `""` | Required when `ingressController` is non-empty and not the bundled HAProxy |
+| `global.cp.routeResources.ingress.fqdn` | `""` | Route host, required when `ingressController` is set |
+| `global.cp.routeResources.ingress.annotations` | `{}` | User annotations, added to the controller defaults |
+| `global.cp.routeResources.gatewayapi.gatewayAPIControllerName` | `""` | Non-empty selects Gateway API and renders an `HTTPRoute` |
+| `global.cp.routeResources.gatewayapi.gatewayName` / `.gatewayNamespace` | `""` | Parent `Gateway` reference |
+| `global.cp.routeResources.gatewayapi.gatewayHostOrDomainName` | `""` | `HTTPRoute` hostname |
+| `global.cp.routeResources.gatewayapi.gatewaySectionName` | `""` | Optional `Gateway` listener section |
+
+| Selection | Object(s) rendered |
+|-----------|--------------------|
+| both empty (default) | `Ingress` `haproxy-infra-mcp-server` — unchanged from previous releases |
+| `ingressController: haProxy` | `Ingress` `haproxy-tp-dp-infra-mcp-server` |
+| `ingressController: nginx` | `Ingress` `nginx-tp-dp-infra-mcp-server` |
+| `ingressController: traefik` | `Middleware` `tp-dp-infra-mcp-server-strip-prefix` + `Ingress` `traefik-tp-dp-infra-mcp-server` |
+| `ingressController: openshiftRouter` | `Route` `im-tp-dp-infra-mcp-server` |
+| `gatewayAPIControllerName` non-empty | `HTTPRoute` `im-tp-dp-infra-mcp-server` |
+
+The default render is unchanged when `routeResources` is left at its defaults, so existing data planes
+are unaffected. `haproxy.enabled: false` suppresses the route in every mode. This follows the same
+shape as the other capability charts carrying this contract (`artifactmanager`, `o11y-service`).
+### Container registry pull secret
+
+This chart is a name consumer only -- it never sees registry credentials. On a data plane,
+`dp-configure-namespace` mints the `kubernetes.io/dockerconfigjson` Secret from
+url/username/password, names it after the data plane id, and the orchestrator injects only that
+NAME here. The name is resolved in this order:
+
+1. `imagePullSecret`
+2. `global.cp.containerRegistry.secret` -- the data-plane wiring, and the only arm that fires in production
+3. `global.tibco.containerRegistry.secret` -- the control-plane spelling
+4. `global.tibco.containerRegistry.username` + `.password` -> `tibco-container-registry-credentials`
+5. nothing resolves -> the `imagePullSecrets` key is omitted entirely (anonymous pull)
+
+Arms 3 and 4 read the control-plane spelling and cannot fire on a data plane, where the
+orchestrator injects only `global.cp`. They exist so the resolver is complete for a control-plane
+or standalone values render. **Do not reach for arm 4 to fix a data-plane pull failure** -- the
+Secret it names is a control-plane Secret that does not exist in a data-plane namespace, so naming
+it is strictly worse than arm 5 omitting the key.
+
+`imagePullSecret` (arm 1) is a break-glass override for a manual `helm upgrade`, which does happen
+during development and support triage. It is **not** a supported way to configure a data plane: the
+capability release is orchestrator-managed, so the value survives only until the next
+orchestrator-driven upgrade reconciles the release. To change the pull secret durably, set it on
+the data plane through the control plane (*Update Container Registry -> Kubernetes secret*), which
+propagates to `global.cp.containerRegistry.secret`.
 
 ### Resource constraints
 

@@ -752,32 +752,68 @@ failureThreshold:    {{ $p.failureThreshold    | default 3 }}
      the parent chart's templates/mode-validate.yaml and dialhome-validate.yaml,
      and as the malformed-digest / bare-repository `fail`s in mcp-stack.image below.
 
-     THE RULE IS DOCKER'S OWN, NOT "contains a slash". A reference's first path
-     segment is a REGISTRY only when a second segment follows it AND it carries
-     a '.' or a ':' or is exactly `localhost`; otherwise it is part of the name.
-     Keeping the rule that narrow is load-bearing twice over:
-       - `ibm/mcp-context-forge` (namespaced, no host) still RENDERS, so the
-         segment-shape rule that image-provenance-assert.sh and
-         container-registry-assert.sh both rest on keeps a reachable mutation
-         vector. A guard that swallowed every multi-segment value would leave
-         that rule permanently unexercised — one piece of decoration guarding
-         another.
-       - it cannot fire on the third-party images this sub-chart deliberately
-         keeps on their public registries (mcpFastTimeServer on ghcr.io,
-         inspector on ghcr.io, the monitoring and testing stacks). Those are out
-         of scope here — PCP-23128 owns them — and none of them is routed
-         through this helper in the first place, so they are unaffected twice
-         over. container-registry-assert.sh [6] renders fast-time-server on
-         ghcr.io and must stay green; that is the standing proof.
+     TWO REJECTIONS, NOT ONE — and the second one is PCP-23127. The original rule
+     was Docker's own: a reference's first path segment is a REGISTRY only when a
+     second segment follows it AND it carries a '.' or a ':' or is exactly
+     `localhost`; otherwise it is part of the NAME. That rule is still applied
+     first, because a host is a distinct operator mistake and deserves its own
+     message — but on its own it is BLIND to a plain namespaced value like
+     `minio/minio`, which is exactly the legacy default PCP-23127 replaced with
+     the mirrored `common-minio`. A `helm upgrade --reuse-values` from any
+     pre-PCP-23127 release replays it with nothing typed at all, and the routed
+     call site then composes
+
+       /tibco-platform-docker-prod/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+
+     — a DOUBLE-PREFIXED reference that renders, lints and deploys clean and
+     fails only at pull time on a customer Data Plane, which is the same defect
+     the host rule exists to stop, arriving through the one shape it let past.
+     So a multi-segment value is now rejected whether or not its head looks like
+     a host: the resolver composes <registry>/<repository>/<bare name> and the
+     TIBCO mirror flattens every upstream namespace into a single name, so a
+     legitimate routed value NEVER has a '/' in it.
+     image-provenance-assert.sh:222-224 already classifies an injected path
+     segment as the `extra-segments` defect; this refuses to render it in the
+     first place.
+
+     WHAT THIS DELIBERATELY DOES NOT REACH. The third-party images this sub-chart
+     keeps on their public registries (mcpFastTimeServer on ghcr.io, inspector on
+     ghcr.io, the monitoring and testing stacks) are out of scope — PCP-23128
+     owns them — and none of them is routed through this helper at all, so the
+     wider rule cannot fire on them. container-registry-assert.sh [6] renders
+     fast-time-server on ghcr.io and must stay green; that is the standing proof.
+
+     >>> CONSEQUENCE FOR THE GUARDS (PCP-23127): `library/redis` — a host-free
+         namespaced name — used to be the mutation vector that kept classify()'s
+         `extra-segments` rule reachable (container-registry-assert.sh [G]
+         guard_silent, and image-provenance-assert.sh (E)). It now ABORTS the
+         render like any other multi-segment value, so those controls have to be
+         re-vectored onto something this helper never sees — e.g. a
+         global.cp.containerRegistry.repository that itself carries a path
+         segment. A negative control that quietly starts asserting a helm failure
+         instead of the shape rule is worse than no control at all. <<<
 
      Pinned by dev/mcp-gateway-render-tests/container-registry-assert.sh [G].
 
-     >>> KEEP IN SYNC (PCP-23125): BYTE-IDENTICAL apart from the name prefix with
-         tp-mcp-gateway.image.bareRepository in
-         charts/tp-mcp-gateway/templates/_helpers.tpl. <<<
+     >>> DIVERGED ON PURPOSE, AND THE DIVERGENCE IS LOCKED (PCP-23127): this twin
+         is no longer byte-identical to tp-mcp-gateway.image.bareRepository in
+         charts/tp-mcp-gateway/templates/_helpers.tpl. Only the sub-chart routes
+         an image whose legacy default was namespaced (minio/minio), and no
+         parent-chart value ever carried a namespace, so the PARENT KEEPS THE
+         NARROWER HOST-ONLY RULE deliberately — do NOT "align" it. A namespaced
+         name that still renders through the parent is the one live vector that
+         keeps classify()'s `extra-segments` rule reachable from a real render
+         rather than only from an oracle, and the guards now assert exactly that:
+         container-registry-assert.sh [G] g-namespaced renders
+         lite.image.repository=library/tp-mcp-gateway and REQUIRES it to succeed,
+         while the same section requires mcp-stack.redis.image.repository=
+         library/redis to abort here. Widening the parent turns the first of those
+         red. Everything ELSE about the pair is still KEEP IN SYNC (PCP-23125): a
+         subchart-defined template is not callable from the parent, so the
+         duplication stays deliberate. <<<
 
-     >>> LOCAL TIBCO MODIFICATION (PCP-23125): re-add on every upstream re-vendor
-         of mcp-stack. <<<
+     >>> LOCAL TIBCO MODIFICATION (PCP-23125, extended by PCP-23127): re-add on
+         every upstream re-vendor of mcp-stack. <<<
      -------------------------------------------------------------------- */}}
 {{- define "mcp-stack.image.bareRepository" -}}
 {{- $repo := . | default "" | toString -}}
@@ -785,6 +821,9 @@ failureThreshold:    {{ $p.failureThreshold    | default 3 }}
 {{- $head := first $segments -}}
 {{- if and (gt (len $segments) 1) (or (contains "." $head) (contains ":" $head) (eq $head "localhost")) -}}
 {{- fail (printf "mcp-stack.image.bareRepository: the image repository %q already carries a registry host (%q). This chart composes <global.cp.containerRegistry.url>/<global.cp.containerRegistry.repository>/<bare name>, so that host would be prefixed a SECOND time and the pod would ask for a repository no registry can serve. Set this value to the bare name %q and point global.cp.containerRegistry.url / .repository at the registry instead. If you did not set it by hand: a helm upgrade --reuse-values from a release older than PCP-23125 replays the old fully-qualified value, so re-set the key explicitly or upgrade without --reuse-values." $repo $head (last $segments)) -}}
+{{- end -}}
+{{- if gt (len $segments) 1 -}}
+{{- fail (printf "mcp-stack.image.bareRepository: the image repository %q carries more than one path segment. This chart composes <global.cp.containerRegistry.url>/<global.cp.containerRegistry.repository>/<bare name>, and the TIBCO mirror flattens every upstream namespace into a SINGLE name, so this would be prefixed into a repository no registry can serve — one that renders, lints and deploys clean and fails only at pull time. Set this value to the bare MIRRORED name and point global.cp.containerRegistry.url / .repository at the registry instead; the mapping lives in .github/workflows/retag-third-party-image.yaml IMAGE_MAP (minio/minio -> common-minio, redis -> common-redis-official, postgres -> common-postgres), so do NOT simply drop the namespace — the upstream name %q is not necessarily the mirrored one. If you did not set it by hand: a helm upgrade --reuse-values from a release older than PCP-23127 replays the old namespaced value (minio/minio), so re-set the key explicitly or upgrade without --reuse-values." $repo (last $segments)) -}}
 {{- end -}}
 {{- $repo -}}
 {{- end -}}
@@ -837,10 +876,263 @@ failureThreshold:    {{ $p.failureThreshold    | default 3 }}
 {{- if and $digest (not (regexMatch "^sha256:[0-9a-f]{64}$" $digest)) -}}
 {{- fail (printf "mcp-stack.image: %s has a malformed digest %q — expected sha256: followed by 64 lowercase hex characters" $repo $digest) -}}
 {{- end -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       `repo:tag@sha256:…` is the CANONICAL OCI form, so a digest placed in the TAG composes a
+       genuinely digest-pinned reference. Without this check that is a silent bypass of every
+       digest rule above it: postgres.image.digests can be absent, mcp-stack.postgres.assertImageKeys
+       sees no `digest` key and stays quiet, and the manifest still ships a pinned container —
+       measured, it produced one manifest with a PINNED :17 backup Job beside an UNPINNED :18 main
+       container. Worse on the two-major upgrade path, where a tag of `18@sha256:<pg18>` sends the
+       backup Job (which must run PG17 binaries against a PG17 data directory) to PG18 bytes,
+       because the runtime obeys the digest and ignores the tag.
+       Enforced HERE rather than in values.schema.json deliberately: a schema `pattern` fires
+       unconditionally and would abort the whole render over a stray tag belonging to a DISABLED
+       database, breaking the "dead config must not fail the render" doctrine that
+       container-registry-assert.sh:918-931 already fixed once. Every call site that composes a
+       postgres image is inside the enable gate, so this check inherits that scoping for free.
+       Gated on a non-empty $tag so the digest-only branch below keeps working.
+       Pinned by bundled-image-digest-assert.sh. KEEP THIS BYTE-IDENTICAL TO ITS TWIN —
+       image-digest-assert.sh (G) byte-compares the two copies, and it normalises helper NAMES
+       but not prose, so the wording here must match the other copy exactly. */ -}}
+{{- if and $tag (not (regexMatch "^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$" $tag)) -}}
+{{- fail (printf "mcp-stack.image: %s has a malformed tag %q — an OCI tag is one character of [A-Za-z0-9_] followed by up to 127 of [A-Za-z0-9._-], so it cannot carry a digest or a registry path. To pin content, use this image block's own digest key where the chart declares one — most blocks take a singular `digest`; the bundled PostgreSQL takes the per-major map `postgres.image.digests` because it renders at two majors. Not every image block supports one" $repo $tag) -}}
+{{- end -}}
 {{- if and $tag $digest -}}{{- printf "%s:%s@%s" $repo $tag $digest -}}
 {{- else if $tag -}}{{- printf "%s:%s" $repo $tag -}}
 {{- else if $digest -}}{{- printf "%s@%s" $repo $digest -}}
 {{- else -}}
 {{- fail (printf "mcp-stack.image: %s has neither .tag nor .digest — refusing to render a bare repository, which the runtime resolves as :latest" $repo) -}}
+{{- end -}}
+{{- end -}}
+
+{{- /* --------------------------------------------------------------------
+     Helper: mcp-stack.postgres.digestFor   (PCP-23215)
+     Resolve the content digest for ONE major of the bundled PostgreSQL image:
+
+         {{ include "mcp-stack.postgres.digestFor" (dict "ctx" . "major" "18") }}
+
+     Returns "" when postgres.image.digests is empty or absent — the shipped
+     default, and the reason adding the key moved no render: mcp-stack.image
+     treats an empty digest as the tag-only case.
+
+     WHY A MAP AND NOT A `digest`. Every other image block in this chart is one
+     block rendered into ONE container at ONE tag, so a single digest names the
+     exact bytes of a thing that has one version. postgres.image is not: the
+     SAME block is rendered at FIVE build sites and TWO majors — :17 on the
+     three postgres-restore-* init containers, which must run PostgreSQL 17
+     binaries against the pre-upgrade PG17 data directory, and :18 on the main
+     container and the postgres-migration-check Job (see the two-major note at
+     the top of deployment-postgres.yaml). A runtime handed a tag AND a digest
+     resolves by the DIGEST and ignores the tag, so ONE digest across those
+     sites would run one major's binaries under the other major's tag — the
+     cross-contamination this whole helper exists to make unrepresentable.
+     Keying by major is what makes the pin expressible at all; the singular
+     postgres.image.digest stays refused (mcp-stack.postgres.assertImageKeys).
+
+     AND WHY PIN AT ALL, when the tag comes from the TIBCO mirror: because a
+     mirror tag is NOT immutable. .github/workflows/retag-third-party-image.yaml
+     rewrites `common-postgres:17` in place on every dispatch, so :17 names
+     whatever was retagged last. That is a smaller window than Docker Hub's
+     (which republishes on every patch release), not a closed one — the digest
+     is the only reference here that cannot move under a deployed release.
+
+     THE KEY IS THE TAG THE SITE RENDERS. postgres.image.tag deliberately stays
+     a bare MAJOR and the two override sites pin the literal majors "17"/"18",
+     so in practice the keys are majors. Helm parses values through JSON, whose
+     object keys are always strings, so `digests: {17: …}` in a values file and
+     `--set …digests.17=…` both arrive here as the STRING "17" (measured on
+     helm 3.19 and 4.0; the exact invocations are in values.yaml).
+
+     ALL-OR-NOTHING, PER RENDER. Once the map is non-empty, every major THIS
+     render actually builds must be in it or the render fails naming the one
+     that is missing. A half-pinned manifest is the worst outcome on offer: it
+     reads as pinned, one container still resolves a mutable tag, and nothing
+     between `helm template` and the running pod reports the difference. An
+     empty map is honest about being un-pinned; a partial map is not.
+
+     CALL IT ONLY WHERE THE CONTAINER ACTUALLY RENDERS, under the SAME condition
+     as the manifest that consumes the result — which is why the three postgres
+     templates hoist that condition into a named boolean and share it between
+     the lookup and the gate. Asking a plain, non-upgrading install for a :18
+     digest (it builds no :18 container) or asking the shipped parent surface
+     for any digest at all (postgres.enabled=false + external.enabled=true — the
+     bundled database is never deployed) would fail a render over config that
+     drives nothing. DEAD CONFIG MUST NOT FAIL THE RENDER: the same doctrine
+     container-registry-assert.sh:918-931 already fixed once for
+     postgres.image.repository. Pinned from the other side by
+     bundled-image-digest-assert.sh (E).
+
+     THE FORMAT IS CHECKED HERE AND NOT IN values.schema.json, and deliberately
+     with no `pattern` on the schema node: schema validation is unconditional,
+     so a pattern would reject a malformed digest even on the surface where the
+     bundled database is switched off — the same dead-config failure again, and
+     the one `helm upgrade --reuse-values` walks into by replaying an old map.
+     Checking on USE keeps the failure exactly where the bytes matter. A
+     malformed value would also be caught by mcp-stack.image; it is caught here
+     first so the message can name WHICH entry of the map is wrong.
+
+     >>> LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack
+         re-vendor. <<<
+     -------------------------------------------------------------------- */}}
+{{- define "mcp-stack.postgres.digestFor" -}}
+{{- $ctx := .ctx -}}
+{{- $major := .major | toString -}}
+{{- /* Nil-safe read, same idiom as mcp-stack.image: an ABSENT map is the default, not an error. */ -}}
+{{- $digests := ((($ctx.Values).postgres).image).digests -}}
+{{- if kindIs "invalid" $digests -}}{{- $digests = dict -}}{{- end -}}
+{{- if not (kindIs "map" $digests) -}}
+{{- fail (printf "mcp-stack: postgres.image.digests must be a MAP keyed by PostgreSQL major (found %s: %s). A single scalar is exactly the shape this chart cannot honour — the bundled postgres image renders at :17 on the three postgres-restore-* init containers and at :18 on the main container and the postgres-migration-check Job. Write it as digests: {\"17\": sha256:<64 hex>, \"18\": sha256:<64 hex>}, or leave it empty to render tag-only." (kindOf $digests) (toJson $digests)) -}}
+{{- end -}}
+{{- if gt (len $digests) 0 -}}
+{{- $d := "" -}}{{- if not (kindIs "invalid" (index $digests $major)) -}}{{- $d = toString (index $digests $major) -}}{{- end -}}
+{{- if not $d -}}
+{{- fail (printf "mcp-stack: postgres.image.digests is set but carries no entry for major %q, which THIS render builds (the map has: %s). Pinning the bundled PostgreSQL is ALL-OR-NOTHING per render: the same image block renders at :17 on the three postgres-restore-* init containers, which must run PostgreSQL 17 binaries against the pre-upgrade data directory, and at :18 on the main container and the postgres-migration-check Job. A partly-pinned manifest reads as pinned while one container still resolves a mutable tag, and nothing between `helm template` and the running pod reports the difference. Add the missing entry — --set mcp-stack.postgres.image.digests.%s=sha256:<64 hex>, unquoted key — using the digest of that major IN THE TIBCO MIRROR (a re-push re-serialises the manifest, so the mirror's digest is not necessarily Docker Hub's), or clear the whole map to go back to tag-only. If you did not set this by hand, `helm upgrade --reuse-values` replays the map from an older release." $major (keys $digests | sortAlpha | join ", ") $major) -}}
+{{- end -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $d) -}}
+{{- fail (printf "mcp-stack: postgres.image.digests entry %q is malformed (%q) — expected sha256: followed by 64 lowercase hex characters. Read it from the TIBCO mirror, e.g. `docker buildx imagetools inspect <registry>/<repository>/common-postgres:%s`. The entry is validated HERE, at the site that renders it, rather than by a values.schema.json pattern: the bundled database is off on the shipped parent surface, and an unconditional pattern would fail the whole gateway render for a database that is never deployed." $major $d $major) -}}
+{{- end -}}
+{{- $d -}}
+{{- end -}}
+{{- end -}}
+
+{{- /* --------------------------------------------------------------------
+     Helper: mcp-stack.postgres.assertImageKeys   (PCP-23215)
+     Abort the render when the SINGULAR postgres.image.digest is set, and point
+     at the per-major postgres.image.digests map instead. Emits NOTHING when it
+     is not set, so it is safe to include anywhere the bundled database renders:
+
+         {{ include "mcp-stack.postgres.assertImageKeys" . }}
+
+     WHY THE SINGULAR KEY IS STILL REFUSED. It is the shape every other image
+     block in this chart uses, so it is the shape an operator reaches for first
+     — and it is the one shape that cannot be honoured here: ONE value applied
+     to a block that renders at TWO majors pins :17 and :18 to the same bytes,
+     and the runtime obeys the digest and ignores the tag. Silently ignoring the
+     key would be worse than refusing it (the operator believes the database is
+     pinned and it is not), and honouring it would be worse still. The map that
+     mcp-stack.postgres.digestFor reads is the supported way to say this.
+
+     WHY THE TEMPLATE LAYER. A values.schema.json rejection evaporates under
+     --skip-schema-validation, a supported escape hatch and exactly the
+     invocation an operator reaches for when a schema is in the way. The
+     template guard holds there; bundled-image-digest-assert.sh (F) measures it.
+
+     WHY IT TAKES THE CHART CONTEXT and reads .Values.postgres.image itself,
+     rather than taking an image block the way mcp-stack.image does: every build
+     site passes an `omit … "digest" "digests"` copy, and a guard handed one of
+     those could never fire. Reading the source of truth removes that trap from
+     the call sites entirely. The `kindIs "invalid"` read is the same nil-safe
+     idiom as mcp-stack.image above — postgres.image declares no `digest` key at
+     all (values.yaml, values.schema.json), and an ABSENT key must not error.
+
+     WHERE TO INCLUDE IT: INSIDE the existing
+     `if or .Values.postgres.enabled .Values.postgres.upgrade.enabled` gates,
+     never at a file's top level, for the dead-config reason spelled out under
+     mcp-stack.postgres.digestFor above. Pinned by
+     bundled-image-digest-assert.sh (E).
+
+     NOT A REDIS RULE. redis.image.digest is DECLARED, validated by the
+     sub-chart schema and honoured by deployment-redis.yaml — one container at
+     one tag makes a single digest meaningful there. Do not generalise this
+     guard, and do not "harmonise" redis onto a map it has no second major for.
+
+     Deliberately a define of its own and NOT folded into mcp-stack.image:
+     that helper is byte-compared against its parent twin tp-mcp-gateway.image
+     by image-digest-assert.sh (G), and the parent chart renders no bundled
+     postgres. Not added to the parent _helpers.tpl for the same reason.
+
+     Pinned by dev/mcp-gateway-render-tests/bundled-image-digest-assert.sh
+     (D) / (F) / (G).
+
+     >>> LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack
+         re-vendor. <<<
+     -------------------------------------------------------------------- */}}
+{{- define "mcp-stack.postgres.assertImageKeys" -}}
+{{- /* UNKNOWN KEYS FIRST (PCP-23215). redis.image is closed by additionalProperties:false in
+       values.schema.json, but postgres.image is deliberately left OPEN so a stray key belonging to
+       a DISABLED database cannot abort the render (the dead-config doctrine). That leaves a hole
+       the schema closes for redis and nothing closed for postgres: a MISSPELLED plural key.
+       Measured before this check — `--set-string mcp-stack.postgres.image.digets.17=sha256:…`
+       rendered `common-postgres:17`, exit 0, un-pinned, with the operator believing otherwise.
+       That is the ticket's own failure class one keystroke earlier, and now that `digests` is the
+       ONLY supported way to pin the bundled database it is the likeliest way to hit it.
+       Checked HERE rather than in the schema for exactly the reason postgres.image stays open:
+       this define is included only inside the enable gates, so it inherits that scoping and a
+       typo for a database nobody deploys stays inert. Keep this list in step with the
+       postgres.image properties in values.schema.json. */ -}}
+{{- $known := list "repository" "tag" "pullPolicy" "digest" "digests" -}}
+{{- range $k, $v := (.Values.postgres.image | default dict) -}}
+{{- if not (has $k $known) -}}
+{{- fail (printf "mcp-stack: postgres.image.%s is not a recognised key (known: %s). Nothing reads it, so it would configure nothing while looking like it configured something — most often this is a misspelling of `digests`, the per-major map that is the only supported way to content-pin the bundled PostgreSQL. Correct the key, or remove it. If you did not set it by hand, `helm upgrade --reuse-values` replays it from an older release." $k (join ", " $known)) -}}
+{{- end -}}
+{{- end -}}
+{{- $digest := "" -}}{{- if not (kindIs "invalid" (.Values.postgres.image).digest) -}}{{- $digest = toString (.Values.postgres.image).digest -}}{{- end -}}
+{{- if $digest -}}
+{{- fail (printf "mcp-stack: postgres.image.digest is not supported — this SINGULAR key cannot serve the bundled database; use the per-major map postgres.image.digests instead and unset this one (found %q). ONE digest cannot serve this image block: it renders at :17 on the three postgres-restore-* init containers, which must run PostgreSQL 17 binaries against the pre-upgrade data directory, and at :18 on the main container and the postgres-migration-check Job. A runtime handed a tag AND a digest resolves by the DIGEST and ignores the tag, so a single value would run one major's binaries under the other major's tag at every site it was not meant for. Move it into the map (keys are unquoted; the map is all-or-nothing, so every major this render builds must be present): --set mcp-stack.postgres.image.digests.17=sha256:<64 hex> --set mcp-stack.postgres.image.digests.18=sha256:<64 hex> --set mcp-stack.postgres.image.digest=. redis.image.digest — one container, one tag — is a singular key and is unaffected. If you did not set this by hand, `helm upgrade --reuse-values` replays it from an older release: re-set it empty, or upgrade without --reuse-values." $digest) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+PCP-23986 — resolve ONE tp-mcp-gateway-proxy listen port from
+global.tpMcpGateway.tibcoProxy.ports.<key>.
+
+Args: dict "root" $ "key" "external"|"cpInternal" "default" 8880|8881
+
+Defaults when the key is ABSENT, NULL, or EMPTY; fails loudly on anything that is not a
+usable TCP port. Deliberately NOT `dig ... | default N | int`, which is not validation:
+  * `default` treats 0 as empty, so an explicit 0 silently becomes the default;
+  * `int` turns "abc" into 0 instead of erroring;
+  * a present-but-NULL key (`external:` with no value, or `--set ...=null`, which is
+    Helm's documented "remove this key" idiom) renders "<nil>" and would trip a naive
+    toString check — hence the kindIs "invalid" guard BEFORE any stringification.
+
+KEEP IN SYNC with "tp-mcp-gateway.tibcoProxy.port" in the parent chart's _helpers.tpl.
+
+Why this is duplicated rather than shared: NOT because a sub-chart cannot see a parent
+`define` — Helm renders the whole tree into ONE template namespace, so it can (measured).
+The real constraint is that mcp-stack is a VENDORED upstream chart
+(github.com/IBM/mcp-context-forge) that must keep rendering STANDALONE, where no parent
+template exists at all — `ct lint` enforces exactly that via an additional-command. Reach
+for the parent helper here and the standalone render dies with
+`no template "tp-mcp-gateway.tibcoProxy.port"`.
+Keep on upstream mcp-stack (github.com/IBM/mcp-context-forge) re-sync.
+*/}}
+{{- define "mcp-stack.tibcoProxy.port" -}}
+{{- $ports := dig "tpMcpGateway" "tibcoProxy" "ports" dict (.root.Values.global | default dict) -}}
+{{- if not (kindIs "map" $ports) -}}
+{{-   fail (printf "global.tpMcpGateway.tibcoProxy.ports must be a map with keys external and cpInternal, got %v (%s)" $ports (kindOf $ports)) -}}
+{{- end -}}
+{{- $unknown := without (keys $ports) "external" "cpInternal" -}}
+{{- if $unknown -}}
+{{-   fail (printf "global.tpMcpGateway.tibcoProxy.ports has unknown key(s) %v — only external and cpInternal are read, so anything else is a silent no-op (PCP-23986)" $unknown) -}}
+{{- end -}}
+{{- $v := get $ports .key -}}
+{{- if or (kindIs "invalid" $v) (eq (trim (toString $v)) "") -}}
+{{-   $v = .default -}}
+{{- end -}}
+{{- $p := int $v -}}
+{{- if or (ne (trim (toString $v)) (toString $p)) (lt $p 1) (gt $p 65535) -}}
+{{-   fail (printf "global.tpMcpGateway.tibcoProxy.ports.%s=%v is not a valid TCP port (1-65535)" .key $v) -}}
+{{- end -}}
+{{- $p -}}
+{{- end -}}
+
+{{/*
+PCP-23986 — reject a port pair that cannot work. Args: dict "ext" N "cp" N "gw" N
+The two proxy ports must differ from each other and from every other listener sharing this
+pod's network namespace: the gateway (a VALUE, mcpContextForge.containerPort — an operator
+can move it), discovery 8080, fluentbit 2020.
+*/}}
+{{- define "mcp-stack.tibcoProxy.assertPorts" -}}
+{{- if eq (int .ext) (int .cp) -}}
+{{-   fail (printf "tibcoProxy.ports.external and .cpInternal are both %d; the two listeners need distinct ports" (int .ext)) -}}
+{{- end -}}
+{{- range $name, $taken := dict "the gateway (mcpContextForge.containerPort)" (int .gw) "the discovery sidecar" 8080 "fluentbit" 2020 -}}
+{{-   if eq (int $.ext) $taken -}}
+{{-     fail (printf "tibcoProxy.ports.external=%d collides with %s on the same pod network namespace" $taken $name) -}}
+{{-   end -}}
+{{-   if eq (int $.cp) $taken -}}
+{{-     fail (printf "tibcoProxy.ports.cpInternal=%d collides with %s on the same pod network namespace" $taken $name) -}}
+{{-   end -}}
 {{- end -}}
 {{- end -}}

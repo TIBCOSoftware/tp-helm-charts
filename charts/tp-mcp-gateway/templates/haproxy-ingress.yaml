@@ -1,4 +1,27 @@
-{{- if .Values.haproxy.enabled }}
+{{- /*
+DEFAULT / LEGACY private CP->DP route — the bundled HAProxy ingress.
+
+PCP-21876 (PCP-18809 per-DP custom routing) adds four alternative ingress controllers plus a
+Gateway API variant for this same route; they live in private-route.yaml. Exactly one of the six
+may render, so this block now also requires that NEITHER selector is set.
+
+PCP-23774: the path goes through tp-mcp-gateway.privateRoutePath, exactly like the five routes in
+private-route.yaml. It used to interpolate .Values.haproxy.pathPrefix verbatim, on the reasoning
+that the bundled route is the CP-managed tunnel route and so always sits on the platform default —
+the Hub being free to deliver a custom prefix inside haproxy.pathPrefix itself. That reasoning does
+not hold: the CP exposes no per-DP prefix to the Hub (there is no connection-details field for it,
+and the DP's INGRESS resource instance carries only controller/class/fqdn/annotations), so the Hub
+has no way to compose a DP-anchored path. Meanwhile dp-proxy DOES prepend the DP's own prefix, so
+on a Data Plane whose routeResources.pathPrefix is non-default the two sides addressed different
+paths and every CP->DP health check 404'd — the gateway showed offline with healthy pods.
+
+The prefix is only knowable here, on the DP, where the provisioner injects it. Routing through the
+helper is inert for a default Data Plane: with routeResources.pathPrefix at its /tibco/agent
+default the helper returns haproxy.pathPrefix unchanged, so the default render stays byte-identical
+to the pre-PCP-18809 chart and the base-parity assertions still hold. A path that is not under
+/tibco/agent (operator-supplied or standalone) is still returned verbatim.
+*/ -}}
+{{- if and .Values.haproxy.enabled (empty ((((.Values.global).cp).routeResources).ingress).ingressController) (empty ((((.Values.global).cp).routeResources).gatewayapi).gatewayAPIControllerName) }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,14 +33,14 @@ metadata:
     haproxy.org/cors-enable: "true"
     haproxy.org/load-balance: leastconn
     haproxy.org/src-ip-header: X-Real-IP
-    ingress.kubernetes.io/path-rewrite: {{ .Values.haproxy.pathPrefix | trimSuffix "/" }}/(.*) /\1
+    ingress.kubernetes.io/path-rewrite: {{ include "tp-mcp-gateway.privateRoutePath" . }}/(.*) /\1
 spec:
   ingressClassName: tibco-dp-{{ .Values.dataplaneId }}
   rules:
     - host: {{ tpl .Values.global.cp.dpUrl.host . }}
       http:
         paths:
-          - path: {{ .Values.haproxy.pathPrefix | trimSuffix "/" }}/
+          - path: {{ include "tp-mcp-gateway.privateRoutePath" . }}/
             pathType: Prefix
             backend:
               service:

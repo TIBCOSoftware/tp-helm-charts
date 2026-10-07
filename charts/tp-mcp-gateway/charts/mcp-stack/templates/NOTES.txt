@@ -89,12 +89,36 @@
   {{- if .Values.postgres.external.enabled }}
   - PostgreSQL     : External ({{ if .Values.postgres.external.existingSecret }}via secret {{ .Values.postgres.external.existingSecret }}{{ else }}{{ include "mcp-stack.externalPg.host" . | default "via secret" }}{{ end }})
   {{- else if .Values.postgres.enabled }}
-  {{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089): postgres.image.repository is a BARE name now,
-         so this line prints the EFFECTIVE ref an operator can `docker pull`. It shows the
-         NON-upgrade shape (the tag from values); the upgrade path renders :18 on the workload and
-         :17 on the three restore init containers — see the banner at the top of
-         deployment-postgres.yaml. Keep on upstream re-sync. */}}
-  {{- $pgImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository))) .Values.postgres.image }}
+  {{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089; digests PCP-23215): postgres.image.repository is a
+         BARE name now, so this line prints the EFFECTIVE ref an operator can `docker pull`.
+
+         THE SIXTH BUILD SITE, and it must print what the MAIN container actually gets — which
+         means mirroring the workload's own major selection, not the values tag. On the upgrade
+         path deployment-postgres.yaml builds the main container at the LITERAL 18 while the three
+         restore init containers stay at 17; keying this line on postgres.image.tag instead was
+         wrong twice over. It printed :17@<17-digest> for a pod running :18@<18-digest>, and
+         because digestFor enforces the all-or-nothing rule it ABORTED THE WHOLE RENDER whenever
+         the values tag named a major no container builds — measured with tag=16 and a complete
+         {17,18} map: `no entry for major "16", which THIS render builds`, which was not even true.
+         $pgMajor below is the same expression deployment-postgres.yaml branches on, so the two
+         cannot disagree again; the tag is pinned in the DESTINATION dict for the same
+         destination-wins reason as every other site.
+
+         This line shows only the main container. The restore init containers run the previous
+         major during an upgrade and are deliberately not listed — see the banner at the top of
+         deployment-postgres.yaml.
+
+         No assertImageKeys include here: this file is never rendered on its own, so the singular key
+         is already refused by the workload templates beside it, and the `omit` below keeps it
+         from reaching this line meanwhile. Keep on upstream re-sync. */}}
+  {{- $pgMajor := toString .Values.postgres.image.tag }}
+  {{- /* THREE-PART, matching deployment-postgres.yaml exactly (PCP-23127 added backupCompleted to
+         the :18 selection). Phase 1 of the upgrade keeps the main container on the values tag, so
+         printing :18 here would name a major the pod is not running — and, because digestFor is
+         all-or-nothing, would abort the render over a major nothing builds. */}}
+  {{- if and .Values.postgres.upgrade.enabled (eq (toString .Values.postgres.upgrade.targetVersion) "18") .Values.postgres.upgrade.backupCompleted }}{{- $pgMajor = "18" }}{{- end }}
+  {{- $pgDigest := include "mcp-stack.postgres.digestFor" (dict "ctx" $ "major" $pgMajor) }}
+  {{- $pgImg := merge (dict "repository" (printf "%s/%s/%s" $reg $rrepo (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository)) "tag" $pgMajor "digest" $pgDigest) (omit .Values.postgres.image "digest" "digests") }}
   - PostgreSQL     : {{ include "mcp-stack.image" $pgImg }}
     {{- if .Values.postgres.persistence.enabled }} ({{ .Values.postgres.persistence.size }} storage){{ end }}
   {{- end }}

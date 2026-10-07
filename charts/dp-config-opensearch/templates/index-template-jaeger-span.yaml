@@ -4,6 +4,15 @@
   in the license file that is distributed with this file.
 */}}
 
+{{/*
+  No rollover_alias: Jaeger writes date-named daily indices (jaeger-span-YYYY-MM-DD), which are
+  never the write index of jaeger-span-write. Pointing them at a rollover alias made every daily
+  index fail the ISM rollover action and stall in a failed state, so the 30d retention below never
+  ran and trace indices accumulated forever. This is the OpenSearch face of PCP-24038 (on
+  Elasticsearch the same mismatch instead rejected all writes); see
+  charts/dp-config-es/templates/index-template-jaeger-span.yaml.
+*/}}
+
 {{ if .Values.index.jaeger.enabled -}}
 apiVersion: batch/v1
 kind: Job
@@ -51,8 +60,7 @@ spec:
                       "number_of_shards": {{ .Values.index.jaeger.shards | default 6 }},
                       "number_of_replicas": {{ .Values.index.jaeger.replicas | default 1 }},
                       "index.mapping.nested_fields.limit": 50,
-                      "index.requests.cache.enable": true,
-                      "plugins.index_state_management.rollover_alias": "jaeger-span-write"
+                      "index.requests.cache.enable": true
                     },
                     "aliases": {
                       "jaeger-span-read": {}
