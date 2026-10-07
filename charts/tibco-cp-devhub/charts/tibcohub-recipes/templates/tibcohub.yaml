@@ -13,15 +13,15 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.20.0",
-      "minCPVersion": "1.17.0",
+      "capabilityVersion": "1.21.0",
+      "minCPVersion": "1.21.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.tibcohub.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.tibcohub.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
-      "minRollbackVersion": "1.10.0",
+      "minRollbackVersion": "1.20.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.17.0",
+        "dp-core-infrastructure": "1.21.0",
         "dp-configure-namespace": "1.17.0"
       }
     }
@@ -44,6 +44,7 @@ data:
           "DEV_OPS"
         ],
         "serviceUrl": "http://tibco-developer-hub:7007",
+        "supportProvisionFrescoWizard": true,
         "allowMultipleInstances": false,
         "capabilityResourceDependencies": [
           {
@@ -82,7 +83,7 @@ data:
     recipe:
       helmCharts:
       - name: tibco-developer-hub
-        version: "1.20.8"
+        version: "1.21.11"
         namespace: ${NAMESPACE}
         repository:
           chartMuseum:
@@ -157,7 +158,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.20.0"
+          value: "1.21.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
