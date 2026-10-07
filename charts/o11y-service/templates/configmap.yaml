@@ -246,13 +246,30 @@ data:
 {{- end }}
 ##metricsserver:exporter
 {{- if .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.enabled }}
+  {{- /* PCP-24428: hoist the push flag so EVERY exporter kind (not just prometheus) can dual-export
+         to the CP-System push exporter. CP-System delivery is unconditional when push is on: a BYO
+         otlp/kafka exporter must never blind the platform's own observability, and (the reported
+         regression) defining otlphttp/cp-metrics in the recipe without CP_METRICS_OTLPHTTP_URL set
+         crash-looped the collector ("at least one endpoint must be specified"). */ -}}
+  {{- $push := dig "push" "enabled" false .Values.global.cp.resources.o11yv3.metricsServer.config.exporter -}}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "prometheus" }}
     {{- if and (.Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled) (eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint "system") }}
+    {{- if $push }}
+    {{- /* PCP-23522: CP-System delivery via disk-buffered OTLP push instead of the :4320 pull. */ -}}
+    {{- $appMetricsExp = "'[otlphttp/cp-metrics]'" -}}
+    {{- $promMetricsExp = "'[otlphttp/cp-metrics]'" -}}
+    {{- else }}
     {{- $appMetricsExp = "'[prometheus/ext]'" -}}
     {{- $promMetricsExp = "'[prometheus/ext]'" -}}
+    {{- end }}
+    {{- else }}
+    {{- if $push }}
+    {{- $appMetricsExp = "'[prometheus/user, otlphttp/cp-metrics]'" -}}
+    {{- $promMetricsExp = "'[prometheus/user, otlphttp/cp-metrics]'" -}}
     {{- else }}
     {{- $appMetricsExp = "'[prometheus/user, prometheus/ext]'" -}}
     {{- $promMetricsExp = "'[prometheus/user, prometheus/ext]'" -}}
+    {{- end }}
     {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "kafka" }}
@@ -260,23 +277,47 @@ data:
   METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.protocol_version }}
   METRICS_EXPORTER_KAFKA_TOPIC: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.topic }}
   METRICS_EXPORTER_KAFKA_USERNAME: {{ .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.username }}
-  {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.username ""}}
-  {{- $appMetricsExp = "'[kafka/metrics-export]'" -}}
-  {{- $promMetricsExp = "'[kafka/metrics-export]'" -}}
+  {{- $kafkaExp := "kafka/metrics-export" -}}
+  {{- if ne .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kafka.username "" -}}
+  {{- $kafkaExp = "kafka/metrics-export-auth" -}}
+  {{- end }}
+  {{- /* PCP-24428: BYO kafka also dual-exports to CP push, and its leg is disk-buffered too (the
+         kafka exporter uses exporterhelper, so it takes the same file_storage sending_queue). */ -}}
+  {{- if $push }}
+  {{- $appMetricsExp = printf "'[%s, otlphttp/cp-metrics]'" $kafkaExp -}}
+  {{- $promMetricsExp = printf "'[%s, otlphttp/cp-metrics]'" $kafkaExp -}}
   {{- else }}
-  {{- $appMetricsExp = "'[kafka/metrics-export-auth]'" -}}
-  {{- $promMetricsExp = "'[kafka/metrics-export-auth]'" -}}
+  {{- $appMetricsExp = printf "'[%s]'" $kafkaExp -}}
+  {{- $promMetricsExp = printf "'[%s]'" $kafkaExp -}}
   {{- end }}
   {{- end }}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "otlp" }}
+  {{- $otlpExp := "" -}}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.type "grpc" }}
   {{- $metricsOtlpGrpcUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.endpoint }}
-  {{- $appMetricsExp = "'[otlp/metrics-export]'" -}}
-  {{- $promMetricsExp = "'[otlp/metrics-export]'" -}}
+  {{- $otlpExp = "otlp/metrics-export" -}}
   {{- else if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.type "http"}}
   {{- $metricsOtlpHttpUrl = .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.otlp.endpoint }}
-  {{- $appMetricsExp = "'[otlphttp/metrics-export]'" -}}
-  {{- $promMetricsExp = "'[otlphttp/metrics-export]'" -}}
+  {{- $otlpExp = "otlphttp/metrics-export" -}}
+  {{- end }}
+  {{- /* PCP-24428: BYO OTLP (http+grpc) also dual-exports to CP push; both BYO OTLP legs are
+         disk-buffered (file_storage sending_queue) in the recipe, alongside the cp-metrics queue.
+         Guard on a resolved $otlpExp: an unknown otlp.type (e.g. the "http|grpc" placeholder) leaves
+         it empty — fall through to the '[debug]' default rather than emit a malformed exporter list. */ -}}
+  {{- if $otlpExp }}
+  {{- if $push }}
+  {{- $appMetricsExp = printf "'[%s, otlphttp/cp-metrics]'" $otlpExp -}}
+  {{- $promMetricsExp = printf "'[%s, otlphttp/cp-metrics]'" $otlpExp -}}
+  {{- else }}
+  {{- $appMetricsExp = printf "'[%s]'" $otlpExp -}}
+  {{- $promMetricsExp = printf "'[%s]'" $otlpExp -}}
+  {{- end }}
+  {{- else if $push }}
+  {{- /* PCP-24428: unresolved otlp.type (misconfig / "http|grpc" placeholder) but push is on —
+         the BYO leg is unusable, but CP delivery is unconditional, so still push to CP-System
+         rather than silently drop to '[debug]'. */ -}}
+  {{- $appMetricsExp = "'[otlphttp/cp-metrics]'" -}}
+  {{- $promMetricsExp = "'[otlphttp/cp-metrics]'" -}}
   {{- end }}
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
@@ -287,6 +328,35 @@ data:
   {{- $promMetricsRec = "'[prometheus/receive-ns]'" -}}
   {{- $appMetricsProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
   {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- end }}
+  {{- /* PCP-24428: these push-parity processors now apply to EVERY kind that pushes to CP
+         (prometheus system/BYO + BYO otlp/kafka), not just prometheus. Every push path lands on the
+         same cumulative-only CP Prometheus OTLP receiver via otlphttp/cp-metrics (which has no
+         resource_to_telemetry_conversion), so all of them need delta->cumulative + resource-attr
+         label promotion. Still gated on push: with push OFF (pull fallback) the render is unchanged. */ -}}
+  {{- if $push }}
+  {{- /* PCP-23925: the push exporter (otlphttp/cp-metrics) lacks the pull exporter's
+         resource_to_telemetry_conversion, so app OTLP metrics lose their resource-attr series
+         labels (app_type, dataplane_id, k8s_namespace_name, service_name, ...). Promote the
+         resource attrs onto the datapoint
+         on the appengines push pipeline (right after k8sattributes) to restore parity. Applies to
+         every push kind; pull-mode render stays byte-identical. */ -}}
+  {{- $appMetricsProc = $appMetricsProc | replace ", memory_limiter" ", transform/userapp-promote-resource, memory_limiter" -}}
+  {{- /* PCP-23925 (prom/scrape slice): the same rtc gap drops resource-attr labels on the
+         prometheus/receive scrape pipeline under push — card-critical k8s_namespace_name +
+         service_name are resource attrs (k8sattributes/pa + the prometheus receiver) and are
+         lost. transform/prom-promote-resource restores them (explicit nil-guarded set()s, live-
+         proven; merge_maps did not land on this pipeline) and is wired AFTER transform/msg so it
+         never overwrites the datapoint app_id/dataplane_id it sets. Scope/HTTP-target attrs
+         (otel_scope_*, server_*, url_scheme, service_instance_id) remain accepted push-model
+         differences (per-card acceptance). Applies to every push kind; pull-mode render stays
+         byte-identical. */ -}}
+  {{- $promMetricsProc = $promMetricsProc | replace ", memory_limiter" ", transform/prom-promote-resource, memory_limiter" -}}
+  {{- /* PCP-23522: the CP-System push targets the cumulative-only Prometheus OTLP receiver — convert
+         app OTLP metrics delta->cumulative first. PCP-24428: this now also affects the BYO otlp/kafka
+         leg that shares the pipeline (it too receives cumulative); true per-exporter temporality would
+         require a fan-out/routing connector (out of scope, accepted). */ -}}
+  {{- $appMetricsProc = $appMetricsProc | replace ", batch]" ", deltatocumulative, batch]" -}}
   {{- end }}
 {{- end }}
 ##metricsserver:secondary exporter
@@ -386,6 +456,13 @@ data:
   LOGS_EXPORTER_SVC_OTLPHTTP_URL: {{ $svcLogOtlpHttpUrl }}
   METRICS_EXPORTER_OTLPGRPC_URL: {{ $metricsOtlpGrpcUrl }}
   METRICS_EXPORTER_OTLPHTTP_URL: {{ $metricsOtlpHttpUrl }}
+{{- /* PCP-24428: emit CP_METRICS_OTLPHTTP_URL whenever push is on, independent of exporter.kind.
+       otlphttp/cp-metrics is now selected for every kind (prometheus + BYO otlp/kafka), so the
+       endpoint env must always be present or the collector crash-loops on an empty endpoint. The old
+       kind=="prometheus" guard left it unset for BYO otlp/kafka — the reported regression. */ -}}
+{{- if dig "push" "enabled" false .Values.global.cp.resources.o11yv3.metricsServer.config.exporter }}
+  CP_METRICS_OTLPHTTP_URL: {{ required "PCP-23522: metricsServer.config.exporter.push.cpSystem.endpoint must be set when CP-System metrics push is enabled" .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.push.cpSystem.endpoint | quote }}
+{{- end }}
   TRACES_EXPORTER_OTLPGRPC_URL: {{ $traceOtlpGrpcUrl }}
   TRACES_EXPORTER_OTLPHTTP_URL: {{ $traceOtlpHttpUrl }}
 ##pipeline:userapp logs

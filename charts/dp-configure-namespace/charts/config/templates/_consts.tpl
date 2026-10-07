@@ -19,6 +19,15 @@
 {{/* Data plane workload type */}}
 {{- define "dp-configure-namespace-config.consts.workloadType" }}infra{{ end -}}
 
+{{- define "dp-configure-namespace-config.consts.imagePullSecretName" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- .Values.global.tibco.dataPlaneId -}}
+{{- end -}}
+{{- end }}
+
+
 {{- define "dp-configure-namespace-config.consts.imageCredential" }}
 {{- with .Values.global.tibco.containerRegistry }}
 {{- if .username  }}

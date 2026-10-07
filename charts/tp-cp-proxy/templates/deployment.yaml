@@ -197,5 +197,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. omitted entirely if secret name is not provided */}}
       imagePullSecrets:
-        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}

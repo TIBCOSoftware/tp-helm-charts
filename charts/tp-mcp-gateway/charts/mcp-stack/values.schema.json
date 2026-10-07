@@ -2631,7 +2631,9 @@
               "type": "string"
             },
             "repository": {
-              "type": "string"
+              "type": "string",
+              "description": "LOCAL TIBCO MODIFICATION (PCP-23127) — re-apply on upstream re-vendor. BARE image name; templates/minio-deployment.yaml (and the pg17 -> pg18 `mc` copy init container in templates/deployment-postgres.yaml / templates/job-postgres-backup.yaml) compose global.cp.containerRegistry.url/.repository in front of it and pass the result to the mcp-stack.image helper. Do not re-qualify it with a registry host. No digest is declared: minio is a mirrored third-party image release-alpha.sh does not pin, and the helper treats an absent digest as the tag-only case.",
+              "default": "common-minio"
             },
             "tag": {
               "type": "string"
@@ -4187,13 +4189,21 @@
             },
             "repository": {
               "type": "string",
-              "description": "LOCAL TIBCO MODIFICATION (PCP-23125) — re-apply on upstream re-vendor. BARE image name; the templates compose global.cp.containerRegistry.url/.repository in front of it via the mcp-stack.image.registry / mcp-stack.image.repository helpers and pass the result to mcp-stack.image. Do not re-qualify it with a registry host. No `digest` is declared on this block: one image block, two majors (:17 restore init containers, :18 main + migration-check) — see the banner at the top of templates/deployment-postgres.yaml.",
+              "description": "LOCAL TIBCO MODIFICATION (PCP-23125) — re-apply on upstream re-vendor. BARE image name; the templates compose global.cp.containerRegistry.url/.repository in front of it via the mcp-stack.image.registry / mcp-stack.image.repository helpers and pass the result to mcp-stack.image. Do not re-qualify it with a registry host. No SINGULAR `digest` is declared on this block — content pins go in `digests`, keyed by major (PCP-23215) — and, unlike redis.image, the block is deliberately left OPEN: one image block renders at TWO majors (:17 on the restore init containers, :18 on the main container and the migration-check Job), no single digest can describe both, and the runtime obeys the digest and ignores the tag, so one riding along would run the WRONG major's binaries under the right major's tag. The enforcement therefore lives in the TEMPLATES, not here: the shipped default is postgres.enabled=false with external.enabled=true, so a stray key — exactly what `helm upgrade --reuse-values` replays — must stay INERT for a database that will never be deployed, while `helm template` fails loudly wherever a bundled postgres image actually renders. Closing this block instead would fail the whole gateway render on dead config. See the banner at the top of templates/deployment-postgres.yaml.",
               "default": "common-postgres"
             },
             "tag": {
               "type": "string",
               "description": "Image tag",
               "default": "17"
+            },
+            "digests": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "LOCAL TIBCO MODIFICATION (PCP-23215) — re-apply on upstream re-vendor. OCI content digests for the mirrored PostgreSQL image, KEYED BY MAJOR: {\"17\": \"sha256:…\", \"18\": \"sha256:…\"}. Empty or absent (the default) means un-pinned and every site renders tag-only. A map and not a single `digest` because this one image block renders at two majors, and each build site looks up its own — the 17 digest can only land on a :17 container and the 18 digest only on an :18 one. ALL-OR-NOTHING per render: once the map is non-empty, every major that render builds must be present or the render fails naming the missing one (a partly-pinned manifest reads as pinned while a container still resolves a mutable tag). Set it with `--set mcp-stack.postgres.image.digests.17=sha256:<64 hex>` — the bare numeric key is correct and must NOT be quoted, since Helm parses values through JSON and object keys are always strings. Deliberately declared WITHOUT a `pattern`: schema validation is unconditional, and the bundled database is off on the shipped parent surface, so a pattern would fail the whole gateway render over a malformed pin for a database that is never deployed. The format (sha256: + 64 lowercase hex) is checked instead by the templates, at the site that renders the value. Nothing writes this automatically — release-alpha.sh pins only the first-party images it builds — so it is set by hand at a mirror refresh, using the TIBCO mirror's digest (a re-push can re-serialise the manifest, which changes it).",
+              "default": {}
             }
           },
           "description": "PostgreSQL image configuration"
@@ -4558,6 +4568,7 @@
         },
         "image": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "pullPolicy": {
               "type": "string",
@@ -4571,13 +4582,18 @@
             },
             "repository": {
               "type": "string",
-              "description": "LOCAL TIBCO MODIFICATION (PCP-23125) — re-apply on upstream re-vendor. BARE image name; templates/deployment-redis.yaml composes global.cp.containerRegistry.url/.repository in front of it and passes the result to the mcp-stack.image helper. Do not re-qualify it with a registry host. No digest is declared: redis is a mirrored third-party image release-alpha.sh does not pin, and the helper treats an absent digest as the tag-only case.",
+              "description": "LOCAL TIBCO MODIFICATION (PCP-23125) — re-apply on upstream re-vendor. BARE image name; templates/deployment-redis.yaml composes global.cp.containerRegistry.url/.repository in front of it and passes the result to the mcp-stack.image helper. Do not re-qualify it with a registry host. A `digest` IS declared alongside (PCP-23215) and it TAKES EFFECT: the template merges this whole block into mcp-stack.image, which appends `@<digest>` to the composed `:tag`. This block is CLOSED (`additionalProperties: false`), so a misspelled neighbour — `digset:` — is refused at validation instead of being dropped in silence; from the operator's side a typo'd pin and a chart that ignores pins look identical. DELIBERATE EXCEPTION TO THE DEAD-CONFIG DOCTRINE (PCP-23215): schema validation is UNCONDITIONAL, so both this closed block and the `digest` pattern reject a stale value even when the bundled Redis is not deployed (redis.enabled=false, or the external-Redis path where deployment-redis.yaml suppresses it). postgres.image is deliberately left OPEN for exactly that reason and enforces in the template instead — the two datastores differ on purpose. Redis is enabled by DEFAULT and is one container at one tag, so validating it eagerly costs an operator nothing on the shipped surface and buys a clearer error than a render-time fail; bundled postgres is default-OFF at the parent, where the same eagerness would abort the whole gateway render over a database nobody deploys. bundled-image-digest-assert.sh pins BOTH behaviours, so neither is accidental.",
               "default": "common-redis-official"
             },
             "tag": {
               "type": "string",
               "description": "Image tag",
               "default": "8.10.0"
+            },
+            "digest": {
+              "type": "string",
+              "description": "OCI content digest for the mirrored Redis image (PCP-23215). Empty or absent means un-pinned: the image renders tag-only. Declared here because the template actually composes it and because redis is ONE image block rendered into ONE container at ONE tag, so `:8.10.0@sha256:…` names both the readable version and the exact bytes. Nothing writes it automatically — release-alpha.sh pins only the first-party images it builds — so it is set by hand at a mirror refresh, and the digest to use is the TIBCO mirror's: a re-push can re-serialise the manifest, which changes it.",
+              "pattern": "^$|^sha256:[0-9a-f]{64}$"
             }
           },
           "description": "Redis image configuration"

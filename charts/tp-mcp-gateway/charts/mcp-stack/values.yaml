@@ -32,7 +32,8 @@ global:
           # parent's own global.tibco.logging.fluentbit.image.repository default must stay in
           # lockstep with this one.
           repository: common-fluentbit
-          tag: "5.1.0"
+          # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
+          tag: "5.1.2"
           pullPolicy: IfNotPresent
         # DP log-collector endpoint (well-known service in the capability namespace).
         otel:
@@ -1152,10 +1153,11 @@ postgres:
   # Pulled from the TIBCO mirror, not Docker Hub. A customer-run Data Plane must not depend on
   # a rate-limited public registry it may not even be able to reach, and only mirrored images
   # sit inside the Mend scan surface. The mirror is a point-in-time retag of the official
-  # Debian postgres image and is rewritten ONLY by an explicit human dispatch of
-  # .github/workflows/retag-third-party-image.yaml — whereas docker.io/library/postgres:17 is
-  # republished by Docker Hub on every patch release, so the bare major is reproducible here
-  # in a way it never was upstream.
+  # Debian postgres image, rewritten by an explicit human dispatch of
+  # .github/workflows/retag-third-party-image.yaml — a much narrower window than
+  # docker.io/library/postgres:17, which Docker Hub republishes on every patch release, but NOT
+  # a closed one: `common-postgres:17` still names whatever was retagged last, so the tag alone
+  # is not a content pin. `digests` below is the content pin (PCP-23215).
   # The tag deliberately stays a bare MAJOR: deployment-postgres.yaml and
   # job-postgres-migration-check.yaml hardcode :17 / :18 onto this same repository for the
   # pg17 -> pg18 upgrade path, so a precise pin here would leave the main container
@@ -1170,15 +1172,62 @@ postgres:
   # follows global.cp.containerRegistry (orchestrator-injected on a live Data Plane). Do NOT
   # re-qualify this value and do NOT split it into registry:/name: keys — `tag:` must stay on the
   # line IMMEDIATELY below (the release-automation contract documented at values.yaml:174-175).
-  # NO `digest` KEY, deliberately (PCP-23089 + PCP-23125): this ONE block is rendered at TWO
-  # majors — three restore init containers at a literal :17 against a PG17 data directory, the
-  # main container and the migration-check Job at a literal :18 — so no single digest can
-  # describe it, and a digest reaching a site whose tag was overridden would silently run the
-  # wrong major's binaries (the runtime obeys the digest, not the tag). values.schema.json does
-  # not declare `digest` on this block either, so the key cannot be introduced by --set.
+  # NO SINGULAR `digest` KEY, deliberately (PCP-23089 + PCP-23125 + PCP-23215): this ONE block is
+  # rendered at TWO majors — three restore init containers at a literal :17 against a PG17 data
+  # directory, the main container and the migration-check Job at a literal :18 — so no single
+  # digest can describe it, and one reaching a site whose tag was overridden would silently run
+  # the wrong major's binaries (the runtime obeys the digest, not the tag). Setting it anyway
+  # FAILS THE RENDER, by name, wherever a bundled postgres image is actually built
+  # (mcp-stack.postgres.assertImageKeys). Use `digests` below instead.
+  # Unlike redis.image further down, this block is deliberately left OPEN in values.schema.json,
+  # so `--set postgres.image.digest=…` is accepted by validation and refused by the TEMPLATES.
+  # That split is the point: the shipped parent default is postgres.enabled=false with
+  # external.enabled=true, so a stray key — exactly what `helm upgrade --reuse-values` replays —
+  # stays INERT for a database that is never deployed, while the render fails loudly wherever the
+  # image actually builds. Closing the block instead would abort the whole gateway render on dead
+  # config.
   image:
     repository: common-postgres
     tag: "17"
+    # PCP-23215 — CONTENT PINS, KEYED BY MAJOR. Empty by default: nothing is pinned, every site
+    # renders the tag-only reference it always did, and this key changes no manifest until you
+    # fill it in. Nothing writes it automatically (release-alpha.sh pins only the first-party
+    # images it builds), so it is set by hand at a mirror refresh.
+    #
+    # A MAP and not a single value because this block is rendered at two majors (above). Each
+    # build site looks up ITS OWN major, so the 17 digest can only ever land on a :17 container
+    # and the 18 digest only on an :18 one — the cross-contamination a singular key would cause
+    # is not expressible here.
+    #
+    # ALL-OR-NOTHING, PER RENDER: once the map is non-empty, every major THAT RENDER builds must
+    # be present or the render fails naming the missing one. A partly-pinned manifest reads as
+    # pinned while one container still resolves a mutable tag — worse than no pin, because it
+    # cannot be seen. A plain (non-upgrading) install builds only postgres.image.tag, so
+    # {"17": …} alone is complete for it; the pg17→18 upgrade path builds BOTH and needs both.
+    #
+    # Use the digest FROM THE TIBCO MIRROR, not Docker Hub's: a re-push can re-serialise the
+    # manifest and change it. Read it with
+    #   docker buildx imagetools inspect <registry>/<repository>/common-postgres:17
+    #
+    # HOW TO SET IT (measured on helm 3.19 and 4.0 — the invocation below works as written):
+    #   helm upgrade … \
+    #     --set mcp-stack.postgres.image.digests.17=sha256:<64 lowercase hex> \
+    #     --set mcp-stack.postgres.image.digests.18=sha256:<64 lowercase hex>
+    #   * the bare numeric segment is correct and needs no escaping — Helm parses values through
+    #     JSON, whose object keys are always strings, so `digests.17` arrives as the key "17";
+    #   * do NOT quote the key. `--set ….digests."17"=…` creates a key that literally contains
+    #     the quote characters ("\"17\"") and the look-up then misses it, which surfaces as the
+    #     all-or-nothing failure for major 17 with a bizarre-looking map in the message;
+    #   * --set-string is not required (a sha256:… value is not numeric-looking, so nothing
+    #     coerces it), but it is harmless and equivalent;
+    #   * in a -f values file both `17:` and `"17":` work, for the same JSON-key reason.
+    #
+    # The VALUES are validated where they are used, not by a values.schema.json `pattern`: schema
+    # validation is unconditional, and a pattern would fail the whole gateway render over a
+    # malformed pin for a bundled database that the shipped surface never deploys.
+    digests: {}
+      # 17: sha256:<64 lowercase hex>
+      # 18: sha256:<64 lowercase hex>
     pullPolicy: IfNotPresent
 
   # PCP-20654: run the DB as its built-in non-root uid so the postgres:17
@@ -1379,15 +1428,23 @@ redis:
   # BELOW it (e.g. back to the 7.4 line) would be a major downgrade and Redis refuses to load
   # a data file newer than itself — the pod would CrashLoop with no self-recovery. Re-pin
   # forward only, and re-mirror before bumping.
-  # >>> LOCAL TIBCO MODIFICATION (PCP-23125) — re-apply on upstream re-vendor. <<<
+  # >>> LOCAL TIBCO MODIFICATION (PCP-23125 + PCP-23215) — re-apply on upstream re-vendor. <<<
   # BARE NAME: deployment-redis.yaml composes
-  # <mcp-stack.image.registry>/<mcp-stack.image.repository>/<this>. Same rules as postgres.image
-  # above. NO `digest` key: redis is a mirrored third-party image that release-alpha.sh never
-  # pins, so declaring the key would advertise a value nothing writes. The mcp-stack.image helper
-  # treats an absent digest as the tag-only case.
+  # <mcp-stack.image.registry>/<mcp-stack.image.repository>/<this>. Same bare-name rules as
+  # postgres.image above, but the OPPOSITE digest rules. A `digest` IS declared here and IS
+  # honoured: the template merges this whole block into the mcp-stack.image helper, which appends
+  # `@<digest>` to the composed `:tag`. It is meaningful for redis and not for postgres because
+  # this is ONE image block rendered into ONE container at ONE tag. Empty below means un-pinned and
+  # renders the tag-only shape — the shipped default, and the reason declaring the key moved no
+  # render. The block is CLOSED in values.schema.json (`additionalProperties: false`), so a
+  # misspelled `digset:` is refused at validation instead of being ignored in silence. Nothing
+  # writes this automatically — release-alpha.sh pins only the first-party images it builds — so
+  # set it by hand at a mirror refresh, and use the TIBCO MIRROR's digest: a re-push can
+  # re-serialise the manifest, which changes it.
   image:
     repository: common-redis-official
     tag: "8.10.0"
+    digest: ""
     pullPolicy: IfNotPresent
 
   # PCP-21592: harden the bundled Redis to match the postgres block (PCP-20654) so the
@@ -1687,9 +1744,53 @@ redisCommander:
 ########################################################################
 minio:
   enabled: false # Enable only when needed for PostgreSQL major upgrade backup/restore flow
+  # OPERATOR NOTE (PCP-23127): while this is true the POSTGRES pod carries an init-time
+  # dependency on the MinIO image too — the pg17 -> pg18 path installs the `mc` client FROM this
+  # same image (a `minio-client-copy` init container that copies /usr/bin/mc into a shared
+  # emptyDir), which is how the upgrade works on an air-gapped cluster with no apt-get and no
+  # dl.min.io. Once the upgrade has COMPLETED there are exactly TWO supported end states, and
+  # switching a single flag off is NEITHER of them. postgres.upgrade.enabled=false ON ITS OWN
+  # drops the tag selection back to postgres.image.tag — still "17" — so the next rollout starts
+  # a PostgreSQL 17 binary on a PostgreSQL 18 data directory and crash-loops terminally, with no
+  # in-place way back because the finalize hook has already removed pgdata-pg17-bak.
+  # minio.enabled=false ON ITS OWN hits the fail-fast in deployment-postgres.yaml
+  # ("postgres.upgrade.enabled=true requires minio.enabled=true"), which aborts every subsequent
+  # helm operation at render time. The two that work:
+  #   (A) Leave postgres.upgrade.enabled / targetVersion / backupCompleted AND minio.enabled in
+  #       place permanently. Steady-state restarts do no work outside the pod — the check step
+  #       sees the completion marker and every later step exits immediately — but the database
+  #       pod keeps pulling the MinIO image, and MinIO keeps its PVC.
+  #   (B) In ONE pass, set postgres.image.tag: "18" AND postgres.upgrade.enabled: false AND
+  #       minio.enabled: false. Only then does the database pod stop pulling an object-store
+  #       image it no longer needs on every restart, and the object store stop holding a PVC for
+  #       a one-off.
+  # Both are written out in "Cleanup After Successful Upgrade" in the operator runbook
+  # (docs/docs/manage/postgres-upgrade-process.md, tp-mcp-gateway) — follow it, not a half step.
 
+  # Pulled from the TIBCO mirror, not Docker Hub — same reasoning as postgres.image and
+  # redis.image above. PCP-23127 makes that reasoning load-bearing rather than hygienic here:
+  # this image is on the CRITICAL PATH of the pg17 -> pg18 upgrade at two points (the object
+  # store itself, and the `mc` binary the backup/restore containers execute), so while it pointed
+  # at Docker Hub a Data Plane with no public egress could not complete the upgrade at all.
+  # Mirrored by an explicit human dispatch of .github/workflows/retag-third-party-image.yaml
+  # (IMAGE_MAP: minio/minio=common-minio). The retag is a point-in-time copy of the tag below, so
+  # re-mirror FIRST and bump here second — never the other way round.
+  # The tag stays EXACTLY as it is: MinIO's RELEASE.* stamps are already immutable and are never
+  # republished, so there is no floating-tag problem to fix (contrast redis, which had to be
+  # moved off `latest`). `-cpuv1` is the baseline-x86-64 build variant — keep it.
+  # >>> LOCAL TIBCO MOD (PCP-23127): re-apply on upstream mcp-stack re-vendor. <<<
+  # BARE NAME, deliberately: minio-deployment.yaml, deployment-postgres.yaml and
+  # job-postgres-backup.yaml compose
+  # <mcp-stack.image.registry>/<mcp-stack.image.repository>/<this>, so the effective registry
+  # follows global.cp.containerRegistry (orchestrator-injected on a live Data Plane). Do NOT
+  # re-qualify this value with a registry host and do NOT split it into registry:/name: keys —
+  # mcp-stack.image.bareRepository aborts the render on either shape rather than prefixing it a
+  # second time into an unpullable ref.
+  # NO `digest` KEY, deliberately: like redis, this is a mirrored third-party image that
+  # release-alpha.sh never pins, so declaring the key would advertise a value nothing writes.
+  # The mcp-stack.image helper treats an absent digest as the tag-only case.
   image:
-    repository: minio/minio
+    repository: common-minio
     tag: "RELEASE.2025-09-07T16-13-09Z-cpuv1" # Use a specific stable tag
     pullPolicy: IfNotPresent
 

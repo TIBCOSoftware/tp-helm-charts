@@ -4,6 +4,13 @@
   in the license file that is distributed with this file.
 */}}
 
+{{/*
+  No rollover_alias, for the same reason as the jaeger-span template (see
+  index-template-jaeger-span.yaml): Jaeger writes date-named daily indices, which are never the
+  write index of jaeger-service-write, so an ISM rollover action would stall every index and
+  retention would never run (PCP-24038).
+*/}}
+
 {{ if .Values.index.jaeger.enabled -}}
 apiVersion: batch/v1
 kind: Job
@@ -51,8 +58,7 @@ spec:
                       "number_of_shards": {{ .Values.index.jaeger.shards | default 6 }},
                       "number_of_replicas": {{ .Values.index.jaeger.replicas | default 1 }},
                       "index.mapping.nested_fields.limit": 50,
-                      "index.requests.cache.enable": true,
-                      "plugins.index_state_management.rollover_alias": "jaeger-service-write"
+                      "index.requests.cache.enable": true
                     },
                     "aliases": {
                       "jaeger-service-read": {}

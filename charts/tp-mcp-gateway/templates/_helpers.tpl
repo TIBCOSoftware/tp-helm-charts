@@ -160,6 +160,56 @@ recipe formats publicApi.pathPrefix (PCP-20050).
 {{- end }}
 
 {{/*
+PRIVATE (CP->DP, via dp-proxy) route path — PCP-21876 / PCP-18809 per-DP custom routing.
+
+Every other migrated DP chart concatenates `routeResources.pathPrefix` with a tail that is a
+literal in its own template (`/infra/provisioner-agent/`, `/o11y/<id>/o11y-service/`, ...). This
+chart cannot: a Data Plane may host MORE THAN ONE gateway, so the MCP Hub owns each gateway's
+stable id, composes the COMPLETE per-instance CP->DP path, and passes it verbatim in
+haproxy.pathPrefix (MCP_GATEWAY_PRIVATE_PATH in the recipe). The chart is a dumb passthrough.
+
+So instead of appending a known tail to the prefix, this helper RE-ANCHORS the Hub-composed path:
+it strips the default routing prefix off the front and puts the configured one in its place.
+
+    haproxy.pathPrefix        = /tibco/agent/integration/mcp-gateway/<gwId>
+    routeResources.pathPrefix = /acme/edge
+    ->                          /acme/edge/integration/mcp-gateway/<gwId>
+
+A path that does NOT begin with the default prefix is already fully qualified — an
+operator-supplied or standalone value, or a Hub that has already applied the DP's prefix itself —
+and is returned verbatim, so this can never mangle a hand-set path or double-apply a prefix.
+
+With routeResources.pathPrefix at its /tibco/agent default the output equals haproxy.pathPrefix
+exactly, which is what keeps the default render byte-identical to the pre-PCP-18809 chart.
+
+Returns the path with NO trailing slash; each controller block appends what it needs ("/" for a
+Prefix match, "/(.*)" for an nginx regex match).
+*/}}
+{{- define "tp-mcp-gateway.privateRoutePath" -}}
+{{- $default := "/tibco/agent" -}}
+{{- $full := .Values.haproxy.pathPrefix | default "" | trimSuffix "/" -}}
+{{- $prefix := ((((.Values.global).cp).routeResources).pathPrefix | default $default) | trimSuffix "/" -}}
+{{- if hasPrefix $default $full -}}
+{{- printf "%s%s" $prefix (trimPrefix $default $full) -}}
+{{- else -}}
+{{- $full -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Backend Service port for the PRIVATE CP->DP route.
+
+Mirrors the selection already made inline in haproxy-ingress.yaml: route to the
+tp-mcp-gateway-proxy front (:81, cp-internal) whenever the proxy sidecar is present. PCP-20569
+(Option B) made discovery in-pod behind that same sidecar, so discovery.enabled ALSO implies :81.
+Factored out here so the five controller variants in private-route.yaml cannot drift from the
+default route's choice.
+*/}}
+{{- define "tp-mcp-gateway.privateRoutePort" -}}
+{{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) -}}81{{- else -}}80{{- end -}}
+{{- end }}
+
+{{/*
 Discovery in-pod sub-path (PCP-20569, Option B). The tp-mcp-gateway-proxy sidecar path-routes this
 LEADING-SLASH sub-path to the in-pod discovery upstream — injected as DISCOVERY_PATH_PREFIX.
 Returns "/<clean-segment>" (single leading slash, no trailing slash). The subPath is fully
@@ -321,9 +371,26 @@ true
 
      Pinned by dev/mcp-gateway-render-tests/container-registry-assert.sh [G].
 
-     >>> KEEP IN SYNC (PCP-23125): BYTE-IDENTICAL apart from the name prefix with
-         mcp-stack.image.bareRepository in
-         charts/tp-mcp-gateway/charts/mcp-stack/templates/_helpers.tpl. <<<
+     >>> DIVERGED ON PURPOSE, AND THE DIVERGENCE IS LOCKED (PCP-23127): this is
+         NO LONGER byte-identical to mcp-stack.image.bareRepository in
+         charts/tp-mcp-gateway/charts/mcp-stack/templates/_helpers.tpl. That twin
+         grew a SECOND rejection — ANY multi-segment value, host or not — because
+         only the sub-chart routes an image whose legacy default was namespaced
+         (minio/minio, which a `helm upgrade --reuse-values` from a pre-PCP-23127
+         release replays). No parent value ever carried a namespace, so THIS
+         helper keeps the narrower host-only rule deliberately: do NOT "align"
+         them. A namespaced name that still renders HERE is the one live vector
+         keeping classify()'s `extra-segments` rule reachable from a real render
+         rather than only from an oracle, and the guards assert exactly that —
+         container-registry-assert.sh [G] g-namespaced renders
+         lite.image.repository=library/tp-mcp-gateway and REQUIRES it to succeed.
+         RE-VECTOR THAT CONTROL FIRST if this helper is ever widened, onto
+         something neither helper sees (e.g. a global.cp.containerRegistry
+         .repository that itself carries a path segment); a control that quietly
+         starts asserting a helm FAILURE instead of the shape rule is worse than
+         no control at all. Everything ELSE about the pair is still KEEP IN SYNC
+         (PCP-23125): a subchart-defined template is not callable from the parent,
+         so the duplication stays deliberate. <<<
      -------------------------------------------------------------------- */}}
 {{- define "tp-mcp-gateway.image.bareRepository" -}}
 {{- $repo := . | default "" | toString -}}
@@ -387,10 +454,133 @@ true
 {{- if and $digest (not (regexMatch "^sha256:[0-9a-f]{64}$" $digest)) -}}
 {{- fail (printf "tp-mcp-gateway.image: %s has a malformed digest %q — expected sha256: followed by 64 lowercase hex characters" $repo $digest) -}}
 {{- end -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       `repo:tag@sha256:…` is the CANONICAL OCI form, so a digest placed in the TAG composes a
+       genuinely digest-pinned reference. Without this check that is a silent bypass of every
+       digest rule above it: postgres.image.digests can be absent, mcp-stack.postgres.assertImageKeys
+       sees no `digest` key and stays quiet, and the manifest still ships a pinned container —
+       measured, it produced one manifest with a PINNED :17 backup Job beside an UNPINNED :18 main
+       container. Worse on the two-major upgrade path, where a tag of `18@sha256:<pg18>` sends the
+       backup Job (which must run PG17 binaries against a PG17 data directory) to PG18 bytes,
+       because the runtime obeys the digest and ignores the tag.
+       Enforced HERE rather than in values.schema.json deliberately: a schema `pattern` fires
+       unconditionally and would abort the whole render over a stray tag belonging to a DISABLED
+       database, breaking the "dead config must not fail the render" doctrine that
+       container-registry-assert.sh:918-931 already fixed once. Every call site that composes a
+       postgres image is inside the enable gate, so this check inherits that scoping for free.
+       Gated on a non-empty $tag so the digest-only branch below keeps working.
+       Pinned by bundled-image-digest-assert.sh. KEEP THIS BYTE-IDENTICAL TO ITS TWIN —
+       image-digest-assert.sh (G) byte-compares the two copies, and it normalises helper NAMES
+       but not prose, so the wording here must match the other copy exactly. */ -}}
+{{- if and $tag (not (regexMatch "^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$" $tag)) -}}
+{{- fail (printf "tp-mcp-gateway.image: %s has a malformed tag %q — an OCI tag is one character of [A-Za-z0-9_] followed by up to 127 of [A-Za-z0-9._-], so it cannot carry a digest or a registry path. To pin content, use this image block's own digest key where the chart declares one — most blocks take a singular `digest`; the bundled PostgreSQL takes the per-major map `postgres.image.digests` because it renders at two majors. Not every image block supports one" $repo $tag) -}}
+{{- end -}}
 {{- if and $tag $digest -}}{{- printf "%s:%s@%s" $repo $tag $digest -}}
 {{- else if $tag -}}{{- printf "%s:%s" $repo $tag -}}
 {{- else if $digest -}}{{- printf "%s@%s" $repo $digest -}}
 {{- else -}}
 {{- fail (printf "tp-mcp-gateway.image: %s has neither .tag nor .digest — refusing to render a bare repository, which the runtime resolves as :latest" $repo) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+PCP-23986 — resolve ONE tp-mcp-gateway-proxy listen port.
+Args: dict "root" $ "key" "external"|"cpInternal" "default" 8880|8881
+
+Reads global.tpMcpGateway.tibcoProxy.ports.<key>, which is the SINGLE authoritative path:
+the mcp-stack sub-chart is vendored upstream and must render standalone, so it cannot
+depend on a parent value — global.* is the one place both it and the parent can read. There is deliberately no top-level tibcoProxy.ports mirror —
+see "tp-mcp-gateway.tibcoProxy.assertNoTopLevelPorts".
+
+KEEP IN SYNC with "mcp-stack.tibcoProxy.port" in charts/mcp-stack/templates/_helpers.tpl.
+*/}}
+{{- define "tp-mcp-gateway.tibcoProxy.port" -}}
+{{- $ports := dig "tpMcpGateway" "tibcoProxy" "ports" dict (.root.Values.global | default dict) -}}
+{{- if not (kindIs "map" $ports) -}}
+{{-   fail (printf "global.tpMcpGateway.tibcoProxy.ports must be a map with keys external and cpInternal, got %v (%s)" $ports (kindOf $ports)) -}}
+{{- end -}}
+{{- $unknown := without (keys $ports) "external" "cpInternal" -}}
+{{- if $unknown -}}
+{{-   fail (printf "global.tpMcpGateway.tibcoProxy.ports has unknown key(s) %v — only external and cpInternal are read, so anything else is a silent no-op (PCP-23986)" $unknown) -}}
+{{- end -}}
+{{- $v := get $ports .key -}}
+{{- if or (kindIs "invalid" $v) (eq (trim (toString $v)) "") -}}
+{{-   $v = .default -}}
+{{- end -}}
+{{- $p := int $v -}}
+{{- if or (ne (trim (toString $v)) (toString $p)) (lt $p 1) (gt $p 65535) -}}
+{{-   fail (printf "global.tpMcpGateway.tibcoProxy.ports.%s=%v is not a valid TCP port (1-65535)" .key $v) -}}
+{{- end -}}
+{{- $p -}}
+{{- end -}}
+
+{{/*
+PCP-23986 — reject an unusable port pair. Args: dict "ext" N "cp" N "gw" N
+⚠️ In LITE the gateway port is a hardcoded containerPort: 4444 (lite-deployment.yaml) —
+.Values.mcpContextForge does NOT exist in the parent chart, and referencing it here renders
+"nil pointer evaluating interface {}.containerPort". Callers pass the right comparand.
+*/}}
+{{- define "tp-mcp-gateway.tibcoProxy.assertPorts" -}}
+{{- if eq (int .ext) (int .cp) -}}
+{{-   fail (printf "tibcoProxy.ports.external and .cpInternal are both %d; the two listeners need distinct ports" (int .ext)) -}}
+{{- end -}}
+{{- range $name, $taken := dict "the gateway container" (int .gw) "the discovery sidecar" 8080 "fluentbit" 2020 -}}
+{{-   if eq (int $.ext) $taken -}}
+{{-     fail (printf "tibcoProxy.ports.external=%d collides with %s on the same pod network namespace" $taken $name) -}}
+{{-   end -}}
+{{-   if eq (int $.cp) $taken -}}
+{{-     fail (printf "tibcoProxy.ports.cpInternal=%d collides with %s on the same pod network namespace" $taken $name) -}}
+{{-   end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+PCP-23986 — fail on a top-level `tibcoProxy.ports`, which is a SILENT NO-OP.
+
+values.yaml documents the tibcoProxy.enabled <-> global.tpMcpGateway.tibcoProxy.enabled
+pairing convention, and values-cp.yaml / values-standalone.yaml both set a top-level
+tibcoProxy block — so `--set tibcoProxy.ports.external=9000` is the muscle-memory move and
+would be silently ignored. Fail with the correct path instead.
+
+This is NOT the rejected divergence guard: that one compared two DEFAULTED keys and so
+misfired on ordinary overrides. This fires only on the PRESENCE of a key the chart never
+ships, so a default render can never trip it.
+*/}}
+{{- define "tp-mcp-gateway.tibcoProxy.assertNoTopLevelPorts" -}}
+{{- $tp := .Values.tibcoProxy | default dict -}}
+{{- if hasKey $tp "ports" -}}
+{{-   fail "tibcoProxy.ports is not read by this chart and would be silently ignored. Set global.tpMcpGateway.tibcoProxy.ports.external / .cpInternal instead (PCP-23986)." -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+PCP-23986 — fail when an operator tries to harden FULL mode through the LITE path.
+
+`tibcoProxy.trustCPNetwork` is read only by lite (`templates/lite-deployment.yaml`); the
+mcp-stack sub-chart cannot see a top-level value, so full mode reads
+`global.tpMcpGateway.tibcoProxy.trustCPNetwork`. That split is dangerous rather than merely
+untidy, because NOTES.txt tells operators to *"set it false for a hardened trust posture"*
+and names the top-level key. Following that on a full-mode install renders
+`TIBCO_PROXY_TRUST_CP_NETWORK: "true"` with no warning — the cp-internal port keeps skipping
+CIC validation and injecting platform admin, while the operator believes they turned it off.
+
+DIRECTIONAL on purpose. A plain "the two values diverge" check would also fire on the
+CORRECT action (setting only the global key in full mode), which is why the earlier
+ports-divergence idea was rejected. This fires only on the specific dangerous shape:
+top-level says false — someone tried to harden — while the value full mode actually reads
+still says true. A default render (both true) and the correct fix (global false) both pass.
+*/}}
+{{- define "tp-mcp-gateway.tibcoProxy.assertTrustPathReachable" -}}
+{{- /* NB: dig cannot take .Values itself -- it is a chartutil.Values, not a
+       map[string]interface{}, and dig type-asserts. Every other dig in this chart digs
+       into .Values.global, which IS a plain map, so this only bites here. index first. */ -}}
+{{- $mcpStack := (index .Values "mcp-stack") | default dict -}}
+{{- $fullMode := dig "enabled" false $mcpStack -}}
+{{- if $fullMode -}}
+{{-   $topLevel := dig "trustCPNetwork" true (.Values.tibcoProxy | default dict) -}}
+{{-   $effective := dig "tpMcpGateway" "tibcoProxy" "trustCPNetwork" true (.Values.global | default dict) -}}
+{{-   if and (not $topLevel) $effective -}}
+{{-     fail "tibcoProxy.trustCPNetwork=false has NO EFFECT in full mode — the mcp-stack sub-chart cannot read a top-level value, so TIBCO_PROXY_TRUST_CP_NETWORK would still render \"true\" and the cp-internal port would keep skipping CIC token validation. Set global.tpMcpGateway.tibcoProxy.trustCPNetwork=false instead (PCP-23986)." -}}
+{{-   end -}}
 {{- end -}}
 {{- end -}}

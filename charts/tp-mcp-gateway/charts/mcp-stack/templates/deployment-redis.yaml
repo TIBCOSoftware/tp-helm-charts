@@ -58,14 +58,18 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089): compose the effective repository
+          {{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089; digest note PCP-23215) — re-apply on
+                 upstream mcp-stack re-vendor. Compose the effective repository
                  <registry>/<repository>/<bare-name> from global.cp.containerRegistry and pass it
-                 to the ONE mcp-stack.image helper, which appends the tag (and would append a
-                 digest). Assembling the `image:` string here instead would silently drop the
-                 digest — it would still render and still deploy, back on a mutable reference.
-                 No `digest` is declared for redis: it is a mirrored third-party image that
-                 release-alpha.sh does not pin, and the helper treats an absent digest as the
-                 tag-only case. Keep on upstream re-sync. */}}
+                 to the ONE mcp-stack.image helper, which appends the tag and the digest.
+                 Assembling the `image:` string here instead would silently drop the digest — it
+                 would still render and still deploy, back on a mutable reference.
+                 A `digest` IS declared for redis and IS honoured: values.schema.json carries
+                 redis.image.digest with the first-party shape, and merging the WHOLE block in
+                 means a configured digest renders :tag@digest while the shipped default — none
+                 set — renders tag-only. That works here because redis is one image block in ONE
+                 container at ONE tag; postgres is the SAME block at two majors and refuses the
+                 key outright (mcp-stack.postgres.assertImageKeys). Keep on upstream re-sync. */}}
           {{- $redisImg := merge (dict "repository" (printf "%s/%s/%s" (include "mcp-stack.image.registry" $) (include "mcp-stack.image.repository" $) (include "mcp-stack.image.bareRepository" .Values.redis.image.repository))) .Values.redis.image }}
           image: {{ include "mcp-stack.image" $redisImg | quote }}
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}

@@ -7,12 +7,34 @@ description: |
     - Lite:           SQLite + memory cache, single pod, no external deps
 
 type: application
-version: 1.20.0
-appVersion: "1.20.0"
+# PCP-24083: alpha.11 already exists on gh-pages (cut from the automation lane, and the first
+# published gateway chart whose pins carry the PCP-23876 CSRF fix). Reusing it here would be a
+# SILENT no-publish under chart-releaser's skip_existing, so this branch cuts the next FREE
+# number instead. Content is identical to alpha.11 apart from the version; only the pins moved,
+# and they moved forward.
+# PCP-24140: same hazard, and it fired twice under this one branch. The branch first cut
+# alpha.13 (the automation lane had taken it while main still read alpha.12), then alpha.14 —
+# and by the time the gateway code merged, main itself HAD ALREADY REACHED alpha.14 and
+# alpha.14 was published, so this branch's "bump" had silently become a no-op that
+# chart-releaser's skip_existing would have swallowed without a word. Cutting alpha.15.
+# ⚠️ Re-check the published tags immediately before merge — resolve them from the git-refs
+# API, not from local tags, which go stale even after `fetch --tags`.
+#
+# THIRD claim, and this one was not visible in the published tags at all: .15 was free by
+# tags but OPEN PR #10674 (PCP-24253) cuts .15 too — and touches the same two render-test
+# scripts. Whoever merged second would have silently no-published under skip_existing.
+# Taking .16 rather than asking that branch to move: a LATER number is unilaterally safe (it
+# cannot collide backwards), it needs no cross-PR coordination, and a skipped number costs
+# nothing — this file already records two. If #10674 lands first, .15 is theirs and this
+# stays correct; if it never lands, .15 is simply unused.
+# So the check before merge is "highest published tag AND every open PR that touches this
+# file", not the tags alone.
+version: 1.21.1
+appVersion: "1.21.0"
 
 dependencies:
   - name: mcp-stack
-    version: "1.0.0-RC-34"
+    version: "1.0.0-RC-37"
     repository: "file://charts/mcp-stack"
     condition: mcp-stack.enabled
 

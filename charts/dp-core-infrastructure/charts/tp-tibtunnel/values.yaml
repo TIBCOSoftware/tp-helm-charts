@@ -52,7 +52,7 @@ replicaCount: "1"
 image:
   name: infra-tibtunnel
   pullPolicy: IfNotPresent
-  tag: 294
+  tag: 297
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -64,7 +64,7 @@ tolerations: {}
 # probe provisioner-agent health. Only start tibtunnel if provisioner agent is accepting traffic
 provisionerAgentProbe:
   enable: true
-  url: "http://{{ tpl .Values.connect.onPremHost . }}:{{ tpl .Values.connect.onPremPort . }}/tibco/agent/infra/provisioner-agent/version"
+  url: "http://{{ tpl .Values.connect.onPremHost . }}:{{ tpl .Values.connect.onPremPort . }}{{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/version"
   interval: 3  # interval between two probes in seconds
   retries: 15  # retry attempts
 

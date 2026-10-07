@@ -122,6 +122,14 @@ platform.tibco.com/dataplane-id: {{ .Values.global.tibco.dataPlaneId }}
 ================================================================
 */}}
 
+{{- define "dp-configure-namespace.consts.imagePullSecretName" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- .Values.global.tibco.dataPlaneId -}}
+{{- end -}}
+{{- end -}}
+
 
 {{/* Verify platform label for the release namespace.*/}}
 {{- define "dp-configure-namespace.validate-namespace" -}}

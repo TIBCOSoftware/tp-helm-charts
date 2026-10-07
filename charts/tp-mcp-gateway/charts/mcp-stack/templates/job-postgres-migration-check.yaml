@@ -10,12 +10,44 @@
        already-qualified postgres.image.repository being prefixed a second time. */ -}}
 {{- /* Gated for the same reason as deployment-postgres.yaml: bareRepository fails the render on a
        host-qualified value, and this Job only renders under postgres.upgrade.enabled. */ -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       ONE name for "does this Job actually render", shared with the `if` that emits it below and
+       with the digest look-up, so the two can never drift apart. */ -}}
+{{- $rendersMigrationCheck := and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.external.enabled) -}}
 {{- $pgRepo := "" -}}
+{{- /* Declared here and only ASSIGNED inside the gate — a `:=` inside an if-block is invisible
+       outside it (same idiom as $pgRepo). "" is the un-pinned default and renders tag-only. */ -}}
+{{- $pgDigest18 := "" -}}
 {{- if or .Values.postgres.enabled .Values.postgres.upgrade.enabled -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       The singular postgres.image.digest aborts the render here too — the third of the three
+       bundled-postgres surfaces, each guarded in its own file because each renders on its own.
+       Gate-scoped for the same reason as $pgRepo — dead config must not fail the render. */ -}}
+{{- include "mcp-stack.postgres.assertImageKeys" . -}}
 {{- $pgRepo = printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository) -}}
+{{- /* :18 is a LITERAL major here, so the 18 entry of the map is the only one this Job may carry.
+       Looked up only when the Job renders: a plain, non-upgrading install builds no :18 container
+       and must not be asked for a :18 digest (the map is all-or-nothing per RENDER). */ -}}
+{{- if $rendersMigrationCheck -}}
+{{- $pgDigest18 = include "mcp-stack.postgres.digestFor" (dict "ctx" . "major" "18") -}}
 {{- end -}}
-{{- $postgresImage18 := include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "18") (omit .Values.postgres.image "digest")) -}}
-{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.external.enabled) }}
+{{- end -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       Tag AND digest pinned together in the destination dict, so :18 can only ever carry the 18
+       digest. The source block is stripped of BOTH digest keys: `merge` is destination-wins only
+       for NON-EMPTY destination values, so an un-pinned "" would otherwise be back-filled from the
+       source, and a stray singular `digest` would land on a major it was never meant for. */ -}}
+{{- /* COMPOSED ONLY WHEN THE JOB RENDERS, via the declare-then-assign idiom. mcp-stack.image
+       validates what it is handed and aborts on a malformed tag or digest; evaluating it
+       unconditionally would let a stray postgres.image value kill the whole gateway render for a
+       database that is disabled on the shipped surface — the "dead config must not fail the
+       render" doctrine (container-registry-assert.sh:918-931). Pinned by
+       bundled-image-digest-assert.sh (E). */ -}}
+{{- $postgresImage18 := "" -}}
+{{- if $rendersMigrationCheck -}}
+{{- $postgresImage18 = include "mcp-stack.image" (merge (dict "repository" $pgRepo "tag" "18" "digest" $pgDigest18) (omit .Values.postgres.image "digest" "digests")) -}}
+{{- end -}}
+{{- if $rendersMigrationCheck }}
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -51,6 +51,13 @@ rules:
 - apiGroups: ["policy"]
   resources: ["poddisruptionbudgets"]
   verbs: ["list", "watch", "create", "get", "update", "delete", "patch"]
+## Specific permissions for traefik and gateway
+- apiGroups: ["traefik.io"]
+  resources: ["serverstransports"]
+  verbs: ["list", "watch", "create", "get", "update", "delete", "patch"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["backendtlspolicies"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
 
 ---
 

@@ -65,6 +65,15 @@ app.kubernetes.io/part-of: {{ include "dp-core-infrastructure.part-of" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
+{{- define "dp-core-infrastructure.consts.imagePullSecretName" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- .Values.global.tibco.dataPlaneId -}}
+{{- end -}}
+{{- end -}}
+
+
 {{- define "dp-core-infrastructure.validate" -}}
 {{- $ns_name := .Release.Namespace }}
 {{- $ns := (lookup "v1" "Namespace" "" $ns_name) }}

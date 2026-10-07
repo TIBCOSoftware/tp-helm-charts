@@ -18,9 +18,11 @@ global:
       url: ""
       repository: "tibco-platform-docker-prod"
       # [optional] Create a imagePullSecret named <dpId> for private container registry.
-      username: "test"
-      password: "test"
+      username: ""
+      password: ""
       # email: "tibco-plt@cloud.com"
+      # [optional] Name of a pre-existing imagePullSecret. If set, username/password are ignored.
+      secret: ""
 
     enableResourceConstraints: true
 
@@ -136,6 +138,22 @@ networkPolicy:
     #   ports:
     #   - port: ""
     #     protocol: TCP
+  # Clients accessing MFT servers running outside the cluster (on-prem MFT endpoints + monitoring URLs)
+  mftInfra:
+    # ingress:
+    # - from:
+    #   - ipBlock:
+    #       cidr: ""
+    #   ports:
+    #   - port: ""
+    #     protocol: TCP
+    # egress:
+    # - to:
+    #   - ipBlock:
+    #       cidr: ""
+    #   ports:
+    #   - port: ""
+    #     protocol: TCP
   # Hawk use case in Customer Infrastructure (EMS and RV) for fetching capability (BW5/BE) data
   hawkInfra:
     # ingress:
@@ -207,7 +225,7 @@ haproxy:
     service:
       type: ClusterIP
       enabled: true
-    existingImagePullSecret: "{{ .Values.global.tibco.dataPlaneId }}"
+    existingImagePullSecret: '{{ include "dp-configure-namespace.consts.imagePullSecretName" . }}'
     extraLabels:
       platform.tibco.com/dataplane-id: "{{ .Values.global.tibco.dataPlaneId }}"
       platform.tibco.com/workload-type: "infra"

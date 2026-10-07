@@ -524,6 +524,27 @@ spec:
 
 ---
 
+{{- if .Values.networkPolicy.mftInfra }}
+{{/* Label based network policy to enable ingress and egress communication for MFT */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mft-infra
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dp-configure-namespace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      networking.platform.tibco.com/mftInfra: enable
+  policyTypes:
+  - Ingress
+  - Egress
+  {{- toYaml .Values.networkPolicy.mftInfra | nindent 2 }}
+{{- end }}
+
+---
+
 {{- if .Values.networkPolicy.hawkInfra }}
 {{/* Label based network policy to enable ingress and egress communication for Hawk */}}
 apiVersion: networking.k8s.io/v1

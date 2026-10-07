@@ -20,8 +20,12 @@ spec:
         {{- include "tp-infra-mcp-server.selectorLabels" . | nindent 8 }}
         networking.platform.tibco.com/kubernetes-api: enable
     spec:
+      {{- /* Guard the key together with its item: when nothing resolves, an unguarded item
+             renders `- name:` -- a list entry whose name is a bare YAML null. */}}
+      {{- with (include "tp-infra-mcp-server.container-registry.secret" .) }}
       imagePullSecrets:
-        - name: {{ .Values.global.cp.containerRegistry.secret }}
+        - name: {{ . | quote }}
+      {{- end }}
       serviceAccountName: {{ include "tp-infra-mcp-server.serviceAccountName" . }}
       automountServiceAccountToken: true
       {{- with .Values.podSecurityContext }}
@@ -30,7 +34,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: {{ include "tp-infra-mcp-server.image.registry" .}}{{"/"}}{{ include "tp-infra-mcp-server.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag }}
+          image: {{ include "tp-infra-mcp-server.image" (dict "ctx" . "name" .Values.image.name "tag" .Values.image.tag) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.securityContext }}
           securityContext:
@@ -79,7 +83,7 @@ spec:
 {{- end }}
 {{- if .Values.global.cp.logging.fluentbit.enabled }}
         - name: fluent-bit
-          image: {{ include "tp-infra-mcp-server.image.registry" .}}{{"/"}}{{ include "tp-infra-mcp-server.image.repository" .}}{{"/"}}common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          image: {{ include "tp-infra-mcp-server.image" (dict "ctx" . "name" "common-fluentbit" "tag" .Values.global.cp.logging.fluentbit.image.tag) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.global.cp.logging.fluentbit.securityContext }}
           securityContext:

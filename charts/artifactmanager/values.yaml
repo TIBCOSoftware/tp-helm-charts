@@ -19,6 +19,20 @@ global:
     dataplaneId: dp-dp1
     instanceId: defaultinstid
     namespace: tp-dp-dp1
+    routeResources:
+      pathPrefix: /tibco/agent
+      controllerServiceDNS: cpdpproxy
+      ingress:
+        ingressController: ""    # "" | "haProxy" (default) | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is non-empty and not "haProxy"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     containerRegistry:
       secret: ""
       url: ""
@@ -58,7 +72,7 @@ global:
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       name: infra-artifactmanager
-      tag: 225
+      tag: 231
 
 replicaCount: 1
 
