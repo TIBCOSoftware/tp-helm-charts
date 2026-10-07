@@ -10512,6 +10512,25 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-hawk-1.11.15/tibco-cp-hawk-1.11.15.tgz
     version: 1.11.15
+  tibco-cp-mcp-hub:
+  - apiVersion: v2
+    appVersion: 1.21.0
+    created: "2026-10-07T07:37:29.206967103Z"
+    dependencies:
+    - condition: mcp-hub-recipes.enabled
+      name: mcp-hub-recipes
+      repository: ""
+      version: 1.21.*
+    - condition: mcp-hub-webserver.enabled
+      name: mcp-hub-webserver
+      repository: ""
+      version: 1.21.*
+    description: TIBCO Controlplane chart for MCP Hub Capability
+    digest: f9b3e8e5534bf2b98b9d8a96d9f39beafc225be6beaa7615b9a26e4f1cfd8516
+    name: tibco-cp-mcp-hub
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-mcp-hub-1.21.0-alpha.31/tibco-cp-mcp-hub-1.21.0-alpha.31.tgz
+    version: 1.21.0-alpha.31
   tibco-cp-messaging:
   - apiVersion: v2
     appVersion: 1.21.0-9
@@ -18093,4 +18112,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-10-07T07:16:19.326926728Z"
+generated: "2026-10-07T07:37:29.715113125Z"
