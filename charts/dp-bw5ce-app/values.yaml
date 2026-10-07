@@ -28,6 +28,43 @@ appConfig:
   bwProfile: "default.substvar"
   lastUpdated: ""
   customBaseImagePath: ""
+  # BW-22761: true when the EAR ships an adapter archive, whether or not it also
+  # ships a Process Archive. The one adapter-related input this chart needs.
+  #
+  # It selects the probe set, which is the only part of this that has to be
+  # decided at Helm render time:
+  #
+  #   adapterApp  EAR contains          pod contains        probes
+  #   false       no adapter archive    bwengine only       bwapp.*Probe (httpGet)
+  #   true        adapter + process     bwengine + agents   bwapp.adapterProbes
+  #   true        adapter only          agents only         bwapp.adapterProbes
+  #
+  # An app with no adapters keeps the httpGet probes exactly as before - there
+  # is nothing for adapterhealth.sh to add when bwengine is the only process in
+  # the pod, so it is not worth the exec.
+  #
+  # Note there is deliberately no adapter-only flag here. Whether to skip
+  # bwengine is a question about the EAR's contents, and the container can read
+  # the EAR: earutils.sh globs *.aar and *.par out of the exploded artifact and
+  # cross-checks TIBCO.xml for a declared .par module, which also catches a
+  # process archive that is not at the root of the EAR. That is strictly better
+  # evidence than anything the chart can carry, and a chart-supplied value can
+  # go stale or disagree - resolveAdapterOnlyApp() has an explicit override for
+  # exactly that case, refusing to skip the engine for an EAR that does declare
+  # a Process Archive. So the chart sets ADAPTER_ONLY_APP_AUTODETECT instead of
+  # deciding, and the runtime answers from the artifact.
+  #
+  # The buildpack defaults that autodetect to off for one documented reason: an
+  # older chart renders the httpGet :8090 probes, and skipping the engine under
+  # those turns a wasteful-but-working pod into CrashLoopBackOff. Rendering the
+  # exec probes is what lifts that constraint, which is why the same flag drives
+  # both - enabling one without the other is precisely the unsafe combination.
+  #
+  # Computed by the provisioner at analyze time from hasAAR. Until it publishes
+  # this, the flag stays false and an adapter-bearing app keeps today's
+  # engine-only probes and today's engine: pre-BW-22761 behaviour, not a broken
+  # one.
+  adapterApp: false
 
 otel:
   enabled: true
@@ -52,7 +89,7 @@ image:
   appInitImageName: "tp-bwce-app-init"
   appInitImageTag: "83"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "5.1.0"
+  fluentBitImageTag: "5.1.2"
   bw5ceBaseImageName: "tp-bw5ce-base"
 
 imagePullSecrets: []
@@ -97,6 +134,15 @@ bwapp:
   #  requests:
   #    cpu: 250m
   #    memory: 1Gi
+  #
+  # BW-22761 sizing note. This container holds one JVM per running process:
+  # bwengine (unless the EAR turns out to be adapter-only) plus one agent per
+  # configured adapter instance. An EAR with N adapter configurations therefore
+  # needs roughly N times the adapter heap on top of the engine, and the limit
+  # must be raised accordingly - the adapter JVMs are cgroup-aware
+  # (-XX:MaxRAMPercentage=80) so they size against this limit, not the node.
+  # Conversely an adapter-only app drops the engine's ~319 MiB and can usually
+  # be sized down.
   # Additional volumeMounts on the output Deployment definition.
   volumeMounts: []
   # - name: foo
@@ -110,6 +156,11 @@ bwapp:
     #  - "cm1"
     secretRef: []
     #  - "secret1"
+  # The default probes, used by every app that ships no adapter archive at all.
+  # Unchanged by BW-22761: bwengine is the only process in such a pod, it serves
+  # :8090, and the kubelet's own httpGet is a cheaper and more direct way to ask
+  # it than shelling out. Adapter-bearing apps use adapterProbes or
+  # adapterOnlyProbes below instead.
   startupProbe:
     failureThreshold: 60
     httpGet:
@@ -139,6 +190,70 @@ bwapp:
     periodSeconds: 5
     successThreshold: 1
     timeoutSeconds: 5
+  # BW-22761 follow-up: used by every app that ships an adapter archive, whether
+  # or not it also ships a Process Archive - so both the engine+agents pod and
+  # the agents-only pod. One set covers both because adapterhealth.sh tells them
+  # apart itself, at runtime, by whether start.sh wrote engine.pid.
+  #
+  # The httpGet probes above only ever see bwengine, so an adapter-bearing app
+  # could lose an adapter and stay Ready with it dead - the same silent
+  # half-start this work exists to remove. The script checks bwengine when there
+  # is one, over the same /health/<kind> endpoint the httpGet probe used, and
+  # additionally every adapter instance that reported its initialization trace.
+  # No health fidelity is lost by the swap.
+  #
+  # Set ADAPTER_ALLOW_PARTIAL_STARTUP=true under engineProps to keep the old
+  # tolerant behaviour; the probe honours it as well as the startup gate does.
+  #
+  # Thresholds are identical to the httpGet probes above, so timing is unchanged
+  # for an app that moves between the two sets.
+  #
+  # Deliberately no path detection and no :8090 fallback in the chart. Both were
+  # tried and both are duplication: engine.pid detection is the script's
+  # onEnginePath, and the HTTP call is its engineHttpOk - which additionally
+  # wraps the exchange in coreutils timeout, something a probe one-liner cannot
+  # do well. Reimplementing either here would mean two health clients, and only
+  # the buildpack's is exercised by its test suite. The script is mode 0775 and
+  # owned by the container uid, so it is executed directly with no shell.
+  #
+  # The consequence, which a fallback would only have masked: these probes
+  # require a base image that ships adapterhealth.sh, and one recent enough to
+  # know the engine path - an older script checks the adapters but never looks
+  # at bwengine. Rollout order is therefore base image first, then this chart,
+  # which is the order BW-22761 already specifies. appConfig.bw5ceBaseImageTag
+  # is only filled in when empty on an update, and customBaseImagePath bypasses
+  # it entirely, so the provisioner must not set adapterApp on an app pinned
+  # below that floor.
+  adapterProbes:
+    startupProbe:
+      exec:
+        command:
+        - /scripts/adapterhealth.sh
+        - --startup
+      failureThreshold: 60      # 60 x 3s = 180s, the pre-BW-22761 startup budget
+      periodSeconds: 3
+      successThreshold: 1
+      timeoutSeconds: 5
+    livenessProbe:
+      exec:
+        command:
+        - /scripts/adapterhealth.sh
+        - --liveness
+      failureThreshold: 3
+      initialDelaySeconds: 10
+      periodSeconds: 6
+      successThreshold: 1
+      timeoutSeconds: 5
+    readinessProbe:
+      exec:
+        command:
+        - /scripts/adapterhealth.sh
+        - --readiness
+      failureThreshold: 3
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 5
   lifecycle: {}
 
 fluentBit:

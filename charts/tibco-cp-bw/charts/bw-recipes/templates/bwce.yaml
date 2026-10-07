@@ -12,14 +12,14 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.20.0",
-      "minCPVersion": "1.20.0",
+      "capabilityVersion": "1.21.0",
+      "minCPVersion": "1.21.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.bwce.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.bwce.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.4.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.19.0",
+        "dp-core-infrastructure": "1.21.0",
         "dp-configure-namespace": "1.15.0"
       }
     }
@@ -83,7 +83,7 @@ data:
       helmCharts:
         - name: bwprovisioner
           namespace: ${NAMESPACE}
-          version: "1.20.2"
+          version: "1.21.6"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -97,12 +97,12 @@ data:
                           enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
                   bwprovisioner:
                     image:
-                      tag: 1035
+                      tag: 1048
                 config:
-                  APP_INIT_IMAGE_TAG: "94"
-                  BWCE_APP_HELMCHART_VERSION: "1.20.4"
+                  APP_INIT_IMAGE_TAG: "99"
+                  BWCE_APP_HELMCHART_VERSION: "1.21.3"
                   ENABLE_NON_TOKENIZED_PROPS: ${ENABLE_NON_TOKENIZED_PROPS}
-                  INFRA_CP_PROXY_IMAGE_TAG: "358"
+                  INFRA_OAUTH_CLIENT_IMAGE_TAG: "1007"
                   APP_INIT_CPU_LIMIT: "100m"
                   APP_INIT_MEMORY_LIMIT: "200Mi"
                   APP_INIT_CPU_REQUEST: "10m"
@@ -121,7 +121,7 @@ data:
             dependencyUpdate: true
         - name: dp-bwce-mon
           namespace: ${NAMESPACE}
-          version: "1.20.2"
+          version: "1.21.5"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -131,7 +131,7 @@ data:
                 global:
                   bwcemon:
                     image:
-                      tag: 6.12.0-HF3
+                      tag: 6.12.0-HF4
           flags:
             install: true
             createNamespace: false
@@ -184,7 +184,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/platform"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.20.0"
+          value: "1.21.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

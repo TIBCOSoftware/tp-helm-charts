@@ -8,6 +8,8 @@ global:
       url: ""
       username: ""
       password: ""
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
       repository: ""
       imagePullSecretName: ""
       customCertSecret: ""
@@ -27,7 +29,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.0
+          tag: 5.1.2
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -54,7 +56,7 @@ image:
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.5
+    tag: 13.6
 
 nameOverride: ""
 
@@ -389,11 +391,11 @@ bwPluginsJobC:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-kafka:
     tags:
-      - tag: 6.8.2.v27-tci-2.0
+      - tag: 6.8.2.v39-tci-2.0
         metadata:
-          displayVersion: "6.8.2 HF2"
+          displayVersion: "6.8.2 HF3"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-apache-kafka"
-          releaseDate: "December 2025"
+          releaseDate: "August 2026"
           supportedBWVersions: "6.8.0 - 6.12.0"
           supportedBWCEVersions: "2.7.0 - 2.10.x"
           endOfSupportDate: "EoS not Announced"
@@ -421,13 +423,13 @@ bwPluginsJobD:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-dataconversion:
     tags:
-      - tag: 4.8.1.v2.2-tci-2.0
+      - tag: 5.0.0.v5.1-tci-2.0
         metadata:
-          displayVersion: "4.8.1"
+          displayVersion: "5.0.0"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-data-conversion"
-          releaseDate: "August 2025"
-          supportedBWVersions: "6.8.0 - 6.12.x"
-          supportedBWCEVersions: "2.7.0 - 2.10.x"
+          releaseDate: "September 2026"
+          supportedBWVersions: "6.11.0 - 6.13.0"
+          supportedBWCEVersions: "2.9.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-snowflake:
     tags:
@@ -471,11 +473,11 @@ bwPluginsJobD:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-mq:
     tags:
-      - tag: 8.8.2.v20-tci-2.0
+      - tag: 8.8.2.v26-tci-2.0
         metadata:
-          displayVersion: "8.8.2 HF3"
+          displayVersion: "8.8.2 HF4"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-ibm-mq"
-          releaseDate: "May 2026"
+          releaseDate: "September 2026"
           supportedBWVersions: "6.8.0 - 6.12.x"
           supportedBWCEVersions: "2.7.0 - 2.10.x"
           endOfSupportDate: "EoS not Announced"
@@ -491,13 +493,13 @@ bwPluginsJobD:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sharepoint:
     tags:
-      - tag: 6.4.0.v16-tci-2.0
+      - tag: 6.4.0.v30-tci-2.0
         metadata:
-          displayVersion: "6.4.0 HF1"
+          displayVersion: "6.4.0 HF2"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-microsoft-sharepoint"
-          releaseDate: "November 2023"
-          supportedBWVersions: "6.6.0 - 6.12.0"
-          supportedBWCEVersions: "2.5.0 - 2.10.0"
+          releaseDate: "August 2026"
+          supportedBWVersions: "6.6.0 - 6.13.0"
+          supportedBWCEVersions: "2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-mqtt:
     tags:
@@ -777,12 +779,12 @@ bwPluginsJobG:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-as2:
     tags:
-      - tag: 6.0.0.v10-tci-2.0
+      - tag: 6.0.0.v14-tci-2.0
         metadata:
-          displayVersion: "6.0.0 HF1"
+          displayVersion: "6.0.0 HF2"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-applicability-statement-2-as2-protocol"
-          releaseDate: "May 2025"
-          supportedBWVersions: "6.11.0 - 6.12.x"
+          releaseDate: "August 2026"
+          supportedBWVersions: "6.11.0 - 6.12.0"
           supportedBWCEVersions: "2.10.0 - 2.10.x"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-rag:
@@ -819,7 +821,7 @@ buildtypeImages:
 - name: tp-bwce-buildtype
   extract_image: true
   path: /var/lib/bwce/buildtypes
-  tag: 6.12.0-HF3
+  tag: 6.12.0-HF4
   target_location: bwce/buildtypes
 - name: tp-bwce-buildtype
   extract_image: true

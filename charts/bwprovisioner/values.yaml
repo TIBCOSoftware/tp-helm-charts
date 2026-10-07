@@ -15,6 +15,21 @@ global:
     dpUrl:
       host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
       port: 443
+    # routeResources controls the internal control-plane -> data-plane route (via dp-proxy) for this component.
+    # PCP-18809: the routing path is split into a configurable prefix + a fixed /integration/<instanceId>/bwprovisioner tail.
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the /integration/... tail is hardcoded in the templates
+      ingress:
+        ingressController: ""    # "" (default: bundled haProxy) | "haProxy" | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is "haProxy", "nginx", or "traefik"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     containerRegistry:
       secret: ""
       url: ""
@@ -65,7 +80,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 5.1.0
+          tag: 5.1.2
         resources:
           requests:
             cpu: 10m
@@ -145,7 +160,7 @@ securityContext:
       drop:
         - ALL
         - CAP_NET_RAW
-  infraCPProxy:
+  infraOAuthClient:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
     capabilities:
@@ -252,7 +267,7 @@ config:
   BWCE_APP_HELMCHART_VERSION: "1.4.2"
   PROVISIONER_AGENT_SERVICE_PORT: "80"
   ENABLE_NON_TOKENIZED_PROPS: "true"
-  INFRA_CP_PROXY_IMAGE_TAG: "280"
+  INFRA_OAUTH_CLIENT_IMAGE_TAG: "1007"
   APP_INIT_CPU_LIMIT: "100m"
   APP_INIT_MEMORY_LIMIT: "200Mi"
   APP_INIT_CPU_REQUEST: "10m"
@@ -283,7 +298,7 @@ publicApi:
             port: 7814
             requestPath: /v1/readiness
 
-infraCPProxy:
+infraOAuthClient:
   resources:
     requests:
       cpu: 50m

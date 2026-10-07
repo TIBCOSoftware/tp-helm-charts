@@ -31,18 +31,20 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       containers:
         - name: bw5provisioner-oauth2-client-cred-creation
-          image: {{ include "bw5provisioner.image.registry" .}}{{"/"}}{{ include "bw5provisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.config.INFRA_CP_PROXY_IMAGE_TAG }}
+          image: {{ include "bw5provisioner.image.registry" .}}{{"/"}}{{ include "bw5provisioner.image.repository" .}}{{"/"}}infra-oauth-client:{{ .Values.config.INFRA_OAUTH_CLIENT_IMAGE_TAG }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.securityContext.infraCPProxy }}
+          {{- if .Values.securityContext.infraOAuthClient }}
           securityContext:
-            {{- toYaml .Values.securityContext.infraCPProxy | nindent 12 }}
+            {{- toYaml .Values.securityContext.infraOAuthClient | nindent 12 }}
           {{- end }}
           {{- if .Values.global.cp.enableResourceConstraints }}
-          {{- with .Values.infraCPProxy.resources }}
+          {{- with .Values.infraOAuthClient.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -111,18 +113,20 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      {{- if .Values.global.cp.containerRegistry.secret }}
       imagePullSecrets:
         - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       containers:
         - name: bw5provisioner-oauth2-client-cred-deletion
-          image: {{ include "bw5provisioner.image.registry" .}}{{"/"}}{{ include "bw5provisioner.image.repository" .}}{{"/"}}infra-cp-proxy:{{ .Values.config.INFRA_CP_PROXY_IMAGE_TAG }}
+          image: {{ include "bw5provisioner.image.registry" .}}{{"/"}}{{ include "bw5provisioner.image.repository" .}}{{"/"}}infra-oauth-client:{{ .Values.config.INFRA_OAUTH_CLIENT_IMAGE_TAG }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.securityContext.infraCPProxy }}
+          {{- if .Values.securityContext.infraOAuthClient }}
           securityContext:
-            {{- toYaml .Values.securityContext.infraCPProxy | nindent 12 }}
+            {{- toYaml .Values.securityContext.infraOAuthClient | nindent 12 }}
           {{- end }}
           {{- if .Values.global.cp.enableResourceConstraints }}
-          {{- with .Values.infraCPProxy.resources }}
+          {{- with .Values.infraOAuthClient.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
