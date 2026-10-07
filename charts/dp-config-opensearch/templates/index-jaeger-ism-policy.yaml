@@ -13,8 +13,35 @@ metadata:
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "3"
-    "helm.sh/hook-delete-policy": hook-succeeded
+    # before-hook-creation matters now that this hook can actually FAIL: `hook-succeeded` alone
+    # leaves a failed Job on the cluster, and Helm recreates hook resources by name, so the next
+    # `helm upgrade` would abort with an already-exists conflict and stay broken until someone
+    # deleted the Job by hand. That path was mostly unreachable while the hook always reported
+    # success; it is now the normal outcome of the very misconfigurations the exit 1 below was
+    # added to surface. This keeps the failed Job for diagnosis until the next upgrade, then
+    # clears it. (PCP-24038)
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
+  # Bound the retries. The policy PUT below now exits non-zero on a non-2xx instead of echoing
+  # success over a swallowed error, which is the point of the fix - but under `restartPolicy:
+  # OnFailure` a permanently failing cause would otherwise retry forever and block `helm upgrade`
+  # until its timeout. A transient failure still self-heals, since the whole script re-runs and
+  # re-reads _seq_no.
+  #
+  # Which bound does the work depends on WHERE the failure happens, and only one of the two paths
+  # is attributable:
+  #   * fails at the PUT (a 4xx/5xx from _plugins/_ism) -> the HTTP_CODE check prints the status
+  #     and the response body and exits 1; backoffLimit caps the retries.
+  #   * fails BEFORE the PUT -> the readiness loop below is an unbounded `until` on cluster health,
+  #     so a credential or connectivity problem never reaches the PUT at all; the container never
+  #     exits, backoffLimit never trips, and activeDeadlineSeconds is what actually stops it. That
+  #     case is bounded but NOT fast or self-explanatory: the operator sees 30 minutes of
+  #     "Waiting for OpenSearch cluster to be ready..." and then DeadlineExceeded, which points at
+  #     the cluster rather than at their credentials.
+  # The deadline is deliberately generous because that same readiness loop can legitimately wait
+  # several minutes for a cold OpenSearch cluster to go green. (PCP-24038)
+  backoffLimit: 3
+  activeDeadlineSeconds: 1800
   template:
     spec:
       restartPolicy: OnFailure
@@ -40,24 +67,39 @@ spec:
                 sleep 10
               done
               
-              # Create ISM policy for Jaeger indices (30 day retention with rollover)
-              curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -X PUT "${OPENSEARCH_HOST}/_plugins/_ism/policies/jaeger-30d-policy" \
+              # ISM refuses to overwrite an EXISTING policy unless the request carries its current
+              # optimistic-concurrency values: a plain PUT returns 409 version_conflict. Because the
+              # old call used `curl -s` (which does not fail on 4xx) and unconditionally echoed
+              # success, every upgrade silently kept the previous policy. So read _seq_no /
+              # _primary_term first and pass them when the policy is already there; a fresh install
+              # (404, no values) still creates it with a plain PUT. (PCP-24038 - without this the
+              # rollover-removal below would never reach an existing cluster.)
+              POLICY_URL="${OPENSEARCH_HOST}/_plugins/_ism/policies/jaeger-30d-policy"
+              EXISTING=$(curl -sk -u "admin:${OPENSEARCH_PASSWORD}" "${POLICY_URL}")
+              # head -1: grep -o yields every match, so an unexpected response shape carrying more
+              # than one _seq_no would make these multi-line and embed a newline in the URL below.
+              SEQ_NO=$(echo "${EXISTING}" | grep -o '"_seq_no"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*$' | head -1)
+              PRIMARY_TERM=$(echo "${EXISTING}" | grep -o '"_primary_term"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*$' | head -1)
+              if [ -n "${SEQ_NO}" ] && [ -n "${PRIMARY_TERM}" ]; then
+                echo "Updating existing jaeger-30d-policy (seq_no=${SEQ_NO}, primary_term=${PRIMARY_TERM})"
+                POLICY_URL="${POLICY_URL}?if_seq_no=${SEQ_NO}&if_primary_term=${PRIMARY_TERM}"
+              else
+                echo "Creating jaeger-30d-policy"
+              fi
+
+              # ISM policy for Jaeger indices (age-based 30 day retention, no rollover: Jaeger
+              # writes date-named daily indices, so a rollover action would stall every index in a
+              # failed ISM state and retention would never run - PCP-24038)
+              HTTP_CODE=$(curl -sk -u "admin:${OPENSEARCH_PASSWORD}" -o /tmp/ism-resp.json -w '%{http_code}' -X PUT "${POLICY_URL}" \
                 -H "Content-Type: application/json" \
                 -d '{
                   "policy": {
-                    "description": "Jaeger index lifecycle policy - 30 days retention with rollover",
+                    "description": "Jaeger index lifecycle policy - age-based 30 days retention for daily indices",
                     "default_state": "hot",
                     "states": [
                       {
                         "name": "hot",
-                        "actions": [
-                          {
-                            "rollover": {
-                              "min_size": "2gb",
-                              "min_index_age": "7d"
-                            }
-                          }
-                        ],
+                        "actions": [],
                         "transitions": [
                           {
                             "state_name": "warm",
@@ -102,7 +144,30 @@ spec:
                       }
                     ]
                   }
-                }'
-              
-              echo "Jaeger ISM policy created successfully"
+                }')
+
+              case "${HTTP_CODE}" in
+                2*)
+                  echo "Jaeger ISM policy applied successfully (HTTP ${HTTP_CODE})"
+                  ;;
+                *)
+                  echo "ERROR: failed to apply the Jaeger ISM policy (HTTP ${HTTP_CODE})"
+                  cat /tmp/ism-resp.json
+                  exit 1
+                  ;;
+              esac
+
+              # NOTE: updating the policy only governs indices created from here on. ISM pins each
+              # managed index to the policy VERSION it was initialised with (policy_seq_no), so
+              # indices already running the previous (rollover) version keep executing it and their
+              # retention never resumes. Clearing those is a one-time operator step, deliberately
+              # NOT automated here: bulk index mutation from an unattended post-upgrade hook is
+              # exactly the risk this fix set out to avoid, and it cannot be verified from the
+              # chart. The runbook is in the chart README, under "Upgrading from a chart older than
+              # 1.17.1": _ism/remove followed by _ism/add.
+              #
+              # It is NOT change_policy + retry, which is what this note used to say. Verified
+              # against a live cluster in PCP-24173: change_policy without a body is a 400, with a
+              # body it reports success and queues a switch that a wedged index never reaches, and
+              # retry answers "This index is not in failed state." The README records all three.
 {{- end -}}

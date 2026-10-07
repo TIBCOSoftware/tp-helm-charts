@@ -180,13 +180,8 @@ global:
       # stale mirror the one drift nothing catches. Do NOT quote and do NOT re-qualify.
       image:
         repository: tp-mcp-discovery
-        tag: "1.20.0"
+        tag: "1.21.0"
         digest: ""
-        # PCP-23334: GA ships TAG-ONLY. Every digest in this file is deliberately empty and
-        # nothing will fill it -- release-alpha.sh pins digests on the ALPHA lane only, and a
-        # hand-cut GA has no equivalent pinner. So :1.20.0 is a MUTABLE tag; the promote
-        # workflow refuses to re-point it, but that is discipline, not enforcement. This chart
-        # is the one that goes PUBLIC, so do not assume a pinner exists. Follow-up tracked.
     tibcoProxy:
       enabled: false      # full-mode tp-mcp-gateway-proxy sidecar + gateway auth-rewire (default OFF)
       # Image for the full-mode tp-mcp-gateway-proxy sidecar. Same rationale as discovery.image above:
@@ -196,8 +191,30 @@ global:
       # PCP-23125: BARE NAME, same rules as global.tpMcpGateway.discovery.image above.
       image:
         repository: tp-mcp-gateway-proxy
-        tag: "1.20.0"
+        tag: "1.21.0"
         digest: ""
+      # PCP-23986 — the proxy's two listen ports. THE single authoritative path: the
+      # mcp-stack sub-chart can only see global.*, and the parent reads .Values.global
+      # freely, so one home serves both lite and full. There is deliberately NO top-level
+      # tibcoProxy.ports mirror; setting one fails the render with a pointer to this key.
+      #
+      # These SHOULD be >= 1024, and the shipped defaults are. The chart accepts 1-65535 and
+      # the proxy only WARNS below 1024 rather than refusing: a privileged port is legitimate
+      # on a permissive cluster, and forbidding it outright would be a regression for anyone
+      # relying on that today. The proxy runs as uid 1001 with capabilities drop: ["ALL"],
+      # so a lower port binds only where the pod netns has
+      # net.ipv4.ip_unprivileged_port_start=0 (the containerd default). On a hardened
+      # cluster it fails outright and takes the whole capability down — that was PCP-23986.
+      # 8880/8881 and not 8080: the discovery sidecar already holds 8080 in this netns.
+      # The Service still publishes 80/81; only targetPort follows these.
+      ports:
+        external: 8880
+        cpInternal: 8881
+      # PCP-23986 — skip CIC token validation and trust the HAProxy network path.
+      # Mirrors the top-level tibcoProxy.trustCPNetwork, which the sub-chart cannot read;
+      # full mode hardcoded "true" before this. Default is UNCHANGED (true) — setting it
+      # false requires CP_DOMAIN + cp-proxy + IdM to be wired.
+      trustCPNetwork: true
   # OpenTelemetry — reads collector endpoints from DP o11y-service ConfigMap.
   # Same pattern as bwprovisioner. Degrades gracefully when o11y not deployed.
   # Uses global: so it flows into the mcp-stack subchart automatically.
@@ -224,7 +241,8 @@ global:
           # of them now abort the render instead (tp-mcp-gateway.image.bareRepository and its
           # mcp-stack twin).
           repository: common-fluentbit
-          tag: "5.1.0"
+          # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
+          tag: "5.1.2"
           pullPolicy: IfNotPresent
         otel:
           host: otel-userapp-logs
@@ -241,6 +259,35 @@ global:
     # Consumed by tp-mcp-gateway.selectorLabels for the platform.tibco.com/* spec labels.
     dataplaneId: ""
     instanceId: ""
+    # routeResources controls the internal control-plane -> data-plane route (via dp-proxy) for this component.
+    # PCP-18809: the routing path is split into a configurable prefix + a fixed /integration/mcp-gateway tail,
+    # and the route may be served by an ingress controller other than the bundled HAProxy.
+    #
+    # This chart differs from bwprovisioner/o11y-service/tp-dp-monitor-agent in ONE way: it does not own its
+    # tail. A Data Plane can host more than one gateway, so the MCP Hub composes the COMPLETE per-instance
+    # CP->DP path (base + the gateway's stable id) and passes it in haproxy.pathPrefix — see the comment there.
+    # tp-mcp-gateway.privateRoutePath re-anchors that Hub-composed path onto pathPrefix below, so the tail
+    # stays Hub-owned while the prefix becomes per-DP configurable. With the default prefix the rendered
+    # path is byte-identical to the pre-PCP-18809 route.
+    #
+    # controllerServiceDNS is declared for SHAPE PARITY with the rest of the family, and is not read by
+    # this chart. Only tp-dp-monitor-agent and tp-provisioner-agent consume it, to emit a second host
+    # rule for the in-cluster proxy Service; artifactmanager and o11y-service declare it without reading
+    # it for exactly this reason. Every chart on the OHC line therefore exposes one identical contract.
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the tail stays Hub-composed (see above)
+      controllerServiceDNS: cpdpproxy  # family parity; not read here (this chart emits a single host rule)
+      ingress:
+        ingressController: ""    # "" (default: bundled haProxy) | "haProxy" | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is "haProxy", "nginx", or "traefik"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     # Container-registry indirection (PCP-23125). Injected by the orchestrator on a live
     # Data Plane; declared here so the chart renders standalone without a nil-map panic —
     # the same way every sibling DP chart declares it. `secret` is declared for shape parity
@@ -395,6 +442,47 @@ plugins:
           redaction_text: "***REDACTED***"
           block_on_detection: true
           min_findings_to_block: 1
+
+      # Post-ingestion write interlock (PCP-24140) — turns read/write separation from a
+      # deployment pattern into an enforced request-path control that leaves evidence.
+      # Once a principal has ingested content from a declared untrusted SOURCE tool, it may
+      # call a declared WRITE tool only if that source's allowlist permits it.
+      #
+      # NO ARGUMENT VALUE IS EVER COMPARED — the decision inputs are tool identity and
+      # ingestion history, which is what makes it immune to value splitting, re-encoding and
+      # canonicalisation gaps. Scope is SAME-PRINCIPAL: an enforced separation interlock with
+      # evidence, NOT general prompt-injection containment, and it does not close GhostJacking
+      # (the RCE leg never traverses the gateway).
+      #
+      # Ships INERT: `sources` and `write_tools` are empty, so the plugin short-circuits and
+      # gates nothing until an operator classifies their tools. mode "disabled" is the per-VS
+      # opt-in model (same as SecretsDetection above): enforcement comes from a Hub plugin
+      # binding, which _merge_tenant_config activates per context and _apply_security_floor
+      # then pins to blocking/fail-closed.
+      #
+      # ⚠️ A per-VS binding CAN replace these lists (the tenant merge is a shallow
+      # {**base, **override} and no config-floor stripper is registered for this class).
+      # Harmless while the base is empty — the binding IS the enforcement — but do not add a
+      # global baseline here and assume a binding cannot undo it.
+      - name: "SessionWriteGate"
+        kind: "plugins.session_write_gate.session_write_gate.SessionWriteGatePlugin"
+        description: "Deny a declared write tool after the principal ingested from a declared untrusted source, unless that source permits it"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["security", "provenance", "write-gate"]
+        mode: "disabled"
+        priority: 45
+        conditions: []
+        config:
+          sources: {}
+          write_tools: []
+          additional_sources: {}
+          additional_write_tools: []
+          # taint_ttl_seconds is deliberately NOT restated here. 1800 is
+          # SessionWriteGateConfig's own default (plugins/session_write_gate/
+          # session_write_gate.py) and nothing reconciles a copy in this file against it, so
+          # pinning it would drift silently the day the model default moves. The Hub's plugin
+          # form still offers the key, and a per-VS binding can still set it.
 
       # Output Length Guard — truncate oversized tool outputs
       - name: "OutputLengthGuardPlugin"
@@ -1316,7 +1404,7 @@ discovery:
   # "same rules as discovery.image above".
   image:
     repository: tp-mcp-discovery
-    tag: "1.20.0"
+    tag: "1.21.0"
     digest: ""
     pullPolicy: IfNotPresent
   config:
@@ -1350,12 +1438,20 @@ tibcoProxy:
   # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
   image:
     repository: tp-mcp-gateway-proxy
-    tag: "1.20.0"
+    tag: "1.21.0"
     digest: ""
     pullPolicy: IfNotPresent
   # trustCPNetwork: skip CIC token validation and trust the HAProxy network path.
   # Set true for POC/dev (cp-proxy IdM exchange not yet wired).
   # Set false for production (requires CP_DOMAIN and cp-proxy + IdM).
+  #
+  # ⚠️ THIS KEY IS READ BY LITE MODE ONLY. The mcp-stack sub-chart cannot see a top-level
+  # value, so in FULL mode `--set tibcoProxy.trustCPNetwork=false` is a SILENT NO-OP and the
+  # rendered env stays true. For full mode set
+  #     global.tpMcpGateway.tibcoProxy.trustCPNetwork
+  # instead (PCP-23986 added it; before that, full mode hardcoded "true" and the setting was
+  # not reachable at all). Same split as tibcoProxy.enabled <-> global.tpMcpGateway.
+  # tibcoProxy.enabled, documented at the top of this file.
   trustCPNetwork: true
   platformAdminEmail: "mcp-hub-admin@platform.local"
   resources:
@@ -1388,10 +1484,12 @@ dialHome:
   # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
   image:
     repository: tp-mcp-gateway-dialhome-agent
-    # Default tag is pinned here by release-alpha to the immutable build-image.yml tag
-    # (<branch-slug>-<sha>). An ENABLED render with an EMPTY tag still fails fast
+    # On the ALPHA lane the default tag is pinned here by release-alpha to the immutable
+    # build-image.yml tag (<branch-slug>-<sha>). A GA cut replaces it with a bare semver by
+    # hand (PCP-24504) and leaves the digest empty -- there is no GA digest pinner, so do not
+    # restore an alpha-style pin from this note. An ENABLED render with an EMPTY tag still fails fast
     # (templates/dialhome-validate.yaml) — never a silent :latest.
-    tag: "1.20.0"
+    tag: "1.21.0"
     digest: ""
     pullPolicy: IfNotPresent
   hub:
@@ -1462,6 +1560,9 @@ dialHome:
 # =====================================================================
 # Lite mode — single pod, SQLite, memory cache
 # =====================================================================
+# ⚠ GA (PCP-24504): a hand-cut GA cut writes the TAG ONLY and leaves every digest empty, because
+# release-alpha.sh is the only digest pinner and it runs on the ALPHA lane. An empty digest on a
+# GA chart is the contract, not an omission. The caveat below still governs any HAND override.
 # ⚠ PCP-23089 — TAG AND DIGEST MUST MOVE TOGETHER. release-alpha.sh always writes both from
 # ONE build, but a HAND override does not: `helm upgrade --reuse-values --set ...image.tag=X`
 # keeps the PREVIOUS digest, and the pair then deploys the OLD content under the NEW version
@@ -1469,8 +1570,15 @@ dialHome:
 # is well-formed, the digest resolves, and the runtime correctly obeys the digest. If you set
 # a tag by hand, set the matching digest in the SAME command, or clear it (`--set
 # ...image.digest=`) to fall back to tag-only. Same caveat for every image block in this file
-# that declares a `digest` key — the mirrored third-party images (fluentbit here, postgres and
-# redis in the mcp-stack sub-chart) deliberately declare none, because nothing writes one.
+# that declares a `digest` key. The mirrored third-party images now differ (PCP-23215): fluentbit
+# here still declares none, mcp-stack redis.image declares a singular `digest` (one container, one
+# tag), and mcp-stack postgres.image declares `digests` — a map KEYED BY MAJOR, because that one
+# block renders at :17 on the restore init containers and :18 on the main container and the
+# migration-check Job. The singular postgres.image.digest is REFUSED at render time, by name,
+# pointing at the map. All three default to un-pinned and nothing writes them: release-alpha.sh
+# pins only the first-party images it builds, so a mirrored image is pinned by hand at a mirror
+# refresh. The postgres map is all-or-nothing per render — pin every major that render builds, or
+# none — so the tag/digest-move-together caveat above applies per entry.
 lite:
   enabled: false
   # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
@@ -1486,7 +1594,7 @@ lite:
     #   3. mcp-stack.migration.image.tag       (DB migration Job uses the same image)
     #   4. charts/tibco-cp-mcp-hub/charts/mcp-hub-recipes/values.yaml mcpGateway.image.tag
     #   5. charts/tibco-cp-mcp-hub/values.yaml mcpGateway.image.tag (parent override)
-    tag: "1.20.0"
+    tag: "1.21.0"
     digest: ""
     pullPolicy: IfNotPresent
   replicas: 1
@@ -1588,6 +1696,27 @@ lite:
     # presented as a hang. Full mode already ships INFO; lite never did.
     LOG_LEVEL: "INFO"
     DB_SQLITE_BUSY_TIMEOUT: "5000"
+    # PCP-24140: without this, setup_metrics never registers /metrics/prometheus on lite, so
+    # every gateway counter (including the write-interlock decisions counter) increments
+    # in-process and is never scraped. Full mode has always set it, in the sub-chart's own
+    # values (charts/mcp-stack/values.yaml); lite never did.
+    #
+    # ⚠️ WHY HERE AND NOT IN global.tpMcpGateway.config, which is where a both-modes key
+    # belongs by the contract above. Raised in review, and the contract is right — this is a
+    # deferral, not a disagreement. Measured, not assumed:
+    #   * Both placements render identically for lite — ENABLE_METRICS reaches the container
+    #     env exactly once, value "true", either way. Nothing about lite behaviour turns on it.
+    #   * Moving it puts the key in the SHARED gateway-cfg ConfigMap, which changes that
+    #     ConfigMap's content-hash suffix and its three references. The base-parity legs
+    #     ([5]/[8]) report that as chart-wide drift, and the only normalisation available is
+    #     one that blinds them to the gateway-cfg ConfigMap ENTIRELY — every future change to
+    #     it, not just this key. That is a far worse trade than the plugin-block rule in this
+    #     same PR, which is at least content-pinned.
+    #   * Retiring the sub-chart's copy — the actual prize for moving — cannot happen here
+    #     anyway: it is vendored, and this chart deliberately keeps that tree unpatched.
+    # So the move belongs with the sub-chart retirement, as one change that pays the parity
+    # cost once and deletes a duplicate rather than adding a second. Filed as the follow-up.
+    ENABLE_METRICS: "true"
     # MCP_CLIENT_AUTH_ENABLED selects the auth METHOD: "true" = JWT/cookie only (the trusted-proxy
     # header is never read); "false" = trusted-proxy-header path (+ Bearer fallback). "true" is the
     # correct default for a non-proxy lite install (clients present a gateway-issued token).
@@ -1645,7 +1774,7 @@ mcp-stack:
     # mcp-stack.image helper.
     image:
       repository: tp-mcp-gateway
-      tag: "1.20.0"
+      tag: "1.21.0"
       digest: ""
       pullPolicy: IfNotPresent
 
@@ -1659,7 +1788,7 @@ mcp-stack:
     # mcp-stack.image helper.
     image:
       repository: tp-mcp-gateway
-      tag: "1.20.0"
+      tag: "1.21.0"
       digest: ""
       pullPolicy: IfNotPresent
     secret:

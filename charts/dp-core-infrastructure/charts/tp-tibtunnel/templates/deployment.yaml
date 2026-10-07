@@ -233,8 +233,11 @@ spec:
             memory: 40Mi
         {{- end }}
       {{- end }}
+      {{- $pullSecretName := include "dp-core-infrastructure.consts.imagePullSecretName" . }}
+      {{- if $pullSecretName }}
       imagePullSecrets:
-        - name: {{ .Values.global.tibco.dataPlaneId }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+        - name: {{ $pullSecretName }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

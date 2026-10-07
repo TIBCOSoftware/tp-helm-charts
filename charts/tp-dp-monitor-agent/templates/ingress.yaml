@@ -3,8 +3,10 @@
   This file is subject to the license terms contained
   in the license file that is distributed with this file.
 */}}
-
 {{- if .Values.enableIngress }}
+
+{{- /* built-in haProxy (default): no custom ingress controller and no gateway api */ -}}
+{{- if and (empty .Values.global.cp.routeResources.ingress.ingressController) (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -43,5 +45,244 @@ spec:
             name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
             port:
               number: 7831
+{{- end }}
+
+{{- /* custom haProxy (user-managed HAProxy ingress controller, not the bundled one) */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "haProxy" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: "{{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/(.*) /\\1"
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "nginx" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/(.*)
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS }}"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/(.*)
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "traefik" }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-strip-prefix
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "tp-dp-monitor-agent.consts.appName" . }}-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+  - host: "{{ .Values.global.cp.routeResources.controllerServiceDNS }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+        backend:
+          service:
+            name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+            port:
+              number: 7831
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+  to:
+    kind: Service
+    name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+    weight: 100
+  port:
+    targetPort: server # named service port (best practice; router resolves via the service port list, stays correct if ports change)
+  wildcardPolicy: None
+---
+{{- /* second Route for the controller service DNS host; a Route is single-host so this mirrors the second ingress rule other controllers emit */ -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-controller-dns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  host: "{{ .Values.global.cp.routeResources.controllerServiceDNS }}"
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+  to:
+    kind: Service
+    name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+    weight: 100
+  port:
+    targetPort: server # named service port (best practice; router resolves via the service port list, stays correct if ports change)
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if not (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  - "{{ .Values.global.cp.routeResources.controllerServiceDNS }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/infra/tp-dp-monitor-agent/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+      port: 7831
+{{- /* GKE needs an explicit HealthCheckPolicy so the gateway backend probes the monitor-agent health port, not the default "/" on the traffic port */ -}}
+{{- if eq .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName "GKE" }}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "tp-dp-monitor-agent.consts.appName" . }}-hc
+  namespace: {{ .Release.Namespace }}
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 9831
+        requestPath: /v1/monitor/ping
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ include "tp-dp-monitor-agent.consts.appName" . }}
+{{- end }}
+{{- end }}
 
 {{- end }}

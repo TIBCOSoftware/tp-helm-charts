@@ -16,12 +16,16 @@ spec:
            There is NO dedicated discovery :8080 Service port anymore — the discovery upstream is reached
            only in-pod via the proxy (the :8080 containerPort stays for kubelet probes + the proxy target). */}}
     {{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) }}
+    {{- /* PCP-23986: `port` stays 80/81 (external contract, referenced by the Ingresses);
+           only targetPort moves, and it moves to the container port NAME so kube resolves
+           it PER POD — no connection-refused window during a rolling upgrade.
+           KEEP IN SYNC with charts/mcp-stack/templates/service-mcp.yaml. */}}
     - name: external
       port: 80
-      targetPort: 80
+      targetPort: external
     - name: cp-internal
       port: 81
-      targetPort: 81
+      targetPort: cp-internal
     {{- else }}
     - port: 80
       targetPort: 4444

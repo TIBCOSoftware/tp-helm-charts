@@ -84,8 +84,10 @@ spec:
             - name: cp-certs
               mountPath: /etc/ssl/certs/cp-certs
         {{- end }}
+      {{- if .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. omitted entirely if secret name is not provided */}}
       imagePullSecrets:
-        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       volumes:
         - name: logs
           emptyDir: {}
@@ -166,8 +168,10 @@ spec:
               value: {{ .noProxy | quote }}
             {{- end }}          
             {{- end }}
+      {{- if .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. omitted entirely if secret name is not provided */}}
       imagePullSecrets:
-        - name: {{ .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. no op if secret does not exist */}}
+        - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
       volumes:
         - name: logs
           emptyDir: {}

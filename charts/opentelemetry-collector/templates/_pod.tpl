@@ -5,8 +5,10 @@
 #
 
 {{- define "opentelemetry-collector.pod" -}}
+{{- if .Values.global.cp.containerRegistry.secret }} {{/* optional imagePullSecret for private repo. omitted entirely if secret name is not provided */}}
 imagePullSecrets:
 - name: {{ .Values.global.cp.containerRegistry.secret }}
+{{- end }}
 serviceAccountName: {{ include "opentelemetry-collector.serviceAccountName" . }}
 automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
 securityContext:

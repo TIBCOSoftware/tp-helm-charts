@@ -31,13 +31,18 @@ spec:
            Gated on the sub-chart-visible global flags. Keep on upstream mcp-stack
            (github.com/IBM/mcp-context-forge) re-sync. */}}
     {{- if (or (dig "tpMcpGateway" "tibcoProxy" "enabled" false (.Values.global | default dict)) (dig "tpMcpGateway" "discovery" "enabled" true (.Values.global | default dict))) }}
+    {{- /* PCP-23986: `port` stays 80/81 — the external contract is unchanged and the
+           Ingresses reference these. Only targetPort moves, and it moves to the container
+           port NAME so kube resolves it PER POD: during a rolling upgrade old pods resolve
+           `external` to 80 and new pods to 8880 simultaneously, so there is no
+           connection-refused window. KEEP IN SYNC with templates/lite-service.yaml. */}}
     - name: external
       port: 80
-      targetPort: 80
+      targetPort: external
       protocol: TCP
     - name: cp-internal
       port: 81
-      targetPort: 81
+      targetPort: cp-internal
       protocol: TCP
     {{- else }}
     - name: http

@@ -4,6 +4,48 @@
   in the license file that is distributed with this file.
 */}}
 
+{{/*
+  Age-based retention only — deliberately NO rollover action. Jaeger writes date-named daily
+  indices (jaeger-span-YYYY-MM-DD), which are not the write index of any rollover alias, so a
+  rollover action here would put every daily index into a failed ILM step and retention would
+  never run at all. Without it, `min_age` is measured from each index's creation date, which is
+  exactly the daily-index lifetime we want (PCP-24038).
+
+  Scope note: the jaeger-{span,service}-000001 bootstrap indices also match the
+  *jaeger-{span,service}-* template pattern, so they inherit this policy too and are deleted 30
+  days after creation, taking the (unused) jaeger-*-write alias with them. That is harmless in
+  the daily-index model — nothing writes through the alias, so those indices are empty — but it
+  is a real property of this policy, not an oversight. If alias mode is ever enabled, a bootstrap
+  write index must be CREATED rather than assumed to still exist.
+
+  UPGRADING AN EXISTING DATA PLANE
+  The write path self-heals: once this template stops granting jaeger-span-write, the stale
+  is_write_index flags on already-created daily indices become inert and Jaeger's next flush
+  succeeds. Retention does NOT self-heal. ILM caches this policy's phase definition on each index,
+  so indices created before the upgrade keep re-running the OLD rollover step and stay wedged in
+  hot/rollover even though the policy above is already correct. Clearing that is a one-time
+  operator step, deliberately NOT automated here (unattended bulk index mutation from a
+  post-upgrade hook is exactly the risk this fix set out to avoid).
+
+  The runbook is in the chart README, under "Upgrading from a chart older than 1.21.1", where an
+  upgrader can actually find it — a Go template comment appears in no rendered output, so
+  `helm template` / `helm show all` never surface it, while `helm show readme` surfaces the
+  README. In short: detach and re-attach the policy (POST _ilm/remove, then PUT _settings
+  index.lifecycle.name), over an index expression built from THIS chart's own index-template
+  patterns and EXCLUDING the jaeger-*-read / jaeger-*-write aliases, because the ILM APIs resolve
+  concrete indices only. Use the README's status-checking helper, not a bare curl: between the
+  remove and the re-attach retention is off for every matched index, so a silently failed
+  re-attach is worse than the wedge it repairs.
+
+  Do not replace that with an _ilm/retry call. Retry re-runs the CACHED failed step rather than the
+  updated policy, it rejects the whole request if any matched index is momentarily out of ERROR
+  (the failure is auto-retryable, so one always is), and it cannot resolve the aliases that a
+  jaeger-<star> pattern matches. All three were verified against a live cluster in PCP-24173; the
+  README records them as commands that do NOT work.
+
+  The OpenSearch equivalent lives in charts/dp-config-opensearch/README.md.
+*/}}
+
 {{ if .Values.index.enabled -}}
 apiVersion: es.eck.github.com/v1alpha1
 kind: IndexLifecyclePolicy
@@ -17,21 +59,13 @@ spec:
     {
       "policy": {
         "_meta": {
-          "description": "this will be used for traces",
+          "description": "this will be used for traces - age-based 30d retention for Jaeger daily indices",
           "project": {
             "name": "jaeger",
             "department": "platform infra"
           }
         },
         "phases": {
-          "hot": {
-            "actions": {
-              "rollover": {
-                "max_size": "2GB",
-                "max_age": "7d"
-              }
-            }
-          },
           "warm": {
             "min_age": "10d",
             "actions": {

@@ -15,9 +15,26 @@ global:
     containerRegistry:
       url: ""
       repository: "tibco-platform-docker-prod"
+      # [optional] Name of a pre-existing imagePullSecret. If set, username/password are ignored.
+      secret: ""
 
     hybridConnectivity:
       enabled: true
+
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the /infra/... tail is hardcoded in the templates
+      controllerServiceDNS: cpdpproxy  # in-cluster DNS for the active IC's Service; default targets the bundled HAProxy
+      ingress:
+        ingressController: ""    # "" = built-in HAProxy (default) | "haProxy" = user-managed/external HAProxy | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is non-empty (incl. "haProxy" for a user-managed HAProxy class)
+        fqdn: ""                 # required when ingressController is set; auto-populated from DP URL
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
 
     enableResourceConstraints: true
     cpCertificateSecret: ""
@@ -61,7 +78,7 @@ tp-tibtunnel:
     networkCheckUrl: ""  # Url to check for network connectivity
     infiniteRetries: true  # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
     url: ""  # Connect Url generated from TIBCO Cloud Control plane
-    onPremHost: "cpdpproxy"  # service name of on prem host
+    onPremHost: "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"  # in-cluster Service DNS for the active IC; sourced from global.tibco.routeResources.controllerServiceDNS (defaults to cpdpproxy)
     onPremPort: "80"  # port number of the service.
   configure:
     profile: ""  # The name of the profile to create or update

@@ -10,6 +10,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+#### **PostgreSQL 17 → 18 upgrade is air-gap installable — no `apt-get`, no `dl.min.io`, no Docker Hub** ([PCP-23127])
+
+The pg17 → pg18 upgrade path reached the public internet at four points, so it could not complete on
+a Data Plane with no egress: the backup Job (`job-postgres-backup.yaml`) and the restore init
+container (`deployment-postgres.yaml`) each ran `apt-get update && apt-get install -y wget jq` and
+then `wget https://dl.min.io/client/mc/release/linux-<arch>/mc`, and the MinIO server itself was
+pulled as `minio/minio` from Docker Hub. All four are gone:
+
+* **The MinIO image now comes from the TIBCO mirror.** `minio.image.repository` is the bare name
+  `common-minio` (was `minio/minio`), composed through the same `global.cp.containerRegistry`
+  resolver as postgres and redis; `minio/minio=common-minio` is now in the `IMAGE_MAP` of
+  `.github/workflows/retag-third-party-image.yaml`. The tag is unchanged — MinIO's `RELEASE.*`
+  stamps are already immutable. **Re-mirror before upgrading**: the retag is a point-in-time copy,
+  so the tag must exist in the mirror first.
+* **`mc` is no longer downloaded at runtime.** The MinIO *server* image already ships the client at
+  `/usr/bin/mc`; a new `minio-client-copy` init container runs that same image and does
+  `install -m 0755 /usr/bin/mc /opt/minio-client/mc` into a dedicated `minio-client` emptyDir, which
+  the backup container and the restore-fetch container mount read-only and execute. It is a separate
+  volume from `postgres-initdb` on purpose — the check step deletes every non-dot file in the initdb
+  dir on each start and the `postgres:18` entrypoint executes what it finds there. In the postgres
+  `Deployment` the container **and** the `minio-client` volume render only on the upgrade path
+  (`upgrade.enabled` + `targetVersion: "18"` + `backupCompleted` + `minio.enabled`), so an ordinary
+  bundled-PG install keeps the pod template — and therefore the database — it had. The copy also
+  carries the same `.needs-restore` short-circuit as the fetch/prepare steps, which skips the ~30 MB
+  copy on a healthy restart (it does **not** skip the image pull — kubelet pulls an init container's
+  image before running it).
+* **`jq` is dropped.** The newest dump is selected with an anchored `sed -n` over `mc ls --json`,
+  matching only the exact `postgres-dump-YYYYmmdd-HHMMSS.sql` name the backup Job mints. `sed -n`
+  exits 0 on no match, so the deliberate "empty bucket" branch still works under `set -eo pipefail`
+  (`grep -o` would exit 1 and turn it into an `Init:Error` retry loop). The previous `jq` read a
+  `.time` field `mc` does not emit, so the sort was already filename-descending — behaviour is
+  unchanged, not just preserved.
+* **`postgres-restore-fetch` no longer runs as root.** Its `runAsUser: 0` / `runAsNonRoot: false`
+  carve-out existed only because `apt-get` needs `CHOWN`/`DAC_OVERRIDE`/`FOWNER`/`SETGID`/`SETUID`;
+  it now inherits `postgres.containerSecurityContext` like the steps either side of it, and the
+  `chown -R`/`chmod -R` handover it used to do is unnecessary because it already owns what it writes.
+  Both new `minio-client-copy` containers set an explicit `securityContext` (the backup Job's
+  pod-level context sets only `seccompProfile`, so an implicit container there would run as **root**
+  with full default capabilities).
+* **The `:18` tag gate now includes `backupCompleted`.** The main container's PG18 image was selected
+  on `upgrade.enabled AND targetVersion == "18"` while the three restore init containers were gated
+  on those **plus** `upgrade.backupCompleted`. Phase 1 of the documented two-step upgrade
+  (`enabled=true`, `backupCompleted=false` — the step whose whole purpose is to let the pre-upgrade
+  backup Job dump the *current* database) therefore started `postgres:18` against an untouched PG17
+  data directory with no restore staged, which the entrypoint refuses outright ("database files are
+  incompatible with server") → terminal `CrashLoopBackOff` on the live database, mid-upgrade, before
+  the dump reached MinIO. Phase 1 now correctly stays on `postgres.image.tag` (17).
+* **The MinIO `Deployment` gains `imagePullSecrets`.** It was the only workload *on the upgrade path*
+  with no such block; against the authenticated mirror an anonymous pull `ImagePullBackOff`s. It now
+  emits the same `global.imagePullSecrets` block its sibling workloads already declare.
+  (`registration-jobs.yaml` still renders four workloads without one — deliberately: those images
+  come straight from `testing.registration.image` and are not routed through the mirror.)
+
+> **Operator action after the upgrade completes — two supported end states, and half a step is not
+> one of them.** While `postgres.upgrade.enabled=true` (with `minio.enabled=true`), the **postgres
+> pod itself** carries an init-time dependency on the MinIO image, because that is where `mc` comes
+> from. Do **not** simply set `upgrade.enabled: false`: the tag selection then falls back to
+> `postgres.image.tag`, still `"17"`, so the next rollout starts a PostgreSQL 17 binary on a
+> PostgreSQL 18 data directory and crash-loops terminally — and the finalize hook has already removed
+> `pgdata-pg17-bak`, so there is no in-place way back. Do **not** set `minio.enabled: false` on its
+> own either: the chart's fail-fast refuses `upgrade.enabled=true` without MinIO, so every subsequent
+> helm operation aborts at render. Choose one:
+> **(A)** leave `upgrade.enabled` / `targetVersion` / `backupCompleted` **and** `minio.enabled` in
+> place permanently; or **(B)** in **one** pass set `postgres.image.tag: "18"` **and**
+> `postgres.upgrade.enabled: false` **and** `minio.enabled: false`, which is the only way the
+> database pod stops pulling an object-store image and MinIO stops holding a PVC for a one-off.
+> Under (A) a healthy, already-upgraded PG18 pod restart still does **no** work outside the pod —
+> the `.needs-restore` skip guard is preserved — but the image pull remains. See "Cleanup After
+> Successful Upgrade" in the operator runbook (`docs/docs/manage/postgres-upgrade-process.md`).
+
+> **Air-gap prerequisite:** `common-minio:RELEASE.2025-09-07T16-13-09Z-cpuv1` must be present in the
+> mirror alongside `common-postgres:17`/`:18` before either upgrade phase is run.
+
 #### **MinIO Deployment selector de-versioned — `helm upgrade` no longer fails with an immutable-selector error** ([PCP-22409])
 
 The MinIO `Deployment`'s `spec.selector.matchLabels` was emitted via the shared `mcp-stack.labels`

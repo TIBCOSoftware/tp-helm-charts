@@ -4,6 +4,13 @@
   in the license file that is distributed with this file.
 */}}
 
+{{/*
+  No jaeger-service-write alias and no rollover_alias here, for the same reason as the jaeger-span
+  template (see index-template-jaeger-span.yaml): Jaeger writes date-named daily indices, so a
+  write alias granted by this template would make every new daily index a second write index and
+  Elasticsearch would reject all bulk writes (PCP-24038).
+*/}}
+
 {{ if .Values.index.enabled -}}
 apiVersion: es.eck.github.com/v1alpha1
 kind: IndexTemplate
@@ -19,10 +26,7 @@ spec:
       "index_patterns": ["*jaeger-service-*"],
       "template": {
         "aliases": {
-          "jaeger-service-read": {},
-          "jaeger-service-write": {
-            "is_write_index": true
-          }
+          "jaeger-service-read": {}
         },
         "settings": {
           "index.number_of_shards": 6,
@@ -30,8 +34,7 @@ spec:
           "index.mapping.nested_fields.limit": 50,
           "index.requests.cache.enable": true,
           "lifecycle": {
-            "name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy",
-            "rollover_alias": "jaeger-service-write"
+            "name": "{{ .Release.Name }}-jaeger-index-30d-lifecycle-policy"
           }
         },
         "mappings": {

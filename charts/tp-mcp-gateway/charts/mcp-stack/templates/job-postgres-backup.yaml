@@ -10,12 +10,71 @@
        postgres.image.repository being prefixed a second time. */ -}}
 {{- /* Gated for the same reason as deployment-postgres.yaml: bareRepository fails the render on a
        host-qualified value, and this Job only renders under postgres.upgrade.enabled. */ -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       ONE name for "does this Job actually render", shared with the `if` that emits it below and
+       with the digest look-up, so the two can never drift apart. */ -}}
+{{- $rendersBackupJob := and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.upgrade.backupCompleted) (not .Values.postgres.external.enabled) -}}
 {{- $pgRepo := "" -}}
+{{- /* Declared here and only ASSIGNED inside the gate — a `:=` inside an if-block is invisible
+       outside it (same idiom as $pgRepo). "" is the un-pinned default and renders tag-only. */ -}}
+{{- $pgDigest := "" -}}
 {{- if or .Values.postgres.enabled .Values.postgres.upgrade.enabled -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       The singular postgres.image.digest aborts the render here too: this Job is a separate
+       render surface from deployment-postgres.yaml, and a guard placed only there would leave the
+       backup Job free to pin one container of a manifest whose siblings are not. Gate-scoped for
+       the same reason as $pgRepo — dead config must not fail the render. */ -}}
+{{- include "mcp-stack.postgres.assertImageKeys" . -}}
 {{- $pgRepo = printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.postgres.image.repository) -}}
+{{- /* This Job dumps the CURRENT database, so its major is postgres.image.tag — the same value
+       the image reference below takes its tag from. Looked up only when the Job renders: the
+       digests map is all-or-nothing per render, and a Job that is not emitted builds nothing to
+       pin. */ -}}
+{{- if $rendersBackupJob -}}
+{{- $pgDigest = include "mcp-stack.postgres.digestFor" (dict "ctx" . "major" .Values.postgres.image.tag) -}}
 {{- end -}}
-{{- $postgresImage := include "mcp-stack.image" (merge (dict "repository" $pgRepo) .Values.postgres.image) -}}
-{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.upgrade.backupCompleted) (not .Values.postgres.external.enabled) }}
+{{- end -}}
+{{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
+       No tag override (this Job follows postgres.image.tag), and the digest for exactly that tag
+       in the destination dict. The source block is stripped of BOTH digest keys: `merge` is
+       destination-wins only for NON-EMPTY destination values, so an un-pinned "" would otherwise
+       be back-filled from the source. Do NOT pass .Values.postgres.image whole.
+
+       COMPOSED ONLY WHEN THE JOB ACTUALLY RENDERS, via the declare-then-assign idiom, for the same
+       reason $pgRepo and $pgDigest are: mcp-stack.image validates what it is handed and ABORTS on a
+       malformed tag or digest. Evaluating it unconditionally makes a stray postgres.image value —
+       replayed by `helm upgrade --reuse-values` from an older release, say — kill the ENTIRE
+       gateway render for a database that is disabled on the shipped surface and will never be
+       deployed. That is the "dead config must not fail the render" doctrine that
+       container-registry-assert.sh:918-931 already fixed once for postgres.image.repository.
+       Pinned from the other side by bundled-image-digest-assert.sh (E). */ -}}
+{{- $postgresImage := "" -}}
+{{- if $rendersBackupJob -}}
+{{- $postgresImage = include "mcp-stack.image" (merge (dict "repository" $pgRepo "digest" $pgDigest) (omit .Values.postgres.image "digest" "digests")) -}}
+{{- end -}}
+{{- if $rendersBackupJob }}
+{{- /* LOCAL TIBCO MOD (PCP-23127): re-apply on upstream mcp-stack re-vendor.
+       The MinIO SERVER image, composed through the SAME container-registry resolver and in the
+       same shape as minio-deployment.yaml and deployment-postgres.yaml. It is rendered here
+       because it ships the `mc` CLIENT at /usr/bin/mc: the minio-client-copy init container
+       below runs this image and copies that binary into a shared emptyDir for the Debian
+       postgres container to execute. That is what replaced the `apt-get install wget jq` +
+       `wget https://dl.min.io/...` this Job used to carry — PHASE 1 of the two-step pg17 -> pg18
+       upgrade, and the half of that path nothing had noticed was still reaching the public
+       internet, so the upgrade could not even take its own backup on a Data Plane with no
+       public egress.
+
+       EVALUATED INSIDE THE GATES, exactly like $pgRepo above: mcp-stack.image.bareRepository
+       ABORTS the render on a value that is not a bare name, and `helm upgrade --reuse-values`
+       from any pre-PCP-23127 release replays the old `minio/minio`. Everything below is already
+       inside this file's `upgrade.enabled AND targetVersion 18 AND NOT backupCompleted AND NOT
+       external` gate; the extra `minio.enabled` is the USE-SITE condition of the one container
+       that consumes it, so the variable exists exactly when that container renders. */ -}}
+{{- $minioImage := "" -}}
+{{- if .Values.minio.enabled -}}
+{{- $minioRepo := printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.minio.image.repository) -}}
+{{- $minioImage = include "mcp-stack.image" (merge (dict "repository" $minioRepo) .Values.minio.image) -}}
+{{- end -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -53,6 +112,54 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      {{- if .Values.minio.enabled }}
+      {{- /* LOCAL TIBCO MOD (PCP-23127): re-apply on upstream mcp-stack re-vendor.
+             THE AIR-GAP FIX, phase-1 half. The backup container needs a MinIO client to publish
+             the dump; it used to `apt-get install wget jq` and `wget` the binary from
+             https://dl.min.io, so this Job — the FIRST step of the documented pg17 -> pg18
+             upgrade — simply could not run on a Data Plane with no public egress. The MinIO
+             SERVER image this chart already deploys SHIPS that client at /usr/bin/mc (a ~30MB
+             static Go binary) and ships /bin/sh (proved in-tree: minio-deployment.yaml runs
+             `command: [/bin/sh, -c, "minio server /data ..."]` on the very same image), so the
+             client is lifted out of the mirrored image instead of fetched from the internet.
+             Nothing is installed and nothing is downloaded. Identical container to the one
+             deployment-postgres.yaml stages for the phase-2 restore.
+
+             WHY IT IS GATED ON minio.enabled. It is the condition under which $minioImage is
+             composed at all, and it keeps this container from being the one thing that pins a
+             DATABASE-backup pod to an OBJECT-STORE image on a path where the object store is
+             off. In practice the gate cannot be false while this Job renders — the fail-fast in
+             deployment-postgres.yaml refuses `upgrade.enabled + targetVersion 18` without
+             minio.enabled, and both templates render together — but the two conditions are kept
+             explicit rather than inferred from a fail-fast in another file. See the operator
+             note on minio.enabled in values.yaml. */}}
+      initContainers:
+        - name: minio-client-copy
+          image: {{ $minioImage | quote }}  # MinIO server image, used ONLY for its bundled /usr/bin/mc
+          imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args: ["install -m 0755 /usr/bin/mc /opt/minio-client/mc"]
+          volumeMounts:
+            - name: minio-client
+              mountPath: /opt/minio-client
+          # EXPLICIT, and it has to be. This Job's POD-level securityContext sets ONLY
+          # seccompProfile -- unlike the postgres Deployment there is no pod-wide runAsUser /
+          # runAsNonRoot / fsGroup to inherit -- so a container with no securityContext of its
+          # own runs as ROOT with the full default capability set, which is the exact posture
+          # PCP-23127 exists to remove from this path. Nothing here needs root: it copies one
+          # world-readable file out of the image into an emptyDir that the kubelet creates
+          # 0777 when no fsGroup is set, so any uid can write it. 999 is not load-bearing --
+          # no volume ownership depends on it and the (root) backup container reads a 0755
+          # binary either way -- it just matches the postgres uid used throughout this
+          # sub-chart. It must stay NON-ZERO to satisfy runAsNonRoot.
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
+      {{- end }}
       containers:
         - name: postgres-backup
           image: {{ $postgresImage | quote }}
@@ -83,19 +190,34 @@ spec:
 
               echo "Database dumped to $BACKUP_FILE"
 
-              # Install MinIO client and jq
-              apt-get update && apt-get install -y wget jq
-              wget https://dl.min.io/client/mc/release/linux-amd64/mc -O /tmp/mc
-              chmod +x /tmp/mc
+              # The MinIO client is ALREADY here: the minio-client-copy init container lifted
+              # /usr/bin/mc out of the MinIO server image into the shared minio-client
+              # emptyDir. Nothing is installed and nothing is downloaded -- the
+              # `apt-get update && apt-get install -y wget jq` + `wget
+              # https://dl.min.io/client/mc/release/linux-amd64/mc` that used to sit at this
+              # point is exactly what made phase 1 of the upgrade impossible on a Data Plane
+              # with no public egress (PCP-23127). That download was also hardcoded to
+              # linux-amd64, so it staged an x86-64 binary onto an arm64 node and died with
+              # "exec format error"; the mc that ships in the MinIO image is by construction
+              # built for the same architecture as the image itself. jq went with them: it was
+              # installed here but never used by a single line of this script.
+              # --config-dir is deliberate and container-local, matching the restore step in
+              # deployment-postgres.yaml: mc refuses to start when it cannot create its config
+              # dir, and it must not be left to whatever $HOME happens to be.
+              MC=/opt/minio-client/mc
 
               # Configure MinIO client
-              /tmp/mc alias set minio http://{{ include "mcp-stack.fullname" . }}-minio:{{ .Values.minio.service.apiPort }} $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+              "$MC" --config-dir /tmp/.mc alias set minio http://{{ include "mcp-stack.fullname" . }}-minio:{{ .Values.minio.service.apiPort }} $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 
               # Create bucket if it doesn't exist
-              /tmp/mc mb minio/postgres-backups --ignore-existing
+              "$MC" --config-dir /tmp/.mc mb minio/postgres-backups --ignore-existing
 
-              # Upload the backup file to MinIO
-              /tmp/mc cp $BACKUP_FILE minio/postgres-backups/
+              # Upload the backup file to MinIO. Deliberately AFTER pg_dump has exited 0 (a
+              # non-zero pg_dump kills the script under `set -e` and nothing is published):
+              # the dump lands locally first and only a COMPLETE dump is ever uploaded, so the
+              # restore step can never pick up a truncated file as a database. Do not
+              # "simplify" this into a dump streamed straight at the object store.
+              "$MC" --config-dir /tmp/.mc cp $BACKUP_FILE minio/postgres-backups/
 
               echo "Backup uploaded to MinIO successfully"
 
@@ -138,4 +260,19 @@ spec:
                 secretKeyRef:
                   name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mcp-stack.fullname" . }}-minio{{ end }}
                   key: MINIO_ROOT_PASSWORD
+          volumeMounts:
+            # The mc binary staged by minio-client-copy. Mounted read-only: this container
+            # only executes it. The dump itself is written to the container's own /tmp, which
+            # is where the atomic-publish property lives -- do not move it here.
+            - name: minio-client
+              mountPath: /opt/minio-client
+              readOnly: true
+      {{- /* LOCAL TIBCO MOD (PCP-23127): this Job had no volumes at all before the air-gap fix,
+             because it downloaded its tooling from the internet. One node-local emptyDir now
+             carries the mc binary from the init container to the backup container. sizeLimit
+             caps a volume that only ever holds that one ~30MB binary. */}}
+      volumes:
+        - name: minio-client
+          emptyDir:
+            sizeLimit: 64Mi
 {{- end }}

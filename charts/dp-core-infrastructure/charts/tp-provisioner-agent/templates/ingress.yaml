@@ -4,6 +4,8 @@
   in the license file that is distributed with this file.
 */}}
 
+{{- /* built-in haProxy (default): no custom ingress controller and no gateway api */ -}}
+{{- if and (empty .Values.global.tibco.routeResources.ingress.ingressController) (empty .Values.global.tibco.routeResources.gatewayapi.gatewayAPIControllerName) -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -36,3 +38,240 @@ spec:
             name: {{ include "tp-provisioner-agent.consts.appName" . }}
             port:
               number: 80
+{{- end }}
+
+{{- /* custom haProxy (user-managed HAProxy ingress controller, not the bundled one) */ -}}
+{{- if eq .Values.global.tibco.routeResources.ingress.ingressController "haProxy" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: "{{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/(.*) /\\1"
+    {{- with .Values.global.tibco.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.tibco.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ tpl .Values.global.dpUrl.host . }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+  - host: "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if eq .Values.global.tibco.routeResources.ingress.ingressController "nginx" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent
+    {{- with .Values.global.tibco.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.tibco.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ tpl .Values.global.dpUrl.host . }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/(.*)
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+  - host: "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/(.*)
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if eq .Values.global.tibco.routeResources.ingress.ingressController "traefik" }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}-strip-prefix
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "tp-provisioner-agent.consts.appName" . }}-strip-prefix@kubernetescrd
+    {{- with .Values.global.tibco.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.tibco.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ tpl .Values.global.dpUrl.host . }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+  - host: "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+        backend:
+          service:
+            name: {{ include "tp-provisioner-agent.consts.appName" . }}
+            port:
+              number: 80
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if eq .Values.global.tibco.routeResources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.tibco.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  host: {{ tpl .Values.global.dpUrl.host . | quote }}
+  path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+  to:
+    kind: Service
+    name: {{ include "tp-provisioner-agent.consts.appName" . }}
+    weight: 100
+  port:
+    targetPort: provisioner # named service port so the OpenShift router targets the pod's container port (3124), not :80
+  wildcardPolicy: None
+---
+{{- /* second Route for the controller service DNS host; a Route is single-host so this mirrors the second ingress rule other controllers emit */ -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}-controller-dns
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.tibco.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  host: "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"
+  path: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+  to:
+    kind: Service
+    name: {{ include "tp-provisioner-agent.consts.appName" . }}
+    weight: 100
+  port:
+    targetPort: provisioner # named service port so the OpenShift router targets the pod's container port (3124), not :80
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if not (empty .Values.global.tibco.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "tp-provisioner-agent.shared.labels.standard" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.tibco.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.tibco.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.tibco.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ tpl .Values.global.dpUrl.host . | quote }}
+  - "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.tibco.routeResources.pathPrefix }}/infra/provisioner-agent/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: {{ include "tp-provisioner-agent.consts.appName" . }}
+      port: 80
+{{- /* GKE needs an explicit HealthCheckPolicy so the gateway backend probes the provisioner-agent health port, not the default "/" on the traffic port */ -}}
+{{- if eq .Values.global.tibco.routeResources.gatewayapi.gatewayAPIControllerName "GKE" }}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "tp-provisioner-agent.consts.appName" . }}-hc
+  namespace: {{ .Release.Namespace }}
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 3124
+        requestPath: /version
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ include "tp-provisioner-agent.consts.appName" . }}
+{{- end }}
+{{- end }}

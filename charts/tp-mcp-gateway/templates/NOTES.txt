@@ -24,8 +24,12 @@ then enable dial-home (NEVER pass the token via --set):
     --set dialHome.image.tag=<agent-image-tag>
 
   ⚠ PRODUCTION: dial-home requires tibcoProxy.enabled=true. Do NOT leave
-  tibcoProxy.trustCPNetwork=true (POC/dev only — it skips CIC token validation);
+  trustCPNetwork=true (POC/dev only — it skips CIC token validation);
   wire CP_DOMAIN + cp-proxy/IdM and set it false for a hardened trust posture.
+  Mind WHICH key (PCP-23986): lite reads tibcoProxy.trustCPNetwork, full mode reads
+  global.tpMcpGateway.tibcoProxy.trustCPNetwork — the sub-chart cannot see a top-level
+  value. Setting the wrong one in full mode is a silent no-op; the chart now refuses
+  that render rather than letting you believe trust is off when it is not.
 {{- end }}
 
 Egress posture (outbound-only — PCP-20287/B4):

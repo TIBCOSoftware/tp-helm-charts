@@ -15,6 +15,20 @@ global:
     instanceId: defaultinstid
     subscriptionId: sub-id1
     namespace: tp-dp-dp1
+    routeResources:
+      pathPrefix: /tibco/agent
+      controllerServiceDNS: cpdpproxy
+      ingress:
+        ingressController: ""    # "" | "haProxy" (default) | "nginx" | "traefik"
+        ingressClassName: ""     # required when ingressController is non-empty and not "haProxy"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
     containerRegistry:
       secret: ""
       url: ""
@@ -237,6 +251,20 @@ global:
               otlp:
                 type: http|grpc
                 endpoint: localhost:4317
+              # PCP-23522: disk-buffered OTLP push (queue-storage). Default ON for this feature
+              # branch — routes the CP-System delivery to the push exporter (otlphttp/cp-metrics)
+              # instead of the :4320 pull; set false to fall back to the scrape/pull path. No auth
+              # headers needed (cp-proxy injects the DP bearer). Keep in sync with the tp-cp-o11y
+              # capabilities.o11y.withResources.metricsPush gate.
+              push:
+                enabled: true
+                cpSystem:
+                  # DP->CP OTLP push target, reached via cp-proxy (same pattern as the audit route
+                  # http://cp-proxy/otel-service/audit/events). The tp-cp-prometheus DP OTLP route
+                  # (PCP-23524, merged) exposes /otel-services/otlp-metrics/v1/metrics; otlphttp
+                  # appends /v1/metrics, so this base must NOT include it. Still required-guarded
+                  # (configmap) if explicitly cleared while push is enabled.
+                  endpoint: "http://cp-proxy/otel-services/otlp-metrics"
             exporterSecondary:
               enabled: false
               kind: otlp
@@ -505,7 +533,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 5456
+      tag: 6118
     job:
       image:
         tag: 9474

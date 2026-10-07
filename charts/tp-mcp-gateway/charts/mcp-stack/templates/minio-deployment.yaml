@@ -1,4 +1,26 @@
 {{- if .Values.minio.enabled }}
+{{- /* LOCAL TIBCO MOD (PCP-23127): re-apply on upstream mcp-stack re-vendor.
+       Container-registry indirection — compose the EFFECTIVE repository
+       <registry>/<repository>/<bare-name> ONCE, file-scoped, from global.cp.containerRegistry
+       via the two zero-logic house helpers, then pass it to the ONE mcp-stack.image helper as
+       the `repository` key of the image block. Same shape as the $pgRepo in
+       deployment-postgres.yaml and the redis composition in deployment-redis.yaml.
+
+       WHY NOT THE HAND-BUILT LITERAL THIS REPLACES. `"{{ .repository }}:{{ .tag }}"` is not
+       merely untidy: it silently DROPS a digest, so the moment one is added to this block the
+       pod quietly goes back to a mutable reference with nothing reporting it (PCP-23214), and it
+       re-inherits the leading-slash / double-prefix defect class the helper exists to close
+       (PCP-23208). It also cannot be seen by image-provenance-assert.sh's resolver rules. The
+       helper has one composition point and one set of rules; the literal has neither.
+
+       WHY IT IS EVALUATED INSIDE THE ENABLING GATE. mcp-stack.image.bareRepository ABORTS the
+       render on a value that is not a bare name, and `helm upgrade --reuse-values` from any
+       release older than PCP-23127 replays the old `minio/minio`. Computing this at
+       unconditional file scope would therefore kill the WHOLE chart render over an object store
+       that is disabled by default and would never be deployed — the exact bug
+       deployment-postgres.yaml:37-46 documents and scopes its own $pgRepo to avoid. */ -}}
+{{- $minioRepo := printf "%s/%s/%s" (include "mcp-stack.image.registry" .) (include "mcp-stack.image.repository" .) (include "mcp-stack.image.bareRepository" .Values.minio.image.repository) -}}
+{{- $minioImage := include "mcp-stack.image" (merge (dict "repository" $minioRepo) .Values.minio.image) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,6 +60,21 @@ spec:
         app.kubernetes.io/component: minio
         app: {{ include "mcp-stack.fullname" . }}-minio
     spec:
+      {{- /* LOCAL TIBCO MOD (PCP-23127): this Deployment runs the BUNDLED MinIO image, which now
+             comes from the private TIBCO mirror instead of Docker Hub — an anonymous pull no
+             longer works. The ServiceAccount carries no pull secret, and this was the only
+             workload ON THE UPGRADE PATH with no such block (registration-jobs.yaml renders four
+             more workloads without one, but those images do not route through the mirror, so
+             they are deliberately left alone), so without this it ImagePullBackOffs the moment
+             the mirror needs credentials. Verbatim from job-postgres-backup.yaml /
+             deployment-postgres.yaml. */}}
+      # Image pull secrets
+      {{- if (.Values.global).imagePullSecrets }}
+      imagePullSecrets:
+        {{- range (.Values.global).imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
       {{- if (include "mcp-stack.useServiceAccount" .) }}
       serviceAccountName: {{ include "mcp-stack.serviceAccountName" . }}
       {{- end }}
@@ -49,7 +86,7 @@ spec:
         - name: minio
           securityContext:
             allowPrivilegeEscalation: false
-          image: "{{ .Values.minio.image.repository }}:{{ .Values.minio.image.tag }}"
+          image: {{ $minioImage | quote }}
           imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
           command:
             - /bin/sh
