@@ -1,0 +1,510 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Global section will apply to this chart and all of its subcharts.
+global:
+  # PCP-21919 / PCP-9150 -- name of a pre-existing image-pull Secret. MEASURED 2026-08-04: this
+  # key is the DATA-PLANE wiring; on the CP this chart actually receives
+  # global.tibco.containerRegistry.* instead. Both are honoured. Declared here so the key always
+  # exists (a missing `global.cp` would nil-pointer the render). Full precedence: see mcp-hub-webserver.container-registry.secret in _helpers.tpl.
+  cp:
+    containerRegistry:
+      secret: ""
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+      # PCP-21919 -- same contract, the spelling the CP actually delivers (TibcoResourceSet
+      # valueOverrides). On a live CP this is the arm that fires for this chart.
+      secret: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+    serviceAccount: ""
+    # Pre-install Job runs core-cp-scripts to provision postgres user/db and run migrations.
+    # Required when db.type=postgres. The cpScripts image tag below must contain the
+    # mcp-hub setup scripts under /opt/tibco/tsc/scripts/postgres/mcp-hub/. Tag 9384+
+    # ships them. To update the SQL schema: edit
+    # `scripts/database/postgres/mcp-hub/mcphub/sql/N-up.sql` in tp-helm-charts → build
+    # a new core-cp-scripts image → bump this tag.
+    manageDbSchema: true
+    # AWS multi-region flag injected by the orchestrator on a secondary-region CP
+    # (Aurora Global). false = master/primary region. Load-bearing default: the
+    # db-setup Job gate uses `eq ... false`, and `eq nil false` is also false, so an
+    # undeclared flag would wrongly skip the Job even in the master region.
+    is_replica_region: false
+    db_ssl_root_cert_secretname: db-ssl-root-cert
+    db_ssl_root_cert_filename: db_ssl_root.cert
+    commonImages:
+      cpScripts:
+        name: "core-cp-scripts"
+        # PCP-23334: the MCP Hub overlay is RETIRED — this is now a plain platform tag.
+        #
+        # WHY 9802 (PCP-25107): it is what the 1.21 GA BOM declares.
+        # artifacts/control-plane/control-plane-1.21.0-images.txt names core-cp-scripts:9802 and
+        # names 9743 nowhere, so the previous pin pulled an image the release does not ship.
+        # That -- NOT agreement with tibco-cp-base -- is the reason this line moves. Do not
+        # re-justify this pin by base parity: PCP-24482 disqualified that invariant in writing
+        # (see the CHECK 5 header in dev/check-mcp-version-sync.sh); the two fields are
+        # independent and both moving is legitimate.
+        #
+        # THE MOVE 9743 -> 9802 IS SCHEMA-INERT, measured by extracting both images rather than
+        # assumed. Both bake an IDENTICAL /opt/tibco/tsc/scripts/postgres/mcp-hub/: sql/ holds
+        # exactly {1-up, 2-up, 2-down}, version-map.yaml "1.20.0" reads `mcphub: 2`, and
+        # metadata.bash CURRENT_VERSION=2. 2-up.sql is byte-identical (sha256 1830d494…). So
+        # resolve_target_schema_version returns 2 either way and the db-setup hook early-returns
+        # on a CP already at 2. 9802 is the RELEASE-lane rebuild of the 1.21 SQL tree.
+        #
+        # ⚠️ NEVER pull main's cpScripts pin back onto this branch. main is on 9806, which bakes
+        # sql/ 1..5 and `mcphub: 5` under the SAME "1.20.0" key -- pinning it here would
+        # fast-forward every frozen 1.21 GA CP from schema 2 to 5 on the next upgrade. A pin
+        # whose version-map declares MORE than 2 is the failure mode, not the safe direction.
+        #
+        # NOT the sole deviation, so do not write "sole outlier" here or in a PR body:
+        # charts/tibco-cp-ai-agent/values.yaml also pins a cpScripts tag (9773) that the 1.21 GA
+        # manifest does not declare. It is TESSA-owned and tracked separately.
+        #
+        # charts/tibco-cp-hawk pins its own cp-core-scripts.buildNumber (and
+        # artifacts/hawk/hawk-1.21.0-images.txt declares it) and tracks it independently -- it is
+        # not part of this sync. It happens to read 9802 too at the time of writing; that is
+        # coincidence, not a coupling. Do not "fix" any future difference on sight.
+        #
+        # History: the hub schema used to be carried by a locally-built overlay
+        # ("<base>-<helm-slug>-<sha>", most recently 9640-main-a49275d) because the
+        # platform build did not yet ship it. scripts/database/postgres/mcp-hub/ landed in
+        # tp-helm-charts on 2026-08-03 (PCP-17906, updated 2026-08-05 by PCP-22742), and
+        # core-cp-scripts:9640 was built 2026-08-03T10:37Z — just too early to pick it up.
+        # 9669 was built 2026-08-17T07:21Z and DOES carry it. Verified by extracting both
+        # images: 1-up.sql (947 lines, sha256 d8c8874c…, matching the overlay's own
+        # .provenance sql_dir_sha256), version-map.yaml and mcphub/scripts/metadata.bash
+        # (sha256 e06c36a6…) are byte-identical in 9669 and in 9640-main-a49275d.
+        #
+        # CONTRACT (unchanged): this image MUST carry every table/column the pinned
+        # MCP_HUB_WEBSERVER_IMAGE_TAG (below) queries — they are a single unit and move
+        # together. PCP-19798 is what violating it looks like: a snapshot missing
+        # CP_PLUGIN_ASSIGNMENTS + SYNC_HISTORY against an app image that queries them on
+        # startup -> Postgres 42P01 undefined_table -> CrashLoopBackOff -> UI down.
+        #
+        # Nothing enforces that contract yet. The enforcement is OWNED BY PCP-24857, which holds
+        # the reserved CHECK 5 slot in dev/check-mcp-version-sync.sh. Read that ticket before
+        # writing the check: it records that the two obvious artifacts are BOTH wrong -- not file
+        # presence (an image can carry N-up.sql and never apply it) and not metadata.bash's
+        # CURRENT_VERSION (manageDbSchemaCommand unsets and overwrites it). The decisive artifact
+        # is the image's own version-map.yaml, keyed on THIS SUBCHART'S appVersion with an exact
+        # match. A check built on the obvious reading passes on the broken case.
+        #
+        # rerunCurrentUpgrade is NOT needed for this pin move: target resolves to 2, current is
+        # 2, and 2-up.sql is unchanged between 9743 and 9802, so there is nothing to re-apply.
+        # That flag exists for an already-applied N-up.sql that was EDITED afterwards; setting it
+        # here would needlessly replay 2-up.sql against every 1.21 production database.
+        tag: "9802"
+        pullPolicy: IfNotPresent
+    mcpHub:
+      # PCP-19705 — deployment mode. "cp" enables CP-only affordances (the
+      # "Control Plane Authentication" auth-type option, etc.); "standalone"
+      # hides them. Defaults to "cp" (the primary, CP-embedded deployment);
+      # standalone is supported via the values-standalone overlay (see below).
+      # IMPORTANT: mode=cp REQUIRES CP_IDM_URL to be reachable — the backend
+      # exits 1 at startup if MCP_HUB_MODE=cp and CP_IDM_URL is unset.
+      # For a no-CP install use the overlay: -f values-standalone.yaml (PCP-19630),
+      # which sets mode=standalone (gates every CP_* env var + the TibcoRoute,
+      # renders an Ingress at "/"), sqlite, and disables the recipes subchart.
+      mode: cp
+      # PCP-20301 — standalone entry UI gate. Activates the standalone app
+      # shell/login/landing ENTRY (own SPA host) for a no-CP install. Ships
+      # DISABLED by default; turn ON only for internal standalone test deploys
+      # (mode=standalone) via -f values-standalone.yaml or
+      # --set ...standaloneEntry.enabled=true. No-op in cp/MFE mode (the backend
+      # force-falses it whenever mode=cp). UI/entry gate only — NOT an access
+      # boundary; reachability is the Ingress (ingress.enabled). Distinct from
+      # `mode` (per-feature CP gating, PCP-19811).
+      standaloneEntry:
+        enabled: false
+      db:
+        # "postgres" or "sqlite". Default postgres — Phase 1+2 backend routes are
+        # all on UTM now, so postgres mode preserves full functionality.
+        # Override with --set ...db.type=sqlite for dev / no-postgres environments
+        # (also set --set ...manageDbSchema=false in that case).
+        type: postgres
+        # false = use shared platform PVC (control-plane-pvc) or postgres TCP endpoint.
+        # true  = chart provisions its own local PV+PVC (sqlite only).
+        standalone: false
+        # PCP-22935: `password` ships BLANK here on purpose — never a literal.
+        # This whole block is serialized verbatim into the pod as DB_CONF
+        # (templates/deployment.yaml, `.db.configuration | toJson`), so any value
+        # written here is a credential sitting in the container environment.
+        #
+        # Who actually reads it:
+        #   - CP postgres (the default, db.standalone=false) — NOT this value. The
+        #     effective credential is POSTGRES_PASSWORD, sourced by the deployment
+        #     from the `mcphub-postgres-credential` Secret, and the username is
+        #     instance-scoped ({controlPlaneInstanceId}_mcphubuser). The fields
+        #     below are inert placeholders on this path.
+        #   - db.type=sqlite — not used at all.
+        #   - STANDALONE=true + db.type=postgres — this IS the sole credential
+        #     (the backend's standalone branch reads DB_CONF). That deployment must
+        #     supply a real password explicitly (--set or its own values file);
+        #     leaving it blank fails loudly at connect rather than silently
+        #     accepting a guessable shared default. See values-standalone.yaml.
+        configuration:
+          postgres:
+            read:
+              host: postgresql.tibco-ext.svc.cluster.local
+              port: "5432"
+              user: mcphubuser
+              name: mcphubdb
+              password: ""
+            write:
+              host: postgresql.tibco-ext.svc.cluster.local
+              port: "5432"
+              user: mcphubuser
+              name: mcphubdb
+              password: ""
+          sqlite:
+            # Absolute path inside the container — mounted from PVC at /app/data.
+            path: /app/data/mcp-hub.db
+        pv:
+          # Used only for db.standalone=true (the standalone sqlite PVC).
+          # PCP-20304: standalone sqlite now uses a DYNAMIC PVC bound to the cluster's
+          # default StorageClass (k3s local-path creates a 0777 dir → the non-root pod
+          # writes /app/data with no chown). Leave storageClassName EMPTY to use the
+          # default StorageClass; set it explicitly ONLY on a cluster that has no
+          # default SC (an empty value is omitted from the PVC, NOT rendered as "").
+          # (The former root-owned `hostPath` PV was removed — it CrashLooped the
+          # non-root container; see templates/pvc.yaml.)
+          storageClassName: ""
+          storage: 1Gi
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          # PCP-25107: 5.1.0 -> 5.1.2 (PCP-23642 CVE sweep tail).
+          # SHADOWED in the umbrella render by the parent's
+          # global.tibco.logging.fluentbit.image.tag -- kept in step so a STANDALONE render of
+          # this subchart, and any reviewer reading this block beside the /api/v1/health probe
+          # below, does not see a stale CVE-bearing tag.
+          tag: 5.1.2
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+    environment: ""
+
+# Observability / structured logging (PCP-19635). Backend emits structured JSON
+# (pino); the FluentBit sidecar (global.tibco.logging.fluentbit above) tails the
+# LOG_FILE and forwards to the CP otel-services collector → Elasticsearch index
+# `tibco-cp-logs`. Tracing is OFF by default — the CP has no OTLP traces ingress
+# today (verified P0 on a live CP); set tracing.enabled + otlpEndpoint when one
+# exists and the SDK lights up with no image change.
+observability:
+  logLevel: info
+  otlpEndpoint: ""          # OTLP traces ingress (G3); empty ⇒ tracing no-op even if enabled
+  tracing:
+    enabled: false
+    sampleRatio: "0.1"
+
+config:
+  # PCP-22823: override the CP token verifier's JWKS endpoint. Empty = derive it at
+  # runtime from CP_DNS_DOMAIN as https://cp-sub1.$(CP_DNS_DOMAIN)/idm/v1/oauth2/jwks-uri.
+  # Only set this if IdM is fronted somewhere other than a subscription host.
+  MCPHUB_TOKEN_JWKS_URI: ""
+  # PCP-22823 (follow-up): what the verified CP token must claim. Both are REQUIRED in
+  # cp mode — the backend refuses to boot without them, so leaving the template defaults
+  # in place is the supported configuration. Empty here = use the template's measured
+  # default. Comma-separated allowlists; each entry matched EXACTLY (no wildcard, no
+  # suffix, no case folding), and `aud` by SET MEMBERSHIP because the real token's array
+  # order is not stable.
+  # ⚠️ With `helm --set`, escape the separator — `--set ...MCPHUB_TOKEN_ISSUER='A\,B'` —
+  # or helm parses the comma as its own list separator and the override silently misparses.
+  MCPHUB_TOKEN_ISSUER: ""    # template default "TCC_IdM" — the real CP issuer; a bare
+                             # opaque string, NOT a URL. Override only for an issuer
+                             # migration (set both values across the window).
+  MCPHUB_TOKEN_AUDIENCE: ""  # template default "TSC" — the host mapping this Hub serves.
+                             # Do NOT use the region-suffixed "TSC.global" form, and do
+                             # NOT widen to the full ADMIN set: that rejects the token
+                             # class the bw/flogo capability webservers carry.
+  HTTP_REQUEST_TIMEOUT: "120000"
+  WEB_SERVER_LOG_ENABLED: "true"
+  # PCP-21876 rollback lever for the CP->DP routing prefix. Emitted as an env var only when
+  # non-empty (see deployment.yaml), so the default changes nothing.
+  #
+  # ONLY TWO VALUES ARE SUPPORTED:
+  #   ""              default. The Hub sends dp-proxy the prefix-FREE tail and dp-proxy prepends
+  #                   whichever prefix that Data Plane was registered with. This is the PCP-18809
+  #                   contract and the only value that works with per-DP custom prefixes.
+  #   "/tibco/agent"  rollback. Restores the old fully-qualified wire format, for a CP still
+  #                   running a dp-proxy that does NOT prepend (predating tp-core-dp-proxy#44).
+  #
+  # Any other value is rejected at startup by the backend (routes/sync-helpers/paths.ts): a
+  # non-path value is warned about and treated as blank, and a non-default path warns that a
+  # prefix-aware dp-proxy will prepend ON TOP of it, producing a doubled path.
+  #
+  # Symptom that calls for the rollback: every CP->DP call for every gateway 404s at once,
+  # immediately after upgrading the Hub against an older dp-proxy.
+  #
+  # NOTE this is the CP->DP REQUEST prefix only. It must NOT be confused with the DP-side route
+  # path: the Hub still STORES and SHIPS the fully-qualified /tibco/agent/... path in
+  # MCP_GATEWAY_PRIVATE_PATH -> the gateway chart's haproxy.pathPrefix. Only the dp-proxy request
+  # URL drops the prefix.
+  DP_ROUTING_PATH_PREFIX: ""
+  # PCP-24083: carried forward to match published alpha.15. Not scope creep -- this chart is being
+  # bumped to alpha.16, which SUPERSEDES alpha.15 in the Helm index, so leaving main's older pin
+  # would un-ship everything between the two images for anyone installing "latest". That is the
+  # very defect this change exists to fix (a main-side bump republishing an image the automation
+  # lane had already moved past), just on the webserver axis rather than the gateway one -- and
+  # the webserver image is excluded from CHECK 2, so nothing would have caught it.
+  #
+  # SAFE AGAINST THE cpScripts CONTRACT ABOVE, measured rather than assumed: across tp-mcp-hub
+  # 2c1e08a..e754b2c, sqlite-schema.ts / pg-migrate.ts / tests/setup.ts are byte-identical and no
+  # sql/ or migration path is touched. The delta DOES add a production query -- a grouped COUNT
+  # over the `gateways` mirror in routes/gateways/routes-registry.ts -- so the test that decides
+  # this is the COLUMNS a query reads, never the files a delta touches: dp_id, subscription_id,
+  # origin, capability_instance_id and the region term are each already read by the older image
+  # against that same table. No new column, so no cpScripts migration FOR THIS IMAGE.
+  #
+  # The pin has since moved anyway, for an unrelated reason -- see the cpScripts block above for
+  # the current value and why it moved. No digits are restated here: this sentence has already
+  # expired twice for naming one. Whatever the pin reads, it carries the hub_origin /
+  # federation_* schema (2-up.sql). The old text here said it was
+  # "deliberately left at 9669" and pointed at #10443 as the re-pin owner; #10443 is closed and
+  # 9669 is long gone, so that read as a live claim about a value this file no longer holds.
+  MCP_HUB_WEBSERVER_IMAGE_TAG: "1.21.0"
+  # GA (PCP-24504): a hand-cut GA ships TAG-ONLY. The tag above is a GA tag with no digest
+  # pinner behind it -- release-alpha.sh writes this pair on the ALPHA lane only -- so the
+  # empty value below is deliberate. Do not add a digest by hand to "tidy" the pair.
+  # PCP-23089 (alpha lane): pinned by release-alpha.sh alongside the tag above, from the SAME build.
+  # Consumed ONLY by the deployment's image reference (mcp-hub-webserver.image), never by
+  # the platform.tibco.com/app-version label or the env var — a Kubernetes label value
+  # cannot contain '@' or ':'. Empty means un-pinned: the image renders tag-only.
+  MCP_HUB_WEBSERVER_IMAGE_DIGEST: ""
+  # AES-256-GCM key for encrypting upstream OAuth client secrets at rest
+  # (backend/src/crypto.ts). PCP-20163: NEVER a committed literal — source it from a
+  # k8s Secret the platform/installer provisions (like POSTGRES_PASSWORD). REQUIRED in
+  # CP mode; if unset the env is omitted and the backend fails closed (refuses to
+  # boot). Generate the secret value with:  openssl rand -base64 32
+  secretKey:
+    existingSecret: ""           # name of the Secret holding the key (REQUIRED in cp mode)
+    key: "MCPHUB_SECRET_KEY"     # the data key within that Secret
+  # PCP-19949: bootstrap API key for the public /v1/ routes. When blank the chart
+  # auto-generates a `mchub_<random>` key in a k8s Secret (idempotent across upgrades).
+  # Operators can supply their own pre-created Secret via existingSecret. Retrieve
+  # the generated key with:
+  #   kubectl get secret <appName>-bootstrap-api-key -o jsonpath='{.data.MCPHUB_BOOTSTRAP_API_KEY}' | base64 -d
+  bootstrapApiKey:
+    existingSecret: ""           # leave blank → chart auto-generates the Secret
+    key: "MCPHUB_BOOTSTRAP_API_KEY"
+    # PCP-21088: optional comma-separated scopes for the bootstrap key.
+    # PCP-22935: defaults to EMPTY (least privilege), matching the in-repo chart
+    # (tp-mcp-hub charts/mcp-hub). Empty means the env var is not emitted at all and
+    # the backend applies its own default, ['key.write'] — a key that can manage API
+    # keys but carries no data-plane scope. A bootstrap key that is forgotten rather
+    # than rotated is then a limited credential, not a permanent admin one.
+    #
+    # Opt IN explicitly when a first install must mint a real data-plane key: the
+    # PCP-21088 mint guard only lets a caller grant scopes it already holds, so a
+    # key.write-only key cannot create a read/write/admin key (403). Set the narrowest
+    # thing that works — e.g. "key.write,read" — and prefer that over "admin".
+    # Rotate or delete the bootstrap key once the real key exists.
+    #
+    # ⚠️ UPGRADE NOTE: templates/secret.yaml deliberately preserves the bootstrap key
+    # VALUE across upgrades, but these scopes are re-read from values on every render.
+    # So an install that inherited the OLD "admin" chart default keeps the same key with
+    # NARROWED scope once it takes this chart version. That is the intended hardening; if
+    # such an install genuinely still needs the broader scope, set it explicitly here.
+    # (An install that already sets scopes explicitly in its own values is unaffected —
+    # only the inherited default changed.)
+    scopes: ""
+
+# Set to true to force re-run the current schema version (useful for debugging
+# migration failures). Mirrors the global.cp.rerunUpgrade flag in tibco-cp-base.
+rerunCurrentUpgrade: false
+
+replicaCount: 1
+
+# HorizontalPodAutoscaler for the webserver. Rendered ONLY when
+# global.tibco.mcpHub.db.type=postgres (see templates/hpa.yaml): a sqlite Hub is
+# single-replica (single-writer file on an RWO PVC) and MUST NOT autoscale.
+# Disable entirely with hpa.enabled=false.
+hpa:
+  enabled: true
+  cpu: 70
+  memory: 70
+  maxReplicas: 3
+  minReplicas: 1
+
+# PodDisruptionBudget for the webserver. Rendered ONLY when
+# global.tibco.mcpHub.db.type=postgres (the multi-replica-capable path); a sqlite Hub
+# is single-replica so no PDB is created. When neither key below is set, the template
+# defaults to maxUnavailable:1 — drain-safe at any replica count including the HPA min=1
+# floor (a minAvailable:1 PDB would set disruptionsAllowed=0 on a lone pod and block node
+# drains / cluster-autoscaler scale-down). To override, set EITHER minAvailable OR
+# maxUnavailable (never both — the template fails fast if both are set).
+# Disable with podDisruptionBudget.enabled=false.
+podDisruptionBudget:
+  enabled: true
+  # maxUnavailable: 1   # template default when neither key is set; or set minAvailable instead
+
+# Pod Security Context configuration
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+      - CAP_NET_RAW
+
+checkPodDependencies:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "20Mi"
+    limits:
+      cpu: "30m"
+      memory: "40Mi"
+
+mcphubwebserver:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+backend:
+  port: 3000
+  gatewayEgressAllowlist: ""  # PCP-20181: CIDRs permitting private direct-mode gateways (e.g. "10.0.0.0/8,192.168.0.0/16"); empty = public-only. Rendered into MCPHUB_GATEWAY_EGRESS_ALLOWLIST only when set, so CP installs stay byte-identical.
+  # PCP-20304 DEV-ONLY: relax the direct-gateway transport guard so a gateway can be
+  # registered by an http:// / private-host URL (e.g. an in-cluster `*.svc` ContextForge
+  # in a standalone dev cluster). Default false → HTTPS + a public host is REQUIRED
+  # (the secure CP/production default). Rendered into MCPHUB_ALLOW_INSECURE_TRANSPORT
+  # only when true, so CP installs stay byte-identical. Pair with gatewayEgressAllowlist
+  # for the gateway's private CIDR. NEVER set true in CP / production.
+  allowInsecureTransport: false
+  # PCP-22388: show the empty-state "QuickStart" governance banner (rendered when a
+  # Virtual Server tool flow has 0 plugins). DEFAULT OFF (banner hidden). Rendered into
+  # MCPHUB_SHOW_QUICKSTART_BANNER only when true, so the CP default render stays
+  # byte-identical. Set true to re-enable the banner.
+  showQuickStartBanner: false
+
+# PCP-20194 (TT-20): opt-in pod-scoped INGRESS NetworkPolicy for the Hub webserver
+# (template: templates/networkpolicy.yaml). Default OFF so existing installs are
+# unaffected; CP mode only (the mode==cp guard skips standalone). Enable per-CP-install
+# (e.g. in the parent tibco-cp-mcp-hub values, or --set). When enabled you MUST set
+# nodeCIDRs (or allowIngressFrom) or the chart refuses to render — kubelet probes are
+# httpGet :3000 from the node IP and would otherwise be dropped (CrashLoop).
+networkPolicy:
+  # Render the pod-scoped INGRESS NetworkPolicy (templates/networkpolicy.yaml). CP mode only.
+  enabled: false
+  # Node CIDR(s) allowed to reach :3000 for kubelet liveness/readiness probes (source = node IP).
+  # Per-environment (GKE/EKS/k3s node pools differ) — REQUIRED when enabled, else render fails.
+  # e.g. ["10.0.0.0/8"] or the cluster's node/pod CIDR.
+  nodeCIDRs: []
+  # Ingress sources for :3000 BEYOND the node CIDR — set the CP edge / Traefik virtual-listener
+  # source here (namespaceSelector/podSelector) so the Hub stays reachable when the platform
+  # deny-all baseline is inactive. Standard NetworkPolicy `from` peers. Each entry MUST be a
+  # constrained selector — an empty peer ({}) means allow-from-all (standard k8s).
+  allowIngressFrom: []
+  # ADVANCED / RAW: full NetworkPolicy `ingress` entries injected verbatim. Operator-owned and
+  # NOT validated by the chart — a rule with no `from` is allow-all. Leave empty unless needed.
+  extraIngressRules: []
+  # Annotations to add to the NetworkPolicy object.
+  annotations: {}
+  # Independent of the policy above: drop the internet-egress (0.0.0.0/0) platform label from the
+  # Hub pod in CP mode — an exfil/SSRF backstop for the master-key/secret-holding pod (PCP-20194).
+  # DEFAULT false (keep internet-egress): a 'direct' connection-mode gateway can be registered with
+  # an external URL the Hub fetches directly. Set true ONLY for tunnel-only DPs (no direct-external
+  # gateways). No effect in standalone mode.
+  dropInternetEgress: false
+
+# Standalone-only (PCP-19630): a plain k8s Ingress that fronts the Hub at the
+# cluster ingress root ("/"). Only rendered when
+# global.tibco.mcpHub.mode=standalone AND ingress.enabled=true — CP mode routes
+# the Hub via the TibcoRoute instead. Set host/className per environment.
+ingress:
+  enabled: false
+  className: ""
+  # Hostname the Hub answers on. Leave empty to match all hosts (dev only).
+  host: ""
+  # Extra annotations (cert-manager, nginx rewrite, etc.). Optional.
+  annotations: {}
+  # PCP-20198 (TT-24): TLS at the standalone ingress. SECURE RECOMMENDATION — set
+  # tls.enabled=true with a real `secretName` (and `host`) so the Hub is served
+  # over HTTPS. The template requires `secretName` (and `host`) when enabled, so a
+  # misconfigured enable fails fast rather than silently terminating with a broken
+  # cert. Default stays enabled:false (byte-stable: the tls: block only renders when
+  # enabled, so existing installs are unaffected). Edge min-TLS-version / cipher /
+  # HSTS are ingress-controller policy, not settable here — see the TT-23 note.
+  tls:
+    # When true, terminate TLS at the ingress for `host` using `secretName`.
+    enabled: false
+    secretName: ""
+
+probes:
+  readinessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/api/mcp-hub/health"
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 1
+    successThreshold: 1
+  livenessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/api/mcp-hub/health"
+      port: 3000
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 1
+  startupProbe: {}
+
+persistence:
+  enabled: false
+  storageClassName: ""
+  size: 1Gi
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+
+tolerations: []

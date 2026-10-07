@@ -1,0 +1,315 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- /* PCP-23089: validate the gateway digest HERE, where the recipe is authored, not only in
+       the gateway chart that consumes it. Without this the recipe happily ships a malformed
+       digest and the failure surfaces on a CUSTOMER Data Plane, at install time, in a nested
+       chart render — the furthest possible place from the person who set the value. */ -}}
+{{- with .Values.mcpGateway.image.digest }}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" (. | toString)) }}
+{{- fail (printf "mcp-hub-recipes: mcpGateway.image.digest is malformed (%q) — expected sha256: followed by 64 lowercase hex characters. This value is injected into a Data Plane recipe; a bad one fails at DP install, not here." .) }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-hub-recipes.appName" . }}-cm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": {{ .Chart.AppVersion | quote }},
+      "minCPVersion": "1.20.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.mcpgateway.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.mcpgateway.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.20.0",
+      "minDPVersion": {
+        "dp-core-infrastructure": "1.19.0",
+        "dp-configure-namespace": "1.19.0"
+      }
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "tp-mcp-gateway",
+            "description": "MCP Gateway Service",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": true,
+        "capabilityResourceDependencies": [
+          {
+            "type": "Ingress Controller",
+            "required": true,
+            "resourceId": "INGRESS",
+            "resourceType": "PLATFORM",
+            "otherResourceIds": ["GATEWAYAPI"]
+          },
+          {
+            "type": "GatewayAPI Controller",
+            "required": true,
+            "resourceId": "GATEWAYAPI",
+            "resourceType": "PLATFORM",
+            "otherResourceIds": ["INGRESS"]
+          },
+          {
+            "type": "Storage Class",
+            "required": false,
+            "resourceId": "STORAGE",
+            "resourceType": "PLATFORM"
+          },
+          {
+            "type": "Database Resource",
+            "required": false,
+            "resourceId": "DBCONFIG",
+            "resourceType": "PLATFORM"
+          },
+          {
+            "type": "Redis Cache",
+            "required": false,
+            "resourceId": "REDISCONFIG",
+            "resourceType": "PLATFORM"
+          }
+        ]
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: tp-mcp-gateway
+          namespace: ${NAMESPACE}
+          version: {{ .Values.mcpGateway.helmChartVersion | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                dataplaneId: ${DATAPLANE_ID}
+                dpName: ${DATAPLANE_NAME}
+                namespace: ${NAMESPACE}
+                global:
+                  # Full mode runs the private TIBCO image; the mcp-stack subchart reads pull secrets
+                  # ONLY from global.imagePullSecrets (lite reads the top-level dataplaneId), and Helm
+                  # shares only global.* with subcharts — so without this the full-mode pods get no
+                  # pull secret and ImagePullBackOff. Harmless for lite (kubelet dedupes the duplicate).
+                  imagePullSecrets:
+                    - ${DATAPLANE_ID}
+                  tibco:
+                    logging:
+                      fluentbit:
+                        enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
+                  # Full-mode (mcp-stack) gateway sidecars are gated on global.tpMcpGateway.* because
+                  # Helm shares only global.* with the vendored subchart; the top-level tibcoProxy.enabled
+                  # below is read ONLY by lite. Mirror the flags here so production (full) mode also gets the
+                  # tp-mcp-gateway-proxy (CP->DP auth termination) + discovery sidecars at parity with lite. [PCP-20576]
+                  tpMcpGateway:
+                    discovery:
+                      enabled: true
+                      # PCP-21327: pinned from the SAME mcpGateway.image.tag as every other
+                      # first-party site — see the "one atom" note above the top-level
+                      # discovery/tibcoProxy/dialHome pins below.
+                      image:
+                        tag: {{ .Values.mcpGateway.image.tag | quote }}
+                    tibcoProxy:
+                      enabled: true
+                      image:
+                        tag: {{ .Values.mcpGateway.image.tag | quote }}
+                  {{- /* PCP-21876 (per-DP custom routing, PCP-18809) / PCP-23774: this recipe emits
+                         NO global.cp.routeResources block, and one must not be re-added.
+
+                         Every key in that block — pathPrefix, ingress.ingressController,
+                         ingress.ingressClassName, ingress.fqdn, gatewayapi.* — is per-DATA-PLANE.
+                         This recipe is per-CP: one copy installs gateways onto every Data Plane in
+                         the subscription. Anything set here is therefore a constant that OVERRIDES
+                         the real per-DP value the provisioner injects into global.cp.routeResources
+                         on the Data Plane, and silently wins.
+
+                         Measured (PCP-23774, 2026-08-26): with only pathPrefix removed, a live DP
+                         reported `pathPrefix: /mcp/hub` — the injected per-DP value came through —
+                         while `ingress.ingressController` stayed `""` because this block still
+                         pinned it. An empty ingressController makes haproxy-ingress.yaml's guard
+                         true and private-route.yaml's false, so an alt-controller Data Plane got a
+                         bundled-HAProxy Ingress on class tibco-dp-<dpId> that no controller serves
+                         (no status.loadBalancer address) and every CP->DP health check 404'd.
+
+                         The Hub cannot substitute these either: the CP exposes no per-DP routing
+                         config to it (/v1/dataplanes/{dpId}/connection-details 404s; the DP's
+                         INGRESS resource instance carries only ingressController / ingressClassName
+                         / fqdn / annotations, none of which the Hub forwards onto the private axis).
+                         Absent any injection the gateway chart's own values.yaml defaults apply —
+                         empty controller, /tibco/agent prefix — so a default Data Plane is
+                         unaffected. */}}
+                # The gateway chart is a DUMB PASSTHROUGH. The MCP Hub owns each gateway's
+                # stable id and composes the COMPLETE per-instance paths, passing them verbatim here.
+                # These ${...} vars are substituted by the HUB (cp-api.ts), not the orchestrator, so
+                # there is no shell-expansion dependency. A Data Plane can thus host >1 gateway with
+                # collision-free public + CP->DP paths, and the same chart renders identically standalone.
+                haproxy:
+                  pathPrefix: ${MCP_GATEWAY_PRIVATE_PATH}
+                publicApi:
+                  pathPrefix: ${INGRESS_PATH_PREFIX}
+                {{- /* PCP-21327: the recipe must pin EVERY first-party gateway image site, not only
+                       the three that run the tp-mcp-gateway image. `helm upgrade --reuse-values`
+                       reuses the previous release's COALESCED values, not just the user-supplied
+                       ones, so the NEW chart's image defaults are silently discarded on upgrade —
+                       only what the recipe supplies EXPLICITLY wins. Measured on a live Data Plane:
+                       revisions 1 (chart 1.20.0) and 2 (chart 1.21.0-alpha.14) had byte-identical
+                       coalesced values with all six tags still on 1.20, the 1.21 images moved the
+                       gateway's serving port 80 -> 8880 while the 1.20 sidecar images did not, and
+                       the pod sat 3/4 NotReady FOREVER (restarts=0). Chart and images must therefore
+                       move as ONE atom, all from the single mcpGateway.image.tag.
+
+                       The digest is deliberately NOT propagated to the five newly-pinned sites, which
+                       are THREE distinct non-gateway images: they are DIFFERENT
+                       images (tp-mcp-discovery / tp-mcp-gateway-proxy / tp-mcp-gateway-dialhome-agent)
+                       and the single mcpGateway.image.digest belongs to tp-mcp-gateway alone —
+                       stamping it here would pin every sidecar to the gateway's manifest and fail the
+                       pull. dev/check-mcp-version-sync.sh CHECK 7 renders this recipe and goes RED if
+                       any first-party site in the gateway chart is left unpinned, or if the gateway
+                       digest leaks onto a non-gateway image. */}}
+                discovery:
+                  image:
+                    tag: {{ .Values.mcpGateway.image.tag | quote }}
+                tibcoProxy:
+                  enabled: true
+                  image:
+                    tag: {{ .Values.mcpGateway.image.tag | quote }}
+                dialHome:
+                  image:
+                    tag: {{ .Values.mcpGateway.image.tag | quote }}
+                {{- /* PCP-23089: the digest is emitted only when non-empty. This recipe is the
+                       authority for WHICH gateway image a Data Plane installs, so it must carry
+                       the digest too — otherwise the DP silently falls back to the tag-only
+                       reference and the pin is lost with no error anywhere. Emitting it
+                       conditionally (rather than always, as "") means a release that has not yet
+                       been digest-pinned leaves the gateway chart's own default in place instead
+                       of clobbering it with an empty value. */}}
+                lite:
+                  enabled: true
+                  image:
+                    tag: {{ .Values.mcpGateway.image.tag | quote }}
+                    {{- with .Values.mcpGateway.image.digest }}
+                    digest: {{ . | quote }}
+                    {{- end }}
+                  storage:
+                    size: 1Gi
+                    className: ${STORAGE_CLASS_NAME}
+                  resources:
+                    {{- toYaml .Values.mcpGateway.resources | nindent 20 }}
+                mcp-stack:
+                  enabled: false
+                  # Keep full mode on the SAME gateway image as lite (single source: mcpGateway.image.tag).
+                  mcpContextForge:
+                    image:
+                      tag: {{ .Values.mcpGateway.image.tag | quote }}
+                      {{- with .Values.mcpGateway.image.digest }}
+                      digest: {{ . | quote }}
+                      {{- end }}
+                  migration:
+                    image:
+                      tag: {{ .Values.mcpGateway.image.tag | quote }}
+                      {{- with .Values.mcpGateway.image.digest }}
+                      digest: {{ . | quote }}
+                      {{- end }}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mcp-hub-recipes.appName" . }}-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-recipes.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-hub-recipes.labels" . | nindent 8 }}
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- /* PCP-21919: outer-guard, matching mcp-hub-webserver's deployment.yaml / jobs.yaml.
+             The previous inner-guard emitted the `imagePullSecrets:` key unconditionally, so a
+             deployment with no registry secret rendered `imagePullSecrets: null`. */}}
+      {{- if (include "mcp-hub-recipes.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "mcp-hub-recipes.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: mcp-hub
+        image: {{ include "mcp-hub-recipes.image.registry" .}}{{"/"}}{{ include "mcp-hub-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+          {{- toYaml .Values.scripts.resources | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "mcpgateway"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/platform"
+        - name: RECIPE_RELEASE_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.mcpgateway.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.mcpgateway.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "mcp-hub-recipes.appName" . }}-vol
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        - name: tmp-vol
+          mountPath: /tmp
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "mcp-hub-recipes.appName" . }}-vol
+          configMap:
+            name: {{ include "mcp-hub-recipes.appName" . }}-cm
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "mcp-hub-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-hub-recipes.pvc-name" . }}
+        - name: tmp-vol
+          emptyDir: {}

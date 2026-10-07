@@ -1,0 +1,19 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: server
+      port: {{ .Values.backend.port }}
+      protocol: TCP
+      targetPort: {{ .Values.backend.port }}
+  selector:
+    {{- include "mcp-hub-webserver.shared.labels.selector" . | nindent 4 }}
