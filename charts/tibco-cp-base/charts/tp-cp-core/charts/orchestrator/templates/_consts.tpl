@@ -32,7 +32,13 @@
 {{- end }}
 {{- end }}
 
-{{- define "cp-core-configuration.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-core-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 
 {{- define "cp-core-bootstrap.otel.services" -}}
@@ -58,7 +64,9 @@
   {{- .Values.global.tibco.hybridConnectivity.enabled -}}
 {{- end }}
 
-{{- define "cp-core-configuration.container-registry-image-pull-secret-name" }}tibco-container-registry-credentials{{ end }}
+{{- define "cp-core-configuration.container-registry-image-pull-secret-name" -}}
+{{- include "cp-core-configuration.container-registry.secret" . -}}
+{{- end }}
 
 {{/* A fixed short name for the application. Can be different than the chart name */}}
 {{- define "tp-cp-email-service.consts.appName" }}tp-cp-email-service{{ end -}}

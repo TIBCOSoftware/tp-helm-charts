@@ -1,0 +1,225 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{/*
+  fluent-bit sidecar config for the standalone DP MCP aggregator pod (cp-mcp-aggregator.yaml).
+  File-based collection: the app writes into the shared "logs" emptyDir, this sidecar tails it.
+  The app's LOG_FILE_PATH and the [INPUT] Path below must stay in lockstep; both derive from
+  tp-cp-mcp-aggregator.consts.appName.
+*/}}
+
+{{- if .Values.global.tibco.mcpAggregator.enabled }}
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tp-cp-mcp-aggregator.consts.appName" . }}-fluentbit-config
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.standard" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+      # HTTP_Server On is REQUIRED, not cosmetic: the sidecar's startupProbe and
+      # livenessProbe both GET http://:2020/api/v1/uptime. With it off, nothing answers
+      # :2020 and the startupProbe never succeeds: after its 50 consecutive failures (~50s)
+      # the kubelet kills the container, and the restarted container hits the same wall --
+      # CrashLoopBackOff. Note the blast radius:
+      # a container whose startupProbe has not succeeded is reported started=false and
+      # ready=false, and pod Ready is the AND over all containers, so this pod would sit
+      # NotReady and out of BOTH aggregator Services. Turning this off is an MCP outage,
+      # not a logging outage.
+      HTTP_Server       On
+      HTTP_Listen       0.0.0.0
+      HTTP_Port         2020
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    # ONE input: the aggregator's own log file in the shared "logs" emptyDir, which this
+    # sidecar mounts at /var/log/pods. Basename is derived from the same appName helper the
+    # app container's LOG_FILE_PATH uses, so the pair cannot drift.
+    #
+    # !! Path IS THE EXACT FILENAME, AND MUST STAY THAT WAY -- NEVER A *.log GLOB !!
+    # Not merely because this pod hosts one log-writing app. The app rotates by RENAME:
+    # lumberjack renames the live file to
+    # <appName>-<UTC-timestamp>.log (lumberjack's backupTimeFormat "2006-01-02T15-04-05.000",
+    # e.g. tp-cp-mcp-aggregator-2026-08-07T12-34-56.789.log) in the SAME directory and
+    # reopens a fresh file at the original path -- so the retained backups sit in THIS SAME
+    # emptyDir, next to the live file. A glob would therefore match every rotated backup, and fluent-bit has no offset
+    # for a newly-matched filename, so with Read_from_Head On below it would re-ingest each
+    # backup from byte 0: duplicated records on every rotation, multiplied by the retention
+    # count. Retention is bounded app-side (LOG_FILE_SIZE_MB x LOG_FILE_MAX_BACKUPS,
+    # LOG_FILE_MAX_AGE_DAYS), which bounds the damage but does not prevent it.
+    # An exact-filename Path loses nothing across a rotation: tail follows the open inode
+    # through the rename and then picks the new file up at this path on the next
+    # Refresh_Interval scan.
+    [INPUT]
+      Name              tail
+      Tag               cp-mcp-aggregator
+      Path              /var/log/pods/{{ include "tp-cp-mcp-aggregator.consts.appName" . }}.log
+      multiline.parser  docker, cri
+      # Own checkpoint DB file. Do NOT reuse flb_kube.db: that name is the cp-web-server
+      # sidecar's, and colliding on it in a future shared-volume refactor would make two
+      # shippers fight over one sqlite offset table.
+      DB                /var/log/db/flb_mcp_aggregator.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+      #
+      # Read_from_Head On -- deliberate, and NOT copied from the cp-web-server sidecar.
+      #
+      # WHY: the aggregator emits its most diagnostically valuable records in the first
+      # ~1 second of process life -- the LOG_LEVEL clamp warning, config validation
+      # warnings, "log file sink ready", and the startup/bind lines. The two containers
+      # start concurrently and the app creates the file, so the file may well be absent at
+      # the sidecar's first directory scan; with Refresh_Interval 10s, tail can then only
+      # discover it on a later scan, by which point those records are already on disk.
+      # Read_from_Head Off (fluent-bit's default: start at the END of a newly discovered
+      # file) drops everything written before discovery -- i.e. exactly the records you need
+      # after a crash-loop are the ones most likely to be missing. Read_from_Head On removes
+      # that race entirely instead of leaving it to scheduling luck.
+      #
+      # WHY IT IS SAFE HERE: there is no backlog to re-ingest, in either restart shape.
+      # Both volumes involved are emptyDir and therefore POD-scoped: the "logs" emptyDir
+      # (the log file itself) and the "db" emptyDir (fluent-bit's checkpoint database) are
+      # created empty when the pod is created and deleted with it.
+      #   - NEW POD (rollout, eviction, node move): both start empty, so "read from head"
+      #     reads only what this pod's own process wrote. No replay of another pod's history.
+      #   - CONTAINER RESTART inside a live pod (e.g. the livenessProbe restarting this
+      #     shipper): neither volume is cleared, so the checkpoint DB survives too and tail
+      #     resumes from its recorded offset instead of re-reading from head.
+      # Rotation is likewise covered: lumberjack renames the live file and creates a new one,
+      # and fluent-bit keys its offsets per file, so the fresh file is read from head exactly
+      # once and the renamed backup is not matched by the exact-filename Path above.
+      #
+      # !! WARNING !! This safety argument depends ENTIRELY on both volumes being emptyDir.
+      # If either the "logs" volume or the "db" volume is ever changed to a PVC / hostPath /
+      # any persistent medium, Read_from_Head becomes a duplicate-ingestion bug: fluent-bit
+      # would re-ship the whole retained file on every restart (or, with a persistent DB but
+      # a fresh file, mis-seek). Anyone making that change MUST revisit this line.
+      Read_from_Head    On
+
+  filter.conf: |
+    # ---------------------------------------------------------------------------------
+    # TWO FILTERS, declared in the cp-web-server precedent's order: record_modifier first,
+    # the json_decode parser filter second. In the precedent that gap holds SEVEN filters --
+    # six scoped to its own cp.* tag (four parser, one modify, one nest), which would not
+    # match this pod's records at all, and then the Lua, which is Match * and therefore
+    # WOULD. The Lua is the one that matters here; the gap is left EMPTY on purpose -- see
+    # the block below before adding anything into it.
+    # ---------------------------------------------------------------------------------
+    [FILTER]
+      Name              record_modifier
+      Match             *
+      Remove_key        stream
+      Remove_key        _p
+      # Container identification, added DETERMINISTICALLY here rather than by the Lua filter
+      # the cp-web-server config uses (see the block below). This is NOT a reproduction of
+      # the Lua's value: there, container.name is set to the fluent-bit TAG (for cp-web-server
+      # that is cp.<ns>.<pod>.<uid>.<container>) and it is written INSIDE the decoded log
+      # object, so it only appears when the payload parsed as a table. Here it is an explicit
+      # namespace.pod.container value written as a plain TOP-LEVEL key on every record,
+      # whether or not the payload parsed as JSON. CONTAINER_NAME is supplied by the sidecar's
+      # env in cp-mcp-aggregator.yaml and must match the app container's name.
+      Record            container.name ${POD_NAMESPACE}.${POD_NAME}.${CONTAINER_NAME}
+
+    # =================================================================================
+    # DELIBERATELY OMITTED: the update_record.lua filter.
+    #
+    # This is the single most important decision in this config. Do NOT "restore parity"
+    # with web-server/templates/fluentbit-configmap.yaml by adding it back.
+    #
+    # WHAT THE LUA DOES (web-server/templates/fluentbit-configmap.yaml, update_record.lua):
+    # for every key in the decoded log object that is NOT one of
+    # level / caller / msg / stacktrace / error / errorVerbose, it CONCATENATES the value
+    # onto the msg string and then DELETES the key (newLog[key] = nil). "time" is the one
+    # partial exception, and not a helpful one: it is skipped by the concatenation but still
+    # deleted, so the event time is dropped outright rather than folded into msg.
+    #
+    # WHY THAT IS FATAL HERE: this ticket exists to preserve the aggregator's ADR
+    # section-7 trust-seam audit dimensions -- seam, decision, tool, reason, traceId,
+    # subscriptionId, originClass -- as SEPARATE, QUERYABLE fields. The aggregator emits
+    # them as top-level JSON keys precisely so an operator can filter on
+    # decision=DENY or group by subscriptionId. Running the Lua AFTER json_decode would
+    # flatten all seven into one unqueryable msg blob and delete the real keys --
+    # destroying exactly the evidence trail this collection path was built to carry.
+    #
+    # THIS IS PRECEDENT-FOLLOWING IN OUTCOME, NOT A DEVIATION: in the cp-web-server config
+    # the Lua filter (Match *) is declared BEFORE the cp-mcp-server json_decode parser
+    # filter. So for the cp-mcp-server tag, record["log"] is still a RAW STRING when the
+    # Lua runs, the type(newLog) == "table" guard is false, and the whole function is a
+    # no-op for that tag. The structured MCP records survive there only by declaration
+    # order. Omitting the filter outright gives the identical net behaviour for a
+    # JSON-log tag, without leaving a live piece of dead config that silently starts
+    # eating fields the moment someone reorders the chain.
+    #
+    # If you need per-record enrichment, add it to the record_modifier above.
+    # =================================================================================
+
+    # json_decode turns the raw one-line JSON the aggregator writes into a structured
+    # object under "log". Reserve_Data True keeps the keys added above (container.name).
+    [FILTER]
+      Name              parser
+      Match             cp-mcp-aggregator
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
+
+  output.conf: |
+    [OUTPUT]
+      Name   stdout
+      Match  *
+      Format json
+
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                *
+      Host                 {{ include "cp-core-bootstrap.otel.services" . }}.${POD_NAMESPACE}.svc.cluster.local
+      Port                 4318
+      Logs_uri             /v1/logs
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    # BYTE-IDENTICAL to the json_decode parser in web-server/templates/fluentbit-configmap.yaml.
+    # Kept that way on purpose: it must read as a recognisable copy of the CP precedent, so a
+    # reviewer can diff the two and see there is no local cleverness in the parse step.
+    # The regex captures the whole line into "log" and Decode_Field_As json log then parses
+    # that string as JSON in place -- this is the step the CP filter chain relies on, and it
+    # is why the app side MUST emit one JSON object per line.
+    #
+    # THE Time_* LINES BELOW ARE INERT HERE. DO NOT "FIX" THEM, AND DO NOT TRUST @timestamp.
+    # Time_Key names a field in the parser's OWN CAPTURE SET, and this parser is Format regex
+    # with Regex ^(?<log>.*)$ -- one capture, named "log". There is no top-level "time"
+    # capture for Time_Key to find, and the time extraction happens BEFORE Decode_Field_As
+    # runs, so the "time" that exists inside the JSON body is never a candidate. Net effect:
+    # Time_Key / Time_Format / Time_Keep never fire, and fluent-bit's @timestamp for these
+    # records is always INGEST TIME (when the sidecar read the line), not event time.
+    # The authoritative event time is the "time" field INSIDE the decoded record body, which
+    # the aggregator pins to millisecond ISO8601 UTC. That pin exists for BODY-FIELD
+    # CONSISTENCY -- it is the field an operator actually queries, and every other CP producer
+    # (go-sdk zap, ISO8601TimeEncoder) writes the same millisecond shape into the shared index,
+    # so a variable-width fraction would mis-sort or get dropped by consumers. It is NOT a
+    # guard against an ingest-time fallback: as shown above there is no timestamp path to fall
+    # back FROM. Query on the body "time" field; treat @timestamp as arrival time only.
+    [PARSER]
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+{{- end }}
+{{- end }}

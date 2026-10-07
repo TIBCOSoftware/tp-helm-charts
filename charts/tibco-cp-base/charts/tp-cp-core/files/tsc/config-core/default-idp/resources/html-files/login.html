@@ -531,5 +531,13 @@
         document.getElementById("copyright").innerText = `© 2023-${new Date().getFullYear().toString()}. Cloud Software Group, Inc. All rights reserved.`;
     }
 </script>
+<script>
+  window.__MAINTENANCE_BANNER_CONFIG = {
+    endpoint: '/admin/public/v1/maintenance/status',
+    defaultMsg: 'TIBCO Control Plane is currently undergoing a scheduled maintenance. Read-only mode is active and write operations have been temporarily disabled to ensure data integrity. We expect to restore full functionality shortly. Thank you for your patience.',
+    isLoginPage: true
+  };
+</script>
+<script src="/admin/root-config-content/maintenance-banner.min.js"></script>
 </body>
 </html>

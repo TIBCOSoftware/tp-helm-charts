@@ -33,6 +33,13 @@ orchestrator:
 
 ####################################     CP WEB server env variables      ##############################################
 web-server:
+  # Pendo (SaaS only) needs its CDN/API hosts allowlisted. The agent is injected by
+  # index.ejs as a dynamically created <script>, which does NOT inherit the page nonce,
+  # so cdn.pendo.io must be an explicit script-src host source. Do not add
+  # 'strict-dynamic' to make it inherit instead: that makes the browser ignore 'self',
+  # which would break the first-party <script src="/cp/root-config-content/..."> tags.
+  # Self-hosted installs render PENDO_ENABLED=false, so the agent never loads there
+  # and these hosts are never contacted.
   customContentSecurityPolicyHeader: ""
   # Optional Report-Only twin used during pilot rollout.
   # Leave empty (or omit) once you are ready to enforce. 

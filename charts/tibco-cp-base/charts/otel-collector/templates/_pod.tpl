@@ -5,8 +5,10 @@
 */}}
 
 {{- define "otel-collector.pod" -}}
+{{- if (include "otel-collector.container-registry.secret" .) }}
 imagePullSecrets:
 - name: {{ include "otel-collector.container-registry.secret" . }}
+{{- end }}
 serviceAccountName: {{ include "otel-collector.serviceAccountName" . }}
 securityContext:
   {{- toYaml .Values.podSecurityContext | nindent 2 }}
