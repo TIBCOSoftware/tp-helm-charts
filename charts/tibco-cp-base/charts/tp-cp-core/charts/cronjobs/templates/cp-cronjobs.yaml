@@ -276,6 +276,13 @@ spec:
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutdb
         - name: POSTGRES_UTD_DATABASE_USERNAME
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
+        - name: POSTGRES_USERNAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tscutd-postgres-credential
+              key: PGPASSWORD
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         - name: ENABLE_HYBRID_CONNECTIVITY
