@@ -13,5 +13,46 @@ versions:
   # keeps only keys <= that target, so if this key is ever ahead of that appVersion the lookup
   # returns nothing and manageDbSchema SKIPS mcphub silently, leaving the database uncreated.
   # Keep the two in step.
+  #
+  # PCP-23334 — READ THIS BEFORE ADDING A KEY HERE FOR A NEW LINE.
+  #
+  # A key must NOT be added here ahead of a core-cp-scripts image that carries it. This file is
+  # the SOURCE of the map; the map the cluster actually consults is the copy baked into the
+  # pinned core-cp-scripts image. mcp-hub-webserver's db-setup Job mounts only /tmp, /private
+  # and the db-ssl secret — there is no version-map volume — so resolve_version_map_file
+  # resolves PSQL_SCRIPTS_LOCATION inside that image.
+  #
+  # That matters because validate_target_chart_version requires an EXACT key (_yaml_has_version),
+  # not the <= walk resolve_target_schema_version does. So adding "1.21.0" here and moving
+  # mcp-hub-webserver's appVersion to 1.21.0 in the same change is a RUNTIME break, not a CI one:
+  # the source-only bats invariants go green while the deployed helper aborts with
+  # "Target chart version '1.21.0' is not defined" and the database is never created.
+  #
+  # This is exactly what was attempted and reverted on PR #10426. The ordering is:
+  #   1. add the key here and merge it;
+  #   2. wait for a core-cp-scripts build that contains it;
+  #   3. pin that image in mcp-hub-webserver/values.yaml;
+  #   4. only THEN move mcp-hub-webserver's appVersion.
+  # Until step 3 lands, appVersion stays 1.20.0 even while the chart version moves to the
+  # 1.21 line — those two are independent, and only appVersion is load-bearing here.
+  # PCP-23515 bumped the VALUE 1 -> 2; it did NOT add a key. The distinction matters: the hazard
+  # the block above describes is adding a NEW key ahead of the image, because
+  # validate_target_chart_version demands an EXACT key match and would abort at runtime.
+  # "1.20.0" already exists and still equals appVersion, so that check is unaffected — only the
+  # schema version resolve_target_schema_version returns changes.
+  #
+  # It is safe for the same reason it is necessary: the map the cluster reads is the copy baked
+  # into the pinned core-cp-scripts image, and 2-up.sql ships in that same image from this same
+  # tree. The two therefore land together — a cluster can never resolve target=2 without also
+  # having 2-up.sql to run. Until such an image is built and pinned in
+  # mcp-hub-webserver/values.yaml, CP installs stay at schema 1. Self-apply installs
+  # (manageDbSchema=false) get it sooner, as soon as the hub image rebuilds — the backend's own
+  # migration runner globs the baked SQL dir rather than consulting this map. Two lead times.
+  #
+  # Bumping this key rather than adding "1.21.0" is deliberate, and is currently the ONLY
+  # mechanism available: appVersion is pinned at 1.20.0 by PCP-23334, and resolve_target_schema_
+  # version keeps only keys <= that, so a "1.21.0" key would never be reached. The accepted
+  # consequence is that 1.20-line installs also run 2-up.sql — benign, since it is a pure data
+  # correction for plugins that cannot block, and it leaves a 1.20 database strictly better off.
   "1.20.0":
-    mcphub: 1
+    mcphub: 2

@@ -26,7 +26,13 @@
 {{/* Name of the default service account */}}
 {{- define "hybrid-proxy.consts.serviceAccount" }}control-plane-sa{{end -}}
 
-{{- define "hybrid-proxy.container-registry.secret" }}tibco-container-registry-credentials{{end}}
+{{- define "hybrid-proxy.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{- define "hybrid-proxy.image.registry" }}
     {{- .Values.global.tibco.containerRegistry.url }}

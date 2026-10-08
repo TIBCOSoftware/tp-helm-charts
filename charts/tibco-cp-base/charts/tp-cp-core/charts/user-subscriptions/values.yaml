@@ -16,6 +16,13 @@ global:
     db_ssl_root_cert_secretname: "db-ssl-root-cert"
     db_ssl_root_cert_filename: "db_ssl_root.cert"
     dbStatementTimeoutInMilliseconds: 10000
+    maintenanceCacheTTLSeconds: 120
+    # UTM replica->master fallback global default (PCP-23708). "enable" preserves the
+    # historical behaviour of re-running an empty replica read against master; "disable"
+    # turns that fallback off globally. The orchestrator opts specific DATAPLANE reads
+    # out per-request via header regardless of this value; this is the global escape
+    # hatch / rollback lever.
+    utmReplicaFallbackToMaster: "enable"
     cronjobs:
       disableProvisionInfraCapabilitiesJob: "false"
       disableGdprPurgeHistoryJob: "true"

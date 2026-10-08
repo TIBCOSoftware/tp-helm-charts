@@ -23,7 +23,13 @@ limitations under the License.
 {{/* Namespace we're going into. */}}
 {{- define "tp-cp-alertmanager.consts.namespace" }}{{ .Release.Namespace }}{{ end -}}
 
-{{- define "tp-cp-alertmanager.container-registry.secret" }}tibco-container-registry-credentials{{end}}
+{{- define "tp-cp-alertmanager.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/* set repository based on the registry url. We will have different repo for each one. */}}
 {{- define "tp-cp-alertmanager.image.repository" -}}
