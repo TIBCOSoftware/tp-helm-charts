@@ -241,5 +241,7 @@ spec:
             defaultMode: 420
             secretName: {{ include "hybrid-proxy.consts.webhook" . }}-tls
 {{- end }}
+      {{- if (include "hybrid-proxy.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "hybrid-proxy.container-registry.secret" . }}
+      {{- end }}

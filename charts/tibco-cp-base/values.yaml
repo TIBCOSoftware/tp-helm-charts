@@ -17,6 +17,7 @@ global:
       url: ""
       username: ""
       password: ""
+      secret: ""  # name of a pre-existing imagePullSecret; if set, username/password are ignored
       repository: ""  # repository
       certificateSecret: ""  # secret name containing the custom certificates
     # Flag to enable or disable creating default network policies for a namespace
@@ -84,8 +85,24 @@ global:
     controlPlaneInstanceId: ""
     enableResourceConstraints: true
     self_hosted_deployment: true
+    # DP MCP aggregator: single-replica Deployment, :8080 MCP surface + :8081 internal callback receiver.
+    mcpAggregator:
+      enabled: true
+      # Optional public TibcoRoute /cp/mcp-aggregator -> :8080; off because callers use the in-cluster Services.
+      externalRouteEnabled: false
+      # Asserts the mesh enforces strict mTLS; the image exits at startup unless this is true.
+      # Fail-closed: false while the aggregator is enabled hard-fails render (guard in cp-mcp-aggregator.yaml).
+      # Assertion only; the actual enforcement is external mesh policy.
+      meshStrictMTLS: true
+      # Verifies the inbound user JWT against IdM's JWKS before trusting its subscription claim;
+      # false reopens a cross-tenant read/invoke bypass via a forged unsigned token.
+      # Lockstep: this flag and its JWKS source travel together - when true the chart must inject
+      # TP_CP_IDM_HOST + AGGREGATOR_JWKS_HOST or the image fail-closes at startup.
+      verifyToken: true
     # Session timeout in seconds for idle session redirect and cookie timeout
     # Default is 14400 seconds (4 hours). Allowable range is 600s (5 min) to 86400 (24 hours) exclusive
+    # Bare seconds, no unit. Not the same as web-server's mcpAggregator.sessionIdleTimeout,
+    # which takes a Go duration ("10m"); an unsuffixed value there is rejected at render time.
     idleSessionTimeoutInSeconds: "14400"
     logging:
       # The fluentbit configuration section.
@@ -105,11 +122,11 @@ global:
     # Common images
     commonImages:
       distrolessDebug:
-        tag: 13.5
+        tag: 13.6
       cpScripts:
-        tag: "9669"
+        tag: "9802"
       fluentbit:
-        tag: 5.1.0
+        tag: 5.1.2
     # Capability IDs stripped from every dp-type's mandatoryInfraCapabilityLists.
     # Validated against the allowlist in tp-cp-core/templates/configmaps.yaml.
     # Ships with [MFTADAPTER] so MFT is off by default; set to [] to enable all.

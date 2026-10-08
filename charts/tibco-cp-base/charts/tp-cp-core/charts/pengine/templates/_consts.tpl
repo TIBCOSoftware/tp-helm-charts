@@ -34,7 +34,13 @@
   {{ .Values.global.tibco.containerRegistry.repository }}
 {{- end -}}
 
-{{- define "cp-core-configuration.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-core-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/* PVC configured for control plane. Fail if the pvc not exist */}}
 {{- define "cp-core-configuration.pvc-name" }}
