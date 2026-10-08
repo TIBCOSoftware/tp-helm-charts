@@ -8,6 +8,12 @@
 global:
   tibco:
     idleSessionTimeoutInSeconds: "14400"
+    # BE-35932: container registry image pull secret support (mirrors BW PR #9670)
+    containerRegistry:
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
+      username: ""
+      password: ""
   external:
     environment: "production"
 
