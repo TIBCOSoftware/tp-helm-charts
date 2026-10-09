@@ -1,0 +1,590 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "mcp-hub-webserver.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 8 }}
+        {{- /* PCP-20194 (TT-20): platform network-policy egress labels for the secret/master-key-
+               holding Hub pod. cluster-egress is always kept — it grants the node+service+pod-CIDR
+               path the Hub needs for the (externally-provisioned) tibco-ext postgres and the CP
+               services on ClusterIPs. internet-egress (0.0.0.0/0) is kept by DEFAULT because a
+               'direct' connection-mode gateway can be registered with an EXTERNAL URL that the Hub
+               fetches directly (backend/src/routes/cf-proxy.ts). Operators whose DPs are tunnel-only
+               (no direct-external gateways) may set networkPolicy.dropInternetEgress=true for an
+               exfil/SSRF backstop; that only takes effect in CP mode (standalone always keeps it,
+               and has no platform NetworkPolicy framework anyway). */}}
+        networking.platform.tibco.com/cluster-egress: enable
+        {{- if not (and (eq (.Values.global.tibco.mcpHub.mode | default "cp") "cp") .Values.networkPolicy.dropInternetEgress) }}
+        networking.platform.tibco.com/internet-egress: enable
+        {{- end }}
+        # O11y workload classification (PCP-19635 §9.1). The platform OTel
+        # k8sattributes processor reads these to tag the log stream. capability-service
+        # is the correct class for a CP capability service like MCP Hub.
+        platform.tibco.com/workload-type: capability-service
+        platform.tibco.com/app-name: mcp-hub
+        platform.tibco.com/app-version: {{ .Values.config.MCP_HUB_WEBSERVER_IMAGE_TAG | quote }}
+      {{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "mcp-hub-webserver.service-account-name" . }}
+      {{- if $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      {{- if and (eq .Values.global.tibco.mcpHub.db.type "postgres") (not .Values.global.tibco.mcpHub.db.standalone) }}
+      initContainers:
+      - name: check-sql-schema-version
+        image: '{{ include "mcp-hub-webserver.image.registry" . }}/{{ include "mcp-hub-webserver.image.repository" . }}/{{ .Values.global.tibco.commonImages.cpScripts.name }}:{{ .Values.global.tibco.commonImages.cpScripts.tag }}'
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.checkPodDependencies.resources | nindent 10 }}
+        env:
+          - name: DB_PREFIX
+            value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+          - name: PSQL_SCRIPTS_LOCATION
+            value: /opt/tibco/tsc/scripts/postgres/mcp-hub
+          - name: PGHOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+                {{- if eq .Values.global.tibco.is_replica_region true }}
+                key: MasterWriterHost
+                {{- else }}
+                key: DBHost
+                {{- end }}
+          - name: PGPORT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+                key: DBPort
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mcphub-postgres-credential
+                key: PGPASSWORD
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            /opt/tibco/tsc/scripts/postgres-helper.bash check-schema-version mcphub
+      {{- end }}
+      containers:
+      - name: tp-cp-mcp-hub-server
+        image: {{ include "mcp-hub-webserver.image" . }}
+        imagePullPolicy: IfNotPresent
+        {{- if $.Values.securityContext }}
+        securityContext:
+          {{- toYaml $.Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+          {{- toYaml $.Values.mcphubwebserver.resources | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.backend.port }}
+          name: server
+        {{- with $.Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.probes.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $.Values.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: {{ .Values.backend.port | quote }}
+        # APP_ROOT_PATH — base href the SPA is served under. CP fronts the Hub at
+        # /cp/mcp-hub (via the TibcoRoute); standalone serves at the ingress root.
+        - name: APP_ROOT_PATH
+          {{- if eq (.Values.global.tibco.mcpHub.mode | default "cp") "standalone" }}
+          value: "/"
+          {{- else }}
+          value: "/cp/mcp-hub"
+          {{- end }}
+        # ── Observability / structured logging (PCP-19635) ──────────────────
+        - name: LOG_LEVEL
+          value: {{ .Values.observability.logLevel | default "info" | quote }}
+        - name: LOG_FORMAT
+          value: "json"
+        - name: SERVICE_NAME
+          value: "tp-cp-mcp-hub"
+        - name: SERVICE_VERSION
+          value: {{ .Values.config.MCP_HUB_WEBSERVER_IMAGE_TAG | quote }}
+        {{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+        # Second JSON destination the FluentBit sidecar tails from the shared
+        # emptyDir (k8s does not mirror stdout into a volume — the app must write
+        # the file). Filename must match the sidecar INPUT glob mcp-hub-webserver*.log.
+        - name: LOG_FILE
+          value: "/tmp/webserver-logs/mcp-hub-webserver.log"
+        {{- end }}
+        {{- if .Values.observability.tracing.enabled }}
+        # OTel tracing bootstrap loaded via --require BEFORE app modules (image
+        # WORKDIR=/app, dist at /app/dist). Only set when tracing is enabled, so
+        # the disabled default never --requires the module. tracing.ts is itself a
+        # no-op without an OTLP endpoint, so this is safe even mid-rollout.
+        - name: NODE_OPTIONS
+          value: "--require ./dist/observability/tracing.js"
+        - name: OTEL_TRACES_ENABLED
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: {{ .Values.observability.otlpEndpoint | quote }}
+        - name: OTEL_TRACES_SAMPLER_ARG
+          value: {{ .Values.observability.tracing.sampleRatio | default "0.1" | quote }}
+        {{- end }}
+        {{- if eq (.Values.global.tibco.mcpHub.mode | default "cp") "cp" }}
+        # CP integration URLs (PCP-19630) — sourced from CP-only configMaps
+        # (tp-cp-core-dnsdomains). Gated on MCP_HUB_MODE=cp: in standalone those
+        # configMaps do not exist, so emitting these would crash the pod with
+        # CreateContainerConfigError. The backend skips every CP call in standalone.
+        # PCP-22686: the region this pod serves. Same ConfigMap, same gate, same shape
+        # as the five CP hosts below it — the CP orchestrator and user-subscriptions
+        # already read exactly this key (REGION) as DEPLOYMENT_REGION; the Hub was the
+        # only CP service not consuming it, which is why an EU-registered gateway was
+        # visible and mutable from US.
+        - name: DEPLOYMENT_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: REGION
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+        - name: CP_USER_SUB_URL
+          value: "http://$(TP_CP_USER_SUB_HOST):8832"
+        - name: TP_CP_ORCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_ORCH_HOST
+        - name: CP_ORCHESTRATOR_URL
+          value: "http://$(TP_CP_ORCH_HOST):8833"
+        - name: TP_DP_PROXY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_DP_PROXY_HOST
+        - name: DP_PROXY_URL
+          value: "http://$(TP_DP_PROXY_HOST):80"
+        {{- /* PCP-21876: rollback lever for the CP->DP routing prefix. Emitted ONLY when set, so
+               the default (blank) leaves the container environment exactly as it was — the Hub
+               sends the prefix-free tail and dp-proxy prepends the DP's own prefix. Set to
+               /tibco/agent to restore the fully-qualified wire format against a dp-proxy that
+               does not prepend. Mirrors backend.dpRoutingPathPrefix in the tp-mcp-hub dev chart;
+               supported values and failure mode are documented on the value in values.yaml.
+               Without this block the production chart has no lever at all and the only remedy
+               would be a code revert plus an image rebuild. */}}
+        {{- if .Values.config.DP_ROUTING_PATH_PREFIX }}
+        - name: DP_ROUTING_PATH_PREFIX
+          value: {{ .Values.config.DP_ROUTING_PATH_PREFIX | quote }}
+        {{- end }}
+        - name: TP_CP_O11Y_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_O11Y_HOST
+        - name: CP_O11Y_URL
+          value: "http://$(TP_CP_O11Y_HOST):7820"
+        # PCP-21539: CP permissions-engine host for CP-RBAC enforcement. The backend
+        # (config.ts getPengineBaseUrl) builds http://$(TP_CP_PERMISSIONS_ENGINE_HOST):7892
+        # and enforces per-user RBAC on every mutating /api/mcp-hub route in cp mode
+        # (fail-closed 503 if unset). Host-only, from the same tp-cp-core-dnsdomains
+        # configMap the other CP capability webservers use (e.g. flogo-webserver).
+        - name: TP_CP_PERMISSIONS_ENGINE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_PERMISSIONS_ENGINE_HOST
+        {{- end }}
+        # PCP-19705 — explicit deployment-mode switch consumed by the MCP Hub
+        # backend (config.ts getMode()). MUST be "cp" for any CP-only affordance
+        # (Control Plane Authentication auth-type, etc.). Defaults to "cp" (the
+        # primary, CP-embedded deployment); standalone via the values-standalone overlay.
+        - name: MCP_HUB_MODE
+          value: {{ .Values.global.tibco.mcpHub.mode | default "cp" | quote }}
+        # PCP-20301 — standalone entry-UI gate. Activates the standalone app
+        # entry/host shell; default off. The backend force-falses it whenever
+        # MCP_HUB_MODE=cp, so it is a no-op in cp/MFE mode. UI gate only — NOT an
+        # access boundary (reachability is the Ingress).
+        - name: MCP_HUB_STANDALONE_ENTRY
+          value: {{ (.Values.global.tibco.mcpHub.standaloneEntry).enabled | default false | quote }}
+        {{- if eq (.Values.global.tibco.mcpHub.mode | default "cp") "cp" }}
+        # PCP-19678 / PCP-19705 — IdM internal URL for "Control Plane
+        # Authentication" (oauth_cp_idm) DCR initial-access-token minting.
+        # REQUIRED whenever MCP_HUB_MODE=cp; the backend checkStartupConfig()
+        # exits 1 at boot if it is missing. Port 7831 is the IdM management API
+        # (9831 is the monitor/ping port only — do NOT use it here).
+        - name: TP_CP_IDM_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_IDM_HOST
+        - name: CP_IDM_URL
+          value: "http://$(TP_CP_IDM_HOST):7831"
+        # PCP-19678 — base CP DNS domain (no wildcard) used by the backend
+        # getCpHost() to suffix-validate X-Forwarded-Host before issuing IdM
+        # calls. Sourced from the cp-env configMap published by tibco-cp-base
+        # (CP_DNS_DOMAIN = global.external.dnsDomain, already wildcard-free) so
+        # it stays in lock-step with the rest of the control plane.
+        - name: CP_DNS_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-base-env-configmap" . }}
+              key: CP_DNS_DOMAIN
+        # PCP-22823: the CP token verifier's key source. REQUIRED whenever
+        # MCP_HUB_MODE=cp — the backend's checkStartupConfig() refuses to boot without
+        # it, because verification anchored to a key the caller cannot influence is what
+        # closes security scan finding f002 (a forged `gsbc` selecting another tenant's
+        # rows), and "enforced only when configured" would be fail-open.
+        #
+        # Derived via k8s $(VAR) expansion from CP_DNS_DOMAIN above — the same mechanism
+        # CP_USER_SUB_URL / CP_ORCHESTRATOR_URL already use in this block — so no
+        # environment has to hand-enter a URL. It lives INSIDE the mode=cp gate because
+        # standalone has no CP IdP, no CP token, and no CP_DNS_DOMAIN to expand.
+        #
+        # The `cp-sub1.` label is measured, not guessed: on a live CP every subscription
+        # host (cp-sub1 / cp-sub2 / admin) publishes the SAME signing key, so any one of
+        # them serves the whole multi-tenant CP. Override via config.MCPHUB_TOKEN_JWKS_URI
+        # if IdM is ever fronted somewhere else.
+        # ⚠️ The key DIFFERS BETWEEN CPs (measured: two live CPs publish keys with distinct
+        # RFC-7638 thumbprints), so never pin a `kid` here. An earlier revision of this
+        # comment cited "kid 7a91a34a"; that was one instance's key, not a constant.
+        - name: MCPHUB_TOKEN_JWKS_URI
+          value: {{ .Values.config.MCPHUB_TOKEN_JWKS_URI | default "https://cp-sub1.$(CP_DNS_DOMAIN)/idm/v1/oauth2/jwks-uri" | quote }}
+        # PCP-22823 (follow-up): WHAT the verified token must claim. A valid signature only
+        # proves the CP minted it; these two say which token CLASS and which HOST MAPPING it
+        # was minted for. Both are REQUIRED whenever MCP_HUB_MODE=cp — checkStartupConfig()
+        # refuses to boot without them, deliberately: "enforced only when configured" is
+        # fail-open, and that is precisely how the audience check shipped without ever
+        # running in production.
+        #
+        # ⚠️ WITHOUT THESE, A HUB IMAGE CARRYING THE PCP-22823 FOLLOW-UP EXITS 1 AT STARTUP
+        # (CrashLoopBackOff — no pod, no /health). release-alpha pins the hub image into this
+        # chart's values.yaml but never edits this template, so this wiring must be in place
+        # BEFORE any release pins an image that requires it.
+        #
+        # MEASURED on live CPs (5 real tokens, 2 instances) — not inferred from the OIDC
+        # discovery document, which describes a different token type and is what produced
+        # the 401-everything defect this fixes:
+        #   iss = "TCC_IdM" — a bare opaque string, NOT a URL, identical on both CPs.
+        #   aud = host mappings, `{tenant}` + `{tenant}.{DEPLOYMENT_REGION}`. Pin the BARE
+        #         `TSC`: the full 4-element set rejects the token class used by the bw/flogo
+        #         capability webservers, and `.global` is DEPLOYMENT_REGION (on-prem only).
+        # Both are comma-separated allowlists, matched EXACTLY; `aud` by set membership,
+        # because the real token's array order is not stable.
+        - name: MCPHUB_TOKEN_ISSUER
+          value: {{ .Values.config.MCPHUB_TOKEN_ISSUER | default "TCC_IdM" | quote }}
+        - name: MCPHUB_TOKEN_AUDIENCE
+          value: {{ .Values.config.MCPHUB_TOKEN_AUDIENCE | default "TSC" | quote }}
+        {{- end }}
+        - name: DB_TYPE
+          value: {{ .Values.global.tibco.mcpHub.db.type | quote }}
+        - name: STANDALONE
+          value: {{ .Values.global.tibco.mcpHub.db.standalone | quote }}
+        - name: DB_CONF
+          value: {{ .Values.global.tibco.mcpHub.db.configuration | toJson | quote }}
+        {{- if .Values.config.MCPHUB_SECRET_KEY }}
+        {{- fail "PCP-20163: config.MCPHUB_SECRET_KEY (inline at-rest key) was removed — it shipped a committed plaintext default. Create a k8s Secret holding the key and set config.secretKey.existingSecret (and optionally .key). Generate the value with: openssl rand -base64 32" }}
+        {{- end }}
+        # AES-256-GCM key for encrypting upstream OAuth client secrets at rest
+        # (backend/src/crypto.ts). PCP-20163: sourced from a k8s Secret via
+        # secretKeyRef, NEVER a committed chart literal. When the operator does not
+        # supply config.secretKey.existingSecret, the chart auto-generates a strong
+        # key Secret (templates/secret.yaml) so the Hub boots secure-by-default in CP
+        # mode instead of fail-closing on the missing key (PCP-20165 validate-system).
+        - name: MCPHUB_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.secretKey.existingSecret | default (printf "%s-encryption-key" (include "mcp-hub-webserver.consts.appName" .)) | quote }}
+              key: {{ .Values.config.secretKey.key | default "MCPHUB_SECRET_KEY" | quote }}
+        # PCP-19949: bootstrap API key for the public /v1/ routes. Sourced from a
+        # k8s Secret auto-generated by templates/secret.yaml (or operator-supplied
+        # via config.bootstrapApiKey.existingSecret). The Hub upserts this key into
+        # mcp_api_keys on startup so the first request can authenticate immediately.
+        - name: MCPHUB_BOOTSTRAP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.bootstrapApiKey.existingSecret | default (printf "%s-bootstrap-api-key" (include "mcp-hub-webserver.consts.appName" .)) | quote }}
+              key: {{ .Values.config.bootstrapApiKey.key | default "MCPHUB_BOOTSTRAP_API_KEY" | quote }}
+        {{- with .Values.config.bootstrapApiKey.scopes }}
+        - name: MCPHUB_BOOTSTRAP_API_KEY_SCOPES
+          value: {{ . | quote }}
+        {{- end }}
+        # PCP-22686: whether this pod writes to ANOTHER region's database. Deliberately
+        # emitted right here, beside the PGHOST switch that consumes the same value, so
+        # the two can never drift apart about it.
+        #
+        # The backend needs this as a SEPARATE signal because "is DEPLOYMENT_REGION set?"
+        # is not a sufficient guard: the chart's own default for global.tibco.region is
+        # "global" and the CP publishes it verbatim, so a multi-region install that
+        # forgets its per-region override would stamp 'global' in every region —
+        # isolation silently off, while a present, non-empty value sails through a blank
+        # check. A REPLICA region carrying the default is therefore a hard startup
+        # failure; a single-region CP carrying it is legitimate and boots normally.
+        # A plain value (no configMapKeyRef), so it is safe outside the CP-mode gate.
+        - name: IS_REPLICA_REGION
+          value: {{ .Values.global.tibco.is_replica_region | default false | quote }}
+        {{- if eq .Values.global.tibco.mcpHub.db.type "postgres" }}
+        {{- if not .Values.global.tibco.mcpHub.db.standalone }}
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: MasterWriterHost
+              {{- else }}
+              key: DBHost
+              {{- end }}
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              key: DBPort
+        - name: READ_PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: LocalReaderHost
+              {{- else }}
+              key: DBHost
+              {{- end }}
+        - name: READ_PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              key: DBPort
+        - name: POSTGRES_USERNAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_mcphubuser
+        - name: POSTGRES_DATABASE_NAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_mcphubdb
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mcphub-postgres-credential
+              key: PGPASSWORD
+        - name: POSTGRES_MAX_OPEN_CONNECTIONS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlMaxOpenConnections
+              optional: true
+        - name: POSTGRES_MAX_IDLE_CONNECTIONS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlMaxIdleConnections
+              optional: true
+        - name: POSTGRES_CONNECTION_MAX_LIFE_TIME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.psqlConnectionMaxLifeTime
+              optional: true
+        {{- /* PCP-20198 (TT-27): runtime app↔pg TLS. The backend pg.Pool reads
+               DB_SSL_MODE (+ DB_SSL_ROOT_CERT for verify-*). Rendered ONLY when the
+               effective mode != "disable" so the default manifest is byte-identical
+               to pre-change (no existing CP install breaks). For verify-ca/verify-full
+               with a CA secret configured we also point DB_SSL_ROOT_CERT at the mounted
+               cert file and mount the secret (optional:true). require → env only. */}}
+        {{- $dbSslMode := default "disable" .Values.global.external.db_ssl_mode }}
+        {{- if ne $dbSslMode "disable" }}
+        - name: DB_SSL_MODE
+          value: {{ $dbSslMode | quote }}
+        {{- if and (or (eq $dbSslMode "verify-ca") (eq $dbSslMode "verify-full")) .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: DB_SSL_ROOT_CERT
+          value: {{ printf "/etc/mcp-hub/db-ssl/%s" (default "db_ssl_root.cert" .Values.global.tibco.db_ssl_root_cert_filename) | quote }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if eq .Values.global.tibco.mcpHub.db.type "sqlite" }}
+        - name: DB_PATH
+          value: {{ .Values.global.tibco.mcpHub.db.configuration.sqlite.path | quote }}
+        {{- end }}
+        {{- if .Values.backend.gatewayEgressAllowlist }}
+        # PCP-20181: CIDR allowlist permitting private/direct-mode gateway URLs to be
+        # registered (e.g. an in-cluster `*.svc` ContextForge). Empty (default) = only
+        # public hosts are accepted. Rendered only when set so CP installs stay
+        # byte-identical.
+        - name: MCPHUB_GATEWAY_EGRESS_ALLOWLIST
+          value: {{ .Values.backend.gatewayEgressAllowlist | quote }}
+        {{- end }}
+        {{- if .Values.backend.allowInsecureTransport }}
+        # PCP-20304 DEV-ONLY: relax the direct-gateway transport guard so an
+        # http:// / private-host gateway URL can be registered (e.g. an in-cluster
+        # `*.svc` ContextForge in a standalone dev cluster). Rendered ONLY when true,
+        # so CP/production installs (default false) stay byte-identical. HTTPS + a
+        # public host is the secure default; NEVER enable this in CP/production.
+        - name: MCPHUB_ALLOW_INSECURE_TRANSPORT
+          value: {{ .Values.backend.allowInsecureTransport | quote }}
+        {{- end }}
+        {{- if .Values.backend.showQuickStartBanner }}
+        # PCP-22388: the empty-state "QuickStart" governance banner is default-OFF in
+        # the SPA (features.showQuickStartBanner). Rendered ONLY when true, so CP
+        # installs stay byte-identical (absent by default); set true to re-enable it.
+        - name: MCPHUB_SHOW_QUICKSTART_BANNER
+          value: {{ .Values.backend.showQuickStartBanner | quote }}
+        {{- end }}
+        volumeMounts:
+          - name: data-vol
+            mountPath: /app/data
+          - name: tmp-vol
+            mountPath: /tmp
+          - name: logs-share
+            mountPath: /tmp/webserver-logs
+          {{- /* PCP-20198 (TT-27): mount the pg CA secret for verify-ca/verify-full
+                 only (chain validation needs the file). Gated on postgres + non-
+                 standalone + mode∈verify-* + secretname set → byte-stable for
+                 disable/require. optional:true so a missing secret never CrashLoops. */}}
+          {{- if and (eq .Values.global.tibco.mcpHub.db.type "postgres") (not .Values.global.tibco.mcpHub.db.standalone) }}
+          {{- $dbSslMode := default "disable" .Values.global.external.db_ssl_mode }}
+          {{- if and (or (eq $dbSslMode "verify-ca") (eq $dbSslMode "verify-full")) .Values.global.tibco.db_ssl_root_cert_secretname }}
+          - name: db-ssl-root-cert
+            mountPath: /etc/mcp-hub/db-ssl
+            readOnly: true
+          {{- end }}
+          {{- end }}
+      {{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "mcp-hub-webserver.image.registry" . }}{{"/"}}{{ include "mcp-hub-webserver.image.repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- with .Values.global.tibco.logging.fluentbit.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+          {{- toYaml .Values.global.tibco.logging.fluentbit.resources | nindent 10 }}
+        {{- end }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: tp-cp-mcp-hub-server
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs-share
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+      {{- end }}
+      volumes:
+        {{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+        - name: config-volume
+          configMap:
+            name: {{ include "mcp-hub-webserver.consts.appName" . }}-fluentbit-config
+        {{- end }}
+        - name: data-vol
+        {{- if eq .Values.global.tibco.mcpHub.db.type "sqlite" }}
+          persistentVolumeClaim:
+            {{- if .Values.global.tibco.mcpHub.db.standalone }}
+            claimName: mcphub-sqlite-pvc
+            {{- else }}
+            claimName: {{ include "mcp-hub-webserver.pvc-name" . | trim }}
+            {{- end }}
+        {{- else if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-hub-webserver.consts.appName" . }}-data
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+        - name: tmp-vol
+          emptyDir: {}
+        - name: logs-share
+          emptyDir: {}
+        {{- /* PCP-20198 (TT-27): pg CA secret volume — same gate as the volumeMount
+               above (postgres + non-standalone + verify-* + secretname). optional:true
+               keeps it absent-tolerant. Not emitted for disable/require → byte-stable. */}}
+        {{- if and (eq .Values.global.tibco.mcpHub.db.type "postgres") (not .Values.global.tibco.mcpHub.db.standalone) }}
+        {{- $dbSslMode := default "disable" .Values.global.external.db_ssl_mode }}
+        {{- if and (or (eq $dbSslMode "verify-ca") (eq $dbSslMode "verify-full")) .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: db-ssl-root-cert
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname | quote }}
+            optional: true
+            items:
+              - key: {{ default "db_ssl_root.cert" .Values.global.tibco.db_ssl_root_cert_filename | quote }}
+                path: {{ default "db_ssl_root.cert" .Values.global.tibco.db_ssl_root_cert_filename | quote }}
+        {{- end }}
+        {{- end }}
+      {{- if (include "mcp-hub-webserver.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "mcp-hub-webserver.container-registry.secret" . }}
+      {{- end }}

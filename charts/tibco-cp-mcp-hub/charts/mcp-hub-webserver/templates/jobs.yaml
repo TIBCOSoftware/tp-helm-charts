@@ -1,0 +1,191 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{- /* Replica regions run against a read-only Aurora Global secondary, so role/DB
+       creation + migrations cannot execute there — skip this setup Job entirely; the
+       schema replicates from the master region's writer. Replica term ordered first to
+       mirror the base/hawk DB-setup Job gate. */}}
+{{- if and (eq .Values.global.tibco.is_replica_region false) .Values.global.tibco.manageDbSchema (eq .Values.global.tibco.mcpHub.db.type "postgres") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}-db-setup-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  # A transient kube-apiserver restart during fresh cluster bring-up can make the
+  # secret-create `kubectl apply` run by /opt/tibco/tsc/scripts/postgres-helper.bash (from
+  # the core-cp-scripts image) fail with
+  # "failed to download openapi: ... connect: connection refused". With backoffLimit:0 the
+  # pre-install hook Job aborted on the first blip and failed the entire CP install. Allow
+  # a few fresh-pod retries (restartPolicy:Never => one pod per attempt, exp. backoff
+  # ~10/20/40/80s) so a brief apiserver-restart window is survived instead of fatal.
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 3600 # Remove the job 1 hour after completion
+  template:
+    metadata:
+      name: {{ include "mcp-hub-webserver.consts.appName" . }}-db-setup
+      labels:
+        {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/cluster-egress: enable
+        networking.platform.tibco.com/internet-egress: enable
+        networking.platform.tibco.com/database-egress: enable
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mcp-hub-webserver.service-account-name" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Never
+      {{- if (include "mcp-hub-webserver.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "mcp-hub-webserver.container-registry.secret" . }}
+      {{- end }}
+      containers:
+      - name: mcp-hub-db-setup
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        image: {{ include "mcp-hub-webserver.image.registry" . }}{{"/"}}{{ include "mcp-hub-webserver.image.repository" . }}{{"/"}}{{ .Values.global.tibco.commonImages.cpScripts.name }}:{{ .Values.global.tibco.commonImages.cpScripts.tag }}
+        imagePullPolicy: {{ default "IfNotPresent" .Values.global.tibco.commonImages.cpScripts.pullPolicy }}
+        env:
+        - name: DB_PREFIX
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              {{- /* Job is gated off in replica regions above, so this resolves to
+                     DBHost in practice; kept consistent with deployment.yaml's write
+                     path so a future un-gate targets the cross-region primary writer. */}}
+              {{- if eq .Values.global.tibco.is_replica_region true }}
+              key: MasterWriterHost
+              {{- else }}
+              key: DBHost
+              {{- end }}
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              key: DBPort
+        - name: MASTER_PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.credentials" . }}
+              key: USERNAME
+        - name: MASTER_PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.credentials" . }}
+              key: PASSWORD
+        - name: MASTER_PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "mcp-hub-webserver.consts.db.configuration" . }}
+              key: DBName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_REGION
+          value: {{ default "global" .Values.global.tibco.region }}
+        - name: ENVIRONMENT_TYPE
+          value: {{ (default "" .Values.global.external.environment | lower) }}
+        - name: PSQL_SCRIPTS_LOCATION
+          value: /opt/tibco/tsc/scripts/postgres/mcp-hub
+        - name: BASE_SCRIPTS_LOCATION
+          value: /opt/tibco/base/scripts
+        - name: DB_SSL_MODE
+          value: {{ default "disable" .Values.global.external.db_ssl_mode }}
+        - name: DB_SSL_CERT_SECRET_NAME
+          value: {{ .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: CHART_APP_VERSION
+          value: {{ .Chart.AppVersion }}
+        - name: EFS_BASE_PATH
+          value: /private/tsc/config/db-scripts/mcp-hub
+        - name: RERUN_CURRENT_UPGRADE
+          value: {{ .Values.rerunCurrentUpgrade | default false | quote }}
+        {{- /* PCP-20198 (TT-27): make the migration leg's psql actually use TLS.
+               The shared postgres-helper.bash issues bare `psql` calls — libpq reads
+               PGSSLMODE/PGSSLROOTCERT from the environment, so we wire them here
+               rather than editing the shared helper. PGSSLMODE rendered only when
+               mode != "disable" (byte-stable default); PGSSLROOTCERT (+ the cert
+               mount below) only for verify-ca/verify-full with a CA secret. */}}
+        {{- $dbSslMode := default "disable" .Values.global.external.db_ssl_mode }}
+        {{- if ne $dbSslMode "disable" }}
+        - name: PGSSLMODE
+          value: {{ $dbSslMode | quote }}
+        {{- if and (or (eq $dbSslMode "verify-ca") (eq $dbSslMode "verify-full")) .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: PGSSLROOTCERT
+          value: {{ printf "/etc/mcp-hub/db-ssl/%s" (default "db_ssl_root.cert" .Values.global.tibco.db_ssl_root_cert_filename) | quote }}
+        {{- end }}
+        {{- end }}
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            # PCP-20198 (TT-27): only verify-ca/verify-full need the CA cert secret;
+            # "require" encrypts without chain validation, so it must proceed cert-less.
+            # "disable" is plaintext. Test vars are quoted to stay safe if a value is
+            # empty (an unquoted [ $X == "disable" ] is a bash syntax error when X="").
+            if [ "$DB_SSL_MODE" = "disable" ] || [ "$DB_SSL_MODE" = "require" ]; then
+              echo "DB_SSL_MODE=$DB_SSL_MODE: no certificate secret required. Proceeding"
+            else
+              # verify-ca / verify-full: the CA cert secret is mandatory.
+              if [ -z "$DB_SSL_CERT_SECRET_NAME" ]; then
+                echo "ERROR: The value for global.tibco.db_ssl_root_cert_secretname cannot be empty when ssl mode is set to $DB_SSL_MODE. Exiting"
+                exit 1
+              else
+                # Confirm the DB SSL secret is present in the namespace before connecting.
+                if kubectl get secret "$DB_SSL_CERT_SECRET_NAME" >/dev/null 2>&1; then
+                    echo "Kubernetes secret $DB_SSL_CERT_SECRET_NAME found. Proceeding..."
+                  else
+                    echo "ERROR: Certificate secret $DB_SSL_CERT_SECRET_NAME not found. Exiting."
+                    exit 2
+                fi
+              fi
+            fi
+            /opt/tibco/tsc/scripts/postgres-helper.bash manageDbSchema $CHART_APP_VERSION
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: store-vol
+          mountPath: /private
+        {{- /* PCP-20198 (TT-27): mount the pg CA secret as a file so PGSSLROOTCERT
+               above resolves to a real path. verify-ca/verify-full + secretname only
+               → byte-stable for disable/require. optional:true is absent-tolerant. */}}
+        {{- $dbSslMode := default "disable" .Values.global.external.db_ssl_mode }}
+        {{- if and (or (eq $dbSslMode "verify-ca") (eq $dbSslMode "verify-full")) .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: db-ssl-root-cert
+          mountPath: /etc/mcp-hub/db-ssl
+          readOnly: true
+        {{- end }}
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-hub-webserver.pvc-name" . }}
+        {{- $dbSslMode := default "disable" .Values.global.external.db_ssl_mode }}
+        {{- if and (or (eq $dbSslMode "verify-ca") (eq $dbSslMode "verify-full")) .Values.global.tibco.db_ssl_root_cert_secretname }}
+        - name: db-ssl-root-cert
+          secret:
+            secretName: {{ .Values.global.tibco.db_ssl_root_cert_secretname | quote }}
+            optional: true
+            items:
+              - key: {{ default "db_ssl_root.cert" .Values.global.tibco.db_ssl_root_cert_filename | quote }}
+                path: {{ default "db_ssl_root.cert" .Values.global.tibco.db_ssl_root_cert_filename | quote }}
+        {{- end }}
+{{- end }}

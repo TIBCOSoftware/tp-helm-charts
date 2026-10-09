@@ -1,0 +1,63 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+{{- if eq (.Values.global.tibco.mcpHub.mode | default "cp") "cp" }}
+#
+# CP-only routing (PCP-19630): the TibcoRoute CR + the tp-cp-core-dnsdomains
+# configMap it reads only exist inside a Control Plane. In standalone mode a
+# plain k8s Ingress (ingress.yaml) serves the Hub at the cluster ingress root.
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  # PCP-20198 (TT-23): edge TLS for this prod route is owned by the platform
+  # cp-router. The `config: secure` / `secure_login` virtual listeners below
+  # terminate TLS and enforce the edge TLS version / cipher suite / HSTS policy;
+  # those controls are NOT settable from this chart (no minTLSVersion/cipher/HSTS
+  # field exists on TibcoRoute). This is an accepted platform control — documented,
+  # not a chart knob. The `protocol: http` on the endpoints is only the in-cluster
+  # backend leg behind the secure listener.
+  serviceName: {{ include "mcp-hub-webserver.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+    - path: /cp/mcp-hub/api
+      internalPath: /api
+      port: {{ .Values.backend.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: false
+    - path: /cp/mcp-hub
+      internalPath: /
+      port: {{ .Values.backend.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure_login
+          fqdn: "${TSC_DNS_DOMAIN}"
+          enableRedirects: true
+          allowClientCache: false
+          allowXFrameOptions: false
+          configVariables:
+            LOGIN_PATH: /cp/login
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+{{- end }}

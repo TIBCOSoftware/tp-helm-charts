@@ -1,0 +1,34 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+apiVersion: v2
+name: mcp-hub-webserver
+version: 1.21.0
+# This value is NOT cosmetic: jobs.yaml passes it as CHART_APP_VERSION to
+# `postgres-helper.bash manageDbSchema`, which looks it up in
+# scripts/database/postgres/mcp-hub/version-map.yaml to resolve the target schema version.
+# resolve_target_schema_version keeps only map keys <= this value, so a map keyed AHEAD of this
+# appVersion resolves to nothing and mcphub is skipped silently, leaving the database uncreated.
+#
+# PCP-23334: this appVersion DELIBERATELY STAYS AT 1.20.0 while the chart `version` above moves
+# to the 1.21 line. The two are independent and only this one is load-bearing.
+#
+# It cannot move until a core-cp-scripts image ships an mcp-hub version-map containing a "1.21.0"
+# key. The map the cluster consults is the copy baked into the PINNED core-cp-scripts image (the
+# db-setup Job mounts no version-map), and validate_target_chart_version requires an EXACT key —
+# not the <= walk resolve_target_schema_version does. Bumping this to 1.21.0 while every
+# published image's map stops at 1.20.0 aborts database setup with
+# "Target chart version '1.21.0' is not defined", and every source-side bats invariant still
+# passes, so CI would not catch it. Caught in review on PR #10426 and reverted there.
+#
+# To move it later: add the key to scripts/database/postgres/mcp-hub/version-map.yaml, merge,
+# wait for a core-cp-scripts build carrying it, re-pin that image in values.yaml, then bump this.
+appVersion: "1.20.0"
+description: MCP Hub webserver — Angular SPA + Node.js backend
+keywords:
+  - tibco-platform
+  - control-plane
+annotations:
+  app.helm.sh/component: control-plane
+  app.helm.sh/name: mcp-hub-webserver
