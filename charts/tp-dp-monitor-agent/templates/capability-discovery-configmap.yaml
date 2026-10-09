@@ -1,0 +1,28 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{- if gt (len .Values.global.cp.autoDiscovery) 0 }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: capability-discovery-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{ include "tp-dp-monitor-agent.shared.labels.standard" . | nindent 4 }}
+    platform.tibco.com/capability-discovery: "true"
+data:
+  config: |
+    {
+    {{- $first := true }}
+    {{- range $capName, $cfg := .Values.global.cp.autoDiscovery }}
+    {{- if not $first }},{{ end }}
+    {{- $first = false }}
+      {{ $capName | quote }}: {
+        "labelSelectorExpr": {{ (default "" $cfg.labelSelectorExpr) | quote }},
+        "prefixId":          {{ (default "" $cfg.prefixId)          | quote }},
+        "capabilityVersion": {{ (default "" $cfg.capabilityVersion) | quote }}
+      }
+    {{- end }}
+    }
+{{- end }}

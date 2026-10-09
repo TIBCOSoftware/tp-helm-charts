@@ -1,0 +1,224 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- if .Values.haproxy.enabled }}
+{{- $fullName := include "tp-infra-mcp-server.fullname" . -}}
+
+{{- /* built-in haProxy (default): no custom ingress controller and no gateway api */ -}}
+{{- if and (empty .Values.global.cp.routeResources.ingress.ingressController) (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: haproxy-infra-mcp-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    haproxy.org/cors-enable: "true"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/src-ip-header: X-Real-IP
+    ingress.kubernetes.io/path-rewrite: {{ .Values.haproxy.pathPrefix }}/(.*) /\1
+spec:
+  ingressClassName: tibco-dp-{{ .Values.global.cp.dataplaneId }}
+  rules:
+    - host: {{ tpl .Values.global.cp.dpUrl.host . }}
+      http:
+        paths:
+          # MCP transport, listed before the REST catch-all so the more specific prefix wins.
+          # Only this built-in block routes MCP; the custom-routing blocks below are REST-only.
+          - path: {{ .Values.haproxy.pathPrefix }}{{ .Values.haproxy.mcpPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tp-infra-mcp-server.fullname" . }}
+                port:
+                  number: {{ .Values.service.mcpPort }}
+          - path: {{ .Values.haproxy.pathPrefix }}/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tp-infra-mcp-server.fullname" . }}
+                port:
+                  number: {{ .Values.service.restPort }}
+{{- end }}
+
+{{- /* custom haProxy (user-managed HAProxy ingress controller, not the bundled one) */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "haProxy" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: haproxy-{{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    ingress.kubernetes.io/path-rewrite: "{{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/(.*) /\\1"
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+    - host: {{ .Values.global.cp.routeResources.ingress.fqdn | quote }}
+      http:
+        paths:
+          - pathType: Prefix
+            path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ .Values.service.restPort }}
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "nginx" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-{{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+    - host: {{ .Values.global.cp.routeResources.ingress.fqdn | quote }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/(.*)
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ .Values.service.restPort }}
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "traefik" }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-strip-prefix
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik-{{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+    - host: {{ .Values.global.cp.routeResources.ingress.fqdn | quote }}
+      http:
+        paths:
+          - pathType: Prefix
+            path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ .Values.service.restPort }}
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if eq .Values.global.cp.routeResources.ingress.ingressController "openshiftRouter" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: im-{{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- tpl (. | toYaml) $ | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/
+  to:
+    kind: Service
+    name: {{ $fullName }}
+    weight: 100
+  port:
+    targetPort: {{ .Values.service.restPort }}
+  wildcardPolicy: None
+{{- end }}
+
+{{- /*
+gatewayapi. The leading --- is load-bearing: this block is gated independently of the five
+ingressController blocks above, so an ingressController and a gatewayAPIControllerName can both
+be set. Without the separator the preceding Ingress and this HTTPRoute merge into a single YAML
+document and the Ingress is silently lost - helm template still exits 0.
+*/ -}}
+{{- if not (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: im-{{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "tp-infra-mcp-server.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+      namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+      {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  {{- /* Omit rather than emit "": HTTPRoute requires each hostname to be a non-empty RFC1123
+         name, and omitting the field means "inherit the parent listener's hostnames", which is
+         the right default for a private control-plane to data-plane route. */ -}}
+  {{- with .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName }}
+  hostnames:
+    - {{ . | quote }}
+  {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/infra-mcp-server/
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: {{ $fullName }}
+          port: {{ .Values.service.restPort }}
+{{- end }}
+{{- end }}
