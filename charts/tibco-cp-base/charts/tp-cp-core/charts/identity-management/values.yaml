@@ -58,6 +58,15 @@ idm:
     windowSeconds: 10        # IDENTITY_MANAGEMENT_RATE_LIMIT_WINDOW_SECONDS — sliding window length
     evictionTtlSeconds: 60   # IDENTITY_MANAGEMENT_RATE_LIMIT_EVICTION_TTL_SECONDS — idle entry TTL
     maxEntries: 100000       # IDENTITY_MANAGEMENT_RATE_LIMIT_MAX_ENTRIES — max tracked keys
+  # External-IdP CORS origin cache TTL (PCP-21074). Bounds how long a deleted external
+  # IdP's origin stays CORS-allowed. Defaults mirror identity-management.conf bundled in
+  # the core-identity-management image (Java, PCP-21070) and the Go IdM (PCP-20829).
+  # Override via Helm values / env without an image rebuild.
+  cors:
+    # IDENTITY_MANAGEMENT_CORS_IDP_REFRESH_INTERVAL — duration, MUST carry a unit ("12h", "30m");
+    # a bare number is rejected and falls back to 12h. "0" (or a negative value) disables the
+    # TTL, leaving refresh-on-miss only — a deleted IdP's origin then stays allowed indefinitely.
+    idpRefreshInterval: "12h"
 fluentbit:
   resources:
     requests:

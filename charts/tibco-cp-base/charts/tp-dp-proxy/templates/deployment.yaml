@@ -177,5 +177,7 @@ spec:
           configMap:
             name: {{ include "tp-dp-proxy.consts.appName" . }}-fluentbit-config
 {{- end }}
+      {{- if (include "tp-dp-proxy.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "tp-dp-proxy.container-registry.secret" . }}
+      {{- end }}
