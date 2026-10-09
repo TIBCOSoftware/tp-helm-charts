@@ -1,0 +1,10 @@
+{{- /*
+PCP-23986 — validation-only template. Emits NOTHING; it exists so the top-level guards run
+in BOTH lite and full mode. The lite templates are gated on lite.enabled and the full-mode
+ones live in the sub-chart (which cannot see a top-level key), so neither could host these
+checks on its own.
+A template that renders to whitespace produces no manifest, but a `fail` inside it still
+aborts the render — which is exactly the behaviour wanted here.
+*/ -}}
+{{- include "tp-mcp-gateway.tibcoProxy.assertNoTopLevelPorts" . -}}
+{{- include "tp-mcp-gateway.tibcoProxy.assertTrustPathReachable" . -}}
