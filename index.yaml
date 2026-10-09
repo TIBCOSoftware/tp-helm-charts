@@ -19006,6 +19006,32 @@ entries:
     version: 1.3.136
   tp-mcp-gateway:
   - apiVersion: v2
+    appVersion: 1.21.0
+    created: "2026-10-09T18:07:50.279823009Z"
+    dependencies:
+    - condition: mcp-stack.enabled
+      name: mcp-stack
+      repository: file://charts/mcp-stack
+      version: 1.0.0-RC-37
+    description: 'TIBCO Platform MCP Gateway. Supports two modes:   - Full (default):
+      PostgreSQL + Redis via upstream mcp-stack sub-chart   - Lite:           SQLite
+      + memory cache, single pod, no external deps '
+    digest: b545c248323323bba1d89287ab19f818ee1e0121f2f5593a0f18dac607cc7fc2
+    home: https://github.com/tibcosoftware/tp-helm-charts
+    keywords:
+    - tibco
+    - mcp
+    - data-plane
+    - gateway
+    kubeVersion: '>=1.22.0-0'
+    maintainers:
+    - name: TIBCO Platform Team
+    name: tp-mcp-gateway
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.21.1/tp-mcp-gateway-1.21.1.tgz
+    version: 1.21.1
+  - apiVersion: v2
     appVersion: 1.20.0
     created: "2026-08-25T06:17:22.383074528Z"
     dependencies:
@@ -19031,4 +19057,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-10-09T17:51:11.127825478Z"
+generated: "2026-10-09T18:07:50.281073192Z"
