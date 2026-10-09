@@ -1,0 +1,217 @@
+{{- /*
+ALTERNATIVE private CP->DP routes — PCP-21876 (per-DP custom routing, PCP-18809).
+
+The DEFAULT private route is the bundled HAProxy Ingress in haproxy-ingress.yaml. This file adds
+the four alternative ingress controllers plus the Gateway API variant, exactly as PCP-18809 added
+them to bwprovisioner / flogoprovisioner / o11y-service / tp-dp-monitor-agent / tp-provisioner-agent.
+
+Selection (mirrors the sibling charts — plain `if`s, no `else`, so an unrecognised enum value
+renders NOTHING rather than silently falling back to a route the operator did not ask for):
+
+    global.cp.routeResources.ingress.ingressController
+        ""               -> haproxy-ingress.yaml (bundled HAProxy)   [the default, not here]
+        "haProxy"        -> user-managed / external HAProxy          [below]
+        "nginx"          -> ingress-nginx                            [below]
+        "traefik"        -> Traefik (Middleware stripPrefix + Ingress)
+        "openshiftRouter"-> OpenShift Route
+    global.cp.routeResources.gatewayapi.gatewayAPIControllerName
+        non-empty        -> Gateway API HTTPRoute                    [below]
+
+The Ingress and Gateway API selectors are INDEPENDENT (same as the siblings): setting both renders
+both, which is why every block emits its own `---`.
+
+Why these are in a separate file from the default route: keeping haproxy-ingress.yaml's body
+untouched is what guarantees the default render stays byte-identical to the pre-PCP-18809 chart,
+which the base-parity render assertions (redis-external-assert.sh / redis-tls-assert.sh) compare
+against. Only its `if` guard gained the two `empty` clauses that make the six routes exclusive.
+
+Path composition is NOT the sibling "prefix + literal tail" — see tp-mcp-gateway.privateRoutePath
+in _helpers.tpl for why this chart re-anchors the Hub-composed path instead.
+*/ -}}
+{{- if .Values.haproxy.enabled -}}
+{{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+{{- $rr := .Values.global.cp.routeResources -}}
+{{- $path := include "tp-mcp-gateway.privateRoutePath" . -}}
+{{- $port := include "tp-mcp-gateway.privateRoutePort" . -}}
+{{- if eq $rr.ingress.ingressController "haProxy" }}
+---
+{{- /* User-managed / external HAProxy. Same annotations and rewrite as the bundled route; the
+       difference is that the class and host come from routeResources instead of being derived
+       from the dataplane id and the CP-DP tunnel vhost. */}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $svcName }}-private-haproxy
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  annotations:
+    haproxy.org/cors-enable: "true"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/src-ip-header: X-Real-IP
+    ingress.kubernetes.io/path-rewrite: {{ $path }}/(.*) /\1
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ $rr.ingress.ingressClassName }}
+  rules:
+    - host: {{ $rr.ingress.fqdn }}
+      http:
+        paths:
+          - path: {{ $path }}/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $svcName }}
+                port:
+                  number: {{ $port }}
+{{- end }}
+{{- if eq $rr.ingress.ingressController "nginx" }}
+---
+{{- /* ingress-nginx strips the prefix with a capture-group rewrite, so the path must be a regex
+       (use-regex + ImplementationSpecific) rather than a Prefix match. x-forwarded-prefix carries
+       the stripped prefix to the gateway so it can build correct absolute URLs. The buffer/body
+       limits mirror the public nginx route in ingress-nginx.yaml. */}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $svcName }}-private-nginx
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ $path }}
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    nginx.ingress.kubernetes.io/proxy-body-size: "200m"
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ $rr.ingress.ingressClassName }}
+  rules:
+    - host: {{ $rr.ingress.fqdn }}
+      http:
+        paths:
+          - path: {{ $path }}/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $svcName }}
+                port:
+                  number: {{ $port }}
+{{- end }}
+{{- if eq $rr.ingress.ingressController "traefik" }}
+---
+{{- /* Traefik has no rewrite annotation; the equivalent is a stripPrefix Middleware referenced by
+       the Ingress. The router.middlewares value is namespace-qualified and @kubernetescrd-suffixed,
+       which is Traefik's required form for a CRD-provided middleware. */}}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $svcName }}-private-stripprefix
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ $path }}/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $svcName }}-private-traefik
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $ns }}-{{ $svcName }}-private-stripprefix@kubernetescrd
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ $rr.ingress.ingressClassName }}
+  rules:
+    - host: {{ $rr.ingress.fqdn }}
+      http:
+        paths:
+          - path: {{ $path }}/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $svcName }}
+                port:
+                  number: {{ $port }}
+{{- end }}
+{{- if eq $rr.ingress.ingressController "openshiftRouter" }}
+---
+{{- /* OpenShift Route. rewrite-target: / is the Route equivalent of the HAProxy path-rewrite above.
+       targetPort is given NUMERICALLY on purpose: the Service's port names differ by mode (external
+       / cp-internal when the proxy sidecar fronts the pod, `http` in full mode, and UNNAMED in lite
+       without the sidecar — see lite-service.yaml), so a named reference would not resolve in every
+       configuration. There is no ingressClassName on a Route; routeResources.ingress.ingressClassName
+       is therefore unused in this variant. */}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $svcName }}-private-openshift
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with $rr.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with $rr.ingress.fqdn }}
+  host: {{ . }}
+  {{- end }}
+  path: {{ $path }}/
+  to:
+    kind: Service
+    name: {{ $svcName }}
+  port:
+    targetPort: {{ $port }}
+{{- end }}
+{{- if not (empty $rr.gatewayapi.gatewayAPIControllerName) }}
+---
+{{- /* Gateway API. URLRewrite/ReplacePrefixMatch to "/" is the portable equivalent of the
+       controller-specific rewrites above. Independent of the ingressController selector, so this
+       can render alongside one of the Ingress variants — same as the sibling charts. */}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $svcName }}-private-gwapi
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $rr.gatewayapi.gatewayName }}
+      namespace: {{ $rr.gatewayapi.gatewayNamespace }}
+      {{- with $rr.gatewayapi.gatewaySectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  hostnames:
+    - {{ $rr.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ $path }}/
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: {{ $svcName }}
+          port: {{ $port }}
+{{- end }}
+{{- end }}
