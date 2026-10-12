@@ -1,0 +1,383 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{/*
+  Standalone DP MCP aggregator Deployment.
+
+  In-process SINGLETON: the merged per-subscription DP MCP session and callback-pushed
+  discovery state live in memory, so replicas is hardcoded to 1 (never value-bound) and the
+  strategy is Recreate — a rolling surge would put 2 pods behind the ClusterIP Services and
+  split-brain that state. No HPA, no PDB.
+*/}}
+
+{{- if .Values.global.tibco.mcpAggregator.enabled }}
+{{- if and .Values.mcpAggregator.replicaCount (gt (int .Values.mcpAggregator.replicaCount) 1) }}{{- fail "mcpAggregator.replicaCount must not exceed 1: the DP MCP aggregator is an in-process singleton; running >1 replica reintroduces MCP session-404s, split-brain callback state, and per-replica divergence. Use a stateless aggregator (Option B) for true HA." }}{{- end }}
+{{- if ne (.Values.global.tibco.mcpAggregator.meshStrictMTLS | toString | lower) "true" }}{{ fail "mcpAggregator: AGGREGATOR_CALLBACK_ENABLED is always on (only discovery mode) and the aggregator image fail-closes (config.go os.Exit(1)) unless strict mesh mTLS is asserted; set global.tibco.mcpAggregator.meshStrictMTLS=true (PCP-20204 R2)." }}{{- end }}
+{{/*
+  `kindIs "invalid"` is how an UNSET value is detected, deliberately NOT `| default true`:
+  Helm's `default` treats false as empty, so `false | default true` yields TRUE and would make
+  the opt-out impossible. Unset inherits the image's secure-by-default ON; explicit false wins.
+*/}}
+{{- $verifyToken := true }}
+{{- if not (kindIs "invalid" .Values.global.tibco.mcpAggregator.verifyToken) }}{{- $verifyToken = .Values.global.tibco.mcpAggregator.verifyToken }}{{- end }}
+{{/*
+  cp-dns-domain drives AGGREGATOR_JWKS_HOST below and is EMPTY in this chart's default values
+  (it is supplied at install time), so it must NOT hard-fail like the guard above — that would
+  break every default render including CI. The env var is omitted instead.
+*/}}
+{{- $cpDNSDomain := include "cp-core-configuration.cp-dns-domain" . | trim }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tp-cp-mcp-aggregator.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.standard" . | nindent 4 }}
+spec:
+  # Singleton: hardcoded, never bind this to a value. See header.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "tp-cp-mcp-aggregator.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "tp-cp-mcp-aggregator.shared.labels.standard" . | nindent 8 }}
+      # No checksum/config annotation for the fluent-bit ConfigMap, unlike the precedent pods:
+      # this singleton restarts via Recreate and loses its in-memory state, so a log-shipper
+      # config edit must not roll it. Consequence: a ConfigMap edit needs an explicit
+      # `kubectl rollout restart deployment/tp-cp-mcp-aggregator` (no fluent-bit hot reload).
+    spec:
+      serviceAccountName: {{ include "cp-core-configuration.service-account-name" . }}
+      # Nothing in this pod calls the Kubernetes API: the aggregator has no client-go
+      # dependency and the fluent-bit sidecar uses only record_modifier/parser filters (no
+      # kubernetes filter). Do not mount the shared control-plane-sa token into an externally
+      # reachable pod. tp-cp-web-server already sets this; the aggregator lost it when it
+      # stopped being a sidecar there.
+      automountServiceAccountToken: false
+    {{- if .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      terminationGracePeriodSeconds: 15
+      {{- if (include "cp-core-configuration.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "cp-core-configuration.container-registry.secret" . }}
+      {{ end }}
+      containers:
+      # Aggregated MCP surface on :8080; orchestrator refresh receiver on internal-only :8081.
+      - name: cp-mcp-aggregator
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/"}}{{ .Values.mcpAggregator.image.name }}:{{ .Values.mcpAggregator.image.tag }}
+        imagePullPolicy: IfNotPresent
+         {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+           {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+         {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.mcpAggregator.resources.requests.cpu }}
+            memory: {{ .Values.mcpAggregator.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.mcpAggregator.resources.limits.cpu }}
+            memory: {{ .Values.mcpAggregator.resources.limits.memory }}
+        ports:
+          - containerPort: 8080
+            name: mcp-aggregator
+          - containerPort: 8081
+            name: mcp-agg-int
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: mcp-aggregator
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        # Readiness targets :8081, not :8080 (a container may have only ONE readinessProbe): a
+        # dead callback listener must flip the pod NotReady, not silently drop orchestrator
+        # callbacks. The image serves /healthz on both listeners.
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: mcp-agg-int
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+          - name: AGGREGATOR_PORT
+            value: "8080"
+          - name: AGGREGATOR_CALLBACK_PORT
+            value: "8081"
+          # The image bakes ENV AGGREGATOR_CONFIG=/config.yaml and the loader treats a named path
+          # as must-exist, so "" must be rendered explicitly to override it and select the
+          # file-optional orchestrator-driven path.
+          - name: AGGREGATOR_CONFIG
+            value: ""
+          - name: LOG_LEVEL
+            value: {{ .Values.mcpAggregator.logLevel | quote }}
+          # NOT `| default true`: Go templates treat FALSE as empty, so `default` would swallow
+          # the one value an operator ever sets here and render "true" — a kill switch that
+          # cannot be switched off. kindIs "invalid" distinguishes UNSET from false.
+          {{- $lcs := .Values.mcpAggregator.listChangedScoping }}
+          {{- if kindIs "invalid" $lcs }}{{- $lcs = true }}{{- end }}
+          - name: AGGREGATOR_LIST_CHANGED_SCOPING
+            value: {{ $lcs | quote }}
+          # Render-time guard: a malformed duration is a hard config.Load() error -> os.Exit(1)
+          # -> crash-loop of this singleton while helm reports a successful upgrade. The regex is
+          # deliberately stricter than time.ParseDuration (it rejects the bare "0" and ".5s")
+          # because those are the bare-seconds mistake the message warns about. Unset or "" omits
+          # the var and falls through to the image default 10m; only a NEGATIVE disables reaping.
+          {{- $sit := "" }}
+          {{- if not (kindIs "invalid" .Values.mcpAggregator.sessionIdleTimeout) }}{{- $sit = .Values.mcpAggregator.sessionIdleTimeout | toString | trim }}{{- end }}
+          {{- if $sit }}
+          {{- if not (regexMatch `^[-+]?([0-9]+(\.[0-9]+)?(ns|us|µs|μs|ms|s|m|h))+$` $sit) }}
+          {{- fail (printf "mcpAggregator.sessionIdleTimeout=%q is not a Go duration string: the aggregator's config.Load() rejects it, the container os.Exit(1)s, and this replicas:1 / strategy:Recreate Deployment (no PDB) crash-loops with the whole DP MCP capability down while helm reports a successful upgrade. Give the number a UNIT SUFFIX: \"10m\" is the default, \"24h\" takes idle-session reaping out of a slow client's path, \"-1s\" disables reaping outright (emergency lever only). DO NOT copy the shape of global.tibco.idleSessionTimeoutInSeconds (bare seconds, \"14400\", in charts/tibco-cp-base/values.yaml) — that is the CP web-UI cookie/idle-redirect timeout (IDLE_TIME_SECONDS in cp-webserver.yaml), an unrelated setting; a bare \"600\" here is time.ParseDuration's \"missing unit in duration\"." $sit) }}
+          {{- end }}
+          - name: AGGREGATOR_SESSION_IDLE_TIMEOUT
+            value: {{ $sit | quote }}
+          {{- end }}
+          # LOCKSTEP with cp-mcp-aggregator-fluentbit-configmap.yaml, whose input.conf tails
+          # /var/log/pods/<appName>.log: both sides render from tp-cp-mcp-aggregator.consts.appName,
+          # so change the helper, never one of the two literals. That Path must stay the EXACT
+          # basename and never become a *.log glob — lumberjack rotates by RENAME into this same
+          # emptyDir, so a glob re-ingests every retained backup.
+          - name: LOG_FILE_PATH
+            value: "/tmp/logs/{{ include "tp-cp-mcp-aggregator.consts.appName" . }}.log"
+          # `optional: true`, unlike the cp-mcp-server precedent: without it a missing key is
+          # fail-closed at the kubelet, and Recreate tears the old pod down first, so a cosmetic
+          # version string would take the whole MCP surface down. The key is produced by the
+          # parent tp-cp-core chart, so this template cannot guarantee it exists.
+          - name: MCP_SERVER_VERSION
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_APP_VERSION
+                optional: true
+          - name: TP_CP_ORCH_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_ORCH_HOST
+          - name: TP_DP_PROXY_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_DP_PROXY_HOST
+          - name: DP_PROXY_URL
+            value: "http://$(TP_DP_PROXY_HOST):80"
+          # Callback discovery is the aggregator's ONLY mode, so this is always on when the
+          # aggregator is deployed; the meshStrictMTLS guard at the top of this file exists
+          # because the image fail-closes on this combination.
+          - name: AGGREGATOR_CALLBACK_ENABLED
+            value: "true"
+          - name: AGGREGATOR_MESH_STRICT_MTLS
+            value: {{ .Values.global.tibco.mcpAggregator.meshStrictMTLS | toString | lower | quote }}
+          # ---- Inbound user-JWT signature verification --------------------------------------
+          # Off, the `gsbc` subscription claim is decoded WITHOUT a signature check, which is a
+          # cross-tenant tool visibility+invocation bypass. The three vars below are a SET: the
+          # image fail-closes if verification is on with no JWKS source, and again if the URL was
+          # derived from TP_CP_IDM_HOST with no AGGREGATOR_JWKS_HOST. Enforced at runtime rather
+          # than by a template `fail` for the cp-dns-domain reason noted above.
+          - name: TP_CP_IDM_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+                key: TP_CP_IDM_HOST
+          - name: AGGREGATOR_VERIFY_TOKEN
+            value: {{ $verifyToken | toString | lower | quote }}
+          # Host header on each JWKS fetch, and NOT cosmetic: IdM's jwks-uri is Host-mapping
+          # routed and answers HTTP 400 ATMOSPHERE-8013 for an unmapped Host. Any single-label
+          # subdomain matches IdM's wildcard TSC mapping "*.<cp-dns-domain>", hence this
+          # derivation rather than a literal. Omitted when the domain is unknown.
+          {{- if $cpDNSDomain }}
+          - name: AGGREGATOR_JWKS_HOST
+            value: {{ printf "mcp-aggregator.%s" $cpDNSDomain | quote }}
+          {{- end }}
+        volumeMounts:
+          - name: logs
+            mountPath: /tmp/logs
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+      # fluent-bit sidecar reading THIS pod's ConfigMap, not the cp-webserver.yaml one: that
+      # config tails filenames absent from this pod and runs a Lua record-flattening filter that
+      # this pod's structured audit records must not meet.
+      - name: fluentbit
+        image: {{ include "cp-core-configuration.container-registry" .}}{{"/"}}{{ include "cp-core-configuration.image-repository" . }}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.global.containerSecurityContext }}
+        securityContext:
+          {{- toYaml .Values.global.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.mcpAggregator.fluentbit.resources.requests.cpu }}
+            memory: {{ .Values.mcpAggregator.fluentbit.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.mcpAggregator.fluentbit.resources.limits.cpu }}
+            memory: {{ .Values.mcpAggregator.fluentbit.resources.limits.memory }}
+        ports:
+          - containerPort: 2020
+            protocol: TCP
+        # Not logging-only: until :2020 answers, this container is started=false and the whole
+        # pod is NotReady and out of BOTH aggregator Services. The 1s x 50 budget is therefore an
+        # upper bound (~50s) on MCP downtime after a rollout, and a :2020 that never comes up is
+        # a permanent MCP outage. Keep the period tight.
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/uptime
+            port: 2020
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 50
+        # failureThreshold 3, not the cp-webserver.yaml 1: this config declares no filesystem
+        # buffering (memory only), so a restart drops whatever the pipeline read but had not
+        # flushed. Three consecutive misses is a hang; one is scrape noise.
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v1/uptime
+            port: 2020
+          periodSeconds: 10
+          timeoutSeconds: 2
+          initialDelaySeconds: 0
+          successThreshold: 1
+          failureThreshold: 3
+        # No readinessProbe, deliberately: it removes probe FLAKE as a NotReady trigger, which
+        # matters on a replicas:1 pod where every flap is a full MCP outage. It does NOT decouple
+        # the shipper from pod Ready — a container without a readinessProbe still counts toward
+        # Ready once Running, and neither adding one back nor converting to a restartPolicy:Always
+        # native sidecar changes that.
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          # Must match the app container's name above; the ConfigMap's record_modifier stamps
+          # container.name = ${POD_NAMESPACE}.${POD_NAME}.${CONTAINER_NAME}.
+          - name: CONTAINER_NAME
+            value: cp-mcp-aggregator
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/pods
+          - name: db
+            mountPath: /var/log/db
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if (include "cp-core-configuration.enableLogging" .) }}
+        # fluent-bit tail checkpoint DB. MUST stay emptyDir: input.conf sets Read_from_Head On,
+        # which is only safe because this DB starts empty on every pod start.
+        - name: db
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: {{ include "tp-cp-mcp-aggregator.consts.appName" . }}-fluentbit-config
+{{- end }}
+        # Shared app->sidecar log handoff. NO sizeLimit, deliberately: a sizeLimit is not a
+        # write-time quota, it feeds kubelet ephemeral-storage accounting whose only lever is
+        # POD EVICTION, and evicting this singleton destroys the in-memory discovery state and
+        # the callback anti-replay map. Volume is bounded on the writer side instead, by the
+        # app's lumberjack rotation and retention.
+        - name: logs
+          emptyDir: {}
+{{- end }}
+
+---
+
+{{- if .Values.global.tibco.mcpAggregator.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-mcp-aggregator.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: mcp-aggregator
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  # Targets the aggregator Deployment pod, not the web-server pod.
+  # Aggregator is single-replica; scaling it would require sessionAffinity here.
+  selector:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.selector" . | nindent 4 }}
+{{- end }}
+
+---
+
+{{- if .Values.global.tibco.mcpAggregator.enabled }}
+# Internal-only receiver for the orchestrator -> aggregator refresh callback.
+# Keep it on :8081: the external TibcoRoute fronts only :8080, so :8081 stays in-cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tp-cp-mcp-aggregator-internal.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.standard" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: mcp-agg-int
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+  # Targets the aggregator Deployment pod, not the web-server pod.
+  selector:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.selector" . | nindent 4 }}
+{{- end }}
+
+---
+
+{{- if and .Values.global.tibco.mcpAggregator.enabled (.Values.global.tibco.mcpAggregator.externalRouteEnabled | default false) }}
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "tp-cp-mcp-aggregator.consts.appName" . }}
+  namespace: {{ include "tp-cp-web-server.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-mcp-aggregator.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tp-cp-mcp-aggregator.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+    - path: /cp/mcp-aggregator
+      internalPath: /
+      port: 8080
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+{{- end }}

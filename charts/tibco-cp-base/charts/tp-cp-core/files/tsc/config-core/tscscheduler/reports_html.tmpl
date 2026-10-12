@@ -4,12 +4,8 @@
     {{- else if eq .ReportCategory "PO_GRACE_PERIOD_HANDLED"}} PO Grace Period Handling Cron Job Report
     {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_GRACE_PERIOD_HANDLED"}} TIBCO, TRIAL, AMP, CC, PARTNER_NFR, PO and CPASS Grace Period Handling Cron Job Report
     {{- else if eq .ReportCategory "UPCOMING_EXPIRY"}} TSC Upcoming Expiry Email Cron Job Report
-    {{- else if eq .ReportCategory "CC_DETAILS"}} TSC Credit Card Purchase Subscription(s) Report
-    {{- else if eq .ReportCategory "UPCOMING_CC_RENEWAL"}} TSC Upcoming CC Renewal Email Cron Job Report
     {{- else if eq .ReportCategory "AWSMP_FAILED"}} Error report AWS Marketplace Subscriptions
     {{- else if eq .ReportCategory "AMP_SANITY"}} Sanity report for Azure Marketplace Subscriptions
-    {{- else if eq .ReportCategory "COLLECT_CC_PAYMENTS"}} Error report Collect CC Payments
-    {{- else if eq .ReportCategory "EXPIRE_CC_SUBS"}} Error report Cancel Expire CC Payment Issue Subscriptions
     {{- else if eq .ReportCategory "FETCHING_DETAILS_ERROR"}} Error summary while fetching details in case of {{.CronJobType}} Cron Job
     {{- else if eq .ReportCategory "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST"}} Delete Non-approved External IdP Requests Cron Job Report
     {{- else if eq .ReportCategory "CLEANUP"}} Cleanup Job Report
@@ -39,19 +35,15 @@
 <br>
 
 
-{{- if (or .SubscriptionDetails .FailedAWSMPJobDetail .AMPJobDetail .CollectCCPaymentJobDetail .CancelExpireCCSubsJobDetail .DeleteNonApprovedExternalIdpRequestsJobDetail .IdmNotifyCertificateExpiryJobDetail .CIndexAuditTableCleanupDetails .GDPRPurgeHistoryDetails .EndPointHealthStatusDetails .ProvisionInfraCapabilitiesJobDetail)}}
+{{- if (or .SubscriptionDetails .FailedAWSMPJobDetail .AMPJobDetail .DeleteNonApprovedExternalIdpRequestsJobDetail .IdmNotifyCertificateExpiryJobDetail .CIndexAuditTableCleanupDetails .GDPRPurgeHistoryDetails .EndPointHealthStatusDetails .ProvisionInfraCapabilitiesJobDetail)}}
 <h2>
     {{- if eq .ReportCategory "PO_EXPIRED"}} [TIBCO Platform] PO Expired Subscription(s) Details
     {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_EXPIRED"}} [TIBCO Platform] TIBCO, TRIAL, CC, PARTNER_NFR, PO and CPASS Expired Subscription(s) Details
     {{- else if eq .ReportCategory "PO_GRACE_PERIOD_HANDLED"}} [TIBCO Platform] PO Grace Period Handled Subscription(s) Details
     {{- else if eq .ReportCategory "TIB_TRIAL_CC_NFR_PO_CPASS_GRACE_PERIOD_HANDLED"}} [TIBCO Platform] TIBCO, TRIAL, AMP, CC, PARTNER_NFR, PO, CPASS Grace Period Handled Subscription(s) Details
     {{- else if eq .ReportCategory "UPCOMING_EXPIRY"}} [TIBCO Platform] TSC Upcoming Expiry Subscription(s) Details
-    {{- else if eq .ReportCategory "CC_DETAILS"}} [TIBCO Platform] TSC Credit Card Purchase Subscription(s) Details
-    {{- else if eq .ReportCategory "UPCOMING_CC_RENEWAL"}} [TIBCO Platform] TSC Upcoming Renewal CC Subscription(s) Details
     {{- else if eq .ReportCategory "AWSMP_FAILED"}} [TIBCO Platform] Error report AWS Marketplace Subscriptions
     {{- else if eq .ReportCategory "AMP_SANITY"}} [TIBCO Platform] Sanity report for Azure Marketplace Subscriptions
-    {{- else if eq .ReportCategory "COLLECT_CC_PAYMENTS"}} [TIBCO Platform] Credit card payment issues report
-    {{- else if eq .ReportCategory "EXPIRE_CC_SUBS"}} [TIBCO Platform] Cancel/Expire CC Payment Issue Subscriptions report
     {{- else if eq .ReportCategory "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST"}} [TIBCO Platform] Delete Non-approved External IdP Requests Cron Job Details
     {{- else if eq .ReportCategory "CLEANUP"}} [TIBCO Platform] Cleanup Job Report Details
     {{- else if eq .ReportCategory "IDM_NOTIFY_CERTIFICATE_EXPIRY"}} [TIBCO Platform] Upcoming Certificates Expiry Notification Job Report Details <br><h3 style="color:red">The deadline by which the certificate(s) should be updated is firm and fatal.</h3>
@@ -125,60 +117,6 @@
                     <td>{{.OwnersDetails}}</td>
                 <tr>
             {{end}}
-    {{else if eq .ReportCategory "CC_DETAILS"}}
-            <tr>
-                <th>Sr.No.</th>
-                <th>TSC Account Id</th>
-                <th>TSC Subscription Id</th>
-                <th>TSC Subscription Status</th>
-                <th>Zuora Subscription Key</th>
-                <th>Tenant Id</th>
-                <th>Plan Id</th>
-                <th>Buy Time</th>
-                <th>Region</th>
-                <th>Owner Details</th>
-            </tr>
-            {{range $index, $val := .SubscriptionDetails}}
-                <tr>
-                    <td>{{inc $index}}</td>
-                    <td>{{.TscAccountId}}</td>
-                    <td>{{.TscSubscriptionId}}</td>
-                    <td>{{.TscSubscriptionStatus}}</td>
-                    <td>{{.ZuoraSubscriptionKey}}</td>
-                    <td>{{.TenantId}}</td>
-                    <td>{{.PlanId}}</td>
-                    <td>{{formatTime .BuyTime}}</td>
-                    <td>{{.Region}}</td>
-                    <td>{{.OwnersDetails}}</td>
-                </tr>
-            {{end}}
-    {{else if eq .ReportCategory "UPCOMING_CC_RENEWAL"}}
-            <tr>
-                <th>Sr.No.</th>
-                <th>TSC Account Id</th>
-                <th>TSC Subscription Id</th>
-                <th>Tenant Id</th>
-                <th>Plan Id</th>
-                <th>Buy Time</th>
-                <th>Renewal Date</th>
-                <th>Region</th>
-                <th>Cronjob Task Status</th>
-                <th>Owner Details</th>
-            </tr>
-            {{range $index, $val := .SubscriptionDetails}}
-                <tr>
-                    <td>{{inc $index}}</td>
-                    <td>{{.TscAccountId}}</td>
-                    <td>{{.TscSubscriptionId}}</td>
-                    <td>{{.TenantId}}</td>
-                    <td>{{.PlanId}}</td>
-                    <td>{{formatTime .BuyTime}}</td>
-                    <td>{{.RenewalDate}}</td>
-                    <td>{{.Region}}</td>
-                    {{template "cronjob-task-status" .}}
-                    <td>{{.OwnersDetails}}</td>
-                </tr>
-            {{end}}
     {{else if eq .ReportCategory "AWSMP_FAILED"}}
             <tr>
                 <th>Sr.No.</th>
@@ -225,40 +163,6 @@
                     <td>{{.AMPStatus}}</td>
                     <td>{{.TSCStatus}}</td>
                     <td>{{.ExtraDetails}}</td>
-                </tr>
-            {{end}}
-    {{else if eq .ReportCategory "COLLECT_CC_PAYMENTS"}}
-            <tr>
-                <th>Sr.No.</th>
-                <th>Owner</th>
-                <th>TSC Account Id</th>
-                <th>External Account Id (Zuora Account Id)</th>
-                <th>TSC Subscription Id</th>
-                <th>Error Details</th>
-            </tr>
-            {{range $index, $val := .CollectCCPaymentJobDetail}}
-                <tr>
-                    <td>{{inc $index}}</td>
-                    <td>{{.Emails}}</td>
-                    <td>{{.AccountId}}</td>
-                    <td>{{.ExternalAccountId}}</td>
-                    <td>{{.SubscriptionId}}</td>
-                    <td>{{.ErrorDetails}}</td>
-                </tr>
-            {{end}}
-    {{else if eq .ReportCategory "EXPIRE_CC_SUBS"}}
-            <tr>
-                <th>Sr.No.</th>
-                <th>Owner</th>
-                <th>TSC Account Id</th>
-                <th>Error Details</th>
-            </tr>
-            {{range $index, $val := .CancelExpireCCSubsJobDetail}}
-                <tr>
-                    <td>{{inc $index}}</td>
-                    <td>{{.Emails}}</td>
-                    <td>{{.AccountId}}</td>
-                    <td>{{.ErrorDetails}}</td>
                 </tr>
             {{end}}
     {{else if eq .ReportCategory "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST"}}
@@ -373,11 +277,9 @@
 </table>
 
 
-    {{- if not (or .CollectCCPaymentJobDetail .CancelExpireCCSubsJobDetail)}}
         <br><br><br>
         Please check the CP Cron Jobs Service pod logs for this report<br>
         Note: In case of errors, please see the attached log files.
-    {{end}}
 
 {{- else}}
     {{if eq .ReportCategory "AWSMP_FAILED" "DELETE_NONAPPROVED_EXTERNAL_IDP_REQUEST" "CLEANUP" "GDPR_PURGE_HISTORY"}}

@@ -208,7 +208,13 @@ Define prometheus.server.remoteRead producing a list of remoteRead configuration
 
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "tp-cp-prometheus.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "tp-cp-prometheus.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 
 {{/* Control plane instance Id. default value local */}}

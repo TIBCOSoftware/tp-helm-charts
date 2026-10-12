@@ -50,8 +50,10 @@ spec:
         {{- end }}
     spec:
       automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      {{- if (include "tp-cp-alertmanager.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "tp-cp-alertmanager.container-registry.secret" . }}
+      {{- end }}
       serviceAccountName: {{ include "alertmanager.serviceAccountName" . }}
       {{- with .Values.dnsConfig }}
       dnsConfig:

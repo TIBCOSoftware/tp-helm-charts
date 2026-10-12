@@ -245,6 +245,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_SB_HOST
+        - name: TP_CP_BPM_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_BPM_HOST
         - name: TP_CP_BCCE_HOST
           valueFrom:
             configMapKeyRef:
@@ -280,6 +285,11 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_EMS_HOST
+        - name: TP_CP_MFT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MFT_HOST
         - name: TP_DP_PROXY_HOST
           valueFrom:
             configMapKeyRef:
@@ -362,6 +372,8 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.customContentSecurityPolicyHeaderReportOnly
+        - name: PENDO_ENABLED
+          value: {{ and .Values.cpwebserver.pendoEnabled (not .Values.global.tibco.self_hosted_deployment) | quote }}
         - name: CUSTOM_SCHEME_URLS
           value: {{ include "tp-cp-web-server.consts.custom.scheme.urls" . }}
         - name: WEB_SERVER_LOG_ENABLED
@@ -422,10 +434,10 @@ spec:
           value: {{ (.Values.global.external.environment | lower) }}
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
+        - name: BPM_AUTO_DISCOVERY_ENABLED
+          value: {{ (.Values.global.tibco.bpm_auto_discovery_enabled | quote) }}
         - name: AUDITSAFE_ENABLED
           value: "true"
-        - name: PROVISION_WIZARD_MODAL_CAPABILITIES
-          value: {{ .Values.cpwebserver.provisionWizardModalCapabilities | default "" | quote }}
         - name: INFRA_MCP_SERVER_ENABLED
           value: {{ .Values.cpwebserver.infraMcpServerEnabled | quote }}
         - name: CP_EXTENDED_RESOURCES_ENABLED
@@ -1073,6 +1085,22 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+  - path: /cp/api/v2
+    internalPath: /tp-cp-cli-ws/v2
+    port: 3000
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: "${TSC_DNS_DOMAIN}"
+        configVariables:
+          TENANT_ID: "TSC"
+          SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+          SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+          SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
   - path: /jsoneditor-icons.svg
     internalPath: /web-ui-content/jsoneditor-icons.svg
     port: 3000
