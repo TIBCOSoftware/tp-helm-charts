@@ -72,7 +72,13 @@ Create chart name and version as used by the chart label.
 {{- "otel-services" }}
 {{- end }}
 
-{{- define "tibco-cp-base.container-registry.secret" -}}tibco-container-registry-credentials{{- end }}
+{{- define "tibco-cp-base.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{- define "tibco-cp-base.imageCredential" }}
 {{- with .Values.global.tibco.containerRegistry }}

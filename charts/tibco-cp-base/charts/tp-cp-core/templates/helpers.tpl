@@ -28,7 +28,9 @@ Returns the container registry secret name for cleanup jobs.
 Returns empty string if credentials are not provided.
 */}}
 {{- define "tp-cp-core.cleanup.containerRegistrySecret" -}}
-  {{- if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
+  {{- if .Values.global.tibco.containerRegistry.secret -}}
+    {{- .Values.global.tibco.containerRegistry.secret -}}
+  {{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
     {{- "tibco-container-registry-credentials-cleanup" }}
   {{- end }}
 {{- end -}}

@@ -118,6 +118,39 @@ The `postgres-helper.bash` script is a unified database management tool that wor
 - **Do Not Interrupt**: Allow the script to complete fully. Interrupting during execution may leave databases in an inconsistent state
 - **Password Management**: Random passwords are generated only when creating new users. If a user already exists, the script skips password generation. Passwords are stored in Kubernetes secrets (or kubectl command files if `NO_KUBECTL_ACCESS=true`)
 
+### Re-running the CURRENT version's migration (`rerunCurrentUpgrade`)
+
+`upgrade` applies only versions **above** the database's recorded `SCHEMA_VERSION`. When
+`PREVIOUS_VERSION == CURRENT_VERSION` it logs *"Database is already at the required version N.
+No upgrade needed."* and exits 0 — a green Job that does nothing. That is normally correct, but it
+means **a database already at the target version can never be repaired by editing that version's
+migration**: the file will not run again.
+
+`RERUN_CURRENT_UPGRADE=true` is the escape hatch. It skips the pre-increment in
+`upgradeDBSchema` and re-executes `${CURRENT_VERSION}-up.sql` exactly once. For charts that expose
+it (mcp-hub: `mcp-hub-webserver.rerunCurrentUpgrade`, rendered into the Job as
+`RERUN_CURRENT_UPGRADE`), set it `true` for **one** upgrade and then set it back to `false` —
+leaving it on re-runs the migration on every subsequent upgrade.
+
+**When you need this — a worked example (PCP-24190).** Five columns were added to `mcp-hub`'s
+`1-up.sql` as guarded `ADD COLUMN IF NOT EXISTS` statements instead of a new numbered migration.
+`1-up.sql` is unreachable on the upgrade path, so the columns reached fresh installs only, and
+every `INSERT` naming them failed with `42703` on an upgraded Control Plane. The repair shipped in
+`2-up.sql` — but any CP already driven to schema 2 by an earlier image sees `current == target`
+and never runs it. Those databases need exactly one upgrade with `rerunCurrentUpgrade: true`.
+
+Preconditions and cautions:
+
+- Everything in a re-run migration must be **idempotent** — it will execute a second time against
+  a database that may already have some or all of its effects.
+- **Do not** hand-run `1-up.sql` as a substitute. It ends with
+  `INSERT INTO SCHEMA_VERSION (VERSION) VALUES (1) ON CONFLICT DO NOTHING;` and `VERSION` is
+  `UNIQUE`, so on a database at any version other than 1 that insert does **not** conflict and adds
+  a **second row**. Every version read is a bare `SELECT VERSION FROM SCHEMA_VERSION` followed by a
+  whitespace strip, so two rows collapse into a concatenated string (`"21"`), breaking the upgrade
+  arithmetic and the `check-schema-version` initContainer. Verified.
+- The flag re-runs only the **highest** migration, never the chain.
+
 ## Generated Files
 
 The script creates the following files:
@@ -207,7 +240,7 @@ Share the generated file with your cluster administrator to execute on the clust
 You can skip processing specific database services during upgrade by setting the `SKIP_SERVICES` environment variable with a space-separated list of service names.
 
 **Available services vary by chart:**
-- **tibco-cp-base**: `defaultidp`, `idm`, `monitoringdb`, `pengine`, `tasdataserver`, `tasdomainserver`, `tscorch`, `tscscheduler`, `tscutd`
+- **tibco-cp-base**: `defaultidp`, `idm`, `monitoringdb`, `pengine`, `tasdataserver`, `tasdomainserver`, `tscorch`, `tscutd`
 - **tibco-cp-hawk**: `rtmon`
 
 To see available services for your chart, list the directories in your `PSQL_SCRIPTS_LOCATION`:
@@ -305,7 +338,7 @@ export PGPASSWORD="service-user-password" #eg. if checking for idm db, set idm u
 ```
 
 **Available services for schema checking vary by chart:**
-- **tibco-cp-base**: `defaultidp`, `idm`, `monitoringdb`, `pengine`, `tasdataserver`, `tasdomainserver`, `tscorch`, `tscscheduler`, `tscutd`
+- **tibco-cp-base**: `defaultidp`, `idm`, `monitoringdb`, `pengine`, `tasdataserver`, `tasdomainserver`, `tscorch`, `tscutd`
 - **tibco-cp-hawk**: `rtmon`
 
 To see available services for your chart, list the directories in your `PSQL_SCRIPTS_LOCATION`:

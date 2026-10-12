@@ -220,5 +220,7 @@ spec:
             name: {{ include "resource-set-operator.consts.appName" . }}-settings
         - name: empty-dir
           emptyDir: {}
+      {{- if (include "resource-set-operator.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "resource-set-operator.container-registry.secret" . }}
+      {{- end }}

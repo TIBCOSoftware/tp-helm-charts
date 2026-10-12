@@ -10,7 +10,13 @@
 {{- end }}
 
 {{/* secret for control plane. default value empty */}}
-{{- define "cp-core-configuration.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-core-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/* set repository based on the global value. */}}
 {{- define "tp-cp-core-finops-job.image.repository" -}}
@@ -35,7 +41,13 @@
 {{- end }}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "tp-cp-monitor-agent.container-registry.secret" }}tibco-container-registry-credentials{{ end }}
+{{- define "tp-cp-monitor-agent.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{- define "tp-cp-monitor-agent.component" -}}tp-cp-monitor-agent{{- end }}
 

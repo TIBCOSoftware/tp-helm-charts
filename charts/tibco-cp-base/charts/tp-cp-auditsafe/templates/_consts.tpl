@@ -56,14 +56,14 @@
 {{- end }}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "tp-cp-auditsafe-configuration.container-registry.secret" }}
-{{- if .Values.imagePullSecret }}
-  {{- .Values.imagePullSecret }}
-{{- else }}
-  {{- if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
-     {{- "tibco-container-registry-credentials" }}
-  {{- end }}
-{{- end }}
+{{- define "tp-cp-auditsafe-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if .Values.imagePullSecret -}}
+{{- .Values.imagePullSecret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
 {{- end }}
 
 {{/* Control plane instance Id. default value local */}}

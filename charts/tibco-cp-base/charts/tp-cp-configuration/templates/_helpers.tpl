@@ -79,7 +79,13 @@ Create chart name and version as used by the chart label.
 {{- end }}
 {{- end }}
 
-{{- define "tp-cp-configuration.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "tp-cp-configuration.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/* Control plane instance Id. default value cp1 */}}
 {{- define "tp-cp-configuration.cp-instance-id" }}

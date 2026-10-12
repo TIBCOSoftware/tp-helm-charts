@@ -1,0 +1,56 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+{{/*
+  [PCP-23524] Productionized DP OTLP metrics ingest route.
+
+  Relays disk-buffered OTLP metric pushes from ANY data plane (native-CT PCP-23507,
+  K8s BMDP PCP-23522, ...) that POST to /otel-services/otlp-metrics/v1/metrics (via
+  dp-cp-proxy -> tibtunnel -> CP) into the CP Prometheus OTLP receiver, which is enabled
+  by the --web.enable-otlp-receiver flag in this subchart's values.yaml.
+
+  Shape mirrors the otel-services audit ingest route (tp-cp-o11y/templates/tibcoRoute-otel.yaml):
+  a machine POST endpoint on the secure virtual listener with the SECURE_REDIRECT_SKIP_*
+  configVariables (no acct/EULA/org redirect for a non-interactive push) and redirects disabled.
+  The DP OAuth2/JWT bearer that dp-cp-proxy injects is validated by the CP secure listener.
+
+  CROSS-REPO CONTRACT: the DP-side push path is set by the exporter's defaultPushPath in
+  tibcoct (tibcoct/runtime/otel.go). The path below was agreed with the team as
+  /otel-services/otlp-metrics; tibcoct's defaultPushPath must be changed to match (follow-up
+  on the tibcoct side) or DP POSTs will not reach this route. Keep the two in lock-step.
+*/}}
+kind: TibcoRoute
+apiVersion: cloud.tibco.com/v1
+metadata:
+  name: otlp-metrics
+  namespace: {{ include "tp-cp-prometheus.consts.namespace" . }}
+spec:
+  serviceName: prometheus-service
+  serviceNamespace: {{ include "tp-cp-prometheus.consts.namespace" . }}
+  env:
+  - name: CONTROL_PLANE_HOME_URL
+    valueFrom:
+      configMapKeyRef:
+        key: TSC_DNS_DOMAIN
+        name: tp-cp-core-dnsdomains
+  endpoints:
+  - path: /otel-services/otlp-metrics/v1/metrics
+    protocol: http
+    port: 9090
+    internalPath: /api/v1/otlp/v1/metrics
+    proxies:
+    - listener: virtual
+      config: secure
+      configVariables:
+        SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+        SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+        SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+      methods:
+      - POST
+      fqdn: ${CONTROL_PLANE_HOME_URL}
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false

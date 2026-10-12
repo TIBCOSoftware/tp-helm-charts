@@ -25,7 +25,13 @@
 
 {{- define "resource-set-operator.consts.serviceAccount" }}control-plane-sa{{end -}}
 
-{{- define "resource-set-operator.container-registry.secret" }}tibco-container-registry-credentials{{end}}
+{{- define "resource-set-operator.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{- define "resource-set-operator.image.registry" }}
   {{- if .Values.image.registry }} 

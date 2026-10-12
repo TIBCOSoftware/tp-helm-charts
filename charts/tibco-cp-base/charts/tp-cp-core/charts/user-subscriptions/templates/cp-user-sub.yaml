@@ -318,6 +318,8 @@ spec:
           value: enable
         - name: UTM_SECURED_MODE
           value: enable
+        - name: UTM_REPLICA_FALLBACK_TO_MASTER
+          value: {{ .Values.global.tibco.utmReplicaFallbackToMaster | quote }}
         - name: TP_CP_ORCH_HOST
           valueFrom:
             configMapKeyRef:
@@ -327,6 +329,8 @@ spec:
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         - name: DB_STATEMENT_TIMEOUT_IN_MILLISECONDS
           value: "{{ .Values.global.tibco.dbStatementTimeoutInMilliseconds }}"
+        - name: MAINTENANCE_CACHE_TTL_SECONDS
+          value: "{{ .Values.global.tibco.maintenanceCacheTTLSeconds }}"
         volumeMounts:
         - name: cp-core-config
           mountPath: /tmp/private/tsc/config
@@ -794,6 +798,20 @@ spec:
       - listener: virtual
         config: secure
         fqdn: ${ALL_INTERNAL_TENANTS_DNS_DOMAINS}
+        methods:
+          - GET
+        allowClientCache: false
+        allowXFrameOptions: false
+        enableRedirects: false
+
+  - path: /cp-user-sub/v1/maintenance/status
+    internalPath: /v1/maintenance/status
+    port: 7832
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_DNS_DOMAIN}
         methods:
           - GET
         allowClientCache: false

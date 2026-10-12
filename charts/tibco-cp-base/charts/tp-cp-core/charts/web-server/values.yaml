@@ -15,6 +15,7 @@ global:
     finops: "disable"
     msg_dp_config_enabled: "true"
     artifact_manager_disk_storage_threshold: 80
+    bpm_auto_discovery_enabled: false
 
   # Pod Security Context configuration
   # This configuration ensures that the pod is run with non-root privileges for enhanced security.
@@ -46,16 +47,16 @@ global:
 cpwebserver:
   aiAgent:
     enabled: false
-  # PCP-19600: comma-separated, uppercase capability ids whose Start action opens
-  # i.e "PROVISION_WIZARD_MODAL_CAPABILITIES: EMS,BWCE"
-  # the new provision-wizard Fresco modal instead of the legacy page ("*" = all).
-  # Empty (default) => every capability uses the legacy provision page.
-  provisionWizardModalCapabilities: "AS,INFRAMCPSERVER"
   # Enable the Infra MCP Server capability in the web-server UI
   infraMcpServerEnabled: true
   # PCP-22688: gates Oracle/MSSQL DB types, SSL support in DBCONFIG, and SEARCHCONFIG resource type.
   # Default true = nothing hidden. Set to false to restrict extended resource features.
   extendedResourcesEnabled: false
+  # PCP-19468: Pendo product analytics. On by default, but SaaS only — the
+  # template renders PENDO_ENABLED=false whenever global.tibco.self_hosted_deployment
+  # is true, so self-hosted installs never get Pendo no matter what this says.
+  # Set to false to switch Pendo off on SaaS as well.
+  pendoEnabled: true
   resources:
     requests:
       cpu: 200m
@@ -98,7 +99,7 @@ cpmcpserver:
   enabled: false
   image:
     name: infra-cp-mcp-server
-    tag: "992-distroless"
+    tag: "1070-distroless"
   logLevel: "INFO"
   resources:
     requests:
@@ -107,3 +108,33 @@ cpmcpserver:
     limits:
       cpu: 200m
       memory: 512Mi
+mcpAggregator:
+  image:
+    name: infra-cp-mcp-aggregator
+    # Move this by ancestry, not by build number: a branch build forks from wherever its
+    # branch was cut, so a higher number can be missing commits a lower one already has.
+    tag: "207-distroless"
+  logLevel: "INFO"
+  # Scopes tools/list_changed to the affected session. With this false, one tenant onboarding
+  # a data plane notifies every other tenant's connected session.
+  listChangedScoping: true
+  # Go duration string WITH a unit suffix; a bare number is rejected at render time. "" and
+  # "0s" mean the image default, not off -- only a negative value disables idle reaping.
+  sessionIdleTimeout: "10m"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  # The aggregator's own log-shipper sizing, kept separate from the cp-web-server pod's
+  # top-level `fluentbit.resources`. Values match what it previously inherited.
+  fluentbit:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 150Mi

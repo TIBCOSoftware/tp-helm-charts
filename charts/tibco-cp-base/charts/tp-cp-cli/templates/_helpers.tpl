@@ -73,7 +73,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
 {{/* Image pull secret configured for control plane. default value empty */}}
-{{- define "cp-cli-utilities.container-registry.secret" }}tibco-container-registry-credentials{{- end }}
+{{- define "cp-cli-utilities.container-registry.secret" -}}
+{{- if .Values.global.tibco.containerRegistry.secret -}}
+{{- .Values.global.tibco.containerRegistry.secret -}}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password -}}
+{{- "tibco-container-registry-credentials" -}}
+{{- end -}}
+{{- end }}
 
 {{/* PVC configured for control plane. Fail if the pvc not exist */}}
 {{- define "cp-cli-utilities.pvc-name" }}

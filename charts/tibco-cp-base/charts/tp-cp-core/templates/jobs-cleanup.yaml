@@ -65,7 +65,7 @@ subjects:
 
 ---
 {{/* Post-delete hook version of container registry secret for cleanup jobs */}}
-{{- if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
+{{- if and (not .Values.global.tibco.containerRegistry.secret) .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
 apiVersion: v1
 kind: Secret
 metadata:

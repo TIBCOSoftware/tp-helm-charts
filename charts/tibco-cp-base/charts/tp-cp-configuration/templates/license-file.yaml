@@ -135,7 +135,7 @@ spec:
         - name: store-vol
           persistentVolumeClaim:
             claimName: {{ include "tp-cp-configuration.pvc-name" . }}
+      {{- if (include "tp-cp-configuration.container-registry.secret" .) }}
       imagePullSecrets:
-        {{- if (include "tp-cp-configuration.container-registry.secret" .) }}
         - name: {{ include "tp-cp-configuration.container-registry.secret" . }}
-        {{- end}}
+      {{- end }}

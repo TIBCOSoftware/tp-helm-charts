@@ -281,6 +281,9 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.corsAllowOrigins
+        # PCP-21074: external-IdP CORS origin cache TTL — tunable via idm.cors values
+        - name: IDENTITY_MANAGEMENT_CORS_IDP_REFRESH_INTERVAL
+          value: {{ .Values.idm.cors.idpRefreshInterval | quote }}
         - name: TP_CP_PERMISSIONS_ENGINE_HOST
           valueFrom:
             configMapKeyRef:
@@ -318,6 +321,8 @@ spec:
           value: http://$(TP_CP_USER_SUB_HOST):7832/v1/authorize
         - name: IDENTITY_MANAGEMENT_UTD_USER_DETAILS_URI
           value: http://$(TP_CP_USER_SUB_HOST):8832/v1/users/
+        - name: IDENTITY_MANAGEMENT_USM_MAINTENANCE_STATUS_URL
+          value: http://$(TP_CP_USER_SUB_HOST):8832/v1/maintenance/status
         - name: IDENTITY_MANAGEMENT_TSC_UTD_ACCOUNTS_API_PATH
           value: http://$(TP_CP_USER_SUB_HOST):8832/v1/accounts/
         - name: IDENTITY_MANAGEMENT_IDM_XREGION_API_PATH

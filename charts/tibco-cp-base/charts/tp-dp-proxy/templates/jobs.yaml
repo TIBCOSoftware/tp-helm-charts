@@ -31,8 +31,10 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Never
+      {{- if (include "tp-dp-proxy.container-registry.secret" .) }}
       imagePullSecrets:
         - name: {{ include "tp-dp-proxy.container-registry.secret" . }}
+      {{- end }}
       containers:
       - name: rollout-restart
         image: {{ include "tp-dp-proxy.image.registry" .}}{{"/"}}{{ include "tp-dp-proxy.image.repository" .}}{{"/core-cp-scripts"}}:{{ .Values.global.tibco.commonImages.cpScripts.tag }}

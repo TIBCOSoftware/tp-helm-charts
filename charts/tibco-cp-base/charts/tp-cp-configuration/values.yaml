@@ -68,7 +68,7 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for cp proxy, default is latest
-    version: "1.20.2"
+    version: "1.21.2"
     # Timestamp of capability release
     releaseDate: "2025/10/09"
     # Either a link to document or the document itself specifying _what was fixed in this release.
@@ -84,8 +84,7 @@ capabilities:
     releaseNotes: "Enhancements, Bug fixes, etc."
     # helm chart and image version for artifact manager, default helm chart version is latest
     artifactmanager:
-      version: "1.20.0"
-      tag: "231"
+      version: "1.21.1"
   licensefile:
     version: "1.19.1"
     tag: "1"    
@@ -99,9 +98,22 @@ capabilities:
     releaseNotes: "Initial release."
   inframcpserver:
     # helm chart version for tp-dp-infra-mcp-server
+    version: "1.21.4"
+    # Lockstep with image.name in charts/tp-dp-infra-mcp-server/values.yaml: build IDs are
+    # name-independent, so a tag valid under one image name is unpullable under the other.
+    tag: "128"
+    # if set to true then existing recipe will be overwritten by latest recipe.
+    overwriteRecipe: "true"
+    # set to true for latest version of recipe
+    isLatest: "true"
+    # Timestamp of capability release
+    releaseDate: "2026/08/31"
+    # Either a link to document or the document itself specifying what was fixed in this release.
+    releaseNotes: "Resolves the container-registry pull secret through a documented precedence, and omits the imagePullSecrets setting entirely when no secret is configured instead of leaving it empty. Corrects the image reference so images pull successfully when no registry URL is configured."
+  # PCP-21310: BPM API Gateway — INFRA dependency auto-provisioned on first BPM discovery
+  bpmgateway:
+    # helm chart version for tp-dp-infra-mcp-server
     version: "1.20.0"
-    # image tag for infra-mcp-server
-    tag: "108"
     # if set to true then existing recipe will be overwritten by latest recipe.
     overwriteRecipe: "true"
     # set to true for latest version of recipe
@@ -109,7 +121,7 @@ capabilities:
     # Timestamp of capability release
     releaseDate: "2026/08/17"
     # Either a link to document or the document itself specifying what was fixed in this release.
-    releaseNotes: "Restores OAuth2, internal-only, subscription-scope and dataplane-manager permission enforcement on the MCP transport. Removes the bundled yq and column binaries and their CVEs. Note: YAML output from helm can no longer be filtered in-pipeline; use kubectl -o json with jq."
+    releaseNotes: "PCP-21310: Initial BPM Gateway release"
 # Resources
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources:
