@@ -10,6 +10,13 @@ enabled: true
 # Global section will apply to this chart and all of its subcharts.
 global:
 
+  # BE-35932: container registry image pull secret support (mirrors BW PR #9670)
+  tibco:
+    containerRegistry:
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
+      username: ""
+      password: ""
   cp:
     data:
   external:
@@ -22,7 +29,7 @@ global:
   fluentbit:
     image:
       name: "common-fluentbit"
-      tag: "5.0.2"
+      tag: "5.1.2"
     probes:
       livenessProbe:
         failureThreshold: 3
@@ -47,7 +54,7 @@ global:
 replicaCount: 1
 
 config:
-  BE_WEBSERVER_IMAGE_TAG: "71"
+  BE_WEBSERVER_IMAGE_TAG: "81"
   HTTP_REQUEST_TIMEOUT: "120000"
   WEB_SERVER_LOG_ENABLED: "true"
 

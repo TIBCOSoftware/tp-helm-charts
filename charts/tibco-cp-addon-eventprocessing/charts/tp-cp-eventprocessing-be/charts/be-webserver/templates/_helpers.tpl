@@ -93,9 +93,16 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end }}
 {{- end }}
 
-{{/* Image pull secret configured for control plane. default value empty */}}
+{{/* Image pull secret configured for control plane. default value empty.
+     BE-35932 (mirrors BW PR #9670): prefer a pre-existing global.tibco.containerRegistry.secret,
+     then username/password -> "tibco-container-registry-credentials", then the legacy
+     .Values.imagePullSecret / cp-env fallbacks (kept to avoid regressing existing CP installs). */}}
 {{- define "be-webserver.container-registry.secret" }}
-{{- if .Values.imagePullSecret }}
+{{- if .Values.global.tibco.containerRegistry.secret }}
+  {{- .Values.global.tibco.containerRegistry.secret }}
+{{- else if and .Values.global.tibco.containerRegistry.username .Values.global.tibco.containerRegistry.password }}
+  {{- "tibco-container-registry-credentials" }}
+{{- else if .Values.imagePullSecret }}
   {{- .Values.imagePullSecret }}
 {{- else }}
   {{- include "cp-env.get" (dict "key" "CP_CONTAINER_REGISTRY_IMAGE_PULL_SECRET_NAME" "default" "" "required" "false"  "Release" .Release )}}
