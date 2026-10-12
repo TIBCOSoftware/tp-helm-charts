@@ -1,0 +1,141 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+{{ if $.Values.global.tibco.logging.fluentbit.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}-fluentbit-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+      Flush             1
+      Log_Level         info
+      Daemon            off
+      Parsers_File      parsers.conf
+      HTTP_Server       On
+      HTTP_Listen       0.0.0.0
+      HTTP_Port         2020
+      # PCP-23334: REQUIRED, and not cosmetic. The sidecar's livenessProbe hits
+      # /api/v1/health (deployment.yaml), and Fluent Bit only serves that endpoint when
+      # Health_Check is On -- HTTP_Server alone gives you /api/v1/uptime and /api/v1/metrics
+      # but NOT /api/v1/health. Without this the probe 404s, the kubelet SIGTERMs a
+      # perfectly healthy sidecar ~35s after a clean start, and the pod CrashLoopBackOffs
+      # while the app container stays green. Observed live on common-fluentbit:5.1.0;
+      # 4.2.3 happened to tolerate the omission, so the bump exposed a latent defect rather
+      # than causing one. tibco-cp-flogo / -bw / -ai-agent all set this. If you ever remove
+      # it, repoint the probe to /api/v1/uptime in the same change.
+      Health_Check      On
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+      Name              tail
+      Tag               tp-cp-mcp-hub-webserver
+      Path              /var/log/pods/mcp-hub-webserver*.log
+      multiline.parser  docker, cri
+      DB                /var/log/pods/flb_kube.db
+      Mem_Buf_Limit     5MB
+      Skip_Long_Lines   On
+      Refresh_Interval  10
+
+  filter.conf: |
+    [FILTER]
+      Name              record_modifier
+      Match             *
+      Remove_key        stream
+      Remove_key        _p
+    # Decode the container's JSON log line into structured fields (Reserve_Data
+    # keeps non-JSON tail metadata), then flatten via the lua to the platform
+    # svc-log Body shape ({level,caller,msg,container.name}). PCP-19635: the old
+    # modify(rename)+nest chain produced Body={log:{original:"<raw string>"}},
+    # which the otel-services elasticsearch/log exporter (default mapping mode)
+    # rejects with document_parsing_exception — verified on a live CP. This
+    # mirrors the working sibling tp-cp-infra-fluentbit-config.
+    [FILTER]
+      Name              parser
+      Match             *
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
+    [FILTER]
+      Name              lua
+      Match             *
+      Script            update_record.lua
+      Call              update_record
+
+  output.conf: |
+    [OUTPUT]
+      Name              stdout
+      Match             *
+      Format            json
+
+    [OUTPUT]
+      Name                 opentelemetry
+      Match                *
+      Host                 {{ include "mcp-hub-webserver.otel-collector-host" . }}
+      Port                 4318
+      Logs_uri             /v1/logs
+      Log_response_payload True
+      Tls                  Off
+      Tls.verify           Off
+
+  parsers.conf: |
+    [PARSER]
+      Name              json_decode
+      Format            regex
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
+
+  # Decode the app's structured JSON and PROMOTE MCP Hub's stable schema fields to
+  # first-class (queryable/aggregatable) Body fields, folding only ad-hoc per-call-
+  # site keys into `msg` (PCP-19635 P5). The platform sibling folds EVERYTHING into
+  # msg to protect the shared svclog mapping; MCP Hub instead keeps its canonical
+  # §4 fields (log.level, service.*, http.*, url.path, event.duration_ms, t_hub.*,
+  # trace.*, error.*) so dashboards can filter/aggregate them — the whole point of
+  # structured logging. NULL-SAFE for pino's `message` key (folded into `msg`).
+  # Shipped as a configmap key (common-fluentbit doesn't bundle it) — mounted at
+  # /fluent-bit/etc/update_record.lua via config-volume.
+  update_record.lua: |
+    -- Stable schema fields kept as first-class (NOT folded into msg).
+    local KEEP = {
+      ["log.level"]=true, ["level"]=true, ["caller"]=true, ["source"]=true,
+      ["service.name"]=true, ["service.version"]=true, ["service.component"]=true,
+      ["http.request.method"]=true, ["http.response.status_code"]=true,
+      ["url.path"]=true, ["event.duration_ms"]=true, ["http.request.id"]=true,
+      ["trace.id"]=true, ["span.id"]=true, ["trace.flags"]=true,
+      ["@timestamp"]=true, ["time"]=true, ["stacktrace"]=true, ["errorVerbose"]=true,
+    }
+    local function keep_key(k)
+      if KEEP[k] then return true end
+      if string.sub(k,1,6) == "t_hub." then return true end   -- all t_hub.* domain fields
+      if string.sub(k,1,6) == "error." then return true end   -- error.type/message/stack_trace
+      return false
+    end
+    function update_record(tag, timestamp, record)
+      local r = record["log"]
+      if (r == nil or type(r) ~= "table") then return 1, timestamp, record end
+      local msg = r["msg"] or r["message"] or ""
+      for key, val in pairs(r) do
+        if (key ~= "msg" and key ~= "message" and not keep_key(key)) then
+          msg = msg .. ", " .. key .. ": " .. tostring(val)   -- fold ad-hoc keys
+          r[key] = nil
+        end
+      end
+      r["msg"] = msg
+      r["message"] = nil
+      r["container.name"] = tag
+      record["log"] = r
+      return 2, timestamp, record
+    end
+{{- end }}

@@ -47,6 +47,10 @@ on:
         description: 'Clean up → tibco-cp-addon-eventprocessing'
         type: boolean
         default: false
+      chart_tibco_cp_mcp_hub:
+        description: 'Clean up → tibco-cp-mcp-hub'
+        type: boolean
+        default: false
       dry_run:
         description: 'Dry run — show what would be deleted, make no changes  (default: true)'
         type: boolean
@@ -192,6 +196,7 @@ jobs:
           [[ "${{ inputs.chart_tibco_cp_flogo }}"                  == "true" ]] && SELECTED="$SELECTED tibco-cp-flogo"
           [[ "${{ inputs.chart_tibco_cp_devhub }}"                 == "true" ]] && SELECTED="$SELECTED tibco-cp-devhub"
           [[ "${{ inputs.chart_tibco_cp_addon_eventprocessing }}"  == "true" ]] && SELECTED="$SELECTED tibco-cp-addon-eventprocessing"
+          [[ "${{ inputs.chart_tibco_cp_mcp_hub }}"                == "true" ]] && SELECTED="$SELECTED tibco-cp-mcp-hub"
           SELECTED="${SELECTED# }"
 
           if [[ -z "$SELECTED" ]]; then

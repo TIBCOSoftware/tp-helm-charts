@@ -1,0 +1,33 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+{{- if and .Values.podDisruptionBudget.enabled (eq .Values.global.tibco.mcpHub.db.type "postgres") }}
+{{- $pdb := omit .Values.podDisruptionBudget "enabled" }}
+{{- if and (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable") }}
+{{- fail "mcp-hub-webserver: podDisruptionBudget must set only one of minAvailable / maxUnavailable, not both" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mcp-hub-webserver.shared.labels.selector" . | nindent 6 }}
+  {{- if not (or (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable")) }}
+  # Drain-safe default: maxUnavailable:1 tolerates node drains / cluster-autoscaler
+  # scale-down at any replica count, including the HPA min=1 floor. A minAvailable:1
+  # PDB would set disruptionsAllowed=0 on a lone pod and block eviction indefinitely.
+  maxUnavailable: 1
+  {{- end }}
+  {{- if hasKey $pdb "minAvailable" }}
+  minAvailable: {{ $pdb.minAvailable }}
+  {{- end }}
+  {{- if hasKey $pdb "maxUnavailable" }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  {{- end }}
+{{- end }}

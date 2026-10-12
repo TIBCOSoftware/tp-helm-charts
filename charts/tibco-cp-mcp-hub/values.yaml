@@ -1,0 +1,112 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+global:
+  # PCP-21919 / PCP-9150 -- name of a pre-existing image-pull Secret. MEASURED on a live TP
+  # instance (2026-08-04): this key is populated on the DATA PLANE (artifactmanager,
+  # bwprovisioner, o11yservice all receive it), while on the CONTROL PLANE -- where this chart
+  # runs -- no cp1-ns release receives `global.cp` at all; the CP uses
+  # global.tibco.containerRegistry.* instead. Both are honoured; see _helpers.tpl for the order
+  # and why global.cp is checked first. Declared here so the key always exists: otherwise a
+  # render without a CP-injected `global.cp` aborts with a nil-pointer error.
+  cp:
+    containerRegistry:
+      secret: ""
+  tibco:
+    idleSessionTimeoutInSeconds: "14400"
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+      customCertSecret: ""
+      # PCP-21919 -- the same pre-existing-Secret contract, under the spelling the CONTROL PLANE
+      # actually delivers (TibcoResourceSet valueOverrides,
+      # tibco-cp-base/charts/tp-cp-configuration/templates/resource-set-templates.yaml:31).
+      # On a live CP this is the arm that fires for this chart.
+      secret: ""
+    controlPlaneInstanceId: ""
+    # AWS multi-region flag injected by the orchestrator on a secondary-region CP
+    # (Aurora Global); false = master/primary region. Mirrors the base/hawk default.
+    is_replica_region: false
+    enableResourceConstraints: true
+    useSingleNamespace: true
+    serviceAccount: ""
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          # PCP-25107: 5.1.0 -> 5.1.2 to match what the 1.21 GA BOM declares --
+          # artifacts/control-plane/control-plane-1.21.0-images.txt names common-fluentbit:5.1.2.
+          #
+          # NOT a fleet-wide sweep, and the hub is NOT the last straggler: on this branch
+          # tibco-cp-bpm (3 sites), tibco-cp-mft (2) and tibco-cp-ai-agent (2) still pin 5.1.0,
+          # o11y sits on 5.0.6 and oauth2-proxy on 4.0.3. They are separately owned -- do not
+          # "align" them on sight.
+          #
+          # THIS IS THE LOAD-BEARING SITE: in the umbrella render it is the only one of the
+          # three hub fluentbit pins that reaches a rendered pod (mutation-verified -- probing
+          # the two subchart pins produces zero render hits).
+          #
+          # The hub's sidecar probes /api/v1/health rather than /api/v1/uptime, so
+          # charts/mcp-hub-webserver/templates/fluentbit-configmap.yaml must keep
+          # `Health_Check On` -- HTTP_Server alone does not serve that endpoint. A 4.2.3 -> 5.1.0
+          # bump once exposed its absence as a sidecar CrashLoopBackOff. It is present today.
+          # (mft-webserver and tp-dp-infra-mcp-server probe the same path; this is not unique
+          # to the hub, only easy to regress here.)
+          tag: 5.1.2
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+    proxy:
+      httpProxy: ""
+      httpsProxy: ""
+      noProxy: ""
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+    environment: ""
+    # PCP-20198 (TT-27) — Hub↔Postgres transport encryption. Single overridable
+    # flip-point wired end-to-end: the backend runtime pg.Pool (DB_SSL_MODE env on
+    # the webserver deployment) AND the pre-install migration Job (PGSSLMODE/libpq).
+    # Values: disable | require | verify-ca | verify-full.
+    #   disable      — plaintext (DEFAULT today; a loud startup WARN fires in
+    #                  postgres mode). Default render stays byte-identical so no
+    #                  existing CP install breaks.
+    #   require      — encrypt, no cert validation (works cert-less).
+    #   verify-ca    — encrypt + validate CA chain only (needs the CA secret below).
+    #   verify-full  — encrypt + validate CA chain + hostname (the SECURE target).
+    # require/verify-full is the secure target, GATED on the platform pg-TLS
+    # prerequisite (server TLS enabled + a CA secret provisioned with a SAN
+    # covering the connect FQDN). Flip this to verify-full once that lands.
+    db_ssl_mode: "disable"
+
+# Sub charts
+mcp-hub-recipes:
+  enabled: true
+  mcpGateway:
+    image:
+      tag: "1.21.0"
+      # GA (PCP-24504): a hand-cut GA ships TAG-ONLY -- release-alpha.sh pins digests on the
+      # ALPHA lane only, so this empty digest is deliberate, not a missing pin.
+      digest: ""   # PCP-23089 (alpha lane): set by release-alpha alongside tag; empty = tag-only
+    resources:
+      requests:
+        cpu: 500m
+        memory: 768Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+
+mcp-hub-webserver:
+  enabled: true

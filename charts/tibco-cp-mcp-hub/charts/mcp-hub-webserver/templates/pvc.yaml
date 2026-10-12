@@ -1,0 +1,50 @@
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mcp-hub-webserver.consts.appName" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | default "1Gi" }}
+{{- end }}
+{{- if and (eq .Values.global.tibco.mcpHub.db.type "sqlite") .Values.global.tibco.mcpHub.db.standalone }}
+---
+# PCP-20304: standalone sqlite persistence via a DYNAMIC PVC bound to the cluster's
+# default StorageClass — NOT a hand-rolled, root-owned hostPath PV. The previous
+# static hostPath PV mounted root:root, and fsGroup ownership management does NOT
+# apply to hostPath volumes, so the non-root container (uid 1000, readOnlyRootFilesystem
+# — PCP-19939) could not create /app/data/mcp-hub.db → CrashLoopBackOff. A dynamically
+# provisioned volume avoids this: on k3s the default local-path provisioner creates the
+# volume directory mode 0777, so the uid-1000 pod can write it with NO chown and NO
+# root initContainer. (fsGroup in the pod securityContext is kept; harmless here.)
+#
+# storageClassName is OMITTED when db.pv.storageClassName is empty so the PVC binds the
+# cluster DEFAULT StorageClass (dynamic provisioning). NOTE: setting it to "" would
+# DISABLE dynamic provisioning (static-only) — that is why it is omitted, not empty.
+# On a cluster with no default StorageClass, set db.pv.storageClassName explicitly.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mcphub-sqlite-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-hub-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.global.tibco.mcpHub.db.pv.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.global.tibco.mcpHub.db.pv.storage }}
+{{- end }}

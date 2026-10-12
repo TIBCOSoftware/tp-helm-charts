@@ -1,0 +1,188 @@
+# Copyright © 2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+global:
+  # PCP-21919 / PCP-9150 -- name of a pre-existing image-pull Secret. MEASURED 2026-08-04: this
+  # key is the DATA-PLANE wiring; on the CP this chart actually receives
+  # global.tibco.containerRegistry.* instead. Both are honoured. Declared here so the key always
+  # exists (a missing `global.cp` would nil-pointer the render). See mcp-hub-webserver.container-registry.secret for the full precedence.
+  cp:
+    containerRegistry:
+      secret: ""
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+      # PCP-21919 -- same contract, the spelling the CP actually delivers (TibcoResourceSet
+      # valueOverrides). On a live CP this is the arm that fires for this chart.
+      secret: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          # PCP-25107: 5.1.0 -> 5.1.2 (PCP-23642 CVE sweep tail).
+          # ⚠️ MEASURED DEAD KEY: no template in this subchart reads
+          # global.tibco.logging.fluentbit.image.* -- the emitted DP recipe does not pin the
+          # fluentbit tag at all. Bumped for hygiene only, so a shipped values file does not
+          # advertise a superseded tag; do NOT cite this line as evidence that a Data Plane
+          # gets 5.1.2. Deleting the block would be more honest than maintaining it -- left in
+          # place here because removing a declared value surface is a separate, reviewable call.
+          tag: 5.1.2
+          pullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+imagePullSecret:
+
+capabilities:
+  mcpgateway:
+    # if set to true then existing recipe will be overwritten by latest recipe.
+    overwriteRecipe: "true"
+    # set to true for latest version of recipe
+    isLatest: "true"
+    # Timestamp of capability release
+    releaseDate: "2026/07/30"
+    # Either a link to document or the document itself specifying what was fixed in this release.
+    releaseNotes: "#cshid=new_features"
+
+image:
+  name: common-distroless-base-debian-debug
+  # PCP-25107: 13.5 -> 13.6. Drives exactly ONE container -- the CP-side
+  # mcp-hub-recipe-extraction Job (render-verified). It is never emitted into the DP recipe and
+  # carries no digest key that must move in lockstep.
+  #
+  # Why 13.6: artifacts/control-plane/control-plane-1.21.0-images.txt declares it, tibco-cp-base
+  # renders it across its CP template sites, and bw-recipes / sb-recipes / bw5ce-utilities /
+  # bwce-utilities / sb-utilities already run 13.6 on THIS branch under the byte-identical
+  # busybox-sh Job contract -- which is what retires the "did 13.6 drop the shell" risk.
+  # Tag verified present in tibco-platform-docker-dev before pinning
+  # (sha256:d38bef1447eaabb6ca9d151d61b272005fe2d049d35510e0bd89c9834313df85).
+  #
+  # NOT a repo-wide sweep, so do not "align" the stragglers on sight: bpm, flogo, mft and devhub
+  # remain on 13.5, and apim / discoveryservice on 12.11.
+  #
+  # History (PCP-23334): 13.3 -> 13.5 matched the 1.20 HIGH-CVE sweep. MCP Hub was structurally
+  # excluded from that sweep because 4de6e2ded7 -- the PCP-23262 sweep commit itself -- is what
+  # ADDED these charts to releases/1.20.
+  registry: ""
+  repo: ""
+  # QUOTED deliberately: templates/mcp-gateway.yaml interpolates this bare into an image
+  # reference, and an unquoted YAML scalar is parsed as a FLOAT -- a future 13.10 would render
+  # as 13.1 and pull the wrong image. Render-neutral for 13.6; it is the next minor that breaks.
+  tag: "13.6"
+  pullPolicy: IfNotPresent
+
+# Pod Security Context configuration
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+      - CAP_NET_RAW
+
+mcpGateway:
+  # SINGLE home for the deployed gateway chart version. Source of truth is
+  # charts/tp-mcp-gateway/Chart.yaml .version — this MUST equal it, enforced by
+  # dev/check-mcp-version-sync.sh in CI. The automated alpha release (release-alpha.sh)
+  # maintains this value on release; do not also override it in the umbrella values.yaml.
+  # PCP-23986: chart >= 1.21.0-alpha.10 renders the 8880/8881 proxy listen ports. A proxy
+  # image predating tp-mcp-gateway#349 ignores TIBCO_PROXY_EXT_PORT/CP_PORT and binds :80/:81,
+  # so nothing answers on 8880, the readiness probe never passes, and the capability is down —
+  # this pin MUST advance with (or before) the chart. PCP-21327: the proxy is one of the eight
+  # sites the emitted recipe now pins from mcpGateway.image.tag below, so that "must advance
+  # together" is finally enforceable on UPGRADE as well as on a fresh install — before it, the
+  # proxy tag fell back to the gateway chart's own default and `helm upgrade --reuse-values`
+  # replayed the OLD one. release-alpha moves all ten first-party image pins and both versions
+  # in one run; check-mcp-version-sync.sh [1] enforces that this value equals the gateway chart
+  # version, [2] that the ten pins agree, and [7] that the recipe really emits all eight.
+  # PCP-24083: alpha.10 is exactly the failure the paragraph above describes — it renders the
+  # 8880/8881 ports against main-20b2704, a proxy image predating #349. It must not be pointed
+  # at from here. PCP-24140: this branch has now cut .13, .14, .15 and .16 in turn — each time
+  # because the number it held had been taken while the branch was open (twice by the
+  # automation lane, once by main itself, once by an open PR). Do not read a version out of
+  # this comment; read it from the gateway Chart.yaml, which CHECK 1 forces this value to equal.
+  helmChartVersion: "1.21.1"
+  image:
+    # PCP-21327: this ONE tag drives ALL EIGHT first-party image sites in the emitted recipe
+    # (templates/mcp-gateway.yaml) — lite, mcp-stack.mcpContextForge, mcp-stack.migration,
+    # discovery, tibcoProxy, dialHome and the two global.tpMcpGateway.* mirrors. It must
+    # advance together with mcpGateway.helmChartVersion above: `helm upgrade --reuse-values`
+    # replays the previous release's COALESCED values, so the new chart's own image defaults
+    # never take effect and an unpinned site stays on the OLD image. 1.21 moved the gateway's
+    # serving port 80 -> 8880 in both the probes and the images, so a chart-1.21/images-1.20
+    # split leaves the pod NotReady forever. dev/check-mcp-version-sync.sh CHECK 7 enforces
+    # that every site the gateway chart declares is actually pinned by this recipe.
+    tag: "1.21.0"
+    # GA (PCP-24504): a HAND-CUT GA ships TAG-ONLY. release-alpha.sh pins digests on the
+    # ALPHA lane only and there is no GA equivalent, so the empty digest below is deliberate,
+    # not a missing pin. Do not add one by hand -- see charts/tp-mcp-gateway/values.yaml.
+    # PCP-23089 (alpha lane): set by release-alpha alongside tag; empty = tag-only. Applies ONLY to the
+    # three tp-mcp-gateway sites — the discovery / tibcoProxy / dialHome sidecars are separate
+    # images and are pinned by tag alone (a shared digest would not resolve for them).
+    digest: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 768Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  # PCP-21876 (per-DP custom routing, PCP-18809) / PCP-23774: there is deliberately NO
+  # routeResources block here, and none must be re-added.
+  #
+  # templates/mcp-gateway.yaml used to render this into the deployment recipe as
+  # global.cp.routeResources. Every key in it is per-DATA-PLANE (pathPrefix, ingress.*,
+  # gatewayapi.*), but this recipe is per-CP — one copy installs gateways onto every Data Plane in
+  # the subscription — so anything set here is a constant that OVERRIDES the real per-DP value the
+  # provisioner injects on the Data Plane.
+  #
+  # PCP-23774 removed pathPrefix first, and a live DP then reported the injected `/mcp/hub`, proving
+  # the injection does reach the chart. The remaining pins were still swallowing the rest: an
+  # `ingressController: ""` pinned here kept haproxy-ingress.yaml's guard true and
+  # private-route.yaml's false, so an alt-controller Data Plane got a bundled-HAProxy Ingress on a
+  # class no controller serves and every CP->DP health check 404'd.
+  #
+  # The Hub cannot substitute these either — the CP exposes no per-DP routing config to it. With
+  # the block absent, tp-mcp-gateway's own values.yaml defaults apply when nothing is injected
+  # (empty controller, /tibco/agent prefix), so a default Data Plane is unaffected.
+
+scripts:
+  resources:
+    requests:
+      cpu: 150m
+      memory: 150Mi
+    limits:
+      cpu: 300m
+      memory: 300Mi
+
+cleanupJob: false
+
+probes:
+  startupProbe: {}
