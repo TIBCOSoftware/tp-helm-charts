@@ -8183,6 +8183,74 @@ entries:
       app.helm.sh/name: tibco-cp-base
     apiVersion: v2
     appVersion: 1.21.0
+    created: "2026-10-12T05:45:06.00126727Z"
+    dependencies:
+    - name: tp-cp-infra
+      repository: ""
+      version: 1.21.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.21.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.21.*
+    - name: router-operator
+      repository: ""
+      version: 1.21.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: ' 0.156.*'
+    - name: tp-cp-configuration
+      repository: ""
+      version: 1.21.*
+    - name: tp-cp-core
+      repository: ""
+      version: 1.21.*
+    - name: tp-cp-core-finops
+      repository: ""
+      version: 1.21.*
+    - condition: tp-cp-o11y.enabled
+      name: tp-cp-o11y
+      repository: ""
+      version: 1.21.*
+    - condition: tp-cp-integration-common.enabled
+      name: tp-cp-integration-common
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-cli
+      repository: ""
+      version: 1.17.*
+    - name: tp-cp-alertmanager
+      repository: ""
+      version: 1.21.*
+    - name: tp-cp-prometheus
+      repository: ""
+      version: 1.21.*
+    - name: tp-cp-auditsafe
+      repository: ""
+      version: 1.21.*
+    - name: tp-dp-proxy
+      repository: ""
+      version: 1.21.*
+    description: TIBCO Platform base chart
+    digest: a2a8e2cf340a60494b51dfcdcce462330d4e05d4104ae537b0217e391b2f54bd
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: tibco-cp-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.21.0/tibco-cp-base-1.21.0.tgz
+    version: 1.21.0
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tibco-cp-base
+    apiVersion: v2
+    appVersion: 1.21.0
     created: "2026-10-09T11:29:43.784891606Z"
     dependencies:
     - name: tp-cp-infra
@@ -19105,4 +19173,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-10-12T05:23:19.557293883Z"
+generated: "2026-10-12T05:45:06.324178731Z"
