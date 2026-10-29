@@ -1,0 +1,74 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+# TibcoRoute: exposes the MFT webserver to the CP shell. The server serves everything under
+# /cp/mft itself (single-spa UI + API), so internalPath == the public path (identity). The
+# widget bundle is served under /cp/widgets/mft-instances.
+apiVersion: cloud.tibco.com/v1
+kind: TibcoRoute
+metadata:
+  name: {{ include "mft-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mft-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  serviceName: {{ include "mft-webserver.consts.appName" . }}
+  env:
+    - name: TSC_DNS_DOMAIN
+      valueFrom:
+        configMapKeyRef:
+          name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+          key: TSC_DNS_DOMAIN
+  endpoints:
+    - path: /cp/mft/web-ui-content
+      internalPath: /cp/mft/web-ui-content
+      port: 3000
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+          methods:
+            - GET
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          enableRedirects: true
+          allowClientCache: true
+          allowXFrameOptions: false
+    - path: /cp/widgets/mft-instances
+      internalPath: /cp/widgets/mft-instances
+      port: 3000
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+          methods:
+            - GET
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          enableRedirects: true
+          allowClientCache: true
+          allowXFrameOptions: false
+    - path: /cp/mft/api/v1
+      internalPath: /cp/mft/api/v1
+      port: 3000
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: secure
+          fqdn: "${TSC_DNS_DOMAIN}"
+          configVariables:
+            SECURE_REDIRECT_SKIP_ACCTS_CHECK: "true"
+            SECURE_REDIRECT_SKIP_EULA_CHECK: "true"
+            SECURE_REDIRECT_SKIP_ORG_CHECK: "true"
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: false
