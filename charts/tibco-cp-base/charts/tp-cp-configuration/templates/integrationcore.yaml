@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.21.0",
+      "capabilityVersion": "1.22.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.integrationcore.releaseDate | quote }},
@@ -50,6 +50,40 @@ data:
         ]
       }
     }
+  customization.yaml: |
+    values:
+      - content: |
+          artifactmanager:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 2
+                memory: 2048Mi
+            autoscaling:
+              enabled: false
+              minReplicas: 1
+              maxReplicas: 5
+              targetCPUUtilizationPercentage: 80
+            volumes:
+              artifactmanager:
+                persistentVolumeClaim:
+                  resources:
+                    requests:
+                      storage: 20Gi
+            global:
+              cp:
+                logging:
+                  fluentbit:
+                    resources:
+                      requests:
+                        cpu: 10m
+                        memory: 15Mi
+                      limits:
+                        cpu: 50m
+                        memory: 30Mi
   recipe.yaml: |
     recipe:
       helmCharts:
@@ -70,6 +104,7 @@ data:
                 volumes:
                   artifactmanager:
                     persistentVolumeClaim:
+                      minStorage: 20Gi
                       resources:
                         requests:
                           storage: 20Gi
@@ -123,7 +158,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.21.0"
+          value: "1.22.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

@@ -2,14 +2,15 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
-cp:
-  ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
-  ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
-  deleteDBOnUninstall: "false"
-
 # Global section will apply to this chart and all of its subcharts.
 global:
   cp:
+    ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
+    ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
+    ## Must stay under global.cp (never a top-level cp:) -- only the "global" section
+    ## propagates from the umbrella chart (tibco-cp-base) down into this subchart via
+    ## Helm's global-value merge; a subchart-local cp.* key silently never receives it.
+    deleteDBOnUninstall: "false"
     ## When set to true, forces re-execution of the current schema version's up.sql even if the DB is already at that version.
     ## Useful when you need to re-apply a migration without bumping the schema version.
     rerunUpgrade: false
@@ -47,6 +48,19 @@ global:
       disableGdprPurgeHistoryJob: "true"
       disableIdmCleanUpJob: "false"
       disableIdmNotifyCertificatesExpiryJob: "true"
+      # Monitoring trigger jobs (orch-mon merge phase 2)
+      disableTibTunnelRefreshJob: "false"
+      disableResourceRefreshJob: "false"
+      disableHomepageMetricsRefreshJob: "false"
+      disableTriggerMetricRefreshJob: "false"
+      disableDataplaneStatusSyncJob: "false"
+      # Monitoring trigger job schedules (cron.v2 6-field, seconds-first) — match standalone cadences
+      schedules:
+        tibTunnelRefresh: "0 * * * * *"
+        resourceRefresh: "0 * * * * *"
+        homepageMetricsRefresh: "0 0 * * * *"
+        triggerMetricRefresh: "0 1 0 * * *"
+        dataplaneStatusSync: "0 * * * * *"
     helm:
       url: "https://tibcosoftware.github.io"
       repo: "tp-helm-charts"

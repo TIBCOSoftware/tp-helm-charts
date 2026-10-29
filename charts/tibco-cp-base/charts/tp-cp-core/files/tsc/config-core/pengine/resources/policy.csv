@@ -12,7 +12,7 @@
 ################################################################################
 # Console Permissions
 ################################################################################
-p, SRE, ADMIN, ADMIN, *, "Admin", {'details': ['Manage Subscriptions (Provision; Update; Delete; View)'; 'Manage Console Users (Add; Remove)'; 'Manage User Permissions (Assign; Update)'; 'and Manage Single Sign On (Configure; Update; View; Delete)']; 'assign':['SRE';'VIEWER';'OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, SRE, ADMIN, ADMIN, *, "Admin", {'details': ['Manage Subscriptions (Provision; Update; Delete; View)'; 'Manage Console Users (Add; Remove)'; 'Manage User Permissions (Assign; Update)'; 'and Manage Single Sign On (Configure; Update; View; Delete)']; 'assign':['SRE';'VIEWER';'OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS';'APPLICATION_OPERATOR'];'sortKey':1}
 
 p, IDP_MANAGER, ADMIN, ADMIN, idps, "IdP Manager", {'details': ['Manage Single Sign On'; 'View Subscriptions'];'sortKey':2}
 p, IDP_MANAGER, ADMIN, ADMIN, subscriptions:GET, "IdP Manager", {'details': ['Manage Single Sign On'; 'View Subscriptions'];'sortKey':2}
@@ -29,20 +29,20 @@ p, VIEWER, ADMIN, ADMIN, teams:GET, "Viewer", {'details': ['View subscription(s)
 # Control Plane Permissions
 ################################################################################
 
-p, OWNER, CP, CP, users, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
-p, OWNER, CP, CP, tags:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
-p, OWNER, CP, CP, assignees:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
-p, OWNER, CP, CP, teams, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS'];'sortKey':1}
+p, OWNER, CP, CP, users, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS';'APPLICATION_OPERATOR'];'sortKey':1}
+p, OWNER, CP, CP, tags:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS';'APPLICATION_OPERATOR'];'sortKey':1}
+p, OWNER, CP, CP, assignees:GET, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS';'APPLICATION_OPERATOR'];'sortKey':1}
+p, OWNER, CP, CP, teams, "Owner", {'details': ['Add users and assign permissions to other users including other owners.'; 'Assign `Manage users and user permissions` permission.'; 'Create and manage teams; assign and manage teams permissions.'; 'Assign `Manage IdP Configuration` permission.']; 'assign':['OWNER';'IDP_MANAGER';'TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'FIN_OPS';'APPLICATION_OPERATOR'];'sortKey':1}
 
 
 p, IDP_MANAGER, CP, CP, idps, "IdP Manager", {'details': ['Configure Single Sign On for the enterprise.'];'sortKey':2}
 p, IDP_MANAGER, CP, CP, tags:GET, "IdP Manager", {'details': ['Configure Single Sign On for the enterprise.'];'sortKey':2}
 p, IDP_MANAGER, CP, CP, teams:GET, "IdP Manager", {'details': ['Configure Single Sign On for the enterprise.'];'sortKey':2}
 
-p, TEAM_ADMIN, CP, CP, users, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
-p, TEAM_ADMIN, CP, CP, tags:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
-p, TEAM_ADMIN, CP, CP, assignees:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
-p, TEAM_ADMIN, CP, CP, teams, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, users, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'APPLICATION_OPERATOR'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, tags:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'APPLICATION_OPERATOR'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, assignees:GET, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'APPLICATION_OPERATOR'];'sortKey':3}
+p, TEAM_ADMIN, CP, CP, teams, "Team Admin", {'details': ['Add; edit; and remove other users except owners or IdP managers.'; 'Assign; update; and remove permissions to other users except owners or IdP managers.'; 'View permissions assigned to users.'; 'Create and manage teams; assign and manage teams permissions.']; 'assign':['TEAM_ADMIN';'PLATFORM_OPS';'DEV_OPS';'CAPABILITY_ADMIN';'CAPABILITY_USER';'BROWSE_ASSIGNMENTS';'APPLICATION_OPERATOR'];'sortKey':3}
 
 p, PLATFORM_OPS, DP, CP, dataplanes:POST, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
 p, PLATFORM_OPS, DP, CP, dataplanes:DELETE, "Data plane Manager", {'details': ['Register; Manage; or De-register a data plane.'];'sortKey':4}
@@ -64,20 +64,51 @@ p, CAPABILITY_ADMIN, DP, CP, capabilities:GET, "Application Manager", {'details'
 p, CAPABILITY_ADMIN, DP, CP, applications, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6;'ns-allowed':true}
 p, CAPABILITY_ADMIN, DP, CP, tags, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6;'ns-allowed':true}
 p, CAPABILITY_ADMIN, DP, CP, teams:GET, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6;'ns-allowed':true}
+# PCP-23170: Application Manager also operates application metadata (bare object = all HTTP methods)
+p, CAPABILITY_ADMIN, DP, CP, apps-metadata, "Application Manager", {'details': ['Deploy; edit; or delete applications for a selected Capability.'];'sortKey':6;'ns-allowed':true}
 
-p, CAPABILITY_USER, DP, CP, dataplanes:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7;'ns-allowed':true}
-p, CAPABILITY_USER, DP, CP, capabilities:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7;'ns-allowed':true}
-p, CAPABILITY_USER, DP, CP, applications:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7;'ns-allowed':true}
-p, CAPABILITY_USER, DP, CP, tags:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7;'ns-allowed':true}
-p, CAPABILITY_USER, DP, CP, teams:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':7;'ns-allowed':true}
+p, CAPABILITY_USER, DP, CP, dataplanes:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':8;'ns-allowed':true}
+p, CAPABILITY_USER, DP, CP, capabilities:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':8;'ns-allowed':true}
+p, CAPABILITY_USER, DP, CP, applications:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':8;'ns-allowed':true}
+p, CAPABILITY_USER, DP, CP, tags:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':8;'ns-allowed':true}
+p, CAPABILITY_USER, DP, CP, teams:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':8;'ns-allowed':true}
+# PCP-23170: the read-only viewer must also be able to READ application metadata. Without this row
+# the lattice inverts - APPLICATION_OPERATOR could write apps-metadata while the Application Viewer
+# could not even GET it. :GET only; the viewer is read-only.
+p, CAPABILITY_USER, DP, CP, apps-metadata:GET, "Application Viewer", {'details': ['Have read-only access to all the applications of Capability.'];'sortKey':8;'ns-allowed':true}
 
-p, BROWSE_ASSIGNMENTS, CP, CP, assignees:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':8}
-p, BROWSE_ASSIGNMENTS, CP, CP, tags:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':8}
-p, BROWSE_ASSIGNMENTS, CP, CP, teams:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':8}
+p, BROWSE_ASSIGNMENTS, CP, CP, assignees:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':9}
+p, BROWSE_ASSIGNMENTS, CP, CP, tags:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':9}
+p, BROWSE_ASSIGNMENTS, CP, CP, teams:GET, "View permissions", {'details': ['View the assigned permissions of all users.'];'sortKey':9}
 
-p, FIN_OPS, DP, CP, finances:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':9}
-p, FIN_OPS, DP, CP, tags:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':9}
-p, FIN_OPS, DP, CP, teams:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':9}
+p, FIN_OPS, DP, CP, finances:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':10}
+p, FIN_OPS, DP, CP, tags:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':10}
+p, FIN_OPS, DP, CP, teams:GET, "View FinOps dashboard", {'details': ['Access the FinOps dashboard.'];'sortKey':10}
+
+# PCP-23170 (epic PCP-21614): Application Operator - operate applications on a data plane, or
+# within a single namespace when assigned with a namespaceId ('ns-allowed':true).
+# 'apps-metadata' is intentionally bare (no :METHOD) so it covers every HTTP method. The fan-out is
+# PEngine's own: utils.GetPossibleActions tries "*", then "<object>", then "<object>:<METHOD>", and
+# any hit allows. It is NOT a casbin wildcard - keyMatch on a pattern without '*' is exact equality.
+# Do NOT "fix" this to 'apps-metadata*': that WOULD make keyMatch a prefix match and would also
+# match unrelated future objects such as 'apps-metadata-secrets'.
+p, APPLICATION_OPERATOR, DP, CP, dataplanes:GET, "Application Operator", {'details': ['View; start; stop; scale applications and edit their configurations'];'sortKey':7;'ns-allowed':true}
+p, APPLICATION_OPERATOR, DP, CP, capabilities:GET, "Application Operator", {'details': ['View; start; stop; scale applications and edit their configurations'];'sortKey':7;'ns-allowed':true}
+# PCP-24221: without this row the Applications table on the data plane details page stays empty for a
+# user holding only this role. Enforcement for object 'applications' probes "*", "applications" and
+# "applications:GET" - the bare 'apps-metadata' row below matches none of the three. :GET only: the
+# console needs listing, while BW enforces start/stop via applications:POST in its own service.
+p, APPLICATION_OPERATOR, DP, CP, applications:GET, "Application Operator", {'details': ['View; start; stop; scale applications and edit their configurations'];'sortKey':7;'ns-allowed':true}
+p, APPLICATION_OPERATOR, DP, CP, apps-metadata, "Application Operator", {'details': ['View; start; stop; scale applications and edit their configurations'];'sortKey':7;'ns-allowed':true}
+# Every other role in this catalog can read tags: all carry tags:GET except CAPABILITY_ADMIN,
+# whose bare 'tags' row already covers GET. Without a tags read, tag-filtered data plane and
+# capability listing in the console fails for a user holding only this role.
+p, APPLICATION_OPERATOR, DP, CP, tags:GET, "Application Operator", {'details': ['View; start; stop; scale applications and edit their configurations'];'sortKey':7;'ns-allowed':true}
+# Every DP role in this catalog carries teams:GET - PLATFORM_OPS, DEV_OPS, CAPABILITY_ADMIN,
+# CAPABILITY_USER and FIN_OPS - so the new role gets one too; without it, console views that
+# resolve team names fail for a user holding only APPLICATION_OPERATOR. Read-only. Mirrored
+# into tp-cp-pengine/resources/policy.csv by PCP-23170 so the two stay in step.
+p, APPLICATION_OPERATOR, DP, CP, teams:GET, "Application Operator", {'details': ['View; start; stop; scale applications and edit their configurations'];'sortKey':7;'ns-allowed':true}
 
 
 

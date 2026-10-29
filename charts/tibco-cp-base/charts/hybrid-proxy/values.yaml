@@ -41,10 +41,11 @@ additionalLabels: {}
 hpa:
   cpu: 70
   mem: 70
+  maxReplicas: ~  # null = use replicaCount+3; set an integer to override
 
 image:
   name: infra-hybrid-proxy
-  tag: 158-distroless
+  tag: 201-distroless
   pullPolicy: IfNotPresent
 
 ports:

@@ -56,3 +56,21 @@ versions:
     tscscheduler: -1
     tscutd: 24
     idm: 10
+
+# PCP-19871 (orch-mon merge): tscutd 25 is 25-up.sql, which adds the monitoring columns and the
+# MON_* tables. manageDbSchema resolves the target from THIS file, so leaving it at 24 would make
+# 25-up.sql silently never run and the check-sql-schema-version init containers block forever.
+# 25 rather than 24 because main owns 24-up.sql for PCP-20702; the migrate_finops.sh gate in
+# tp-cp-core/templates/jobs.yaml is keyed >=1.22.0 to match.
+#
+# monitoringdb: -1 retires the monitoring database (PCP-23723), following the PCP-6689 pattern
+# used for tscscheduler: resolve_target_schema_version returns empty, so manageDbSchema skips it
+# before any bootstrap or SQL runs. Nothing is dropped — on upgrade the database is simply left
+# orphaned but intact, which is what makes a rollback survivable, since an older core-cp-scripts
+# image resolves monitoringdb to 6 again and finds its data still there. That is why there is no
+# drop script.
+  "1.22.0":
+    # PCP-23170: pengine 6 is 6-up.sql, which adds the Application Operator role rows.
+    pengine: 6
+    tscutd: 25
+    monitoringdb: -1

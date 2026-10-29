@@ -2,6 +2,11 @@
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 
+# PCP-20154 (orch-mon merge): monitoring is folded into the orchestrator and runs in-process.
+# The standalone monitoring-service chart stays installable for rollback but is disabled by default.
+# Set monitoring-service.enabled=true to deploy the standalone service again.
+monitoring-service:
+  enabled: false
 finops:
   ## This is used to delete the DB while Uninstalling the Chart. Default it is set to false so it will just take the backup of DB, data in DB will be retained as it is.
   ## If it is set to true then, it will take the DB backup and wipe-out the DB (i.e. It will clean the schema, database, users. )
@@ -75,8 +80,8 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Helm chart version for monitor-agent, default is latest
-    version: "1.21.8"
-    tag: "514"
+    version: "1.22.5"
+    tag: "557"
     # Timestamp of capability release
     releaseDate: "2024/07/22"
     # Either a link to document or the document itself specifying _what was fixed in this release.

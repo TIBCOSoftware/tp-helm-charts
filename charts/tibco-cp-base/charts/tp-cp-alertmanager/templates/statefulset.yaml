@@ -114,7 +114,8 @@ spec:
           securityContext:
           {{- toYaml .Values.initContainerSecurityContext | nindent 12 }}
         {{- end }}
-          command: [ 'sh', '-c' , 'cp -n /alertmanager/default/alertmanager.yml /etc/alertmanager/alertmanager.yml']
+          # Overwrite (cp -f, not cp -n) so ConfigMap config updates reach Alertmanager instead of a stale PVC copy.
+          command: [ 'sh', '-c' , 'cp -f /alertmanager/default/alertmanager.yml /etc/alertmanager/alertmanager.yml']
           {{- if .Values.global.tibco.enableResourceConstraints }}
           resources:
             requests:

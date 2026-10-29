@@ -54,5 +54,106 @@ versions:
   # version keeps only keys <= that, so a "1.21.0" key would never be reached. The accepted
   # consequence is that 1.20-line installs also run 2-up.sql — benign, since it is a pure data
   # correction for plugins that cannot block, and it leaves a 1.20 database strictly better off.
+  #
+  # PCP-24482 bumps the VALUE 2 -> 3, again WITHOUT adding a key, for the same reasons: the
+  # appVersion pin makes a "1.21.0"/"1.22.0" key unreachable, and 3-up.sql ships in the same
+  # core-cp-scripts image built from this same tree, so a cluster cannot resolve target=3
+  # without also having the file to run.
+  #
+  # ⚠️ FORGETTING THIS LINE IS WORSE THAN AN ERROR, WHICH IS WHY IT IS CALLED OUT HERE.
+  # Leave it at 2 and the db-setup Job resolves target=2, sees current=2, takes the
+  # "already at the required version" early return, and the 3-up.sql columns NEVER ARRIVE.
+  # Nothing fails. The Hub then reads those columns defensively and degrades "Upgrade
+  # available" to `unknown` — permanently, on every CP — so the feature ships INERT and the
+  # safety net that makes it survivable is also what hides that it never worked.
+  #
+  # The 1.20-line consequence is the same as before and still accepted: a 1.20 database also
+  # runs 3-up.sql. That is FIVE additive columns — four on GATEWAYS (three nullable, plus
+  # PLACEMENT with an empty-string default) and one on CP_VIRTUAL_SERVERS for PCP-24485, folded
+  # in because this file is still unreleased — inert on a release that has no code reading them,
+  # and it leaves the database strictly better off. (The wording said all four were nullable until
+  # review caught it; 3-up.sql had it right and this file, whose whole value is that its
+  # comments are exact, did not.)
+  #
+  # PCP-24759 bumps the VALUE 3 -> 4, again WITHOUT adding a key, for the same reasons the
+  # PCP-23515 and PCP-24482 paragraphs above give: appVersion is still pinned at 1.20.0 by
+  # PCP-23334, resolve_target_schema_version keeps only keys <= that, so a "1.22.0" key would
+  # never be reached; and 4-up.sql ships in the same core-cp-scripts image built from this same
+  # tree, so a cluster cannot resolve target=4 without also having the file to run.
+  #
+  # ⚠️ AND THE SAME "WORSE THAN AN ERROR" TRAP APPLIES, with a sharper consequence this time.
+  # Leave it at 3 and the Job resolves target=3, sees current=3, early-returns, and the
+  # 4-up.sql columns never arrive — silently. For PCP-24482 that degraded a cosmetic "Upgrade
+  # available" prompt to `unknown`. Here the columns are the gateway PRODUCT DISCRIMINATOR
+  # (BUSINESS_TYPE / GATEWAY_KIND), and the Hub's compatibility rule is "both columns verifiably
+  # absent => treat the row as mcp/A". So on a CP where this line was forgotten, the Hub cannot
+  # store a non-MCP gateway at all: it refuses to create one (rather than silently recording it
+  # as MCP — see 4-up.sql), and the AI Gateway feature is not merely inert, it is unusable with
+  # no failing check anywhere to say why.
+  #
+  # The 1.20-line consequence is the same as before and still accepted: a 1.20 database also
+  # runs 4-up.sql. That is two additive NOT NULL columns with non-empty defaults ('mcp' / 'A'),
+  # which is what a 1.20 gateway already is — inert on a release whose code does not read them.
+  #
+  # PCP-24759 (AC 5) bumps the VALUE 4 -> 5, again WITHOUT adding a key, for the reasons every
+  # paragraph above gives: appVersion is still pinned at 1.20.0 by PCP-23334,
+  # resolve_target_schema_version keeps only keys <= that, so a "1.22.0" key would never be
+  # reached; and 5-up.sql ships in the same core-cp-scripts image built from this same tree, so
+  # a cluster cannot resolve target=5 without also having the file to run.
+  #
+  # ⚠️ THE SAME "WORSE THAN AN ERROR" TRAP, and what it costs THIS time. Leave it at 4 and the
+  # Job resolves target=4, sees current=4, early-returns, and 5-up.sql's columns never arrive —
+  # silently. Unlike the pair above, the consequence is not "the feature is unusable": it is
+  # that RUNTIME_HEALTH is absent, so the Hub falls back to the only signal it has and every
+  # gateway reads as healthy-because-connected while STATUS keeps saying 'online'. That is the
+  # EXACT conflation AC 5 exists to end, restored by a forgotten line and reported by nothing.
+  # A feature that fails closed gets noticed; one that silently reverts to the old wrong answer
+  # does not.
+  #
+  # The 1.20-line consequence: a 1.20 database also runs 5-up.sql. Five additive columns — one
+  # NOT NULL with a non-empty default ('unknown'), one NOT NULL defaulting to '', three
+  # nullable — inert on a release whose code does not read them.
+  #
+  # PCP-24963 bumps the VALUE 5 -> 6, again WITHOUT adding a key, for the reasons every paragraph
+  # above gives: appVersion is still pinned at 1.20.0 by PCP-23334, resolve_target_schema_version
+  # keeps only keys <= that, so a "1.21.0"/"1.22.0" key would never be reached; and 6-up.sql ships
+  # in the same core-cp-scripts image built from this same tree, so a cluster cannot resolve
+  # target=6 without also having the file to run.
+  #
+  # ⚠️ THE SAME "WORSE THAN AN ERROR" TRAP, and what it costs THIS time. Leave it at 5 and the Job
+  # resolves target=5, sees current=5, early-returns, and CP_SERVERS.INJECTABLE_HEADERS never
+  # arrives — silently. The Hub reads the column through lib/column-capability.ts and degrades
+  # when it is absent, so nothing errors: an operator opens the server drawer, types a header
+  # name, sees it accepted, and it is silently never stored and never sent. The feature ships
+  # INERT on that CP, and the defensive read that makes it survivable is again what hides that it
+  # never worked.
+  #
+  # ⚠️ AND THE DEGRADED STATE IS NOT NEUTRAL HERE. The column is three-state and its absence reads
+  # as NULL — "never declared" — for which the Hub's contract is to OMIT the key from the gateway
+  # body. The gateway guard is `is not None`, so an omitted key leaves any PRIOR grant in force.
+  # On a CP where this line was forgotten, an operator therefore cannot REVOKE a header that was
+  # granted by some other route; the console will report success and change nothing.
+  #
+  # The 1.20-line consequence: a 1.20 database also runs 6-up.sql. One additive nullable column,
+  # inert on a release whose code does not read it.
+  #
+  # PCP-24560 bumps the VALUE 6 -> 7, again WITHOUT adding a key, for the reasons every paragraph
+  # above gives: appVersion is still pinned at 1.20.0 by PCP-23334, resolve_target_schema_version
+  # keeps only keys <= that, so a "1.21.0"/"1.22.0" key would never be reached; and 7-up.sql ships
+  # in the same core-cp-scripts image built from this same tree, so a cluster cannot resolve
+  # target=7 without also having the file to run.
+  #
+  # ⚠️ THE SAME "WORSE THAN AN ERROR" TRAP, milder here because 7-up.sql is a DATA correction, not
+  # a column. Leave it at 6 and the Job resolves target=6, sees current=6, early-returns, and
+  # 7-up.sql never runs — so a CP that attached RetryWithBackoffPlugin in the 1.20/1.21 window
+  # keeps that binding stuck in the blocking 'enforce'/'sequential' mode. Nothing fails and no
+  # column is missing; the plugin simply keeps mislabelling itself "Block — halts the pipeline"
+  # for a plugin that cannot deny, which is the exact defect PCP-24560 exists to end, left in
+  # place by a forgotten line and reported by nothing.
+  #
+  # The 1.20-line consequence is the same as the PCP-23515 (2-up.sql) paragraph and still
+  # accepted: a 1.20 database also runs 7-up.sql. It is a pure data correction for a plugin that
+  # cannot block — it touches only rows already stuck at 'enforce', leaves a 1.20 database
+  # strictly better off, and is inert where no such row exists.
   "1.20.0":
-    mcphub: 2
+    mcphub: 7

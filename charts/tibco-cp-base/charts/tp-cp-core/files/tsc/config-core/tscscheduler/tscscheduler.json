@@ -37,6 +37,41 @@
 			"ENV_VAR_SCHEDULING_SPEC": "SCHEDULE_FREQUENCY_FOR_MV_REFRESH_JOB",
 			"DEFAULT_SCHEDULING_SPEC": "@every 3s",
 			"ENV_VAR_TO_DISABLE_JOB": "DISABLE_MV_REFRESH_JOB"
-		}
+		},
+        {
+            "NAME": "TibTunnelRefreshJob",
+            "DESCRIPTION": "Job to trigger monitoring TibTunnel refresh on the orchestrator",
+            "ENV_VAR_SCHEDULING_SPEC": "TIBTUNNEL_SCHEDULE",
+            "DEFAULT_SCHEDULING_SPEC": "0 * * * * *",
+            "ENV_VAR_TO_DISABLE_JOB": "DISABLE_TIB_TUNNEL_REFRESH_JOB"
+        },
+        {
+            "NAME": "ResourceRefreshJob",
+            "DESCRIPTION": "Job to trigger monitoring capability resource refresh on the orchestrator",
+            "ENV_VAR_SCHEDULING_SPEC": "CAPRESOURCES_SCHEDULE",
+            "DEFAULT_SCHEDULING_SPEC": "0 * * * * *",
+            "ENV_VAR_TO_DISABLE_JOB": "DISABLE_RESOURCE_REFRESH_JOB"
+        },
+        {
+            "NAME": "HomepageMetricsRefreshJob",
+            "DESCRIPTION": "Job to trigger monitoring homepage metrics refresh on the orchestrator",
+            "ENV_VAR_SCHEDULING_SPEC": "HOMEPAGE_METRICS_SCHEDULE",
+            "DEFAULT_SCHEDULING_SPEC": "0 0 * * * *",
+            "ENV_VAR_TO_DISABLE_JOB": "DISABLE_HOMEPAGE_METRICS_REFRESH_JOB"
+        },
+        {
+            "NAME": "TriggerMetricRefreshJob",
+            "DESCRIPTION": "Job to trigger monitoring FinOps metric refresh on the orchestrator",
+            "ENV_VAR_SCHEDULING_SPEC": "FINOPS_METRICS_SCHEDULE",
+            "DEFAULT_SCHEDULING_SPEC": "0 1 0 * * *",
+            "ENV_VAR_TO_DISABLE_JOB": "DISABLE_TRIGGER_METRIC_REFRESH_JOB"
+        },
+        {
+            "NAME": "DataplaneStatusSyncJob",
+            "DESCRIPTION": "Job to trigger monitoring dataplane status sync on the orchestrator",
+            "ENV_VAR_SCHEDULING_SPEC": "DP_STATUS_SYNC_SCHEDULE",
+            "DEFAULT_SCHEDULING_SPEC": "0 * * * * *",
+            "ENV_VAR_TO_DISABLE_JOB": "DISABLE_DATAPLANE_STATUS_SYNC_JOB"
+        }
 	]
 }

@@ -12,7 +12,7 @@ metadata:
   labels:
     {{- include "tibco-cp-base.labels" . | nindent 4 }}
 rules:
-# required by alerts-service
+# required by compute-services (alerts rule mutex leases)
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "list", "create", "update", "delete", "patch"]

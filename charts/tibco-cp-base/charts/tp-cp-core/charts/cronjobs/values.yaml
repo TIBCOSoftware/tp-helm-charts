@@ -20,6 +20,19 @@ global:
       disableIdmCleanUpJob: "false"
       disableIdmNotifyCertificatesExpiryJob: "true"
       disableMvRefreshJob: "false"
+      # Monitoring trigger jobs (orch-mon merge phase 2)
+      disableTibTunnelRefreshJob: "false"
+      disableResourceRefreshJob: "false"
+      disableHomepageMetricsRefreshJob: "false"
+      disableTriggerMetricRefreshJob: "false"
+      disableDataplaneStatusSyncJob: "false"
+      # Monitoring trigger job schedules (cron.v2 6-field, seconds-first) — match standalone cadences
+      schedules:
+        tibTunnelRefresh: "0 * * * * *"
+        resourceRefresh: "0 * * * * *"
+        homepageMetricsRefresh: "0 0 * * * *"
+        triggerMetricRefresh: "0 1 0 * * *"
+        dataplaneStatusSync: "0 * * * * *"
     containerRegistry:
       url: ""
       username: ""

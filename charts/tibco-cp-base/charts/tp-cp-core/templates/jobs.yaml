@@ -143,6 +143,46 @@ spec:
               fi
             fi
             /opt/tibco/tsc/scripts/postgres-helper.bash manageDbSchema $CHART_APP_VERSION
+{{- if semverCompare ">=1.22.0" .Chart.AppVersion }}
+            # PCP-23012 (orch-mon merge): copy historical finops data from monitoringdb into
+            # tscutdb. Runs here rather than as a separate hook so ordering is guaranteed by
+            # sequence - the mon_* tables exist by the time it runs. Read-only on the source,
+            # all-or-nothing, and one-shot via a marker row, so repeated upgrades are harmless;
+            # it exits immediately when monitoringdb is absent, which is the case on any
+            # post-merge fresh install.
+            #
+            # `|| exit $?` is load-bearing: this command block has no `set -e`, so without it a
+            # failed migration would be swallowed and the Job would still report success,
+            # because its exit code is that of the LAST command in the block.
+            #
+            # NOTHING DROPS monitoringdb. PCP-23723 removed drop_monitoringdb.sh and the
+            # global.tibco.dropMonitoringDb flag in favour of the PCP-6689 pattern: the database
+            # is retired by marking it `monitoringdb: -1` in version-map.yaml, which makes
+            # resolve_target_schema_version skip it. A fresh install therefore never creates it;
+            # an existing one keeps it, orphaned but intact. That is deliberate - it is what lets
+            # a rollback find its data still there.
+            #
+            # CAREFUL: inside a subchart, .Chart.AppVersion is THIS chart's appVersion
+            # (charts/tibco-cp-base/charts/tp-cp-core/Chart.yaml), NOT the parent
+            # tibco-cp-base one. They both read 1.20.0 today, which is the only reason these
+            # gates line up with the platform release. Bumping tibco-cp-base to 1.21.0 without
+            # also bumping tp-cp-core leaves the migration silently dormant. Verified by
+            # rendering at 1.20.0 / 1.21.0 / 1.22.0: neither / migrate only / both.
+            #
+            # Both were held at ">=1.19.0" during development so they would run on the 1.20 line
+            # and could be exercised; validated in that configuration on 2026-08-18 against
+            # 1.20.0-alpha.009 (positional copy into the PCP-23429-renamed targets, counts,
+            # marker, homepage MERGE, and the drop). semverCompare is the only thing that
+            # changes here, not the scripts.
+            #
+            # NOTE (learned the hard way): a new N-up.sql is not enough. Since master replaced
+            # `postgres-helper.bash upgrade` with `manageDbSchema <chart_version>`, the target
+            # schema version is resolved from scripts/database/postgres/tibco-cp-base/version-map.yaml,
+            # NOT from the service's metadata.bash. Miss the map entry and the migration silently
+            # never runs, every service's check-sql-schema-version init container blocks, and the
+            # helm install dies on --wait with no error logged anywhere.
+            /opt/tibco/tsc/scripts/migrate_finops.sh || exit $?
+{{- end }}
         volumeMounts:
         - name: tmp-volume
           mountPath: /tmp

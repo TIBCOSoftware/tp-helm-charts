@@ -14,7 +14,7 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.21.0",
+      "capabilityVersion": "1.22.0",
       "minCPVersion": "1.1.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.monitorAgent.releaseDate | quote }},
@@ -66,6 +66,25 @@ data:
             install: true
             createNamespace: false
             dependencyUpdate: true
+  customization.yaml: |
+    values:
+      - content: |
+          tp-dp-monitor-agent:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 100Mi
+              limits:
+                cpu: 100m
+                memory: 200Mi
+            fluentbit:
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "15Mi"
+                limits:
+                  cpu: "50m"
+                  memory: "30Mi"
 
 ---
 
@@ -112,7 +131,7 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.21.0"
+          value: "1.22.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE

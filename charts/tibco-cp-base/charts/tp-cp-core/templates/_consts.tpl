@@ -21,8 +21,8 @@
 {{- define "tpcontrol-plane.consts.tpIdmServiceName" }}tp-identity-management.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpIdpJobServiceName" }}tp-cp-identity-provider.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpPermissionEngineServiceName" }}tp-cp-pengine.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.cpMonitoringServiceName" }}tp-cp-monitoring-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.tpCpAlertServiceName" }}alerts-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.cpMonitoringServiceName" }}tp-cp-orchestrator.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
+{{- define "tpcontrol-plane.consts.tpCpAlertServiceName" }}compute-services.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpO11yServiceName" }}o11y-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpDpProxy" }}dp-proxy.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpMcpServerServiceName" }}tp-cp-mcp-server.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
@@ -52,7 +52,7 @@
 {{- define "tpcontrol-plane.consts.tpCpBEServiceName" }}tp-cp-be-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpEMSServiceName" }}msg-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
 {{- define "tpcontrol-plane.consts.tpCpMFTServiceName" }}tp-cp-mft-webserver.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local{{ end -}}
-{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.21.0/doc/html{{ end -}}
+{{- define "tpcontrol-plane.consts.docBaseUrl" }}https://docs.tibco.com/go/platform-cp/1.22.0/doc/html{{ end -}}
 
 {{- define "cp-core-configuration.service-account-name" }}
 {{- if empty .Values.global.tibco.serviceAccount -}}
