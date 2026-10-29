@@ -30,6 +30,19 @@ rules:
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["list", "get", "create", "update", "delete"]
+{{- if .Values.rbac.ingressController.traefik }}
+- apiGroups: ["traefik.io"]
+  resources: ["ingressroutes", "middlewares"]
+  verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
+{{- if .Values.rbac.ingressController.openshiftRouter }}
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes", "routes/custom-host"]
+  verbs: ["list", "get", "create", "update", "delete", "patch"]
+{{- end }}
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1

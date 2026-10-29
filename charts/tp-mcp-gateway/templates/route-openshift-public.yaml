@@ -1,0 +1,127 @@
+{{ if eq (include "tp-mcp-gateway.canonicalIngressController" .Values.global.cp.resources.ingress.ingressController) "openshiftRouter" -}}
+{{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
+{{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
+{{- $wk := include "tp-mcp-gateway.wellKnownPrefix" . -}}
+{{- $fqdn := .Values.global.cp.resources.ingress.fqdn | default "" -}}
+{{- /*
+PCP-26618: the PUBLIC edge for an OpenShift-router Data Plane.
+
+Until this template existed the four public templates were gated on haProxy / nginx / traefik / Gateway
+API, and openshiftRouter reached only the PRIVATE CP->DP route (private-route.yaml). The gateway showed
+ONLINE — the Hub talks to it over the private tunnel — while every public MCP URL answered the router's
+own 503. Every sibling capability chart in this repo already ships an `*-public-openshift` Route.
+
+WHAT IS PUBLISHED. The same contract as the other public edges on this line: since PCP-25379/25402/
+25403/25406 those are ALLOWLISTS, not the blanket `<pathPrefix>/` prefix (that is the 1.21 shape, and
+publishing it here would put /admin and the REST surface on the OpenShift edge alone). A Route carries
+ONE path, matched as an element-boundary prefix — openshift/router util.go GenerateRouteRegexp:
+`"^" + host + port + QuoteMeta(path) + "(/.*)?" + "$"` — with no regex, no wildcard segment, no deny
+annotation and no config snippet. So the exact `/servers/<id>/(mcp|sse|message)` rule the traefik/nginx
+edges carry is not expressible, and this renders the Gateway API Core-tier shape (gateway-public.yaml
+TIER 2), one Route per path:
+    <pp>/servers                 the MCP client transports (LITE ONLY, see PCP-26950 below)
+    <pp>/oauth/callback          the OAuth redirect target (OAUTH_REDIRECT_URI points here)
+    <pp>/oauth/authorize         the OAuth authorize entry point
+    <wellKnownPrefix><pp>        RFC 9728 discovery, well-known-first (PCP-19809)
+    <pp><wellKnownPrefix>        RFC 9728 discovery, the path-first shape the gateway advertises
+                                 (PCP-25553); only with a prefix, else it equals the one above
+The residual, on a LITE gateway, is TIER 2's: bare <pp>/servers and the per-server REST object are
+reachable, and so are sub-paths of the callback (no handler). HAProxy matches the raw path, so `..` / `%2F`
+inside a published prefix reach the gateway un-normalised. No escape hatch: the other edges' hatches restore
+a route each of them used to ship, and this edge never had one. An operator who needs more adds a Route of
+their own.
+
+PCP-26950 — A FULL GATEWAY IS PUBLISHED ONLY ON THE PRIVATE PATH ON THIS EDGE. A Route cannot express the
+exact per-server path (above), so a `<pp>/servers` Route would publish the gateway's registry paths along
+with its MCP transports, and those belong to the private CP->DP route (private-route.yaml, which is what
+the Hub's Try it uses, never this edge). So on FULL the `<pp>/servers` Route is not rendered at all; OAuth
+and discovery stay, and LITE is unchanged. The cost is real: a FULL gateway has no public MCP endpoint
+behind the OpenShift router. For public MCP access use a LITE gateway, or an Ingress controller that can
+express the exact per-server path (traefik, nginx, haProxy). Gated on lite.enabled, the one switch
+mode-validate.yaml makes exclusive. Do not add the Route back on FULL without an edge that can refuse the
+registry paths; dev/mcp-gateway-render-tests/full-gw-public-edge-assert.sh is the guard.
+
+TARGET PORT. Read tp-mcp-gateway.publicRouteTargetPort before touching it: a Route selects an endpoint
+by Service port NAME or POD port number, never by Service port number, so the literal `80` the Ingress
+templates use would serve 503 here.
+
+NO REWRITE. The gateway serves the full path, exactly as every other public edge forwards it. An
+operator-supplied rewrite-target is refused rather than merged: on the <pp>/servers Route it would map
+<pp>/servers/admin onto /admin.
+
+TIMEOUT. The router's default server timeout is 30s; a tool call may run 60s and an SSE stream is
+long-lived. 300s is a default the operator's own annotations override (they are merged OVER it, so the
+key is never rendered twice).
+
+HOST. global.cp.resources.ingress.fqdn is REQUIRED here and may not be a wildcard: these Routes must
+share one host, a Route without a host gets a router-generated host of its own, and the Route API does
+not accept a `*.` host.
+
+Upgrading over a hand-made workaround Route: the names differ, so Helm does not conflict. A workaround on
+the SAME host and path is older and stays admitted — this chart's twin reports HostAlreadyClaimed while
+traffic keeps flowing to the same Service — until it is deleted, which re-activates this one.
+*/ -}}
+{{- if not $fqdn -}}
+{{- fail "global.cp.resources.ingress.fqdn is required when global.cp.resources.ingress.ingressController is \"openshiftRouter\": the gateway's public edge is several Routes that must share ONE host, and a Route without a host gets a router-generated host of its own, so the paths would land on different hosts (PCP-26618)." -}}
+{{- end -}}
+{{- if hasPrefix "*" $fqdn -}}
+{{- fail (printf "global.cp.resources.ingress.fqdn %q is a wildcard, and an OpenShift Route host cannot be one: the Route API requires a DNS-1123 host and wildcard Routes are a separate router-wide opt-in. Set the gateway's own host name (PCP-26618)." $fqdn) -}}
+{{- end -}}
+{{- /* The shared identifier guard accepts uppercase (hostnames are case-insensitive), but the Route API
+       validates spec.host as a lowercase DNS-1123 subdomain and would reject every Route at install.
+       Refused here by name rather than lowercased: the same value is the gateway's APP_DOMAIN, and a
+       silently different spelling on the Route would be one more thing to explain. */ -}}
+{{- if ne $fqdn (lower $fqdn) -}}
+{{- fail (printf "global.cp.resources.ingress.fqdn %q contains uppercase letters, and an OpenShift Route host must be a lowercase DNS-1123 name: the Route API would reject every public Route at install. Use the lowercase spelling (PCP-26618)." $fqdn) -}}
+{{- end -}}
+{{- /* The rest of the Route API's host rule, which the shared guard (one charset for every edge) does not
+       carry: dot-separated DNS-1123 labels of at most 63 characters, at most 253 in all. `mcp..example.com`
+       passes the shared guard and would be rejected by the API on every Route. */ -}}
+{{- if or (gt (len $fqdn) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$" $fqdn)) -}}
+{{- fail (printf "global.cp.resources.ingress.fqdn %q is not a DNS-1123 subdomain (dot-separated labels of letters, digits and hyphens, each 1-63 characters, 253 in all), which the OpenShift Route API requires of a host: it would reject every public Route at install (PCP-26618)." $fqdn) -}}
+{{- end -}}
+{{- $opAnn := .Values.global.cp.resources.ingress.annotations | default dict -}}
+{{- if hasKey $opAnn "haproxy.router.openshift.io/rewrite-target" -}}
+{{- fail "global.cp.resources.ingress.annotations sets haproxy.router.openshift.io/rewrite-target, which this chart will not put on the gateway's public Routes: the gateway expects the full request path, every other public edge forwards it unchanged, and on the <pathPrefix>/servers Route a rewrite would map <pathPrefix>/servers/admin onto /admin. Drop the annotation for this gateway (PCP-26618)." -}}
+{{- end -}}
+{{- $ann := merge (deepCopy $opAnn) (dict "haproxy.router.openshift.io/timeout" "300s") -}}
+{{- $targetPort := include "tp-mcp-gateway.publicRouteTargetPort" . -}}
+{{- /* PCP-26950: the `<pp>/servers` Route is LITE-only (see the header). A FULL gateway keeps the four below. */ -}}
+{{- $routes := list -}}
+{{- if .Values.lite.enabled -}}
+{{- $routes = append $routes (list "" (printf "%s/servers" $pp)) -}}
+{{- end -}}
+{{- $routes = append $routes (list "-oauth-callback" (printf "%s/oauth/callback" $pp)) -}}
+{{- $routes = append $routes (list "-oauth-authorize" (printf "%s/oauth/authorize" $pp)) -}}
+{{- $routes = append $routes (list "-wellknown" (printf "%s%s" $wk $pp)) -}}
+{{- if $pp -}}
+{{- $routes = append $routes (list "-wellknown-pathfirst" (printf "%s%s" $pp $wk)) -}}
+{{- end -}}
+{{- range $routes }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $svcName }}-public-openshift{{ index . 0 }}
+  labels:
+    {{- include "tp-mcp-gateway.labels" $ | nindent 4 }}
+  annotations:
+    {{- /* Written key by key with every value quoted as a string: `--set ...annotations.x=123` arrives as
+           a number, toYaml would emit it unquoted, and the API rejects a non-string annotation value. */}}
+    {{- range $k, $v := $ann }}
+    {{ $k | quote }}: {{ $v | toString | quote }}
+    {{- end }}
+spec:
+  host: {{ $fqdn | quote }}
+  path: {{ index . 1 }}
+  to:
+    kind: Service
+    name: {{ $svcName }}
+    weight: 100
+  port:
+    targetPort: {{ $targetPort }}
+  tls:
+    termination: edge
+  wildcardPolicy: None
+{{- end }}
+{{- end }}

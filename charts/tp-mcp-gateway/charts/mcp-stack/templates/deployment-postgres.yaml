@@ -161,13 +161,40 @@
 {{- $minioImage = include "mcp-stack.image" (merge (dict "repository" $minioRepo) .Values.minio.image) -}}
 {{- end -}}
 
-{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.minio.enabled) -}}
-{{- fail "postgres.upgrade.enabled=true requires minio.enabled=true (chart uses MinIO for PostgreSQL upgrade backup/restore flow)" -}}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+       BROADENED, never narrowed. The incumbent arm (`upgrade.enabled` + targetVersion 18) is kept
+       verbatim because it covers BOTH phases of the engine-major flow — phase 2 renders the restore
+       init containers, which need MinIO just as much as phase 1's dump does, and narrowing this to
+       the backup window alone would let `backupCompleted=true` + `minio.enabled=false` render a
+       restore path with no object store to restore FROM. The new arm adds the general window, so
+       an operator who sets postgres.backup.preUpgrade.enabled=true without MinIO is told at render
+       time instead of discovering it from a Job that cannot publish its dump. */ -}}
+{{- if and (or (and .Values.postgres.upgrade.enabled (eq $targetVersion "18")) (include "mcp-stack.postgres.backupWindowOpen" .)) (not .Values.minio.enabled) -}}
+{{- /* The substring "requires minio.enabled=true" is LOAD-BEARING TEXT, not prose: it is what
+       bundled-image-digest-assert.sh:633 greps to tell this deliberate fail-fast apart from an
+       unexpected render error, and values.yaml quotes it in the postgres.upgrade operator note.
+       Reword around it, not through it. */ -}}
+{{- fail "postgres.upgrade.enabled=true requires minio.enabled=true, and so does postgres.backup.preUpgrade.enabled=true (chart uses MinIO for the PostgreSQL backup/restore flow): the pre-upgrade pg_dump is published to the bundled MinIO and read back from there, so with minio.enabled=false there is nowhere to put the dump and nothing to restore from. Set minio.enabled=true, or leave the general pre-upgrade backup off (postgres.backup.preUpgrade.enabled=false) if you back this database up with your own tooling." -}}
 {{- end -}}
 
-{{- if and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.external.enabled) .Values.networkPolicies.enabled -}}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+       BROADENED, never narrowed, and the "never narrowed" is the load-bearing half here. It is
+       tempting to reduce this to the backup window alone, since the two HOOK NetworkPolicies are
+       what the pre-upgrade Job needs and they close on `backupCompleted`. That would be wrong:
+       `allowUpgradeJobs` ALSO gates the upgrade-job ingress rules on the PERSISTENT policies
+       (networkpolicies.yaml:56 and :198), which is what the POST-upgrade
+       -postgres-migration-check Job depends on in phase 2 — exactly the phase a
+       backup-window-only gate would stop demanding the flag in. Narrowing it would hand phase 2 a
+       migration-check pod fenced off from the database, which is PCP-22375's original failure
+       reappearing one phase later. So the incumbent arm stays verbatim and the general window is
+       added alongside it. */ -}}
+{{- if and (or (and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.external.enabled)) (include "mcp-stack.postgres.backupWindowOpen" .)) .Values.networkPolicies.enabled -}}
 {{- if or (and .Values.networkPolicies.postgres.enabled (not .Values.networkPolicies.postgres.allowUpgradeJobs)) (and .Values.networkPolicies.minio.enabled (not .Values.networkPolicies.minio.allowUpgradeJobs)) -}}
-{{- fail "postgres.upgrade.enabled=true with networkPolicies.enabled=true requires allowUpgradeJobs=true on each enabled NetworkPolicy component: networkPolicies.postgres.allowUpgradeJobs (when networkPolicies.postgres.enabled) and networkPolicies.minio.allowUpgradeJobs (when networkPolicies.minio.enabled), so the pre-upgrade postgres-backup Job can reach Postgres and MinIO; leaving one false on an NP-enforcing cluster silently stalls the upgrade (PCP-22375). To bypass NetworkPolicy enforcement entirely, set networkPolicies.enabled=false." -}}
+{{- /* The message must name BOTH trigger keys (PCP-23832). This fail-fast is now reached by the
+       general pre-upgrade backup window as well, and an operator who set
+       postgres.backup.preUpgrade.enabled=true would otherwise be told to go and look at
+       postgres.upgrade.enabled — a key they never touched and must not change. */ -}}
+{{- fail "networkPolicies.enabled=true requires allowUpgradeJobs=true on each enabled NetworkPolicy component whenever a pre-upgrade PostgreSQL backup can run — that is, with postgres.upgrade.enabled=true (targetVersion 18) OR postgres.backup.preUpgrade.enabled=true. Set networkPolicies.postgres.allowUpgradeJobs (when networkPolicies.postgres.enabled) and networkPolicies.minio.allowUpgradeJobs (when networkPolicies.minio.enabled), so the pre-upgrade postgres-backup Job can reach Postgres and MinIO; leaving one false on an NP-enforcing cluster silently stalls the upgrade (PCP-22375). These flags also gate the upgrade-job ingress rules on the PERSISTENT policies, which the post-upgrade postgres-migration-check Job needs, so they are required for the whole upgrade flow and not only while the backup Job renders. To bypass NetworkPolicy enforcement entirely, set networkPolicies.enabled=false; to switch the routine backup off instead, set postgres.backup.preUpgrade.enabled=false." -}}
 {{- end -}}
 {{- end -}}
 

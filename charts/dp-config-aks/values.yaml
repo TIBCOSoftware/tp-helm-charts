@@ -41,7 +41,7 @@ httpIngress:
   annotations:
     # for kong we need to overwrite with cic-cert-subscription-scope-production-kong
     cert-manager.io/cluster-issuer: "cic-cert-subscription-scope-production-nginx"
-    external-dns.alpha.kubernetes.io/hostname: ""  # *.abc.<host-domain>
+    external-dns.kubernetes.io/hostname: ""  # *.abc.<host-domain>
 
 # the dns value is actually use pattern:
 # {{ .Values.global.azureResourceGroup }}.{{ .Values.global.dnsSandboxSubdomain }}.{{ .Values.global.dnsGlobalTopDomain }}
@@ -96,11 +96,12 @@ traefik:
   hub:  # for hub
     enabled: false
   service:  # for external-dns
-    type: ClusterIP
+    spec:
+      type: ClusterIP
   ingressClass:
     name: traefik
     # annotations: # for external dns to register domain
-    #   external-dns.alpha.kubernetes.io/hostname: "" # *.abc.<host-domain>
+    #   external-dns.kubernetes.io/hostname: "" # *.abc.<host-domain>
   ingressRoute:  # for dashboard
     dashboard:
       matchRule: PathPrefix(`/dashboard`) || PathPrefix(`/api`)

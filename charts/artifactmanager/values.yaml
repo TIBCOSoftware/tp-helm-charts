@@ -72,7 +72,7 @@ global:
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
       name: infra-artifactmanager
-      tag: 231
+      tag: 250
 
 replicaCount: 1
 
@@ -196,7 +196,7 @@ resources:
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
@@ -272,6 +272,13 @@ volumes:
       # in case of EKS/EBS "gp2"
       # in case of EFS ""
       storageClassName: "gp2"
+
+      # -- Smallest size the volume may be set to. Storage can only be
+      # increased: Kubernetes cannot shrink a PersistentVolumeClaim, so a
+      # request below this is rejected at render time with a clear error
+      # instead of failing later against the API server. Set this to the size
+      # the volume is created at.
+      minStorage: 1Gi
 
       # -- Specifies the standard K8s resource requests and/or limits
       resources:

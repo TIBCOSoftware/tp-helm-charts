@@ -293,3 +293,39 @@ See https://github.com/open-telemetry/opentelemetry-collector-releases/tree/main
 - opentelemetry-collector-k8s
 - opentelemetry-collector-otlp
 {{- end }}
+
+{{/*
+Is the o11y v3 resource model active?
+Returns the string "true" or "false" - callers MUST compare against "true",
+because `include` returns a string and the string "false" is truthy in Go
+templates, which would make `and (include "isO11yv3" .) X` collapse to X.
+*/}}
+{{- define "opentelemetry-collector.isO11yv3" -}}
+{{- and (.Values.global.cp.resources).resourcemapping (eq ((.Values.global.cp.resources).resourcemapping).O11Y "o11yv3") -}}
+{{- end -}}
+
+{{/*
+Should this collector release be deployed?
+
+Releases are deployed unconditionally unless global.cp.o11yv3Gated is set, in
+which case the release only deploys when the o11y v3 model is active AND at
+least one user-application pipeline (logs or traces, primary or secondary) is
+configured. This keeps the user-app collector down at data plane creation,
+when no o11y backend exists yet, without relying on the customization layer.
+*/}}
+{{- define "opentelemetry-collector.deployEnabled" -}}
+{{- if not .Values.global.cp.svcPod.enabled -}}
+false
+{{- else if not (.Values.global.cp.o11yv3Gated | default false) -}}
+true
+{{- else if ne (include "opentelemetry-collector.isO11yv3" .) "true" -}}
+false
+{{- else -}}
+{{- $o := .Values.global.cp.resources.o11yv3 -}}
+{{- $logs := (((($o.logsServer).config).exporter).userApps).enabled -}}
+{{- $logs2 := (((($o.logsServer).config).exporterSecondary).userApps).enabled -}}
+{{- $traces := ((($o.tracesServer).config).exporter).enabled -}}
+{{- $traces2 := ((($o.tracesServer).config).exporterSecondary).enabled -}}
+{{- if or $logs $logs2 $traces $traces2 -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+{{- end -}}

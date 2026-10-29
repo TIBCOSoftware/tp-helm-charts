@@ -91,8 +91,13 @@ global:
     #   HOST · GUNICORN_WORKERS · DB_SQLITE_BUSY_TIMEOUT · PLUGINS_CONFIG_FILE ·
     #   MCP_CLIENT_AUTH_ENABLED      (lite-only — lite-runtime specific, or dynamically
     #                                 overridden by the proxy branch in lite-deployment.yaml)
-    #   APP_ROOT_PATH · MCPGATEWAY_SESSION_AFFINITY_ENABLED ·
-    #   MCPGATEWAY_FEDERATION_SERVER_REQUESTS_ENABLED  (full-only)
+    #   DB_SQLITE_NETWORK_FS · DB_SQLITE_NETFS_REAP_STALE_LOCK · DB_SQLITE_NETFS_OFFLINE_UNWAL
+    #                                 (PCP-24264, lite-only for the
+    #                                 same reason as DB_SQLITE_BUSY_TIMEOUT above — a SQLite-only
+    #                                 knob rendered here would also reach full mode, whose dialect
+    #                                 is postgres, where it is meaningless)
+    #   APP_ROOT_PATH · MCPGATEWAY_SESSION_AFFINITY_ENABLED  (full-only)
+    #   MCPGATEWAY_FEDERATION_SERVER_REQUESTS_ENABLED  (set per mode, PCP-25546)
     # Those stay in `lite.config` / `mcp-stack.mcpContextForge.config` respectively.
     #
     # Operators (and MCP Hub's deploy wizard) override shared gateway settings here — it is the
@@ -152,6 +157,43 @@ global:
       # authz delegated to plugins, PCP-19981). Set "false" to restore upstream
       # 'user must exist' behavior. The Hub deploy wizard can override this per-DP.
       MCP_INBOUND_OAUTH_ALLOW_UNPROVISIONED: "true"
+      # Per-caller authorization for inbound-OAuth virtual servers (PCP-19981 / PCP-24354).
+      # These two settings COMPOSE. ALLOW_UNPROVISIONED (above) makes the gateway grant at
+      # the RBAC layer for an unprovisioned external-IdP principal, BEFORE any per-user
+      # permission check runs. Left at "false", this one then lets a virtual server with NO
+      # Permission plugin bound authorize a tool call on token validity alone — so with both
+      # in effect, any valid token from an allow-listed issuer can invoke every
+      # public-visibility tool on that virtual server, regardless of its groups or roles.
+      #
+      # The intended remedy is to bind a Permission plugin (http_auth_check_permission) per
+      # virtual server from the Hub; PermissionPlugin ships below with mode "disabled" for
+      # exactly that per-VS opt-in. Set this to "true" to fail closed instead — inbound-OAuth
+      # tool calls are then DENIED on any virtual server with no Permission plugin bound.
+      #
+      # Kept "false" here to preserve existing deployments; the gateway reports the composed
+      # state as a startup security warning and on GET /health/security
+      # (checks.inbound_oauth_authz_enforced). Note resources and prompts are not covered by
+      # the Permission plugin at all, so neither setting constrains them.
+      MCP_INBOUND_OAUTH_REQUIRE_PERMISSION_PLUGIN: "false"
+      # PCP-25488: cross-worker RPC forward timeout for the session-affinity broker
+      # (tp-mcp-gateway mcpgateway/services/session_affinity.py + config.py). On a multi-replica
+      # gateway, a request that lands on a worker which does NOT own the target MCP session is
+      # forwarded in-process to the owner, and that forward is wrapped in
+      # asyncio.timeout(mcpgateway_pool_rpc_forward_timeout) — code default 30s. Federated
+      # elicitation waits for a human/client reply, which routinely exceeds 30s, so the non-owner
+      # path failed every elicitation that took longer to answer. Measured on alpha68u: 180s cured
+      # all 7 hard failures with no dead-owner side effect. Shared here (not in
+      # mcp-stack.mcpContextForge.config) so the one default reaches every profile —
+      # production/affinity-ON, affinity-OFF, and lite alike. Lite is always
+      # GUNICORN_WORKERS=1 (lite.config below), so there is never a second worker to forward to:
+      # the knob renders but the path it times out is never taken there — harmless, not merely
+      # untested (dev/mcp-gateway-render-tests/pool-rpc-forward-timeout-assert.sh [D] pins that
+      # chart-level fact).
+      # NOTE: this is NOT the only session-affinity timeout. MCPGATEWAY_AFFINITY_SESSION_LOCK_TIMEOUT
+      # (default 30s, unchanged by this chart) still caps how long a request waits to ACQUIRE a
+      # session's lock, so an elicitation wait that contends for the lock past 30s can still fail —
+      # see PCP-25491 (1.23).
+      MCPGATEWAY_POOL_RPC_FORWARD_TIMEOUT: "180"
       # Rate limiting (PCP-20090). The gateway's in-process RateLimitMiddleware is
       # DEFAULT-OFF on the DP gateway. The DP gateway sits behind platform ingress /
       # dp-proxy / tibtunnel, and the per-IP limiter otherwise mis-fires on the Hub's
@@ -180,8 +222,12 @@ global:
       # stale mirror the one drift nothing catches. Do NOT quote and do NOT re-qualify.
       image:
         repository: tp-mcp-discovery
-        tag: "1.21.0"
-        digest: ""
+        # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the discovery image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+        # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+        # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+        # it names the same image under both tags (re-resolved in the registry).
+        tag: "1.22.4"
+        digest: "sha256:61999ded08c9adef0094ce5569a1b72d3662971a47f16a9e738605922df4483e"
     tibcoProxy:
       enabled: false      # full-mode tp-mcp-gateway-proxy sidecar + gateway auth-rewire (default OFF)
       # Image for the full-mode tp-mcp-gateway-proxy sidecar. Same rationale as discovery.image above:
@@ -191,8 +237,12 @@ global:
       # PCP-23125: BARE NAME, same rules as global.tpMcpGateway.discovery.image above.
       image:
         repository: tp-mcp-gateway-proxy
-        tag: "1.21.0"
-        digest: ""
+        # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the proxy image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+        # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+        # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+        # it names the same image under both tags (re-resolved in the registry).
+        tag: "1.22.4"
+        digest: "sha256:9c4ee0b38b2a99cd4ae05e05123d35b2a2e2c12f6d73eac2534c1cd370ab5452"
       # PCP-23986 — the proxy's two listen ports. THE single authoritative path: the
       # mcp-stack sub-chart can only see global.*, and the parent reads .Values.global
       # freely, so one home serves both lite and full. There is deliberately NO top-level
@@ -215,6 +265,36 @@ global:
       # full mode hardcoded "true" before this. Default is UNCHANGED (true) — setting it
       # false requires CP_DOMAIN + cp-proxy + IdM to be wired.
       trustCPNetwork: true
+    # PCP-24264 — DECLARED storage posture for the volumes this chart provisions. Read by
+    # templates/storage-posture-validate.yaml, which is a render-time guard and emits no manifest.
+    #
+    #   ""       undeclared. DEFAULT, and deliberately advisory-only: the guard never fires, so
+    #            every existing install renders byte-identically and nobody is broken by upgrading.
+    #   "shared" the StorageClass is backed by a shared filesystem (SMB/CIFS/NFS — e.g. Azure
+    #            Files). Refuses the one combination that is known-bad: full mode with the
+    #            in-cluster Postgres PVC landing on that share. Lite is unaffected — the gateway
+    #            detects and converts its own SQLite volume at runtime (DB_SQLITE_NETWORK_FS).
+    #   "block"  block-backed (e.g. Azure Disk, EBS, gp2/gp3). Everything is supported.
+    #
+    # ⚠️ DECLARED, never inferred, and this is not fastidiousness. A StorageClass-NAME heuristic
+    # false-negatives on exactly the class that matters — TIBCO's own is literally named
+    # `azure-files-sc`, which no substring rule flags as shared without also flagging block classes
+    # that merely mention "file". And `lookup` cannot be used either: it returns empty during
+    # `helm template`, so the guard would silently pass in every CI render and in every
+    # `--dry-run`. The operator states the fact; the chart does not guess it. Read it off the
+    # cluster with:
+    #   kubectl get sc <name> -o jsonpath='{.provisioner}{"\n"}{.mountOptions}'
+    # A provisioner of file.csi.azure.com (or any SMB/NFS provisioner) means "shared".
+    storage:
+      classKind: ""
+      # The same tri-state for the class named in mcp-stack.postgres.persistence.storageClassName,
+      # i.e. escape hatch (c) of the guard above. Only "block" excuses the in-cluster PostgreSQL
+      # PVC from the shared-storage refusal, and it costs a SECOND declaration on purpose: a pin
+      # is only a NAME. Pinning the PVC to the very class you just declared shared — a copy-paste
+      # out of the DP's own values — silenced the guard entirely while changing nothing about
+      # where PGDATA lands. Unused unless classKind="shared" AND the PVC is pinned, so the shipped
+      # default keeps every existing render byte-identical.
+      pgClassKind: ""
   # OpenTelemetry — reads collector endpoints from DP o11y-service ConfigMap.
   # Same pattern as bwprovisioner. Degrades gracefully when o11y not deployed.
   # Uses global: so it flows into the mcp-stack subchart automatically.
@@ -242,7 +322,10 @@ global:
           # mcp-stack twin).
           repository: common-fluentbit
           # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
-          tag: "5.1.2"
+          # PCP-25657: 5.1.2 -> 5.1.3, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22).
+          # PCP-25657: 5.1.3 -> 5.1.5, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22,
+          # 1.22.0-alpha.137). common-fluentbit:5.1.5 verified present in -dev (sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4).
+          tag: "5.1.5"
           pullPolicy: IfNotPresent
         otel:
           host: otel-userapp-logs
@@ -313,7 +396,12 @@ global:
       ingress:
         fqdn: ""
         ingressClassName: ""
-        ingressController: ""       # traefik | nginx | haProxy
+        # traefik | nginx | haProxy | openshiftRouter select the PUBLIC edge template, matched
+        # case-insensitively ("OpenshiftRouter" works). kong (offered by the Control Plane) is accepted
+        # but has no public edge yet (PCP-26720); any other non-empty value fails the render (PCP-26618).
+        # openshiftRouter renders one Route per allowlisted path (templates/route-openshift-public.yaml)
+        # and REQUIRES a lowercase, non-wildcard fqdn.
+        ingressController: ""
         annotations: {}
       gatewayapi:
         gatewayAPIControllerName: ""  # GKE | ISTIO | etc (if set, enables Gateway API)
@@ -363,12 +451,221 @@ publicApi:
   # for a sub-path-mounted gateway (PCP-19809). Chart-owned route; no rewrite —
   # the gateway serves PRM at the full literal path.
   wellKnownPrefix: /.well-known/oauth-protected-resource
+  # PCP-25406 (follow-up to PCP-25379): allowlist for the nginx public Ingress
+  # (templates/ingress-nginx.yaml), now ON by default. Only the documented external MCP client
+  # paths + the RFC 9728 .well-known doc are routed on the public edge — /admin and the rest of
+  # the REST surface are not — matching what the traefik and Gateway-API allowlists already do.
+  # Set this to `false` to restore the previous behaviour, where the whole `{{ pathPrefix }}/`
+  # prefix is forwarded publicly, including /admin.
+  #
+  # ⚠️ WHEN YOU MIGHT NEED `false`: the mechanism (`nginx.ingress.kubernetes.io/use-regex: "true"`)
+  # is NOT scoped to this Ingress. Per ingress-nginx's own docs, once ANY Ingress on a host sets
+  # use-regex (or rewrite-target), EVERY other Ingress sharing that host has its Prefix paths
+  # turned into case-insensitive regex locations in the same nginx server{} block.
+  #
+  # ⭐ MEASURED on a live community ingress-nginx Data Plane (ins-syan-a90nginx, controller
+  # v1.14.1, 2026-10-09): NOTHING shares the gateway's host on a stock install. Enumerating every
+  # nginx-class Ingress on that box by host, the gateway's own `mcp-hub-<dp>.<domain>` carried
+  # exactly one Ingress — its own — while each capability service had a DISTINCT derived host
+  # (flogo./apm./elastic./keycloak./kibana./mail./agent-cp-only.). The host-wide side effect has
+  # nothing to act on, which is why ON is the right default.
+  #
+  # ⚠️ The chart TEMPLATES suggest the opposite and should not be trusted here: seven charts in
+  # this repo (bwprovisioner, flogoprovisioner, bw5provisioner, sbprovisioner, dp-bw-adapter,
+  # tibco-developer-hub, o11y-service) all render `host: global.cp.resources.ingress.fqdn`
+  # verbatim, which reads as guaranteed co-tenancy. It is not — the provisioner supplies a
+  # DIFFERENT value for that key per capability release, so what they share is the KEY, not the
+  # host. Only a live cluster answers this; two successive revisions of this comment got it
+  # wrong in opposite directions by reasoning from the templates alone.
+  #
+  # Set this to `false` only if you DELIBERATELY co-host another service on the gateway's FQDN
+  # and its paths change meaning under regex semantics — paths containing regex metacharacters
+  # such as `.`, `+` or `(`, or paths relying on case-sensitive matching. (Where a host IS shared
+  # on a stock box — observed for flogo. — both parties already set use-regex themselves, so the
+  # server block is in regex mode regardless of this chart.)
+  #
+  # ⚠️ UPGRADES — which installs actually adopt this new default. Three cases, and the FIRST is
+  # the one that matters, because it is how a customer's gateway is actually upgraded:
+  #   • CP / Hub-managed (the normal path): the flip REACHES them. A Hub-driven upgrade RE-RENDERS
+  #     the recipe, so the new chart's defaults apply (settled from source, release-progress
+  #     0f86bfb; it agrees with the independent code trace that the Hub never runs helm itself and
+  #     mcp-hub-recipes' `flags:` block requests no values strategy, so the DP provisioner-agent
+  #     does a plain upgrade). ⚠️ NOT live-measured — the prerelease guard blocks that proof on an
+  #     alpha chart, so it is deferred to post-GA.
+  #   • An operator's own `chartValuesYaml` overlay merges AFTER the recipe and therefore PERSISTS.
+  #     Anyone who hand-set `nginxAllowlistEnabled: false` keeps it across the upgrade. That is
+  #     intended — a deliberate opt-out must survive — but it does mean the flip does not reach an
+  #     install whose operator pinned the old value by hand.
+  #   • A hand-run `helm upgrade --reuse-values` keeps the recorded value, because that flag
+  #     replaces the incoming chart's defaults wholesale with the previous release's coalesced
+  #     values (helm pkg/action/upgrade.go, `chart.Values = oldVals`). An install whose PREVIOUS
+  #     chart already carried this key (1.21.0-alpha.39+ / 1.22.0-alpha.19+) therefore keeps its
+  #     recorded `false`, and a recorded `false` is indistinguishable from a deliberate opt-out, so
+  #     the chart must not override it. Adopt it with `--reset-then-reuse-values` or an explicit
+  #     `--set`. An install from a chart PREDATING the key (<=1.21.0-alpha.38, incl. released
+  #     1.21.1) has no recorded value and DOES adopt the new default even under `--reuse-values` —
+  #     see templates/ingress-nginx.yaml for why the absent-key fallback is `true`, not `false`.
+  nginxAllowlistEnabled: true
+  # PCP-25403: the public Gateway API HTTPRoute allowlist (templates/gateway-public.yaml).
+  # Default ON — the opposite of nginxAllowlistEnabled above, and deliberately so. That key is OFF
+  # because its MECHANISM is hazardous: `nginx.ingress.kubernetes.io/use-regex` is not scoped to
+  # one Ingress and silently changes every other Ingress sharing the host. Gateway API has no such
+  # side effect, and the ISTIO/NGINX_GATEWAY_FABRIC half of this route has ALREADY shipped
+  # allowlisted-by-default since PCP-25379 — so default-ON is what makes the chart behave the same
+  # way for the same values regardless of which controller the Data Plane happens to use.
+  #
+  # When true (default) the public route publishes only:
+  #   - <pathPrefix>/servers/<id>/{mcp,sse,message}  on ISTIO / NGINX_GATEWAY_FABRIC (exact regex)
+  #   - <pathPrefix>/servers                         on every other controller (Core PathPrefix;
+  #     Gateway API's RegularExpression match is Implementation-specific and an implementation that
+  #     rejects it must set the route Accepted=False, which would drop ALL traffic — see
+  #     templates/gateway-public.yaml's header for the per-controller evidence). ⚠️ PCP-26950: on a
+  #     LITE gateway ONLY. A FULL gateway publishes no <pathPrefix>/servers on those controllers
+  #     (nor on the OpenShift public Route): those edges cannot express the exact per-server path, so
+  #     a FULL gateway is published only on the private CP->DP path there.
+  #   - the RFC 9728 OAuth protected-resource discovery document, in both advertised shapes
+  # /admin, /rpc, the root /mcp, /sse, /message, /tools, /gateways, /resources, /prompts, /a2a,
+  # /docs and /openapi.json are NOT routed.
+  #
+  # Set false ONLY to restore the previous behaviour — the whole `<pathPrefix>/` prefix published,
+  # /admin and the management REST API included — if you discover you were relying on a path the
+  # allowlist no longer publishes.
+  # ⚠️ SCOPE: false restores exactly what PCP-25403 changed, which is the Core-conformance tier.
+  # ISTIO and NGINX_GATEWAY_FABRIC keep the regex allowlist that shipped in PCP-25379 regardless
+  # of this key — it is not a way to re-open those. With this key false the rendered route of a LITE
+  # gateway is byte-identical to the 1.22.0-alpha.24 chart for every controller.
+  # ⚠️ PCP-26950: false is REFUSED for a FULL gateway (lite.enabled=false) on a Gateway API
+  # controller other than ISTIO / NGINX_GATEWAY_FABRIC, by name at render time: the blanket prefix
+  # would publish the whole gateway on the public edge, and a FULL gateway is published only on the
+  # private path there. LITE keeps the opt-out; on ISTIO and NGINX_GATEWAY_FABRIC the key stays the
+  # no-op it always was, so it is not refused there. `helm upgrade --reuse-values` carries a
+  # previous `false` over: pass --set publicApi.gatewayApiAllowlistEnabled=true (or drop the key).
+  # ⚠️ Prefer a narrower fix first: a dedicated HTTPRoute of your own for the specific path you
+  # need, alongside the chart's. Reaching the gateway's admin console should go through the
+  # Control Plane, which uses the private CP->DP tunnel and is unaffected by this key either way.
+  gatewayApiAllowlistEnabled: true
+  # PCP-25402: allowlist for the haProxy public Ingress (templates/ingress-haproxy-public.yaml).
+  # Default ON — with this true, the public haProxy route exposes ONLY the external MCP client
+  # transports (<pathPrefix>/servers/<id>/{mcp,sse,message}) and the RFC 9728 protected-resource
+  # discovery document. Set to false to restore the previous behaviour, where the whole
+  # <pathPrefix>/ prefix — admin console and REST surface included — is published.
+  #
+  # EVERYTHING ELSE ON THIS HOST NOW RETURNS 404 AT THE EDGE. That is the point, but read the list
+  # before you upgrade, because it is wider than "/admin": <pathPrefix>/admin, bare
+  # <pathPrefix>/servers and <pathPrefix>/servers/<id>, /tools, /gateways, /resources, /prompts,
+  # /version, /metrics, /docs, /openapi.json, <pathPrefix>/ itself — AND the gateway's own OAuth
+  # endpoints (<pathPrefix>/oauth/*, including the /oauth/callback this chart derives for
+  # OAUTH_REDIRECT_URI, and /.well-known/oauth-authorization-server). Paths containing `..` or a
+  # percent-encoded separator (%2f, %2e, %5c) are rejected outright, because HAProxy matches the raw
+  # request-target and would otherwise let those through the <id> wildcard.
+  # ⚠️ The OAuth endpoints are denied by the SAME allowlist the traefik and Gateway API routes have
+  # shipped by default since PCP-25379, so this is not a haProxy-specific narrowing — but if your
+  # deployment has public MCP clients driving an authorization-code flow against the gateway itself
+  # (rather than bearer tokens from the Control Plane's IdP), that flow needs this set to false
+  # until the allowlist is widened in all three lanes. Tracked, not decided in this chart.
+  #
+  # Unlike the nginx key above, the mechanism here is scoped to this Ingress object only: the
+  # allowlist is an `http-request deny` carried by haproxy.org/backend-config-snippet (an INGRESS-
+  # scoped annotation), and haproxy.org/standalone-backend gives this Ingress its own HAProxy
+  # backend, so the deny cannot reach the backend the private CP->DP route would otherwise share.
+  # It cannot affect another service co-hosted on the same fqdn.
+  #
+  # ⚠️ Set this to false if you need the previous behaviour. Two cases the chart will not let you
+  # stumble into silently -- it FAILS THE RENDER with a message naming this key, rather than
+  # guessing:
+  #   • global.cp.resources.ingress.annotations already carries backend-config-snippet,
+  #     standalone-backend, request-set-header or path-rewrite under ANY of haproxy.org/,
+  #     haproxy.com/ or ingress.kubernetes.io/. The controller folds those three prefixes into one
+  #     annotation, so your value and the chart's would collapse into a single entry and the
+  #     survivor would be map iteration order -- the allowlist could silently stop applying.
+  #     (path-rewrite is rejected for a different reason: it rewrites the path BEFORE the allowlist
+  #     sees it, so the allowlist would stop meaning what it reads.)
+  #   • publicApi.pathPrefix contains a character that cannot safely be written into raw HAProxy
+  #     configuration (whitespace, # $ \ ' " { } % or a newline).
+  #
+  # ⚠️ WHAT THIS DOES NOT CLOSE. It narrows the PUBLIC Ingress only. The private CP->DP route
+  # (global.cp.routeResources.ingress.*, or the bundled route on ingressClass tibco-dp-<id>)
+  # deliberately still carries the whole gateway surface, because the Control Plane's admin and sync
+  # calls go through it. The configuration to watch is NOT "the two routes share an fqdn" -- it is
+  # the two routes sharing an INGRESS CLASS / controller, i.e. one haproxytech controller serving
+  # both axes, which is an ordinary single-ingress Data Plane. HAProxy selects a route by the Host
+  # header, not by which address the packet arrived on, so a request to the public edge carrying the
+  # PRIVATE route's Host reaches the private route and its full surface, whatever this setting is.
+  # Pre-existing and unchanged here; the fix is to keep the private route off the public edge
+  # (separate ingress class / listener, or a source-scoped guard on it).
+  #
+  # Requires a haproxytech/kubernetes-ingress controller new enough to know both annotations --
+  # v1.11.0 (2024-03) or later, which every controller version this repo ships or pins satisfies.
+  # See dev/plan/PCP-25402-plan.md for the measured per-version table.
+  #
+  # ⚠️ HOW TO TELL WHETHER THIS IS ACTUALLY IN FORCE, and why you cannot tell from the Ingress.
+  # The allowlist is carried by an annotation. If the controller ever rejects the snippet, it
+  # disables THAT SNIPPET ALONE and carries on: HAProxy keeps serving, the Ingress still shows the
+  # annotation, and Helm still reports success. Measured on haproxytech 3.2.15 / HAProxy 3.2.23
+  # with a deliberately malformed snippet: one `ERROR ... unable to Sync HAProxy configuration !!`
+  # is logged, the retry then succeeds, and nothing afterwards distinguishes the broken state from
+  # a healthy one.
+  # WHAT IS ACTUALLY EXPOSED IF THAT HAPPENS: `<pathPrefix>/servers` and `<pathPrefix>/servers/<id>`
+  # -- the per-server REST object and its mutating verbs -- and nothing else. NOT /admin, /tools,
+  # /gateways, /resources, /prompts or /version: those are not routed by this Ingress at all once
+  # the allowlist is on, because the path rules themselves were narrowed for exactly this case.
+  # That is still worth alerting on, but it is a smaller hole than the pre-narrowing one.
+  #   • ALERT on the controller log string `unable to Sync HAProxy configuration`.
+  #     Do NOT alert on `has been disabled` -- that line did not appear on 3.2.15 (only
+  #     "has been created/modified/deleted" and "has been updated" did), so such an alert would
+  #     never fire. Nor is the Prometheus gauge usable: it is reset at the start of the retry and
+  #     goes 1 -> 0 within the same reconcile, well inside any normal scrape interval.
+  #   • To CONFIRM positively, assert on the generated config rather than on the Ingress -- and
+  #     print the ENCLOSING BACKEND, not just the deny line. A bare grep for the deny will also
+  #     match a deny belonging to some other Ingress and read as confirmation:
+  #       kubectl exec -n <ns> <haproxy-controller-pod> -- \
+  #         awk '/^backend /{b=$2} /http-request deny deny_status 404/{print b}' /etc/haproxy/haproxy.cfg
+  #     Every backend printed must contain THIS Ingress's name (`<release>-mcp-gateway-public-haproxy`).
+  #     That is what haproxy.org/standalone-backend produces, and it is what keeps the rule off the
+  #     backend the private CP->DP route shares. dev/verify-haproxy-public-allowlist-live.sh does
+  #     this check, and the full edge probe, for you.
+  # This is also why the Ingress's own path rules are narrowed rather than left at the full prefix:
+  # if the snippet is ever dropped, /admin and the REST surface are still not routed.
+  haproxyAllowlistEnabled: true
+  # PCP-26787: the Traefik entrypoints the PUBLIC IngressRoute (templates/ingress-traefik.yaml) binds to.
+  # Read only when ingressController is traefik. The default, an empty list, pins NOTHING: the route
+  # attaches to every default entrypoint of the controller, exactly as the plain Ingress did up to
+  # 1.22.0-alpha.15 (the Traefik IngressRoute CRD: `entryPoints` is optional, "Default: all").
+  # 1.22.0-alpha.16 - alpha.37 hard-pinned [websecure] instead. That matches nothing where a load balancer
+  # terminates TLS and forwards 443 to Traefik's `web` entrypoint (dp-config-aws: the NLB, ACM certificate,
+  # 443 -> targetPort web): every virtual-server endpoint and the OAuth callback answered Traefik's own
+  # 404 while the gateway showed ONLINE in the Hub.
+  # Set a list to pin the route explicitly, for example ["websecure"] where Traefik itself terminates TLS
+  # and the gateway must not be served over plain HTTP on `web`, or ["web", "websecure"]. Each entry must
+  # be an entrypoint that exists in the controller's static configuration: Traefik drops a route that names
+  # one it does not have, which publishes nothing. Anything that is not a list of names fails the render,
+  # false, 0 and {} included; only absent, null, [] and an empty string read as unset.
+  # The PCP-25379/25403 path allowlist is the route's own `match`, so it applies on every entrypoint the
+  # route is bound to; this key changes WHERE the route listens, never WHAT it routes.
+  # Upgrades: a release recorded before this key existed replays no value for it, which reads as unset, so
+  # `helm upgrade --reuse-values` takes the default. A release that recorded the key keeps what it recorded.
+  traefikEntryPoints: []
 
 # =====================================================================
 # Plugins — defined once, used by both lite and full mode
 # =====================================================================
 plugins:
   enabled: true
+  # PCP-25281: the RateLimiterPlugin backend fragment actually used is injected wherever
+  # RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER appears below -- by whichever consuming template
+  # knows if real Redis is reachable THERE. Lite never has Redis: templates/lite-plugins-
+  # configmap.yaml always substitutes memory, inline, with no reference to any value (lite
+  # needs no redis fragment at all). Full mode decides per-install, in charts/mcp-stack/
+  # templates/configmap-gateway-plugin.yaml, on .Values.redis.enabled / .Values.redis.external.
+  # enabled -- substituting the redis fragment (mcp-stack.rateLimiterRedisBlock, below, in the
+  # PARENT's `mcp-stack:` subchart-values block, NOT here) only when one is true, memory
+  # otherwise. It cannot live here: a subchart template's `.Values` is the SUBCHART's own
+  # namespace -- Helm does not pass a parent's plain top-level keys into a subchart, only
+  # `global.*` and whatever the parent nests under the subchart's own key (`mcp-stack:` below).
+  # It also cannot be a literal inside that template file: the `{{ env.* }}` syntax is the
+  # GATEWAY's OWN Jinja config-load syntax, and writing it inside a Helm template file would be
+  # re-lexed by Helm's own `{{ }}` parser as a second, invalid, nested template action. A plain
+  # values.yaml string (read, never templated, by the parent) is never re-lexed that way.
   config: &plugins_config |
     plugin_dirs:
       - "plugins/native"
@@ -383,13 +680,21 @@ plugins:
       include_user_info: false
 
     plugins:
-      # Rate limiter — cpex_rate_limiter pip package (Rust core, in-memory by default).
-      # Without `backend: redis`, the plugin runs in-process memory mode; no
-      # Redis dependency required for the default install.
+      # Rate limiter — cpex_rate_limiter pip package (Rust core). PCP-25281: `backend` is
+      # injected PER MODE by the consuming template (lite: inline "memory"; full mode: the
+      # mcp-stack.rateLimiterRedisBlock value, see the top of this file) -- "redis" where real
+      # Redis is reachable (shares counters across replicas AND across a plugin
+      # re-instantiation), "memory" where it is not (lite; full mode with no
+      # Redis configured). Without a real backend, memory counters live in the plugin INSTANCE,
+      # and a push on ANY VS of the gateway re-instantiates every plugin instance, silently
+      # resetting every rate limit to zero -- that was the unconditional-memory bug.
       # PCP-22399: kind points at the fork-side ObservableRateLimiterPlugin wrapper
-      # (subclasses the cpex_rate_limiter wheel, delegates 100% of enforcement) so the
-      # silent redis→memory fail-open fallback becomes observable — deduped WARNING +
-      # rate_limiter_degraded / rate_limiter_backend on the tools/call _meta. Requires a
+      # (subclasses the cpex_rate_limiter wheel, delegates 100% of enforcement) so a redis
+      # backend that fails open to memory (e.g. a transient outage in full mode) becomes
+      # observable — deduped WARNING + rate_limiter_degraded / rate_limiter_backend on the
+      # tools/call _meta. An explicit `backend: "memory"` binding (lite; full mode with no
+      # Redis) is a verbatim passthrough -- no degraded flag, no warning, nothing to observe,
+      # since memory is the deliberately-configured backend there, not a fallback. Requires a
       # gateway image that carries the wrapper — first added in e20deb0d (PCP-22389); the
       # image tags below pin build wip-poc-1-0b9555a (a descendant that contains it).
       - name: "RateLimiterPlugin"
@@ -402,7 +707,8 @@ plugins:
         priority: 20
         conditions: []
         config:
-          by_user: "60/m"
+          RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER
+          by_user: "300/m"  # PCP-24390: was 60/m -- do not silently revert; by_tenant deliberately stays 600/m
           by_tenant: "600/m"
           by_tool:
             search: "10/m"
@@ -539,6 +845,12 @@ plugins:
             - tr
             - th
             - td
+            # PCP-25290/gw#7e16c8773c: kept (not unwrapped) so a bound HTMLToMarkdown can
+            # still promote <title> into a heading -- an explicit allowed_tags list overrides
+            # the code default rather than extending it, so omitting this here left the code
+            # fix (DEFAULT_ALLOWED_TAGS) with no effect on chart deployments, same class as
+            # PCP-19889 below.
+            - title
           # PCP-19889: keep allowed_attrs in sync with code DEFAULT_ALLOWED_ATTRS so
           # the deployed default does not silently drop table/th/td layout attributes
           # (config overrides the code default, so an omitted key = dropped attr).
@@ -587,18 +899,35 @@ plugins:
         priority: 155
         conditions: []
         config:
-          # PCP-20299: block-tier = genuinely-dangerous, low-FP Python execution sinks (hard block).
+          # PCP-24253: block-tier = LITERAL, dotted, unambiguous execution-sink CALLS. Every
+          # entry requires the call paren; none matches module acquisition or a bare word.
+          # `posix` has its OWN shorter list — `os` is a wrapper module, not the same object.
+          # Generated from the gateway's shipped defaults; keep them in sync (the plugin
+          # REPLACES its defaults with whatever this file provides, so a stale list here is
+          # a silent downgrade). Source of truth: tibco/tp-mcp-gateway:plugins/code_safety_linter/README.md.
           blocked_patterns:
-            - "\\bos\\.system\\s*\\("
-            - "\\bsubprocess\\.(Popen|call|run)\\s*\\("
-          # warn-tier = prose-prone constructs (eval/exec/rm -rf) — non-blocking, logged + annotated.
-          # NOTE: warn_patterns is honored only by a gateway image carrying the PCP-20299 plugin
-          # code; on an older image these patterns are simply not scanned (non-blocking) — the
-          # blocked_patterns narrowing already removes the customer-visible false positive.
+            - "\\bos\\.(system|popen|execl|execle|execlp|execlpe|execv|execve|execvp|execvpe|_execvpe|spawnl|spawnle|spawnlp|spawnlpe|spawnv|spawnve|spawnvp|spawnvpe|_spawnvef|posix_spawn|posix_spawnp)\\s*\\("
+            - "\\bposix\\.(system|execv|execve|posix_spawn|posix_spawnp)\\s*\\("
+            - "\\bsubprocess\\.(Popen|call|run|check_call|check_output|getoutput|getstatusoutput|_fork_exec)\\s*\\("
+            - "\\b_posixsubprocess\\.(fork_exec)\\s*\\("
+            - "\\bpty\\.(spawn)\\s*\\("
+            - "\\basyncio\\.(subprocess\\.)?(create_subprocess_exec|create_subprocess_shell)\\s*\\("
+          # warn-tier = non-blocking advisory (logged + annotated in result.metadata):
+          # prose-prone constructs, Windows-only/`runpy` sinks whose false-positive cost is
+          # too high to block, the event-loop sinks (open receiver), and the dynamic
+          # ACQUISITION spellings — `__import__('os')`, `importlib.import_module`,
+          # `getattr(os, 'system')`. PCP-24253 measured 6 of 7 aliasing spellings hitting
+          # NEITHER tier before this change: the harm was no signal at all, not "not blocked".
           warn_patterns:
             - "\\beval\\s*\\("
             - "\\bexec\\s*\\("
             - "\\brm\\s+-rf\\b"
+            - "\\bos\\.(startfile)\\s*\\("
+            - "\\brunpy\\.(run_path|run_module)\\s*\\("
+            - "[\\w)]\\s*\\.(subprocess_exec|subprocess_shell)\\s*\\("
+            - "\\b__import__\\s*\\(\\s*(['\"])(asyncio\\.subprocess|_posixsubprocess|subprocess|commands|asyncio|posix|runpy|pty|os|nt)\\1"
+            - "\\bimportlib\\s*\\.\\s*import_module\\s*\\(\\s*(['\"])(asyncio\\.subprocess|_posixsubprocess|subprocess|commands|asyncio|posix|runpy|pty|os|nt)\\1"
+            - "\\bgetattr\\s*\\(\\s*(asyncio\\.subprocess|_posixsubprocess|subprocess|commands|asyncio|posix|runpy|pty|os|nt)\\s*,\\s*(['\"])(system|popen|execl|execle|execlp|execlpe|execv|execve|execvp|execvpe|_execvpe|spawnl|spawnle|spawnlp|spawnlpe|spawnv|spawnve|spawnvp|spawnvpe|_spawnvef|posix_spawn|posix_spawnp|startfile|run_path|run_module|system|execv|execve|posix_spawn|posix_spawnp|Popen|call|run|check_call|check_output|getoutput|getstatusoutput|_fork_exec|spawn|fork_exec|create_subprocess_exec|create_subprocess_shell|subprocess_exec|subprocess_shell)\\2"
 
       # ============================================================
       # Additional native plugins — registered with mode="disabled" so
@@ -1116,9 +1445,13 @@ plugins:
           language: null
           threshold_chars: 800
           hard_truncate_chars: 24000
+          # PCP-25282/PCP-24652: glob-matched against the gateway slug <server>-<tool>
+          # (0ffe53e49#L722) -- the literal-only list never matched a federated tool.
           tool_allowlist:
           - search
+          - "*-search*"
           - retrieve
+          - "*-retrieve*"
           resource_uri_prefixes:
           - http://
           - https://
@@ -1177,7 +1510,19 @@ plugins:
             retry_delay: 1000
             timeout: 10
             enabled: false
-          default_template: "{\n  \"event\": \"{{event}}\",\n  \"plugin\": \"{{plugin_name}}\",\n  \"timestamp\": \"{{timestamp}}\",\n  \"request_id\": \"{{request_id}}\",\n  \"user\": \"{{user}}\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"violation\": {{violation}},\n  \"metadata\": {{metadata}}\n}\n"
+          # PCP-25280: Jinja raw/endraw guard so the gateway's Jinja config-load pass (use_jinja=True)
+          # does not blank these placeholders to "" -- mirrors 0ffe53e49#L1268-L1278 verbatim.
+          default_template: |
+            {% raw %}{
+              "event": "{{event}}",
+              "plugin": "{{plugin_name}}",
+              "timestamp": "{{timestamp}}",
+              "request_id": "{{request_id}}",
+              "user": "{{user}}",
+              "tenant_id": "{{tenant_id}}",
+              "violation": {{violation}},
+              "metadata": {{metadata}}
+            }{% endraw %}
           include_payload_data: false
           max_payload_size: 1000
       - name: ContentModeration
@@ -1245,6 +1590,9 @@ plugins:
         - tool_post_invoke
         tags:
         - plugin
+        - llm
+        - transformer
+        - code-execution
         mode: disabled
         priority: 150
         conditions:
@@ -1254,15 +1602,15 @@ plugins:
           jsonprocessor_query: ''
           llm_provider: watsonx
           watsonx:
-            wx_api_key: ''
-            wx_project_id: ''
+            wx_api_key_env: WX_API_KEY
+            wx_project_id_env: WX_PROJECT_ID
             wx_url: https://us-south.ml.cloud.ibm.com
           ollama:
             ollama_url: http://localhost:11434
           openai:
-            api_key: ''
+            api_key_env: OPENAI_API_KEY
           anthropic:
-            api_key: ''
+            api_key_env: ANTHROPIC_API_KEY
           model_id: ibm/granite-3-3-8b-instruct
           length_threshold: 100000
       - name: UnifiedPDPPlugin
@@ -1404,8 +1752,12 @@ discovery:
   # "same rules as discovery.image above".
   image:
     repository: tp-mcp-discovery
-    tag: "1.21.0"
-    digest: ""
+    # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the discovery image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+    # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+    # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+    # it names the same image under both tags (re-resolved in the registry).
+    tag: "1.22.4"
+    digest: "sha256:61999ded08c9adef0094ce5569a1b72d3662971a47f16a9e738605922df4483e"
     pullPolicy: IfNotPresent
   config:
     DISCOVERY_ANNOTATION_KEY: "platform.tibco.com/connectors"
@@ -1438,8 +1790,12 @@ tibcoProxy:
   # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
   image:
     repository: tp-mcp-gateway-proxy
-    tag: "1.21.0"
-    digest: ""
+    # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the proxy image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+    # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+    # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+    # it names the same image under both tags (re-resolved in the registry).
+    tag: "1.22.4"
+    digest: "sha256:9c4ee0b38b2a99cd4ae05e05123d35b2a2e2c12f6d73eac2534c1cd370ab5452"
     pullPolicy: IfNotPresent
   # trustCPNetwork: skip CIC token validation and trust the HAProxy network path.
   # Set true for POC/dev (cp-proxy IdM exchange not yet wired).
@@ -1484,21 +1840,59 @@ dialHome:
   # PCP-23125: BARE NAME, resolver-prefixed. Same rules as discovery.image above.
   image:
     repository: tp-mcp-gateway-dialhome-agent
-    # On the ALPHA lane the default tag is pinned here by release-alpha to the immutable
-    # build-image.yml tag (<branch-slug>-<sha>). A GA cut replaces it with a bare semver by
-    # hand (PCP-24504) and leaves the digest empty -- there is no GA digest pinner, so do not
-    # restore an alpha-style pin from this note. An ENABLED render with an EMPTY tag still fails fast
+    # Default tag is pinned here by release-alpha to the immutable build-image.yml tag
+    # (<branch-slug>-<sha>). An ENABLED render with an EMPTY tag still fails fast
     # (templates/dialhome-validate.yaml) — never a silent :latest.
-    tag: "1.21.0"
-    digest: ""
+    # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the dialhome image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+    # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+    # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+    # it names the same image under both tags (re-resolved in the registry).
+    tag: "1.22.4"
+    digest: "sha256:ea867437979d5a67d547962d108e4310f315fe7bf7c6eb9a8f9fb96fe11e4790"
     pullPolicy: IfNotPresent
   hub:
-    # External WSS endpoint the agent dials (Hub GET /config -> features.dialHome.hubUrl).
+    # The WSS endpoint THIS AGENT dials. For the standalone placement that is the Hub's
+    # EXTERNAL address, taken from GET /config -> features.dialHome.hubUrl.
+    #
+    # ⚠️ PCP-24484: "external" describes the standalone case, not this key's definition. The
+    # in-CP platform gateway runs inside the Control Plane and dials the Hub in-cluster, so a
+    # .svc address is correct THERE. What must never become a .svc address is the value the
+    # Hub PUBLISHES at /config, because that is what customers copy into their own --set: an
+    # in-cluster address there would render a broken helm command on somebody else's cluster.
+    # Two different values, one of which happens to feed the other in the standalone flow.
     url: ""
-    # Bootstrap token delivered ONLY via a pre-created existingSecret — NEVER raw
-    # --set (leaks via Helm values / release metadata / shell history) and NEVER
-    # chart-generated. Create it out of band:
+    # Bootstrap token delivered ONLY via a pre-created existingSecret — NEVER raw --set
+    # (it leaks via Helm values / release metadata / shell history). Out of band:
     #   kubectl create secret generic <name> --from-file=token=<file>
+    #
+    # ⚠️ PCP-24484 — the "never chart-generated" half of this rule used to be stated
+    # absolutely, and it is CONDITIONAL. Corrected here because a rule that reads like
+    # fastidiousness is the kind the next person routes around:
+    #
+    #   Chart-generating a bootstrap token is INERT unless something writes the matching hash
+    #   onto that gateway's row. In the STANDALONE flow nothing does — the mint API is the
+    #   sole writer of gateways.bootstrap_token_hash — so the prohibition holds there
+    #   unconditionally, and a chart-generated token simply never authenticates. The IN-CP
+    #   placement has such a writer (the Hub's boot-time reconciler, which hashes the Secret
+    #   this chart is handed), so there it is the supported mechanism.
+    #
+    # ⛔ Even with a writer present, ALL THREE of these must hold:
+    #   1. the value handed to the agent is the full `<gatewayId>.<secret>`, and gatewayId is
+    #      the PRIMARY KEY of the row that was upserted — the Hub splits on the first dot and
+    #      looks the row up by that half. It is not "a prefix"; it is that row's id.
+    #   2. the hash is written THROUGH UTM — bootstrap_token_hash is encrypted at rest, so any
+    #      writer that bypasses it (raw SQL, a chart Job, a psql migration) stores something
+    #      that decrypts into garbage on read.
+    #   3. the row is stamped with the Hub pod's REGION — the auth lookup is region-scoped.
+    #      This one works fine in a single-region deployment and only fails where regions share
+    #      a database, so a local test cannot see it.
+    #
+    # ⭐ All three fail IDENTICALLY, and they fail looking like a bad token while the token is
+    # perfectly correct — because on the Hub side the lookup IS the authentication: the row is
+    # found by (id, region) and the hash compared in the same step, so "wrong credential" and
+    # "right credential, row not visible to this query" are the same event. Revocation is a
+    # fourth cause with the same symptom. Keep this list next to the rule: the rule says what
+    # to do, this says what you will see when it is wrong.
     bootstrapTokenSecret:
       name: ""
       key: "token"
@@ -1560,9 +1954,6 @@ dialHome:
 # =====================================================================
 # Lite mode — single pod, SQLite, memory cache
 # =====================================================================
-# ⚠ GA (PCP-24504): a hand-cut GA cut writes the TAG ONLY and leaves every digest empty, because
-# release-alpha.sh is the only digest pinner and it runs on the ALPHA lane. An empty digest on a
-# GA chart is the contract, not an omission. The caveat below still governs any HAND override.
 # ⚠ PCP-23089 — TAG AND DIGEST MUST MOVE TOGETHER. release-alpha.sh always writes both from
 # ONE build, but a HAND override does not: `helm upgrade --reuse-values --set ...image.tag=X`
 # keeps the PREVIOUS digest, and the pair then deploys the OLD content under the NEW version
@@ -1594,8 +1985,12 @@ lite:
     #   3. mcp-stack.migration.image.tag       (DB migration Job uses the same image)
     #   4. charts/tibco-cp-mcp-hub/charts/mcp-hub-recipes/values.yaml mcpGateway.image.tag
     #   5. charts/tibco-cp-mcp-hub/values.yaml mcpGateway.image.tag (parent override)
-    tag: "1.21.0"
-    digest: ""
+    # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the gateway image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+    # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+    # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+    # it names the same image under both tags (re-resolved in the registry).
+    tag: "1.22.4"
+    digest: "sha256:e995b0a8ce9a2cbb77d2674f44360a2bc7a34393b1e28d146ccd52e75bf23294"
     pullPolicy: IfNotPresent
   replicas: 1
   storage:
@@ -1683,6 +2078,10 @@ lite:
     CACHE_TYPE: "memory"
     PLUGINS_CONFIG_FILE: "plugins/config.yaml"
     GUNICORN_WORKERS: "1"
+    # PCP-25546: relays a federated server's elicitation/sampling/roots to the client (code
+    # default off). Safe without affinity/Redis only because lite is 1 replica + 1 worker
+    # (enforced by mode-validate.yaml).
+    MCPGATEWAY_FEDERATION_SERVER_REQUESTS_ENABLED: "true"
     # PCP-22882: MUST be set here, and MUST stay above the startupProbe budget. gunicorn's
     # arbiter SIGABRTs a worker whose heartbeat is stale, and under UvicornWorker the heartbeat
     # only begins after Server.startup() — i.e. after the lifespan, which is exactly the slow
@@ -1717,6 +2116,70 @@ lite:
     # So the move belongs with the sub-chart retirement, as one change that pays the parity
     # cost once and deletes a duplicate rather than adding a second. Filed as the follow-up.
     ENABLE_METRICS: "true"
+    # PCP-24264: SQLite on a network-filesystem PVC (SMB/CIFS, and NFS without lockd). MEASURED on a
+    # real kernel cifs/SMB3 mount, single process, no concurrency: the very first schema write
+    # (`CREATE TABLE alembic_version`) fails with "database is locked" after the FULL busy timeout
+    # above, because SMB byte-range locks are per-handle and non-convertible — strace shows
+    # fcntl(F_SETLK, F_WRLCK, start=1073741826, len=510) = EACCES, i.e. SQLite's own held SHARED
+    # read lock refuses SQLite's own SHARED->EXCLUSIVE upgrade. Raising DB_SQLITE_BUSY_TIMEOUT does
+    # NOT help; it only lengthens the CrashLoop. The gateway's fix is to open the DB through the
+    # `unix-dotfile` VFS, which locks with a `<db>.lock` directory instead of byte ranges (measured:
+    # the same CREATE TABLE completes in 0.12s with journal_mode=delete and data intact).
+    #
+    #   "auto" (default) elects unix-dotfile ONLY when a behavioural probe actually fails — fstype
+    #          outside the local allowlist AND the lock-UPGRADE probe is refused AND a real SQLite
+    #          write probe fails. On any healthy volume the URL is returned UNCHANGED, so this is a
+    #          strict no-op on every existing install.
+    #   "off"  the rollback: one value, no image change. Restores today's behaviour exactly.
+    #   "on"   force the conversion. Still gated by the SQLite-header check (see the WAL warning
+    #          below), so even "on" can never open a WAL database under unix-dotfile.
+    #
+    # ⚠️ unix-dotfile CANNOT open a WAL database at all ("unable to open database file"), and WAL is
+    # recorded in the file header, so it survives a clean close with no -wal/-shm on disk. The
+    # gateway therefore refuses dotfile on any WAL header and converts the volume first. Do NOT
+    # add a journal-mode knob here: `PRAGMA journal_mode=WAL` fails SILENTLY on a converted volume
+    # (it returns the PRIOR mode rather than raising), so the knob would look applied and do nothing.
+    #
+    # Strictly better where you control storage: a block-backed lite.storage.className, or `nobrl`
+    # in the StorageClass mountOptions (MEASURED: with nobrl the default VFS works AND WAL works, so
+    # no conversion is needed) — but mountOptions are recorded on the PV at provision time and are
+    # NOT retroactive to volumes that already exist.
+    DB_SQLITE_NETWORK_FS: "auto"
+    # PCP-24264: reap a stale `<db>.lock` DIRECTORY left behind by a hard kill. MANDATORY in
+    # practice, not a nicety: MEASURED on real cifs that SIGKILLing a process holding the dotlock
+    # leaves the directory on the share, and every subsequent boot then fails with the
+    # byte-identical string "database is locked" after the full busy timeout — permanently. Without
+    # the reaper, converting the volume turns a first-boot crash into a post-first-write one whose
+    # symptom is indistinguishable from the bug this setting exists to fix. Reaping does NOT bypass
+    # crash recovery: the separate `-journal` file still drives the rollback (measured).
+    #
+    # WHAT ACTUALLY GATES IT, stated precisely because an earlier version of this comment claimed a
+    # gate that does not exist ("the lite /data path" — grep confirms NO path check in either
+    # runtime module, and inventing one in a comment is how a reviewer ends up trusting a guard
+    # that is not there): the reaper runs only from the SQLite URL resolver, and only once that
+    # resolver has ELECTED the unix-dotfile VFS for the database it was handed; it then requires
+    # the single-writer proof (GATEWAY_REPLICAS == 1, forced from lite.replicas by
+    # lite-deployment.yaml), a real and EMPTY lock DIRECTORY, and an mtime older than a floor.
+    # NOTHING keys on the path. What keeps it out of full mode is this key living in `lite.config`
+    # and never in the shared `global.tpMcpGateway.config` map (asserted by case [4] of
+    # dev/mcp-gateway-render-tests/sqlite-netfs-assert.sh) plus full mode's dialect being postgres,
+    # so no SQLite URL is ever resolved there. Keep it here.
+    DB_SQLITE_NETFS_REAP_STALE_LOCK: "true"
+    # PCP-24264: the THIRD switch, and the only one that rewrites bytes INSIDE the customer's
+    # database. It was read by the runtime (config.py `db_sqlite_netfs_offline_unwal`, default
+    # true) and declared NOWHERE in this chart, which made the surfaced choice a false binary:
+    # accept the header rewrite, or set DB_SQLITE_NETWORK_FS="off" and keep the CrashLoop. The
+    # middle option existed in the image and in no values file anyone reads.
+    #
+    # What it gates: converting an ALREADY-EXISTING WAL database to rollback-journal mode by
+    # flipping header bytes 18-19 offline, after a verified backup, when the online
+    # `PRAGMA journal_mode=DELETE` cannot run — which on a share whose locking is broken is
+    # always. Set it "false" to keep the VFS election and the reaper while refusing that rewrite:
+    # a volume whose database is already rollback-journal (or empty, or not yet created) still
+    # converts and boots; one carrying a WAL header is REFUSED with the reason named, and the pod
+    # keeps failing until the storage is fixed. That is the right knob for a site whose policy
+    # forbids in-place mutation of a database file, and it is not reachable any other way.
+    DB_SQLITE_NETFS_OFFLINE_UNWAL: "true"
     # MCP_CLIENT_AUTH_ENABLED selects the auth METHOD: "true" = JWT/cookie only (the trusted-proxy
     # header is never read); "false" = trusted-proxy-header path (+ Bearer fallback). "true" is the
     # correct default for a non-proxy lite install (clients present a gateway-issued token).
@@ -1761,9 +2224,35 @@ lite:
 mcp-stack:
   enabled: true
 
+  # PCP-25281: the RateLimiterPlugin "redis" backend fragment, substituted into
+  # RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER (plugins.config, top of this file) by
+  # templates/configmap-gateway-plugin.yaml ONLY when real Redis is reachable here
+  # (redis.enabled or redis.external.enabled) -- memory otherwise. Lives under this
+  # subchart's own values block (not under the parent's `plugins:`) because a subchart
+  # template's `.Values` is the SUBCHART's own namespace: Helm passes a parent's plain
+  # top-level keys into a subchart only via `global.*` or by nesting under the subchart's
+  # own key, which is exactly this `mcp-stack:` block -- never a parent sibling key.
+  rateLimiterRedisBlock: |
+    backend: "redis"
+    redis_url: '{{ env.RATELIMITER_REDIS_URL | default(env.REDIS_URL | default("redis://redis:6379/0")) }}'
+    redis_key_prefix: "rl"
+    fail_mode: "open"
+    algorithm: "fixed_window"
+
   # Disable CRDs not permitted by DP service account
   networkPolicies:
     enabled: false
+
+  # PCP-25126: cadvisor is OPT-IN. The upstream sub-chart defaults it ON with
+  # `privileged: true` and hostPath mounts of /, /var/run, /sys and /var/lib/docker, which
+  # a namespace-bound Data Plane must never get by accident. Today it is only reachable via
+  # the outer `monitoring.enabled` gate (default false), so this changes no current render —
+  # it removes the latent path where turning on monitoring silently brings a privileged pod.
+  # Overridden HERE, not in charts/mcp-stack/values.yaml: that file is vendored from upstream
+  # ContextForge and a sync would revert an edit to its default.
+  monitoring:
+    cadvisor:
+      enabled: false
 
   migration:
     # The DB migration Job must run the SAME private TIBCO gateway image as the app (the
@@ -1774,8 +2263,12 @@ mcp-stack:
     # mcp-stack.image helper.
     image:
       repository: tp-mcp-gateway
-      tag: "1.21.0"
-      digest: ""
+      # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the gateway image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+      # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+      # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+      # it names the same image under both tags (re-resolved in the registry).
+      tag: "1.22.4"
+      digest: "sha256:e995b0a8ce9a2cbb77d2674f44360a2bc7a34393b1e28d146ccd52e75bf23294"
       pullPolicy: IfNotPresent
 
   mcpContextForge:
@@ -1788,8 +2281,12 @@ mcp-stack:
     # mcp-stack.image helper.
     image:
       repository: tp-mcp-gateway
-      tag: "1.21.0"
-      digest: ""
+      # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the gateway image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+      # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+      # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+      # it names the same image under both tags (re-resolved in the registry).
+      tag: "1.22.4"
+      digest: "sha256:e995b0a8ce9a2cbb77d2674f44360a2bc7a34393b1e28d146ccd52e75bf23294"
       pullPolicy: IfNotPresent
     secret:
       # Clamp JWT validity to the upstream cap: mcp-context-forge rejects token_expiry > 1440

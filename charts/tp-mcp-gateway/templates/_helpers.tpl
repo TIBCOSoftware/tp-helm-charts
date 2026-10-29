@@ -50,8 +50,25 @@ app.kubernetes.io/name: tp-mcp-gateway
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/part-of: "mcp-hub"
 platform.tibco.com/workload-type: "capability-service"
+{{- /* PCP-24484: emitted ONLY when the orchestrator actually injected them, i.e. only on a
+     DATA PLANE. These two are DP identities; the placement is decided by whoever initiates the
+     install, and this chart has three (DP via orchestrator/recipe, standalone/dial-home, and
+     in-CP). Unconditionally they render EMPTY on the two non-DP placements and land in
+     spec.selector -- which is IMMUTABLE -- so the next `helm upgrade` patches an immutable
+     field and fails, taking the whole release with it, not just the gateway.
+     Measured on ins-syan-122a12, which carries one of each:
+       DP-installed  dataplane-id="daq1no03pk9g00fdliog"  capability-instance-id="daq1t383pk9g00fdlj2g"
+       dial-home     dataplane-id=""                      capability-instance-id=""
+     So the guard is a NO-OP on a Data Plane -- the values are there, the labels still emit,
+     the selector is unchanged -- and it is exactly the non-DP installs that are broken today.
+     ⚠️ An EXISTING non-DP install already has the empty keys baked into its immutable selector;
+     it must be re-created, not upgraded. New installs are correct from the first render. */}}
+{{- if (((.Values.global).cp).dataplaneId) }}
 platform.tibco.com/dataplane-id: {{ .Values.global.cp.dataplaneId }}
+{{- end }}
+{{- if (((.Values.global).cp).instanceId) }}
 platform.tibco.com/capability-instance-id: {{ .Values.global.cp.instanceId }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -153,10 +170,147 @@ Normalized public path prefix — "" or "/clean-segment" (single leading slash, 
 trimAll collapses "", "/", and trailing-slash inputs uniformly so APP_ROOT_PATH, OAUTH_REDIRECT_URI,
 and the public ingress/route paths render without double slashes regardless of how the operator or
 recipe formats publicApi.pathPrefix (PCP-20050).
+
+PCP-25403: VALIDATED, for the same reason PCP-25553 validates wellKnownPrefix below — this value is
+concatenated into PUBLIC route paths, so a malformed one does not merely look wrong, it publishes a
+route nobody asked for. Two concrete failures, both MEASURED by rendering the chart and parsing the
+result with yq rather than reasoned about:
+
+  publicApi.pathPrefix: " #"       (a space and a hash)
+      gateway-public.yaml renders the LINE  `value: / #/servers`
+      ...which a YAML parser reads as       PathPrefix => /
+      i.e. the catch-all. The ` #` opens a YAML comment and swallows the rest of the line, so the
+      restriction silently becomes "publish everything". The regex tier is NOT immune either:
+      `value: ^/ #/servers/[^/]+/(mcp|sse|message)/?$` parses as `^/`, which matches every path.
+      ⇒ This defeated the allowlist on BOTH tiers, and it defeated the PCP-25379 allowlist that was
+      already shipped before this guard existed. It is not specific to one controller: the same
+      unquoted interpolation is in ingress-nginx.yaml, ingress-traefik.yaml and
+      ingress-haproxy-public.yaml, which is why the guard belongs HERE, in the one helper they all
+      call, rather than in whichever template is being edited this week.
+
+  publicApi.pathPrefix: "tenant//x"
+      trimAll only strips the OUTER slashes, so this renders `value: /tenant//x/servers`. Gateway
+      API requires a PathPrefix value to "not contain consecutive `/` characters", so the route is
+      rejected and ALL traffic on it drops — the opposite failure, equally silent at render time.
+
+Accepts one or more URL-safe path segments separated by single slashes. That admits every value the
+product actually produces, including the multi-segment shape measured on a live DP (`/mcp/hub`,
+PCP-23774).
+
+Why validate here rather than quote at the call sites: quoting stops the first failure but not the
+second (a quoted `"/tenant//x/servers"` is still a spec-invalid PathPrefix), and it has to be
+remembered by every template that interpolates this value — six do. Validating the input closes
+both failures at the source and cannot be forgotten. Quoting was tried on top of this and REVERTED:
+once the input is constrained to URL-safe segments no YAML metacharacter can reach the scalar, so
+it protected nothing, while changing the rendered bytes enough to break assertions in a file two
+sibling PRs were editing at the same time. If you add a template that interpolates a DIFFERENT,
+unvalidated value into a route path, give that value its own guard here — do not reach for quoting
+as the general answer.
 */}}
 {{- define "tp-mcp-gateway.pathPrefix" -}}
 {{- $p := .Values.publicApi.pathPrefix | default "" | trimAll "/" -}}
-{{- if $p -}}{{- printf "/%s" $p -}}{{- end -}}
+{{- if $p -}}
+{{- /* Each segment is URL-safe AND contains at least one NON-DOT character, which is how a
+       dot-segment ("." / "..") is excluded without a lookahead — Helm's regexMatch is RE2 and
+       has none. `..` was accepted by the first version of this guard: "." is a legitimate
+       character inside a segment (`.well-known`), so a character-class-only rule cannot tell
+       `a.b` from `..`. Found by running the guard against `../admin`, not by reading it. It
+       matters because $pp is not only a route path — it also lands in APP_ROOT_PATH and
+       OAUTH_REDIRECT_URI, and the Hub carries its own dot-segment guard (assertSafeGatewayTail)
+       for the same reason on the paths it composes. */ -}}
+{{- $seg := "[A-Za-z0-9._~-]*[A-Za-z0-9_~-][A-Za-z0-9._~-]*" -}}
+{{- if not (regexMatch (printf "^%s(/%s)*$" $seg $seg) $p) -}}
+{{- fail (printf "publicApi.pathPrefix must be one or more URL-safe path segments separated by single slashes, with no dot-segment (e.g. \"mcp-gateway\" or \"mcp/hub\") - got %q. It is concatenated into the PUBLIC ingress and Gateway API route paths, so a value containing whitespace, a '#', an empty segment or a '..' either publishes an unintended catch-all route or renders a path the Gateway API spec rejects (PCP-25403)." .Values.publicApi.pathPrefix) -}}
+{{- end -}}
+{{- printf "/%s" $p -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+PCP-25403: the two PUBLIC-EDGE identifiers, validated.
+
+`global.cp.resources.ingress.fqdn` and `.ingressClassName` are operator-settable and are
+interpolated into the rendered document by every public-edge template — ingress-traefik.yaml,
+ingress-nginx.yaml and ingress-haproxy-public.yaml. Measured by rendering a multi-line payload
+into each: the value ESCAPES its YAML scalar in all three.
+
+⚠️ THE MEASUREMENT THAT MATTERS, because the first reading of it said the opposite. Those renders
+FAIL — but with
+
+    error converting YAML to JSON: yaml: line 28: mapping values are not allowed in this context
+
+which is a PARSE ERROR, not a guard. The value escaped; that particular payload's indentation
+merely produced garbage. A payload indented for the surrounding context escapes into VALID YAML
+and is not refused at all. A parse error is not a control, and scoring one as "refused" is how a
+sweep hands back a false all-clear.
+
+Validated rather than quoted because quoting does not reach everywhere this lands: in
+ingress-traefik.yaml the fqdn sits inside a backtick-delimited Traefik rule expression
+(``Host(`<fqdn>`)``), where YAML quoting does nothing. Constraining the input covers every
+consumer at once — including the two templates owned by sibling tickets, which therefore need no
+edit and produce no cross-PR conflict.
+
+Charsets are deliberately permissive enough not to reject a real install:
+  fqdn            an optional `*.` wildcard, then letters/digits/dots/hyphens starting and ending
+                  alphanumeric. Accepts UPPERCASE (hostnames are case-insensitive and the chart
+                  does not normalise them) and punycode IDNs (`xn--…`, which is ASCII on the wire).
+                  Rejects whitespace, newlines, quotes and backticks.
+  ingressClassName  DNS-1123 SUBDOMAIN, not label: an IngressClass is a Kubernetes object and its
+                  name may contain dots. Using the stricter label form would reject a legitimate
+                  class like `example.com/ingress`. Lowercase-only is not a restriction — a
+                  Kubernetes object name cannot be uppercase.
+Both are skipped when empty: an unset value is how the chart disables that edge.
+*/}}
+{{- define "tp-mcp-gateway.assertPublicEdgeIdentifiers" -}}
+{{- $r := .Values.global.cp.resources -}}
+{{- $ing := (($r).ingress) -}}
+{{- $gw := (($r).gatewayapi) -}}
+{{- /* Only when a public edge is actually enabled. A junk value on an edge nobody turned on is
+       not worth failing an install over, and this keeps the guard off every unrelated render. */ -}}
+{{- if or (not (empty (($ing).ingressController))) (not (empty (($gw).gatewayAPIControllerName))) -}}
+{{- $fqdn := (($ing).fqdn) | default "" -}}
+{{- if and $fqdn (not (regexMatch "^(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$" $fqdn)) -}}
+{{- fail (printf "global.cp.resources.ingress.fqdn must be a hostname - letters, digits, dots and hyphens, optionally prefixed with '*.' - got [%v]. It is interpolated into the public ingress and route objects, and a value containing a newline escapes the YAML it lands in and can inject arbitrary structure, including an unrestricted route (PCP-25403)." $fqdn) -}}
+{{- end -}}
+{{- $cls := (($ing).ingressClassName) | default "" -}}
+{{- if and $cls (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" $cls)) -}}
+{{- fail (printf "global.cp.resources.ingress.ingressClassName must be a DNS-1123 subdomain - lowercase letters, digits, dots and hyphens, starting and ending alphanumeric - got [%v]. It is interpolated into the public ingress objects, and a value containing a newline escapes the YAML it lands in (PCP-25403)." $cls) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+PCP-25553: the RFC 9728 well-known base path, VALIDATED rather than trusted.
+
+`publicApi.wellKnownPrefix` is a PROTOCOL constant — RFC 9728 §3.1 registers exactly
+`/.well-known/oauth-protected-resource` — and values.yaml has always said "do NOT override
+per-deployment". But that was a COMMENT, and a comment is not a constraint. It matters far more
+than it looks, because the public ingress allowlist concatenates this value with $pp in BOTH
+orders. In the path-first order (added by PCP-25553, so the gateway's own advertised URL is
+routed) the operator-settable half lands in the SUFFIX position — which is exactly where the
+gateway's real routes live. Rendered with pathPrefix=tenant:
+
+    wellKnownPrefix: /        ->  PathPrefix(`/tenant/`)       the blanket prefix route
+                                                               PCP-25379 deliberately DELETED
+    wellKnownPrefix: /admin   ->  PathPrefix(`/tenant/admin`)  the admin console, straight out
+                                                               to the public internet
+
+The well-known-FIRST rule is accidentally immune to the same typo (it renders `//tenant` and
+`/admin/tenant`, neither of which is an application route), which is precisely why this was
+invisible until the path-first rule existed. One mistyped value would silently re-open the
+exposure PCP-25379 closed at the edge — the SAME shape of failure as PCP-25379 itself, which
+existed because the gateway's auth posture was ASSUMED rather than enforced. So enforce it:
+fail the render loudly instead of emitting a public route nobody asked for.
+
+Accepts only a well-known URI path (RFC 8615 registry shape). No repo values file overrides
+this key, so the guard costs nothing today and closes the hole permanently.
+*/}}
+{{- define "tp-mcp-gateway.wellKnownPrefix" -}}
+{{- $wk := .Values.publicApi.wellKnownPrefix | default "" -}}
+{{- if not (regexMatch "^/\\.well-known/[A-Za-z0-9][A-Za-z0-9._-]*$" $wk) -}}
+{{- fail (printf "publicApi.wellKnownPrefix must be a /.well-known/<segment> path (RFC 8615) - got %q. It is a protocol constant, not a deployment knob: the public ingress allowlist concatenates it with publicApi.pathPrefix, so an arbitrary value renders an unintended public route (PCP-25553)." $wk) -}}
+{{- end -}}
+{{- $wk -}}
 {{- end }}
 
 {{/*
@@ -207,6 +361,132 @@ default route's choice.
 */}}
 {{- define "tp-mcp-gateway.privateRoutePort" -}}
 {{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) -}}81{{- else -}}80{{- end -}}
+{{- end }}
+
+{{/*
+PCP-26712: `spec.port.targetPort` for the PRIVATE OpenShift Route (private-route.yaml,
+routeResources ingressController "openshiftRouter").
+
+privateRoutePort above is a Service port NUMBER, which is what an Ingress backend takes. A Route's
+targetPort is not: the OpenShift router keeps an endpoint when
+`endpoint.PortName == targetPort || endpoint.Port == targetPort` (openshift/router
+pkg/router/template/template_helper.go, endpointsForAlias, no fallback), and an Endpoints port
+carries the SERVICE port's NAME and the POD port's NUMBER (plugin.go, createRouterEndpoints). Since
+PCP-23986 the Service's port 81 targets the container port named `cp-internal` (8881), so the
+number 81 matches no endpoint and the router answers 503 for every CP->DP request. Measured on the
+upstream OpenShift router 4.18 (PCP-26712): `81` got no server line and a 503; `cp-internal` and
+`8881` both reached the gateway with a 200.
+
+So this names the same Service port privateRoutePort picks, the way the router can see it,
+mirroring the two Service templates exactly:
+  lite (lite-service.yaml)    proxy or discovery on -> the port NAMED `cp-internal` (Service port 81)
+                              both off              -> the port is unnamed, so the POD port 4444
+  full (mcp-stack service-mcp.yaml) global.tpMcpGateway.{tibcoProxy,discovery} on -> `cp-internal`
+                              both off              -> the port NAMED `http`
+KEEP IN SYNC with both Service templates; dev/mcp-gateway-render-tests/route-resources-assert.sh (H)
+resolves the rendered Route through the rendered Service and Deployment rather than trusting this.
+*/}}
+{{- define "tp-mcp-gateway.privateRouteTargetPort" -}}
+{{- if .Values.lite.enabled -}}
+{{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) -}}cp-internal{{- else -}}4444{{- end -}}
+{{- else -}}
+{{- $g := .Values.global | default dict -}}
+{{- if (or (dig "tpMcpGateway" "tibcoProxy" "enabled" false $g) (dig "tpMcpGateway" "discovery" "enabled" true $g)) -}}cp-internal{{- else -}}http{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+PCP-26618: `spec.port.targetPort` for the PUBLIC OpenShift Routes (templates/route-openshift-public.yaml).
+
+A Route's targetPort is NOT a Service port number. The OpenShift router keeps an endpoint when
+`endpoint.PortName == targetPort || endpoint.Port == targetPort` (openshift/router
+pkg/router/template/template_helper.go, endpointsForAlias), and an Endpoints port carries the
+SERVICE port's NAME and the POD port's NUMBER (plugin.go, createRouterEndpoints). Nothing matches the
+Service port number. The Ingress templates can say `port: number: 80` because an Ingress backend IS
+a Service port; a Route that says `80` here matches no endpoint once the proxy listens on 8880
+(PCP-23986), and the router answers 503.
+
+So this names the Service's external port 80 the way the router can see it, mirroring the two
+Service templates exactly:
+  lite (lite-service.yaml)    proxy or discovery on -> the port NAMED `external` (pod 8880 by default)
+                              both off              -> the port is unnamed, so the POD port 4444
+  full (mcp-stack service-mcp.yaml) global.tpMcpGateway.{tibcoProxy,discovery} on -> `external`
+                              both off              -> the port NAMED `http`
+Never `cp-internal`: that listener trusts the platform identity headers the external one strips.
+KEEP IN SYNC with both Service templates; dev/mcp-gateway-render-tests/openshift-public-route-assert.sh
+(C) resolves the rendered Route through the rendered Service and Deployment rather than trusting this.
+*/}}
+{{- define "tp-mcp-gateway.publicRouteTargetPort" -}}
+{{- if .Values.lite.enabled -}}
+{{- if (or .Values.tibcoProxy.enabled .Values.discovery.enabled) -}}external{{- else -}}4444{{- end -}}
+{{- else -}}
+{{- $g := .Values.global | default dict -}}
+{{- if (or (dig "tpMcpGateway" "tibcoProxy" "enabled" false $g) (dig "tpMcpGateway" "discovery" "enabled" true $g)) -}}external{{- else -}}http{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+PCP-26618: the ingressController values that have a PUBLIC template here, space-separated. Each one
+must appear in exactly one template's gate: ingress-haproxy-public.yaml, ingress-nginx.yaml,
+ingress-traefik.yaml, route-openshift-public.yaml.
+*/}}
+{{- define "tp-mcp-gateway.publicIngressControllers" -}}haProxy nginx traefik openshiftRouter{{- end }}
+
+{{/*
+PCP-26618: values the Control Plane OFFERS for this key that have NO public template here yet. They
+render no public entry point — exactly what they rendered before — and are accepted rather than
+failed, because failing the render would also take down the private CP->DP route that works for them
+today. Each entry is a tracked defect, not a decision: kong -> PCP-26720.
+The Control Plane's INGRESS resource offers nginx, kong, traefik, openshiftRouter and haProxy
+(tp-cp-user-subscriptions testdata/scripts/postgres/tscutd/sql/21-up.sql).
+*/}}
+{{- define "tp-mcp-gateway.publicEdgeGapControllers" -}}kong{{- end }}
+
+{{/*
+PCP-26618 (pm ruling of 2026-10-21): the ONE place an ingressController value is matched. It serves both
+selectors: global.cp.resources.ingress for the public edge, and global.cp.routeResources.ingress for the
+private CP->DP route. Every controller gate in this chart compares this helper's result, never the raw value.
+
+It returns the canonical spelling of a known controller, matched CASE-INSENSITIVELY. Any other value is
+returned unchanged: an empty value stays empty, and an unknown one stays exactly as given, so the guard below
+names what the operator wrote. Matching ignores case because the Control Plane's control-tower registration API
+validates the controller case-insensitively but stores the raw spelling (tp-cp-web-server
+cp/web-server/routes/cli/api.js:589 vs :2300), and its API schema lists capitalised values ("OpenshiftRouter").
+An exact match would give such a Data Plane no public edge, which is the PCP-26618 defect again, or a failed
+render. dev/mcp-gateway-render-tests/ingress-controller-case-assert.sh pins two things: every spelling renders
+byte-for-byte what the canonical one renders, and no gate compares the raw key.
+
+Usage: include "tp-mcp-gateway.canonicalIngressController" <raw value>
+*/}}
+{{- define "tp-mcp-gateway.canonicalIngressController" -}}
+{{- $raw := toString (. | default "") -}}
+{{- $out := $raw -}}
+{{- range splitList " " (printf "%s %s" (include "tp-mcp-gateway.publicIngressControllers" $) (include "tp-mcp-gateway.publicEdgeGapControllers" $)) -}}
+{{- if eq (lower .) (lower $raw) -}}{{- $out = . -}}{{- end -}}
+{{- end -}}
+{{- $out -}}
+{{- end }}
+
+{{/*
+PCP-26618: a non-empty global.cp.resources.ingress.ingressController that is neither handled by a
+public template nor a tracked gap fails the render BY NAME. Matching ignores case
+(tp-mcp-gateway.canonicalIngressController); the message quotes the value as given.
+
+Before this guard any unhandled value rendered nothing: no public object, no error, no warning. That
+is how openshiftRouter shipped — the gateway showed ONLINE (the Hub reaches it over the private CP->DP
+route) while every public URL answered the router's 503. An EMPTY value is not refused: no controller
+selected means no public Ingress-family edge, by design (Gateway API is the independent selector).
+dev/mcp-gateway-render-tests/public-edge-controller-coverage-assert.sh checks every value the Control
+Plane offers and every value a sibling chart handles, so the next controller cannot ship silently.
+*/}}
+{{- define "tp-mcp-gateway.assertPublicEdgeController" -}}
+{{- $raw := ((((.Values.global).cp).resources).ingress).ingressController | default "" -}}
+{{- $ctrl := include "tp-mcp-gateway.canonicalIngressController" $raw -}}
+{{- $public := splitList " " (include "tp-mcp-gateway.publicIngressControllers" .) -}}
+{{- $gaps := splitList " " (include "tp-mcp-gateway.publicEdgeGapControllers" .) -}}
+{{- if and $ctrl (not (has $ctrl $public)) (not (has $ctrl $gaps)) -}}
+{{- fail (printf "global.cp.resources.ingress.ingressController %q is not an ingress controller this chart knows (public route templates: %s; accepted without one: %s; matched case-insensitively). An unknown value would render no public entry point at all while the gateway still reports ONLINE, so the chart refuses to guess (PCP-26618)." $raw (join ", " $public) (join ", " $gaps)) -}}
+{{- end -}}
 {{- end }}
 
 {{/*

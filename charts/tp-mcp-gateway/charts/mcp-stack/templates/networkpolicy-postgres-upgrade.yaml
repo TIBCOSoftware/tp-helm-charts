@@ -16,7 +16,19 @@
 {{- if .Values.networkPolicies.enabled }}
 {{- $fullName := include "mcp-stack.fullname" . -}}
 
-{{- if and .Values.postgres.upgrade.enabled (eq (.Values.postgres.upgrade.targetVersion | toString) "18") (not .Values.postgres.upgrade.backupCompleted) .Values.networkPolicies.postgres.enabled .Values.postgres.enabled (not .Values.postgres.external.enabled) .Values.networkPolicies.postgres.allowUpgradeJobs }}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+       The "is the pre-upgrade backup Job actually rendering" half of this gate now comes from
+       "mcp-stack.postgres.backupWindowOpen", so this NetworkPolicy cannot disagree with the Job it
+       exists to unblock. It PREVIOUSLY DID: this gate carried `.Values.postgres.enabled` and the
+       Job's gate did not — and THIS gate was the correct one. The database manifest renders under
+       $rendersDeployment = `postgres.enabled AND (not external.enabled)`
+       (deployment-postgres.yaml:50), so `postgres.enabled=false` + `upgrade.enabled=true` emitted a
+       backup Job against a database that is never deployed. The helper adopts this file's stricter
+       condition, so the fix CLOSES that window rather than granting it ingress. `postgres.enabled`
+       is consequently no longer restated here — it lives in the helper. What is left is only what is
+       genuinely NetworkPolicy-specific: is this component's NP switched on, and is it permitted to
+       carry the upgrade-job rules. */ -}}
+{{- if and (include "mcp-stack.postgres.backupWindowOpen" .) .Values.networkPolicies.postgres.enabled .Values.networkPolicies.postgres.allowUpgradeJobs }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -54,7 +66,12 @@ spec:
           port: {{ .Values.postgres.service.port }}
 {{- end }}
 
-{{- if and .Values.postgres.upgrade.enabled (eq (.Values.postgres.upgrade.targetVersion | toString) "18") (not .Values.postgres.upgrade.backupCompleted) (not .Values.postgres.external.enabled) .Values.networkPolicies.minio.enabled .Values.minio.enabled .Values.networkPolicies.minio.allowUpgradeJobs }}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+       Same single source of truth as the postgres NP above. `minio.enabled` STAYS: it is the
+       use-site condition of the object store this policy selects, not a restatement of the backup
+       window, and deployment-postgres.yaml's fail-fast is what guarantees it is true whenever the
+       window is open. */ -}}
+{{- if and (include "mcp-stack.postgres.backupWindowOpen" .) .Values.networkPolicies.minio.enabled .Values.minio.enabled .Values.networkPolicies.minio.allowUpgradeJobs }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -7,5 +7,6 @@ metadata:
     {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
 data:
   config.yaml: |
-    {{- .Values.plugins.config | nindent 4 }}
+    {{- /* PCP-25281: lite never has a Redis service -- always the explicit memory backend. */}}
+    {{- .Values.plugins.config | replace "RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER" "backend: \"memory\"" | nindent 4 }}
 {{- end }}

@@ -32,6 +32,12 @@ spec:
     type: Recreate
   template:
     metadata:
+      {{- if .Values.redis.auth.enabled }}
+      annotations:
+        # PCP-25210: roll this pod when the auth password changes (paired with the same
+        # annotation on deployment-mcpgateway.yaml -- see mcp-stack.redisAuthEffectivePassword).
+        checksum/redis-secret: {{ include "mcp-stack.redisAuthEffectivePassword" . | sha256sum }}
+      {{- end }}
       labels:
         app: {{ include "mcp-stack.fullname" . }}-redis
     spec:

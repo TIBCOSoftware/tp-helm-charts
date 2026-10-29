@@ -1,6 +1,180 @@
 {{ if not (empty .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName) -}}
 {{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
 {{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
+{{- $ppRe := regexQuoteMeta $pp -}}
+{{- /*
+PCP-25403: TRIMMED before anything else. The tier gate lowercases but used not to trim, so
+`"istio "` with one trailing space silently fell through to TIER 2 — and combined with
+gatewayApiAllowlistEnabled=false that produced the BLANKET prefix, which directly contradicts the
+promise made at the opt-out branch below ("ISTIO and NGINX_GATEWAY_FABRIC keep the TIER 1 regex
+allowlist whatever this key says"). Each half is harmless alone: a stray space only NARROWS, and
+the opt-out is documented. Together they are the full prefix, on a controller the operator was
+told was protected. Measured with `--set-string`, leading and trailing space both.
+Trim rather than reject: a stray space in a recipe-supplied value is a typo to normalise, not a
+reason to fail an install. Interior newlines are NOT trimmed, so the injection guard below still
+sees them.
+*/}}
+{{- $gwCtrlRaw := .Values.global.cp.resources.gatewayapi.gatewayAPIControllerName | trim -}}
+{{- /*
+PCP-25403: VALIDATED, because this value is interpolated into the rendered document and a
+MULTI-LINE value escapes whatever it is interpolated into.
+
+Reproduced on this chart before the guard existed. With
+
+    gatewayAPIControllerName: "evil\n    - path:\n        type: PathPrefix\n        value: /\n    # "
+
+the value lands in a YAML COMMENT, the newline ends the comment, and the rest is parsed as YAML:
+
+    # TIER 2 (PCP-25403) - Core-conformance allowlist for evil
+    - path:
+        type: PathPrefix
+        value: /                      <- an injected CATCH-ALL; the allowlist is gone
+
+⚠️ PRE-EXISTING, not introduced here: origin/main carries the identical unquoted interpolation in
+the PCP-25379 comment at the same place. Found by the security review of this PR and then
+reproduced independently rather than taken on trust.
+
+Two fixes, because either alone leaves the class open: the comment below no longer interpolates
+the value at all (the `platform.tibco.com/controller-name` annotation already records it, and
+that one IS quoted), and the value is constrained here so that a future interpolation — in this
+file or another — cannot reopen it. The charset accepts every controller the product offers
+(GKE, ISTIO, NGINX_GATEWAY_FABRIC, traefik, netscaler, "other") and rejects newlines, spaces,
+quotes and backticks.
+The outer guard above already handles the empty case, so this only sees a non-empty value.
+*/}}
+{{- if not (regexMatch "^[A-Za-z0-9._-]+$" $gwCtrlRaw) -}}
+{{- fail (printf "global.cp.resources.gatewayapi.gatewayAPIControllerName must be a single token of letters, digits, dot, underscore or hyphen - got [%v]. It is interpolated into the rendered HTTPRoute, and a multi-line value escapes the YAML it lands in and can inject an unrestricted catch-all route (PCP-25403)." $gwCtrlRaw) -}}
+{{- end -}}
+{{- $gwCtrl := $gwCtrlRaw | lower -}}
+{{- /*
+Two PATH-MATCH TIERS, both of which route ONLY the documented MCP surface. Which tier a
+controller gets depends on whether it can be relied on to honour a regex match; NEITHER tier
+publishes /admin, /rpc or the management REST API.
+
+PCP-25379 established the gate. PCP-25403 replaced what the ungated side falls back TO: it used
+to be the blanket `<pathPrefix>/` prefix — i.e. the whole gateway, admin included — which left
+the public exposure open on every controller outside the two named below.
+
+`RegularExpression` is Gateway API's **Implementation-specific** path match type — NOT Extended,
+as this comment previously claimed. Verbatim from the spec's own `PathMatchType` godoc
+(kubernetes-sigs/gateway-api v1.6.3, apis/v1/httproute_types.go):
+
+    * "Exact" - Core
+    * "PathPrefix" - Core
+    * "RegularExpression" - Implementation Specific
+
+and on the constant itself: "Since `\"RegularExpression\"` has implementation-specific
+conformance, implementations can support POSIX, PCRE, RE2 or any other regular expression
+dialect." So it is not merely optional — the DIALECT is unspecified too, and an implementation
+that rejects the value "must result in the implementation setting the Accepted Condition for the
+Route to `status: False`", i.e. an unsupported value can drop ALL traffic on this route rather
+than merely failing to restrict it. It is NOT safe to render unconditionally.
+
+TIER 1 — regex allowlist (exact MCP client paths). Controllers verified first-party:
+  - ISTIO: istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/ (Gateway API
+    support); working `type: RegularExpression` configs confirmed via istio/istio's own issue
+    tracker (e.g. #60541, #60695 — both about specific edge cases — URLRewrite substitution,
+    and precedence when a SEPARATE route in the same HTTPRoute also has a PathPrefix "/"
+    catch-all, which this chart's rule does not have — not "RegularExpression doesn't work").
+  - NGINX_GATEWAY_FABRIC: docs.nginx.com/nginx-gateway-fabric/traffic-management/advanced-routing/
+    — "RegularExpression: Matches based on RE2-compatible regular expressions" (first-party,
+    unambiguous).
+
+TIER 2 — Core-conformance allowlist (`PathPrefix` only), for GKE, an empty value, and any
+controller not on the list above. `PathPrefix` is Core, so this tier CANNOT be rejected for an
+unsupported match type on any conformant implementation — the failure mode TIER 1 exists to
+avoid does not apply to it. It matches on whole path ELEMENTS (spec: "/abc" matches "/abc",
+"/abc/", "/abc/def", not "/abcd"), so `<pathPrefix>/servers` reaches the per-server MCP
+endpoints without admitting a `/serversX` lookalike.
+
+⚠️ CORRECTION, because this comment previously asserted the opposite and the citation does not
+support it: "GKE Gateway: Core conformance only ... per gateway-api.sigs.k8s.io/implementations/"
+is wrong twice over.
+  (a) The implementations/conformance data CANNOT answer this. Conformance covers Core and
+      Extended only; `RegularExpression` is Implementation-specific, so it is out of scope by
+      construction — there is no feature constant for regex path matching in the spec's own
+      pkg/features/httproute.go at all.
+  (b) GKE's answer is PER-GATEWAYCLASS, not a single yes/no. Per Google's GatewayClass
+      capabilities table (docs.cloud.google.com/kubernetes-engine/docs/how-to/
+      gatewayclass-capabilities, `path.type` row): `gke-l7-global-external-managed`,
+      `-mc` and the classic `gke-l7-gxlb`, `-mc` list only "Exact, PathPrefix"; whereas
+      `gke-l7-regional-external-managed`, `-mc`, `gke-l7-cross-regional-internal-managed-mc`,
+      `gke-l7-rilb` and `-mc` list "Exact, PathPrefix, RegularExpression".
+⇒ The CONCLUSION (do not render regex for GKE) survives and is in fact firmer than before: this
+chart is configured with a CONTROLLER NAME, never a GatewayClass, so it cannot know which half of
+that table applies. The common external choice `gke-l7-global-external-managed` is in the
+no-regex half. A Core-only tier is therefore the only universally safe narrowing.
+Grounding, with the verbatim quotes: dev/plan/PCP-25403-plan.md.
+
+Residual, deliberately NOT closed here: TIER 2 still admits bare `<pathPrefix>/servers` and the
+per-server REST sub-resources, because "a wildcard id segment" is not expressible in Core
+conformance. A rule that MATCHES but carries no backendRefs is not the answer — the spec makes
+that a 500, not a 404, which is worse than not matching. Operators who need TIER 1 tightness on a
+no-regex GKE class must do it at their own edge (Cloud Armor via GCPBackendPolicy); that is an
+operator mitigation, not chart-managed. See dev/plan/PCP-25403-plan.md.
+
+PCP-26950 — that residual now exists on a LITE gateway ONLY. A FULL gateway is published only on the
+private path on TIER 2: it publishes NO `<pathPrefix>/servers` rule (gated on lite.enabled, the one switch
+mode-validate.yaml makes exclusive), because the exact per-server path cannot be expressed here and the
+registry paths under that prefix belong to the private CP->DP route. OAuth and discovery stay, and the
+cost is that a FULL gateway has no public MCP endpoint on a TIER 2 controller. For public MCP access use a
+LITE gateway, or an Ingress controller / a TIER 1 Gateway API controller (ISTIO, NGINX_GATEWAY_FABRIC)
+that can express the exact per-server path. The opt-out below is refused for FULL for the same reason. The
+guard is dev/mcp-gateway-render-tests/full-gw-public-edge-assert.sh.
+*/ -}}
+{{- $regexCapable := or (eq $gwCtrl "istio") (eq $gwCtrl "nginx_gateway_fabric") -}}
+{{- /*
+PCP-25403: the escape hatch, mirroring publicApi.nginxAllowlistEnabled so the three public-edge
+allowlists read alike. `false` restores the pre-PCP-25379 blanket route for an operator who was
+relying on a path this allowlist no longer publishes.
+
+⚠️ DEFAULTED EXPLICITLY, not read bare. `.Values.publicApi.gatewayApiAllowlistEnabled` is `nil`
+when the key is absent, and `nil` is FALSY — so a bare read would turn a values file that predates
+this key into "allowlist OFF", i.e. it would silently re-open the exposure on exactly the installs
+that never opted out. `hasKey` distinguishes "absent" from "explicitly false"; absent means ON.
+*/ -}}
+{{- $allowlist := true -}}
+{{- if hasKey .Values.publicApi "gatewayApiAllowlistEnabled" -}}
+{{- $v := .Values.publicApi.gatewayApiAllowlistEnabled -}}
+{{- /*
+⚠️ TYPE-CHECKED, not just read. Go templates decide truthiness by EMPTINESS, which is not the same
+question as "did the operator say false", and two of the spellings an operator can actually produce
+were fail-OPEN. Measured by rendering each one:
+
+    --set ...=""        -> EMPTY -> falsy -> ALLOWLIST OFF   <- a blank override opens the edge
+    --set ...=0         -> EMPTY -> falsy -> ALLOWLIST OFF
+    --set-string ...=false -> the STRING "false", which is NON-empty -> ALLOWLIST ON
+
+The blank case is the dangerous one: a values file whose substitution did not happen silently
+selects the permissive branch, and nothing in the render says so. The `--set-string` case fails the
+safe way but is just as surprising — the operator means OFF and gets ON.
+
+`| default true` cannot fix this either, and would make it worse: Go treats `false` as empty, so
+`default true` rewrites an explicit `false` back to `true` and deletes the opt-out entirely.
+
+So require a real boolean and fail loudly otherwise — the same stance this chart already takes for
+publicApi.wellKnownPrefix in _helpers.tpl, for the same reason: a malformed value here publishes a
+public route nobody asked for.
+Credit: this class was found by the PCP-25406 lane's security review against the nginx template and
+passed to this one; both fail-open cases above were then reproduced here.
+*/}}
+{{- if not (kindIs "bool" $v) -}}
+{{- fail (printf "publicApi.gatewayApiAllowlistEnabled must be a boolean, got [%v] (kind %s). Set it with --set publicApi.gatewayApiAllowlistEnabled=false (or true) - never --set-string, and never an empty value. Go templates treat an empty string and 0 as FALSE, so a blank override would silently publish the whole publicApi.pathPrefix prefix on the public edge, including /admin (PCP-25403)." $v (kindOf $v)) -}}
+{{- end -}}
+{{- $allowlist = $v -}}
+{{- end -}}
+{{- /*
+PCP-26950: the opt-out is REFUSED for a FULL gateway. With the key false TIER 2 publishes the blanket
+`<pathPrefix>/` prefix, which is the opposite of the rule above (a FULL gateway is published only on the
+private path on this edge). Refused by name rather than ignored, so an operator who set it learns it no
+longer applies instead of assuming it is honoured. Scoped exactly like the opt-out itself: TIER 2 only
+(`not $regexCapable`), because on ISTIO and NGINX_GATEWAY_FABRIC the key has always been a no-op and
+refusing it there would only break an upgrade that carries it for no effect; and FULL only, because LITE
+keeps the opt-out.
+*/ -}}
+{{- if and (not $regexCapable) (not $allowlist) (not .Values.lite.enabled) -}}
+{{- fail "publicApi.gatewayApiAllowlistEnabled=false is refused for a FULL gateway (lite.enabled=false): on a Gateway API controller other than ISTIO / NGINX_GATEWAY_FABRIC it would publish the whole publicApi.pathPrefix prefix of the gateway, and a FULL gateway is published only on the private path on this edge. Leave the key at its default (true); with `helm upgrade --reuse-values` a previous false is carried over, so pass publicApi.gatewayApiAllowlistEnabled=true explicitly (or drop the key). A FULL gateway publishes no <pathPrefix>/servers rule on the public Gateway API route (PCP-26950; its OAuth and discovery routes stay) and stays reachable on the private path. Use a LITE gateway, or an Ingress controller or a Gateway API controller that can express the exact per-server path (ISTIO, NGINX_GATEWAY_FABRIC), for public MCP access." -}}
+{{- end -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -14,25 +188,220 @@ metadata:
     {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
 spec:
   parentRefs:
-  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName }}
+  {{- /*
+  PCP-25403: these three are QUOTED. They are operator-settable and were interpolated bare, so a
+  multi-line value escaped the scalar and injected structure into the HTTPRoute spec — the same
+  class as the controller-name injection guarded at the top of this file, found by the same sweep.
+  Measured: a value of "x\n    <key>: yes\n  <key2>: yes" produced
+
+      parentRefs:
+      - name: x
+        <key>: yes            <- injected into the parentRef
+      <key2>: yes             <- injected into spec
+
+  gatewayHostOrDomainName below was already quoted and was the one field in this block that did NOT
+  escape, which is exactly what makes `| quote` the fix rather than a style preference.
+  ⚠️ PRE-EXISTING: origin/main interpolates all three bare in the same place.
+  Quoting rather than validating, because unlike the controller name these are not matched against
+  a known set — a Gateway can legitimately be named or namespaced anything Kubernetes accepts, and
+  a guess at that charset would reject valid installs. Quoting contains the value without
+  constraining it.
+  */}}
+  - name: {{ .Values.global.cp.resources.gatewayapi.gatewayName | quote }}
     {{- if .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
-    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace }}
+    namespace: {{ .Values.global.cp.resources.gatewayapi.gatewayNamespace | quote }}
     {{- end }}
     {{- if .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
-    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ .Values.global.cp.resources.gatewayapi.gatewaySectionName | quote }}
     {{- end }}
   hostnames:
   - {{ .Values.global.cp.resources.gatewayapi.gatewayHostOrDomainName | quote }}
   rules:
   - matches:
+    {{- if and (not $regexCapable) (not $allowlist) }}
+    # OPT-OUT (publicApi.gatewayApiAllowlistEnabled=false) — the pre-PCP-25403 blanket prefix,
+    # restored verbatim. The whole gateway prefix is published again, /admin and the management
+    # REST API included.
+    #
+    # ⚠️ SCOPED TO TIER 2 ON PURPOSE — read `and (not $regexCapable)` before assuming this is a
+    # bug. The knob restores what PCP-25403 changed, and PCP-25403 changed only this branch.
+    # ISTIO and NGINX_GATEWAY_FABRIC keep the TIER 1 regex allowlist that shipped in PCP-25379
+    # whatever this key says.
+    #
+    # The alternative — one knob that turns the whole template off, the literal shape of
+    # publicApi.nginxAllowlistEnabled — was implemented first and then MEASURED against
+    # origin/main, which is what settled it: for ISTIO the route on main IS the regex allowlist,
+    # so a knob that handed ISTIO the blanket would not "restore the previous route" at all. It
+    # would silently un-ship a hardening from a different ticket that this one never touched, and
+    # it would do so on the one path an operator reaches for while something is already broken.
+    # Scoping it this way also buys a property worth having: with the key false the rendered route
+    # is byte-identical to origin/main for EVERY controller, which is a claim a test can check
+    # rather than a promise in a comment. (PCP-26950: for a LITE gateway; a FULL gateway on TIER 2
+    # refuses the key, see the refusal above this route.)
+    #
+    # Nothing in the chart sets this to false; it exists so that an operator who discovers they
+    # were relying on a path the allowlist no longer publishes has a documented one-line revert
+    # instead of hand-writing their own HTTPRoute. See values.yaml for what to do instead.
     - path:
         type: PathPrefix
         value: {{ if $pp }}{{ $pp }}/{{ else }}/{{ end }}
     {{- if $pp }}
-    # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
+    # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path. Guarded on $pp
+    # exactly as it was before PCP-25403: with an empty prefix the blanket `/` above already
+    # carries it.
     - path:
         type: PathPrefix
-        value: {{ .Values.publicApi.wellKnownPrefix }}{{ $pp }}
+        value: {{ include "tp-mcp-gateway.wellKnownPrefix" . }}{{ $pp }}
+    {{- end }}
+    {{- else }}
+    {{- if $regexCapable }}
+    # TIER 1 — the exact external MCP client paths, for a controller verified to honour a regex
+    # match. See this file's header comment for the per-controller evidence.
+    {{- /*
+    PCP-25403: the id wildcard is `[^/%]+`, NOT `[^/]+`. Excluding `%` is what stops a
+    percent-encoded separator from being smuggled through the id segment.
+    MEASURED on ins-syan-a90gwapi (traefik Gateway API v3.7.13): traefik does NOT percent-decode
+    before matching, so `%2F` is not a separator to the matcher and
+    `<pp>/oauth/authorize/..%2F..%2Fadmin` matched `[^/]+` — it contains no literal slash — and
+    reached the backend. The literal `../` and `%2E%2E` forms did not; `%` is the one that matters.
+    ⚠️ That was never a confirmed privilege bypass: the app answered 404, not the 401 a real
+    /admin hit returns, so it did not resolve the escape. This closes it at the edge anyway,
+    because the only thing standing between the two is the app's own non-normalisation.
+    SAFE because neither id can contain `%`: a server id is validated through
+    `SecurityValidator.validate_uuid` (common/validators.py:812-822), which parses with
+    `uuid.UUID(value)` and returns `str(uuid_obj).replace("-","")` — 32 lowercase hex characters;
+    and `GatewayCreate` (schemas.py:3253) has no `id` field at all, so a gateway id is always the
+    DB default `uuid.uuid4().hex`.
+    ⚠️ TIER 2 CANNOT HAVE THIS. `PathPrefix` has no exclusion, so the Core tier still admits the
+    encoded form — a stated residual, not an oversight. See dev/plan/PCP-25403-plan.md §7.2.1.
+
+    NB on how this block CLOSES: inside a YAML list it must not use the whitespace-chomping form
+    of the comment terminator (the one with a dash before the closing braces). That dash eats the
+    newline after the comment, which glues the next `- path:` onto the end of the last comment line
+    and breaks the document with "did not find expected key". The header comment at the top of this
+    file may use the chomping form because nothing follows it on that line.
+    And do not spell either terminator out literally in here: the first one written inside a
+    comment ENDS the comment, and the remaining prose lands in the manifest as YAML. Both of those
+    cost a render each while this was being written.
+    */}}
+    - path:
+        type: RegularExpression
+        value: ^{{ $ppRe }}/servers/[^/%]+/(mcp|sse|message)/?$
+    # PCP-25403: the OAuth AUTHORIZE entry point. See the `oauth/callback` rule below for why
+    # these two paths are published; this is the per-tier half, exact on the id segment because
+    # this tier has a regex.
+    - path:
+        type: RegularExpression
+        value: ^{{ $ppRe }}/oauth/authorize/[^/%]+/?$
+    {{- else }}
+    # TIER 2 (PCP-25403) — Core-conformance allowlist. The controller name is deliberately NOT
+    # interpolated here: it is operator-settable, and a multi-line value ends this comment and
+    # injects YAML (see the validator at the top of this file). The quoted
+    # `platform.tibco.com/controller-name` annotation above already records which controller it was.
+    # This branch is for a controller NOT verified to honour Gateway API's Implementation-specific RegularExpression
+    # match (or an unrecognised value). `PathPrefix` is Core, so unlike a regex this can never be
+    # rejected as an unsupported value and drop the whole route.
+    #
+    # This is the SAME intent as TIER 1 — publish the per-server MCP endpoints and nothing else —
+    # expressed with the one match type every conformant implementation must support. PathPrefix
+    # matches whole path ELEMENTS, so this reaches `<pp>/servers/<id>/{mcp,sse,message}` but not
+    # a `<pp>/serversX` lookalike, and it does NOT reach /admin, /rpc, the root /mcp, /sse,
+    # /message, /tools, /gateways, /resources, /prompts, /a2a, /docs or /openapi.json.
+    #
+    # It is deliberately WIDER than TIER 1 by exactly one thing: bare `<pp>/servers` and the
+    # per-server REST sub-resources stay reachable, because Core conformance cannot express a
+    # wildcard id segment. That residual is a strict subset of what this branch published before
+    # PCP-25403 (the entire prefix), and a strict superset of the TIER 1 allowlist that is already
+    # live-verified to carry MCP client traffic — so it can neither break a working client nor be
+    # worse than the behaviour it replaces.
+    # PCP-26950: ON A LITE GATEWAY ONLY. A FULL gateway does not publish this rule at all (see the header).
+    {{- if .Values.lite.enabled }}
+    - path:
+        type: PathPrefix
+        value: {{ $pp }}/servers
+    {{- end }}
+    # PCP-25403: the OAuth AUTHORIZE entry point — see the `oauth/callback` rule below for why.
+    # Core conformance cannot pin the id segment, so this admits `<pp>/oauth/authorize` and
+    # anything under it, exactly the same documented limitation as `<pp>/servers` above. It does
+    # NOT admit the rest of /oauth: /oauth/status, /oauth/fetch-tools and /oauth/registered-clients
+    # stay closed, because the Hub reaches those over the CP->DP tunnel.
+    - path:
+        type: PathPrefix
+        value: {{ $pp }}/oauth/authorize
+    {{- end }}
+    # PCP-25403: the OAuth CALLBACK. Identical in both tiers, so emitted once.
+    #
+    # This is a DELIBERATE, MINIMAL widening of the allowlist, and it is here because the chart
+    # otherwise contradicts itself: oauth-configmap.yaml:50 and lite-deployment.yaml:286 set
+    # OAUTH_REDIRECT_URI to `{{ "{{ appDomain }}{{ pathPrefix }}" }}/oauth/callback`, and appDomain
+    # resolves to the PUBLIC host (_helpers.tpl — publicApi.appDomain, else ingress.fqdn, else the
+    # Gateway API host). So the chart tells the gateway "your OAuth callback is at this public
+    # URL" and then does not route it.
+    #
+    # MEASURED, not reasoned about (ins-syan-a90gwapi, published chart 1.22.0-alpha.25, the traefik
+    # allowlist live exactly as customers have it): `<pp>/oauth/callback` returned traefik's own
+    # 404 with no `server` header — the request never reached the gateway — while that same
+    # deployment carried OAUTH_REDIRECT_URI pointing at it. With these two paths added it reached
+    # the app (`server: uvicorn`), and /admin, /rpc, `<pp>/` and /oauth/status all stayed closed.
+    #
+    # Why publishing these two is safe:
+    #   - /oauth/callback is unauthenticated BY DESIGN — it is the RFC 6749 redirect endpoint, and
+    #     an IdP redirects a human browser to it. It is protected by the `state` parameter, not by
+    #     being unroutable.
+    #   - /oauth/authorize/<id> 401s a caller carrying neither a session nor a nonce, and otherwise
+    #     consumes a single-use, session-bound nonce.
+    #     ⚠️ QUALIFIED, because that 401 is CONDITIONAL and the condition is ON in full mode. The
+    #     branch is `if not (allow_unauthenticated_admin and proxy_email)` (oauth_router.py:1052),
+    #     and the full-mode ConfigMap ships ALLOW_UNAUTHENTICATED_ADMIN=true with
+    #     TRUST_PROXY_AUTH=true and PROXY_USER_HEADER=X-Authenticated-User. So an inbound
+    #     X-Authenticated-User would suppress the 401 — and this HTTPRoute carries no
+    #     RequestHeaderModifier to strip it.
+    #     What makes it safe is a layer BELOW this chart: backendRefs points at the Service's
+    #     `external` port, which is the tp-mcp-gateway-proxy SIDECAR, and the sidecar strips an
+    #     inbound X-Authenticated-User. That is live-verified, on a real box, in
+    #     dev/plan/PCP-25379-grounding.md leg (e): "forged X-Authenticated-User external, admin +
+    #     MCP -> 401 both (sidecar strips it)".
+    #     ⚠️ NOT VERIFIED on THIS path: leg (e) exercised /admin and the MCP paths, not
+    #     /oauth/authorize/<id>, which was not published at all before PCP-25403. Header stripping
+    #     is a property of the sidecar's listener rather than of the path, so it should carry over
+    #     — but it has not been measured here. The one-line check, if anyone wants it:
+    #     `curl -H 'X-Authenticated-User: <platform_admin_email>' https://<host><pp>/oauth/authorize/<gw-id>`
+    #     — 401 means the stripping holds; a 302 to the IdP means the claim needs qualifying.
+    # The rest of /oauth stays closed: /oauth/status, /oauth/fetch-tools and
+    # /oauth/registered-clients are reached by the Hub over the CP->DP tunnel, never the public edge.
+    #
+    # Exact rather than PathPrefix: there is nothing legitimate UNDER the callback path, and Exact
+    # is Core conformance, so this rule is identical on every controller.
+    - path:
+        type: Exact
+        value: {{ $pp }}/oauth/callback
+    # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path.
+    # Common to BOTH tiers: discovery is the same document wherever it is served from, so it is
+    # emitted once here rather than duplicated per branch. Before PCP-25403 the TIER 2 branch got
+    # this only via its blanket prefix; narrowing that prefix is exactly what makes the explicit
+    # rule load-bearing on these controllers too.
+    - path:
+        type: PathPrefix
+        value: {{ include "tp-mcp-gateway.wellKnownPrefix" . }}{{ $pp }}
+    {{- if $pp }}
+    # PCP-25553: the SAME discovery document at the path-first shape the gateway actually
+    # advertises in `WWW-Authenticate: resource_metadata` —
+    # `<APP_ROOT_PATH>/.well-known/oauth-protected-resource/servers/<id>/mcp`, where
+    # APP_ROOT_PATH is this chart's $pp. The rule above is the RFC 9728 §3.1-derived shape,
+    # which the allowlist had but the gateway never advertises; before the allowlist the
+    # blanket `{{ "{{ $pp }}" }}/` match carried the advertised one, and nothing replaced it, so
+    # public PRM discovery 404'd. Gateway API's PathPrefix is Core-conformance and matches on
+    # whole path ELEMENTS, so this is the tightest of the three branches: it reaches only
+    # discovery — not /admin, bare /servers, /tools, /gateways, /resources, /prompts — and
+    # unlike traefik it does not admit a `...-resourceX` lookalike either.
+    # The value comes from the VALIDATING helper: here it is the TRAILING segment, straight onto
+    # $pp where the gateway's real routes live, so an overridden wellKnownPrefix would publish an
+    # arbitrary route (`/` -> `<pp>/`, `/admin` -> `<pp>/admin`). See PCP-25553 in _helpers.tpl.
+    # Guarded on $pp: with an empty prefix this is byte-identical to the match above.
+    - path:
+        type: PathPrefix
+        value: {{ $pp }}{{ include "tp-mcp-gateway.wellKnownPrefix" . }}
+    {{- end }}
     {{- end }}
     backendRefs:
     - name: {{ $svcName }}

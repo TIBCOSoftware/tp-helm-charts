@@ -140,13 +140,54 @@ spec:
                      2. global.tpMcpGateway.config   the SHARED map — one home for a setting that
                                                      must reach both modes; overrides (1)
                      3. lite.insecureLocalDev        explicit local-dev escape hatch; overrides all
-                   (3) stays last because its whole purpose is to force auth open regardless of
-                   what the layers below say. It touches only mode-specific keys, which by
-                   construction are never in (2). */}}
+                     4. GATEWAY_REPLICAS             DERIVED, not a layer — see below
+                   (3) stays last of the OVERRIDE layers because its whole purpose is to force auth
+                   open regardless of what the layers below say. It touches only mode-specific keys,
+                   which by construction are never in (2). (4) is not an override layer at all: it
+                   is a value this template computes, and it is applied after (3) only because a
+                   forced value must not be reachable by anything above it. */}}
             {{- $liteConfig := mergeOverwrite (deepCopy .Values.lite.config) (dig "tpMcpGateway" "config" dict .Values.global) }}
             {{- if eq (toString .Values.lite.insecureLocalDev) "true" }}
             {{- $liteConfig = mergeOverwrite $liteConfig (dict "MCP_REQUIRE_AUTH" "false" "AUTH_REQUIRED" "false" "ALLOW_UNAUTHENTICATED_ADMIN" "true") }}
             {{- end }}
+            {{- /* PCP-24264: GATEWAY_REPLICAS. The runtime has read this env var since before the
+                   chart existed (bootstrap_db.py) and NOTHING was setting it — `grep -rn
+                   GATEWAY_REPLICAS charts/` returned nothing. It now matters: it is the
+                   single-writer proof that gates the stale-dotlock reaper and the offline WAL
+                   header conversion (DB_SQLITE_NETFS_* in lite.config), both of which mutate the
+                   volume and are only safe with exactly one writer.
+                   FORCED from .Values.lite.replicas and applied AFTER the merges above, so a
+                   `lite.config.GATEWAY_REPLICAS` entry — whether hand-written or replayed by a
+                   `helm upgrade --reuse-values` — cannot lie to the reaper about how many writers
+                   there are. It is deliberately not user-overridable; the supported way to change
+                   it is lite.replicas.
+                   Belt and braces, not the only guard: mode-validate.yaml already fails the render
+                   when lite.replicas > 1, and the lite Deployment uses strategy Recreate so no
+                   second pod exists mid-rollout. Kept anyway because the value is load-bearing for
+                   an operation that writes to a customer database.
+                   NORMALISED to an INTEGER STRING, deliberately, because the runtime parses this
+                   with int() and a bare `printf "%v"` emits whatever YAML happened to hold:
+                   `lite.replicas: null` (or `--set-string lite.replicas=`) renders "<nil>" / "",
+                   which is not a number and crashes the pod in bootstrap_db.py on FIRST BOOT, on
+                   ANY filesystem. Only ABSENT/BLANK is defaulted to 1, and only because that is
+                   what the cluster itself does with the Deployment's own `replicas:` field, which
+                   this same value renders above (an omitted replicas is 1) — so the env var and
+                   the number of pods agree.
+                   An explicit 0 is deliberately NOT defaulted: it renders "0", the runtime reads
+                   that as "not the single writer" and DISARMS the reaper and the offline header
+                   flip. That is the safe direction for a value whose only job is to authorise
+                   writing to a customer's database, and it costs nothing (a 0-replica Deployment
+                   runs no gateway process to reap anything).
+                   Anything `int` cannot parse — notably the --set string "1.0", which Helm keeps
+                   as a STRING — would silently collapse to "0" here, i.e. a half-disabled fix on
+                   a volume that needs it; mode-validate.yaml therefore fails the RENDER on a
+                   non-integer lite.replicas rather than letting this line paper over it. */}}
+            {{- $rawReps := .Values.lite.replicas }}
+            {{- $reps := 1 }}
+            {{- if not (or (kindIs "invalid" $rawReps) (eq (toString $rawReps) "")) }}
+            {{- $reps = int $rawReps }}
+            {{- end }}
+            {{- $liteConfig = mergeOverwrite $liteConfig (dict "GATEWAY_REPLICAS" (printf "%d" $reps)) }}
             {{- /* Skips: APP_ROOT_PATH (owned by publicApi.pathPrefix, PCP-20050); ALLOWED_ORIGINS
                    (rendered explicitly below so it tracks the public origin / opt-out with no duplicate
                    env); MCP_CLIENT_AUTH_ENABLED when the tibcoProxy sidecar fronts auth (emitted "false"
@@ -557,6 +598,33 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.dialHome.hub.bootstrapTokenSecret.name | quote }}
                   key: {{ .Values.dialHome.hub.bootstrapTokenSecret.key | quote }}
+            {{- /* PCP-24482 — what this deployment reports about itself on the dial-home
+                   `hello`, so the Hub can answer "is an upgrade available?".
+
+                   GATEWAY_CHART_VERSION is `.Chart.Version`, and that source is the whole
+                   point: it is THIS chart's own version, so it cannot drift from what was
+                   actually installed the way a hand-maintained value would. It is also the
+                   only one the Hub's comparison can use — the Hub's desired value is a chart
+                   version, so feeding it an image tag or an agent build would give it a
+                   confident WRONG answer (prompting an "upgrade" of an already-current
+                   gateway) rather than no answer.
+
+                   GATEWAY_VERSION is the gateway IMAGE TAG, reported for display — the value
+                   that identifies which ContextForge build is actually running. It is stated
+                   plainly rather than written `| default .Chart.AppVersion`, which was the
+                   first version of this line and was DEAD: values.yaml always pins
+                   lite.image.tag, so the fallback could fire only if an operator blanked it,
+                   while the comment read as though AppVersion were the normal case.
+
+                   AppVersion would also be the wrong thing to display: it is identical for
+                   every build on a release line, so it cannot answer "which build is this
+                   gateway running" — the question the column exists for. If the tag is ever
+                   blank the var renders empty, the agent omits the field (`omitempty`), and
+                   the Hub leaves that column alone, which is the honest degrade. */}}
+            - name: GATEWAY_CHART_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: GATEWAY_VERSION
+              value: {{ .Values.lite.image.tag | quote }}
           resources:
             {{- toYaml .Values.dialHome.resources | nindent 12 }}
           securityContext:

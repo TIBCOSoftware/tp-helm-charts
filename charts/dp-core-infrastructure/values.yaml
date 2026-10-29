@@ -79,7 +79,8 @@ tp-tibtunnel:
     infiniteRetries: true  # Irrespective of any error, keep trying to discover and connect to establish hybrid connectivity
     url: ""  # Connect Url generated from TIBCO Cloud Control plane
     onPremHost: "{{ .Values.global.tibco.routeResources.controllerServiceDNS }}"  # in-cluster Service DNS for the active IC; sourced from global.tibco.routeResources.controllerServiceDNS (defaults to cpdpproxy)
-    onPremPort: "80"  # port number of the service.
+    onPremPort: ""  # port number of the service. If empty, defaults by tls: 80 when false, 443 when true.
+    tls: false  # Use TLS (https) for on-prem host connection
   configure:
     profile: ""  # The name of the profile to create or update
     accessKey: "abc"  # Specify the TIBCO AccessKey secret to be used for authentication

@@ -68,10 +68,24 @@ spec:
 
   template:
     metadata:
-      {{- if include "mcp-stack.fluentbit.enabled" . }}
+      {{- /* PCP-25210 review (fcastill): gate on bundledRedisEnabled, not the bare
+             redis.enabled && redis.auth.enabled. In external-Redis mode (redis.external.
+             enabled: true, redis.enabled still at its default true) secret-redis.yaml never
+             renders the bundled Secret, so lookup misses even on a live cluster -- the old
+             gate minted a fresh checksum every render and rolled the gateway on every
+             upgrade, no-op included, for users this chart's Redis password never touched. */}}
+      {{- $bundledRedisAuth := and (eq (include "mcp-stack.bundledRedisEnabled" .) "true") .Values.redis.auth.enabled }}
+      {{- if or (include "mcp-stack.fluentbit.enabled" .) $bundledRedisAuth }}
       annotations:
+        {{- if include "mcp-stack.fluentbit.enabled" . }}
         # PCP-22768: roll the pod when the fluentbit sidecar config changes.
         checksum/fluentbit-config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if $bundledRedisAuth }}
+        # PCP-25210: roll this pod when the auth password changes (paired with the same
+        # annotation on deployment-redis.yaml -- see mcp-stack.redisAuthEffectivePassword).
+        checksum/redis-secret: {{ include "mcp-stack.redisAuthEffectivePassword" . | sha256sum }}
+        {{- end }}
       {{- end }}
       labels:
         {{- /* PCP-19047 LOCAL MOD: pod-template capability labels for tp-dp-monitor-agent

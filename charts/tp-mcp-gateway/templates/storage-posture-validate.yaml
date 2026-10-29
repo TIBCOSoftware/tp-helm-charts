@@ -1,0 +1,101 @@
+{{- /*
+  [PCP-24264] Render-time guard for the DECLARED storage posture (AC3).
+
+  THE REAL EXPOSURE, not the one the AC names. The AC asks to "guard the lite-vs-full
+  storage split", but that split does not exist: the full-mode gateway container mounts
+  no PVC at all and talks postgresql+psycopg. What DOES land on the same share is the
+  in-cluster PostgreSQL data directory — charts/mcp-stack/templates/postgres-pvc.yaml
+  resolves mcp-stack.storageClassName, whose global branch reads the very same
+  global.cp.resources.storage.storageClassName the lite PVC uses. A DP whose default
+  class is SMB/CIFS/NFS-backed therefore puts PGDATA on a share that cannot give
+  PostgreSQL the POSIX byte-range locks and fsync semantics it requires. That failure is
+  NOT recoverable by the runtime the way the lite SQLite one is (mcpgateway/utils/
+  sqlite_netfs.py converts a SQLite volume to the unix-dotfile VFS), so it is refused at
+  render time instead.
+
+  DECLARED, NEVER INFERRED. The posture is a value the installer states; the chart never
+  guesses it. Two rejected mechanisms, both measured:
+    - a StorageClass-NAME substring heuristic false-negatives on exactly the class that
+      matters — TIBCO's own share-backed class is literally named `azure-files-sc`, and
+      "azurefile"/"nfs" appear in plenty of block-backed names too;
+    - `lookup` returns an empty map during `helm template` / `--dry-run`, so a guard built
+      on it is silently vacuous in precisely the CI renders that would catch a mistake.
+
+  DEFAULT "" = UNDECLARED = ADVISORY ONLY. The guard cannot fire on any install that has
+  not opted in, so the default render is byte-identical and no existing user is broken.
+  The lite-mode advisory copy lives in templates/NOTES.txt.
+
+  A PIN ONLY EXCUSES THE RENDER WHEN THE PIN ITSELF IS DECLARED BLOCK-BACKED (PCP-24264
+  review). The first cut of this guard treated ANY non-empty
+  mcp-stack.postgres.persistence.storageClassName as proof that the PVC had moved off the
+  share, which is the same fails-open shape the rest of this ticket exists to remove: a pin
+  is a NAME, and the guard has no way to know what backs it. Two ways that let the exact
+  refused state render clean — (i) pinning the PVC to the very class the installer just
+  declared shared (a copy-paste of the class name out of the DP's own values), and (ii)
+  pinning it to a second, differently-named class on the same file share. Escape hatch (c)
+  therefore now costs a SECOND declaration, global.tpMcpGateway.storage.pgClassKind=block,
+  which is the operator asserting the thing the chart cannot observe. That is backward
+  compatible by construction: the whole guard is inert unless the installer opted in with
+  classKind=shared, so no existing install can be broken by asking the opt-in to be complete.
+  (ii) remains undetectable when the operator declares block for a class that is not — a
+  declaration is only as good as the declarer, and the alternative is guessing.
+
+  Lives in its OWN template and is NOT wrapped by a mode `if`, so it is evaluated in every
+  mode combination — same shape as templates/mode-validate.yaml and
+  templates/dialhome-validate.yaml. Emits NO manifest: `fail` aborts the render with an
+  actionable message naming every escape hatch.
+*/}}
+{{- $classKind := toString (dig "tpMcpGateway" "storage" "classKind" "" (.Values.global | default dict)) }}
+{{- /* Fail loud on a typo. A misspelt posture would otherwise silently disable the guard
+       below — the "fails toward green" shape this repo has shipped before. Unreachable for
+       anyone who has not set the key, since the shipped default is "". */}}
+{{- if not (has $classKind (list "" "shared" "block")) }}
+{{- fail (printf "tp-mcp-gateway: global.tpMcpGateway.storage.classKind=%q is not a recognised storage posture (PCP-24264). Use \"\" (undeclared — advisory only), \"shared\" (SMB/CIFS/NFS-backed StorageClass) or \"block\" (block-device-backed StorageClass). The posture is DECLARED by the installer and never inferred from the StorageClass NAME — TIBCO's own share-backed class is named `azure-files-sc`, so a name heuristic false-negatives on the exact class that matters." $classKind) }}
+{{- end }}
+{{- /* The posture of the class the PostgreSQL PVC is PINNED to, when it is pinned. Same
+       tri-state, same typo guard, same "declared never inferred" rule — see the header for why
+       a pin alone cannot excuse the guard. */}}
+{{- $pgPinKind := toString (dig "tpMcpGateway" "storage" "pgClassKind" "" (.Values.global | default dict)) }}
+{{- if not (has $pgPinKind (list "" "shared" "block")) }}
+{{- fail (printf "tp-mcp-gateway: global.tpMcpGateway.storage.pgClassKind=%q is not a recognised storage posture (PCP-24264). Use \"\" (undeclared), \"shared\" or \"block\". This key declares what backs the class named in mcp-stack.postgres.persistence.storageClassName; only \"block\" excuses the in-cluster PostgreSQL PVC from the shared-storage guard." $pgPinKind) }}
+{{- end }}
+{{- $ms := index .Values "mcp-stack" | default dict }}
+{{- $full := dig "enabled" false $ms }}
+{{- $inClusterPg := dig "postgres" "enabled" false $ms }}
+{{- $externalPg := dig "postgres" "external" "enabled" false $ms }}
+{{- $pgPersist := dig "postgres" "persistence" "enabled" true $ms }}
+{{- /* TRIMMED with the SAME semantics as tp-mcp-gateway.storageClassName (_helpers.tpl:160,
+       `trimAll " "`), because this value is the block-storage ESCAPE HATCH and the raw form does
+       not mean what the test assumed (PCP-24264 review round 2). A whitespace-only pin —
+       `--set-string mcp-stack.postgres.persistence.storageClassName=' '` — is TRUTHY raw, so
+       `pgClassKind=block` used to satisfy the escape hatch and skip the guard entirely; but the
+       helper trims it to empty, emits no storageClassName at all, and the PVC lands on the
+       CLUSTER DEFAULT class, which on the affected sites is precisely the shared storage this
+       guard exists to refuse. A pin that renders to nothing must not excuse anything, so the
+       escape hatch now requires a pin that survives the same trim the renderer applies. */}}
+{{- /* `trim`, not `trimAll " "`. The helper's own trim only removes the SPACE character, so a
+       TAB-only pin (`--set-string ...storageClassName=$'\t'`) is still truthy AFTER trimming
+       space, and would excuse the guard exactly as a space-only pin did. Sprig's `trim` strips
+       all leading/trailing WHITESPACE, which is the class this test actually cares about: the
+       question here is "does this pin name a class at all", and no amount of whitespace does.
+       Deliberately STRICTER than _helpers.tpl:160 rather than identical to it -- being stricter
+       can only ever make the guard FIRE on a pin that names nothing, which is the safe
+       direction; matching it exactly would import its tab blind spot into a safety gate. */}}
+{{- $pgPinned := trim (toString (dig "postgres" "persistence" "storageClassName" "" $ms)) }}
+{{- if and (eq $classKind "shared") $full $inClusterPg (not $externalPg) $pgPersist (not (and $pgPinned (eq $pgPinKind "block"))) }}
+{{- /* Resolve the class the PostgreSQL PVC will actually get, so the message names it.
+       Uses the parent-chart twin of mcp-stack.storageClassName (identical precedence, see
+       tp-mcp-gateway.storageClassName in _helpers.tpl) rather than the sub-chart define —
+       a sub-chart template is not a dependable call target from the parent. The local leg
+       is the PIN, which can now reach this fail (an undeclared pin no longer short-circuits
+       the guard), so passing "" here would name the wrong class in the message.
+       The "-" sentinel makes the helper return the two-char literal `""`; that string is
+       TRUTHY, so `default "<cluster default>"` would print a bare `""` and read as a class
+       whose name is two quote marks. Discriminate it explicitly. */}}
+{{- $pgClass := include "tp-mcp-gateway.storageClassName" (dict "local" $pgPinned "ctx" $) }}
+{{- $pgClassLabel := default "<cluster default>" $pgClass }}
+{{- if eq $pgClass "\"\"" }}
+{{- $pgClassLabel = "\"\" (no dynamic provisioning — the PVC binds a pre-provisioned PV)" }}
+{{- end }}
+{{- fail (printf "tp-mcp-gateway: global.tpMcpGateway.storage.classKind=shared declares a SHARED-filesystem (SMB/CIFS/NFS) StorageClass, but this render places the IN-CLUSTER PostgreSQL data directory on it (mcp-stack.enabled=true, mcp-stack.postgres.enabled=true, postgres.external.enabled=false, postgres.persistence.enabled=true; the PVC resolves to StorageClass %s). PostgreSQL needs POSIX byte-range locking and fsync semantics a share does not provide, and unlike the lite SQLite volume the runtime CANNOT convert it. Pick one: (a) if the class is really block-backed, declare it — global.tpMcpGateway.storage.classKind=block; (b) use a managed/external database — mcp-stack.postgres.external.enabled=true; or (c) pin just this PVC to a block-backed class — mcp-stack.postgres.persistence.storageClassName=<block-class> TOGETHER WITH global.tpMcpGateway.storage.pgClassKind=block (the pin is only a NAME; the second key is you asserting what backs it, and without it a pin to the shared class itself would silence this guard). See PCP-24264." $pgClassLabel) }}
+{{- end }}
