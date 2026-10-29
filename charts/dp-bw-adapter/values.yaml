@@ -76,7 +76,7 @@ global:
           enabled: true
         enabled: true
         image:
-          tag: 5.1.2
+          tag: 5.1.5
         resources:
           requests:
             cpu: 10m
@@ -126,7 +126,14 @@ fullnameOverride: ""
 certs:
   pvcName: bwadapter-ssl-certs
   pvcStorageSize: 1Gi
-  pvcAccessMode: ReadWriteMany
+  # ReadWriteOnce so the claim can bind on EBS-backed (gp2/gp3) data planes,
+  # which do not support ReadWriteMany. The adapter is single-writer: only the
+  # bwadapter container mounts this volume, at a single replica.
+  #
+  # Applies to fresh installs only. PVC spec.accessModes is immutable, so on an
+  # upgrade the template reuses whatever the existing claim was created with --
+  # data planes installed at 1.21.x keep their ReadWriteMany claim (BWCE-12017).
+  pvcAccessMode: ReadWriteOnce
 
 podAnnotations: {}
 

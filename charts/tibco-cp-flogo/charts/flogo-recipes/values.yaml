@@ -26,7 +26,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.2
+          tag: 5.1.5
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -56,7 +56,7 @@ image:
   name: common-distroless-base-debian-debug
   registry: ""
   repo: ""
-  tag: 13.5
+  tag: 13.7
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -85,17 +85,17 @@ securityContext:
 
 flogoprovisioner:
   image:
-    tag: "1164-platform-1.21.0"
+    tag: "1281-platform-1.22.0"
   # Alphabetical; must match the set rendered in templates/flogo.yaml. Anything absent
   # falls back to the flogoprovisioner chart default.
   config:
-    APP_HELMCHART_VERSION: "1.21.9"
+    APP_HELMCHART_VERSION: "1.22.20"
     APP_INIT_CPU_LIMIT: "200m"
     APP_INIT_CPU_REQUEST: "100m"
-    APP_INIT_IMAGE_TAG: "86"
+    APP_INIT_IMAGE_TAG: "102"
     APP_INIT_MEMORY_LIMIT: "400Mi"
     APP_INIT_MEMORY_REQUEST: "100Mi"
-    FLOGO_APP_BASE_IMAGE_TAG: "2.26.8-b700"
+    FLOGO_APP_BASE_IMAGE_TAG: "2.26.9-b784"
     # Flogo app-build Job config; override per install.
     # CPU limit blank = uncapped (faster builds); the memory limit OOM-kills an oversized
     # build instead of starving neighbors. Blank would uncap it.
@@ -105,8 +105,8 @@ flogoprovisioner:
     FLOGO_APP_BUILD_MEMORY_LIMIT: "4Gi"
     FLOGO_APP_BUILD_MEMORY_REQUEST: "1.5Gi"
     FLOGO_APP_BUILD_TIMEOUT_SECONDS: "300"
-    FLOGO_APP_BUILDER_IMAGE_TAG: "1032-platform-1.21.0"
-    INFRA_OAUTH_CLIENT_IMAGE_TAG: "1007"
+    FLOGO_APP_BUILDER_IMAGE_TAG: "1132-platform-1.22.0"
+    INFRA_OAUTH_CLIENT_IMAGE_TAG: "1048"
   resources:
     requests:
       cpu: 500m
