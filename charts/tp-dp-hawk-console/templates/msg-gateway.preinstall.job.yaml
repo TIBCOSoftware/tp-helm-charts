@@ -65,11 +65,8 @@ spec:
           {{ include "msg.rollback.protection" (dict "v" .Chart.Version "cr" $stsname ) | nindent 10 }}
           # Cleanup old hook jobs
           {{ include "msg.oldjob.cleanup" ( $jobLabel ) | nindent 10 }}
-          echo "Checking for tibadmin secret ... "
-          secretName="{{ $basename }}-tibadmin"
           source "/opt/tibco/pod-tools/bin/preinstall.bash" 
-          # Create secrets: tp-msggw-mcp-credentials, $basename-tibadmin, tp-msggw-ems-credentials
-          # $basename-tibadmin secret is now deprecated, scheduled for future removal.
+          # Create secrets: tp-msggw-mcp-credentials, tp-msggw-ems-credentials
           labels=()
           literals=()
           files=()
@@ -78,23 +75,18 @@ spec:
           labels+=("tib-msg-group-name: {{ $params.msggw.basename }}")
           labels+=("app.kubernetes.io/component: msg-gateway")
 
-          # TODO: Schedule phase-out of $basename-tibadmin secret
-          # tibadmin : Add legacy secret settings for backward compatibility with older versions
-          literals=()
-          literals+=("EMS_ADMIN_USER {{ $dpAdminUser }}")
-          literals+=("EMS_ADMIN_PASSWORD {{ $dpAdminPwd }}")
-          literals+=("DP_ADMIN_USER {{ $dpAdminUser }}")
-          literals+=("DP_ADMIN_PASSWORD {{ $dpAdminPwd }}")
-          literals+=("DP_VIEW_USER {{ $dpViewUser }}")
-          literals+=("DP_VIEW_PASSWORD {{ $dpViewPwd }}")
-          createSecretIfMissing $secretName literals files labels "{{ .Release.Namespace }}"
           # New Gems EMS DP secret yaml format
           # tp-msg-dp-credentials: same labels
           # Migrate any existing credentials to new secret format
+            {{ if .Values.msggw.allowAdminUser }}
           DP_ADMIN_USER=${DP_ADMIN_USER:-"{{ $dpAdminUser }}"}
+            {{ else }}
+          DP_ADMIN_USER="none"
+            {{ end }}
           DP_ADMIN_PASSWORD=${DP_ADMIN_PASSWORD:-"{{ $dpAdminPwd }}"}
           DP_VIEW_USER=${DP_VIEW_USER:-"{{ $dpViewUser }}"}
           DP_VIEW_PASSWORD=${DP_VIEW_PASSWORD:-"{{ $dpViewPwd }}"}
+          echo "Computed Gems adminUser=$DP_ADMIN_USER viewUser=$DP_VIEW_USER"
           # MCP secret
           literals=()
           literals+=("EMS_VIEW_USER $DP_VIEW_USER")

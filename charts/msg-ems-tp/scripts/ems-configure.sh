@@ -23,6 +23,16 @@ function get_leader_pod {
     echo $leader_pod
     return $rtc
 }
+function realm_has_ems_config {
+    for try in $(seq 20) ; do
+        curl -k -s -f "$FTL_REALM_URL/api/v1/realm" | jq -e '.product_data.tibemsd != null' > /dev/null
+        rtc=$?
+        [ $rtc -le 1 ] && return $rtc
+        echo -n "."
+        sleep 3
+    done
+    return 2
+}
 
 outfile=${1:-tibemsd-ftl.json}
 ftlport="443"
@@ -34,7 +44,16 @@ loadedTibemsdJson="$initDir/tibemsd-ftl.json.loaded"
 echo "Waiting for FTL-Server Quorum ... "
 wait_for_url "$FTL_REALM_URL/api/v1/available"
 
-leader=$(get_leader_pod) || echo "No leader, initializing configuration ... "
+leader=$(get_leader_pod) || echo "No leader pod found ... "
+if [ -z "$leader" ] ; then
+    # Initialize only if realm has no EMS config
+    realm_has_ems_config
+    case $? in
+        0) echo "ERROR: realm already has an EMS configuration but no leader pod; not uploading $initTibemsdJson" ; exit 1 ;;
+        2) echo "ERROR: cannot read realm configuration from $FTL_REALM_URL; not uploading $initTibemsdJson" ; exit 1 ;;
+    esac
+    echo "Realm has no EMS configuration, initializing ... "
+fi
 if [ -n "$leader" ] ; then
     echo "Found leader=$leader, upgrading ..."
     # UPGRADING

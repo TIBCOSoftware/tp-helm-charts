@@ -85,6 +85,12 @@ data:
         -- 3. Perform the sub-request
         local auth_ip = txn.get_var(txn, "txn.auth_ip")
         core.log(core.info, "Auth via: " .. tostring(auth_ip))
+        if not auth_ip then
+            -- Fail closed if the auth service could not be resolved
+            core.log(core.err, "Auth service not resolved, denying")
+            txn.set_var(txn, "txn.auth_failed", true)
+            return
+        end
         local httpc = core.httpclient()
         local ok, response = pcall(httpc.get, httpc, {
             -- url = "http://tp-msg-gateway.{{.Release.Namespace}}.svc.cluster.local:8376/api/admin/credentials",
@@ -101,6 +107,19 @@ data:
             txn.set_var(txn, "txn.auth_failed", true)
             core.log(core.info, "Auth check failed, status: " .. tostring(response and response.status or "nil"))
         end
+    end)
+
+    -- True only if the body has exactly one "method" key (case-insensitive) and no escapes.
+    -- json_query takes the first "method", but Go's encoding/json keeps the last duplicate,
+    -- matches keys case-insensitively and decodes \uXXXX in keys, so any of those could
+    -- make haproxy and the MCP server disagree on the method.
+    core.register_fetches("mcp_single_method", function(txn)
+        local body = txn.f:req_body() or ""
+        if body:find("\\", 1, true) then
+            return false
+        end
+        local _, n = string.gsub(string.lower(body), '"method"%s*:', "")
+        return n == 1
     end)
 
   haproxy.cfg: |
@@ -131,15 +150,30 @@ data:
         bind 0.0.0.0:8080
         monitor-uri /healthz
 
+        # Buffer the body so the JSON-RPC method can be inspected
+        option http-buffer-request
+        http-request deny deny_status 413 if { req.body_size gt 65536 }
+
+        # Unauthenticated JSON-RPC methods: session setup + tools/list only.
+        # json_query reads only the top-level "method"; batches (arrays) never match.
+        acl is_mcp_path     path /mcp
+        acl is_post         method POST
+        acl is_json         req.hdr(content-type) -m beg application/json
+        acl is_public_rpc   req.body,json_query('$.method') -m str initialize notifications/initialized tools/list
+        # Reject duplicate/case-variant/escaped "method" keys (see mcp_single_method)
+        acl single_method   lua.mcp_single_method -m bool
+        http-request set-var(txn.public_request) bool(true) if is_mcp_path is_post is_json is_public_rpc single_method
+        acl public_request  var(txn.public_request) -m bool
+
         # Use HAProxy's native fetch to resolve the IP before Lua runs
         # (bad) http-request set-var(txn.auth_ip) do_resolve(tp-msg-gateway.vdp2.svc.cluster.local,k8s)
         # The syntax is: do_resolve(<var_name>, <resolvers_section>, <ipv4/ipv6>)
         # http-request do-resolve(txn.auth_ip, k8s, ipv4) hdr(host)
-        http-request do-resolve(txn.auth_ip,k8s,ipv4) str(tp-msg-gateway.{{.Release.Namespace}}.svc.cluster.local)
-        
-        # 1. Execute the Lua script action
-        http-request lua.check_ems_auth
-        
+        http-request do-resolve(txn.auth_ip,k8s,ipv4) str(tp-msg-gateway.{{.Release.Namespace}}.svc.cluster.local) unless public_request
+
+        # 1. Execute the Lua script action (skipped for public requests)
+        http-request lua.check_ems_auth unless public_request
+
         # 2. Deny the request if the Lua script flagged a failure
         http-request deny if { var(txn.auth_failed) -m bool }
     
@@ -147,9 +181,11 @@ data:
         default_backend emsmcp_backend
     
     backend emsmcp_backend
+        # Rewrite Host so the MCP server sees a local origin, not the external hostname
+        http-request set-header Host localhost
         server emsmcp_local 127.0.0.1:8081 check
 
-    
+
   haproxy.noauth.cfg: |
     # External haproxy port 8080
     # internal MCP_SERVER_PORT=8081
@@ -169,8 +205,9 @@ data:
         bind 0.0.0.0:8080
         monitor-uri /healthz
         default_backend emsmcp_backend
-    
+
     backend emsmcp_backend
+        # Rewrite Host so the MCP server sees a local origin, not the external hostname
+        http-request set-header Host localhost
         server emsmcp_local 127.0.0.1:8081 check
 
-    

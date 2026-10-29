@@ -142,7 +142,7 @@ spec:
             mountPath: /tmp
           - name: tmpfs-2
             mountPath: /redtail/tmp
-{{- if .Values.global.cp.logging.fluentbit.enabled }}
+{{- if false }}
       - name: fluentbit
         image: {{ include "tp-dp-hawk-console.image.registry" .}}{{"/"}}{{ include "tp-dp-hawk-console.image.repository" .}}{{"/"}}{{ .Values.global.cp.logging.fluentbit.image.name }}:{{ .Values.global.cp.logging.fluentbit.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}

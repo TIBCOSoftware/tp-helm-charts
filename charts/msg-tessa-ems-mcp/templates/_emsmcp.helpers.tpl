@@ -80,7 +80,7 @@ need.msg.emsmcp.params
 */}}
 {{ define "need.msg.emsmcp.params" }}
 {{- $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{- $mcpDefaultFullImage := printf "%s/%s/msg-tessa-ems-mcp:1.21.0-5" $dpParams.dp.registry $dpParams.dp.repository -}}
+{{- $mcpDefaultFullImage := printf "%s/%s/msg-tessa-ems-mcp:1.22.0-8" $dpParams.dp.registry $dpParams.dp.repository -}}
 #
 {{ include "need.msg.dp.params" . }}
 emsmcp:

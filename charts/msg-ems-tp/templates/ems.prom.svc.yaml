@@ -22,7 +22,6 @@ metadata:
     tib-msg-stsname: "{{ $stsname }}"
     tib-msg-svcname: "{{ $svcPromServer }}"
     {{ include "msg.dp.labels" . | indent 4 }}
-    platform.tibco.com/scrape_o11y: "true"
     prometheus.io/scrape: "true"
     prometheus.io/port: "{{ $emsParams.ems.ports.httpPort }}"
   annotations:
