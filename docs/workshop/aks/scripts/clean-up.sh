@@ -19,8 +19,14 @@ export TP_STORAGE_ACCOUNT_NAME=${TP_STORAGE_ACCOUNT_NAME}
 # list the persistent volumes in a file
 kubectl get pv -o jsonpath='{range .items[?(@.spec.csi.driver=="file.csi.azure.com")]}{.metadata.name}{"\n"}{end}' >> tmp_pvc_list.txt
 
+# Delete Ingress and Gateway objects first so their cloud load balancers are torn down
+# before the cluster is deleted; otherwise leaked load balancers block network deletion.
 echo "deleting all ingress objects"
-kubectl delete ingress -A --all
+kubectl delete ingress -A --all --timeout=180s
+
+echo "deleting all gateway objects"
+kubectl delete httproute -A --all --ignore-not-found=true --timeout=180s 2>/dev/null
+kubectl delete gateway -A --all --ignore-not-found=true --timeout=180s 2>/dev/null
 
 echo "sleep 2 minutes"
 sleep 120

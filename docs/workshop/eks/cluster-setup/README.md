@@ -184,11 +184,16 @@ Before we deploy ingress or observability tools on an empty EKS cluster; we need
 Please use the following commands to install [cert-manager](https://cert-manager.io/docs/installation/helm/)
 
 ```bash
-helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
+helm upgrade --install --wait --timeout 1h --create-namespace --reset-then-reuse-values \
   -n cert-manager cert-manager cert-manager \
   --labels layer=0 \
-  --repo "https://charts.jetstack.io" --version "v1.17.1" -f - <<EOF
-installCRDs: true
+  --repo "https://charts.jetstack.io" --version "v1.21.2" -f - <<EOF
+# --reset-then-reuse-values preserves any custom values from a prior release on re-run while
+# dropping keys removed in v1.21 (e.g. prometheus.servicemonitor.targetPort). Requires Helm >= 3.14.
+installCRDs: false # keep false: a replayed legacy installCRDs=true would conflict with crds.enabled (cert-manager v1.21.2 fails on both)
+crds:
+  enabled: true
+  keep: true
 serviceAccount:
   create: false
   name: cert-manager
@@ -203,7 +208,7 @@ Please use the following commands to install [aws-load-balancer-controller](http
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n kube-system aws-load-balancer-controller aws-load-balancer-controller \
   --labels layer=0 \
-  --repo "https://aws.github.io/eks-charts" --version "1.6.0" -f - <<EOF
+  --repo "https://aws.github.io/eks-charts" --version "3.5.0" -f - <<EOF
 clusterName: ${TP_CLUSTER_NAME}
 serviceAccount:
   create: false
@@ -216,10 +221,10 @@ EOF
 Please use the following commands to install [metrics-server](https://github.com/kubernetes-sigs/metrics-server/tree/master/charts/metrics-server)
 
 ```bash
-helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
+helm upgrade --install --wait --timeout 1h --create-namespace --reset-then-reuse-values \
   -n kube-system metrics-server metrics-server \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/metrics-server" --version "3.11.0" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/metrics-server" --version "3.14.0" -f - <<EOF
 clusterName: ${TP_CLUSTER_NAME}
 serviceAccount:
   create: true

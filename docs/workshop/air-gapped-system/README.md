@@ -124,12 +124,15 @@ export TARGET_REGISTRY_REPO="tibco-platform"           # optional
 ./sync-images.sh
 ```
 
-To sync images for a single capability only, set `CAPABILITY_NAME`:
+To sync images for a single capability only, set `CAPABILITY_NAME` to that capability's directory name under [`artifacts/`](../../../artifacts) — for example `control-plane`, `flogo`, or `mcp-gateway`:
 
 ```bash
 export CAPABILITY_NAME="control-plane"
 ./sync-images.sh
 ```
+
+> [!NOTE]
+> Optional Data Plane capabilities are enumerated the same way and are easy to miss. If you deploy the **MCP Gateway**, mirror [`artifacts/mcp-gateway/mcp-gateway-<RELEASE_VERSION>-images.txt`](../../../artifacts/mcp-gateway) as well — it covers the gateway, its discovery and proxy sidecars, the optional dial-home agent and log-forwarding sidecar, and the bundled PostgreSQL/Redis/MinIO datastores. Leaving `CAPABILITY_NAME` unset syncs every capability and picks these up automatically.
 
 ## Option 2: Sync using skopeo (not validated)
 

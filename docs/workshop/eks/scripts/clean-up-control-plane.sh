@@ -154,6 +154,18 @@ if [ "${TP_CROSSPLANE_ENABLED}" == "true" ]; then
   [ -n "${_db_security_group_name}" ] && _db_security_group_id=$(kubectl get SecurityGroup.ec2.aws.crossplane.io ${_db_security_group_name} -o=jsonpath='{@.status.atProvider.securityGroupID}' 2> /dev/null)
 fi
 
+# Delete Ingress and Gateway objects first so their cloud load balancers are torn down
+# before the cluster is deleted; otherwise leaked load balancers block network deletion.
+echo "Deleting all ingress objects"
+kubectl delete ingress -A --all --timeout=180s
+
+echo "Deleting all gateway objects"
+kubectl delete httproute -A --all --ignore-not-found=true --timeout=180s 2>/dev/null
+kubectl delete gateway -A --all --ignore-not-found=true --timeout=180s 2>/dev/null
+
+echo "Sleep 2 minutes"
+sleep 120
+
 echo "Deleting all installed charts with no layer labels"
 helm ls --selector '!layer' -a -A -o json | jq -r '.[] | "\(.name) \(.namespace)"' | while read -r _line; do
   _release=$(echo ${_line} | awk '{print $1}')
