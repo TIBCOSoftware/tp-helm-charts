@@ -11,6 +11,15 @@
 {{- fail (printf "mcp-hub-recipes: mcpGateway.image.digest is malformed (%q) — expected sha256: followed by 64 lowercase hex characters. This value is injected into a Data Plane recipe; a bad one fails at DP install, not here." .) }}
 {{- end }}
 {{- end }}
+{{- /* PCP-26782: the declared minimum Data Plane versions (values.yaml capabilities.mcpgateway.minDPVersion) must be
+       plain x.y.z. The orchestrator semver-compares them with the Data Plane's appVersion; a malformed one would
+       compare as anything at all, on a customer Control Plane. */ -}}
+{{- $minDP := .Values.capabilities.mcpgateway.minDPVersion }}
+{{- range $key := list "dpConfigureNamespace" "dpCoreInfrastructure" }}
+{{- if not (regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" ((get $minDP $key) | toString)) }}
+{{- fail (printf "mcp-hub-recipes: capabilities.mcpgateway.minDPVersion.%s is %q — expected x.y.z (it becomes version.json minDPVersion, which the CP orchestrator compares with the Data Plane's appVersion)." $key (get $minDP $key)) }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -28,8 +37,8 @@ data:
       "releaseNotes": {{ .Values.capabilities.mcpgateway.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.20.0",
       "minDPVersion": {
-        "dp-core-infrastructure": "1.19.0",
-        "dp-configure-namespace": "1.19.0"
+        "dp-core-infrastructure": {{ $minDP.dpCoreInfrastructure | quote }},
+        "dp-configure-namespace": {{ $minDP.dpConfigureNamespace | quote }}
       }
     }
   package.json: |
@@ -108,6 +117,14 @@ data:
                     logging:
                       fluentbit:
                         enabled: ${ENABLE_APPS_FLUENTBIT_SIDECAR}
+                        # PCP-25401: `helm upgrade --reuse-values` freezes this tag at
+                        # whatever the gateway was first installed with (measured: 5.1.0 on
+                        # both the 1.20.0 and 1.21.0 GA baselines) -- unpinned, the
+                        # PCP-25107 CVE remediation (5.1.0 -> 5.1.2) never reaches an
+                        # upgraded gateway, same "one atom" pattern PCP-21327 already fixed
+                        # for the first-party image tags and PCP-25386 for plugin config.
+                        image:
+                          tag: {{ .Values.mcpGateway.fluentbitTag | quote }}
                   # Full-mode (mcp-stack) gateway sidecars are gated on global.tpMcpGateway.* because
                   # Helm shares only global.* with the vendored subchart; the top-level tibcoProxy.enabled
                   # below is read ONLY by lite. Mirror the flags here so production (full) mode also gets the
@@ -194,6 +211,25 @@ data:
                        conditionally (rather than always, as "") means a release that has not yet
                        been digest-pinned leaves the gateway chart's own default in place instead
                        of clobbering it with an empty value. */}}
+                {{- /* PCP-25386: pin the plugin configuration the SAME way PCP-21327 (above)
+                       pins the image tags -- `helm upgrade --reuse-values` freezes it at
+                       whatever this recipe supplied (or, before this fix, nothing, so it froze
+                       at FIRST-INSTALL content forever). mcpGateway.pluginConfig below is a
+                       literal copy of charts/tp-mcp-gateway/values.yaml's plugins.config (the
+                       &plugins_config anchor that chart shares between lite and full mode) --
+                       moving it is how a chart-side plugin fix (PCP-25281/PCP-25280/PCP-25282)
+                       actually reaches a gateway upgraded through the Hub. Safe to override
+                       unconditionally: the Hub's operator-overlay values layer (a separate,
+                       later values[] entry -- tp-mcp-hub provision.ts) is applied AFTER this
+                       recipe's values and still wins per key, so an operator's own plugin
+                       customisation is not clobbered. The SAME content is pinned again below,
+                       at mcp-stack.mcpContextForge.pluginConfig.plugins, for full mode -- Helm
+                       does not share a parent's top-level values with a vendored sub-chart, so
+                       each mode needs its own explicit reference. dev/check-mcp-version-sync.sh
+                       CHECK 8 enforces that both stay byte-identical to their source. */}}
+                plugins:
+                  config: |
+                    {{- .Values.mcpGateway.pluginConfig | nindent 20 }}
                 lite:
                   enabled: true
                   image:
@@ -206,8 +242,20 @@ data:
                     className: ${STORAGE_CLASS_NAME}
                   resources:
                     {{- toYaml .Values.mcpGateway.resources | nindent 20 }}
+                  {{- /* PCP-25546: pinned here because the Hub upgrades with --reuse-values,
+                         which would not pick up the new lite.config default. Lite only. */}}
+                  config:
+                    MCPGATEWAY_FEDERATION_SERVER_REQUESTS_ENABLED: "true"
                 mcp-stack:
                   enabled: false
+                  # PCP-25386 (review follow-up): the companion value pluginConfig.plugins'
+                  # RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER substitutes to when real Redis is
+                  # reachable (mcp-stack.redis.enabled, true by default) -- without this pin an
+                  # upgraded, pre-existing gateway renders with the key absent and CRASHES
+                  # (`invalid value; expected string` at `trim`), not just serving stale plugin
+                  # content. See the comment on mcpGateway.rateLimiterRedisBlock in values.yaml.
+                  rateLimiterRedisBlock: |
+                    {{- .Values.mcpGateway.rateLimiterRedisBlock | nindent 20 }}
                   # Keep full mode on the SAME gateway image as lite (single source: mcpGateway.image.tag).
                   mcpContextForge:
                     image:
@@ -215,6 +263,10 @@ data:
                       {{- with .Values.mcpGateway.image.digest }}
                       digest: {{ . | quote }}
                       {{- end }}
+                    pluginConfig:
+                      enabled: true
+                      plugins: |
+                        {{- .Values.mcpGateway.pluginConfig | nindent 24 }}
                   migration:
                     image:
                       tag: {{ .Values.mcpGateway.image.tag | quote }}

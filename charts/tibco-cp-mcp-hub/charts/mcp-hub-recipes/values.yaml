@@ -29,14 +29,11 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          # PCP-25107: 5.1.0 -> 5.1.2 (PCP-23642 CVE sweep tail).
-          # ⚠️ MEASURED DEAD KEY: no template in this subchart reads
-          # global.tibco.logging.fluentbit.image.* -- the emitted DP recipe does not pin the
-          # fluentbit tag at all. Bumped for hygiene only, so a shipped values file does not
-          # advertise a superseded tag; do NOT cite this line as evidence that a Data Plane
-          # gets 5.1.2. Deleting the block would be more honest than maintaining it -- left in
-          # place here because removing a declared value surface is a separate, reviewable call.
-          tag: 5.1.2
+          # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
+          # PCP-25657: 5.1.2 -> 5.1.3, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22).
+          # PCP-25657: 5.1.3 -> 5.1.5, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22,
+          # 1.22.0-alpha.137). common-fluentbit:5.1.5 verified present in -dev (sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4).
+          tag: 5.1.5
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -58,35 +55,52 @@ capabilities:
     # set to true for latest version of recipe
     isLatest: "true"
     # Timestamp of capability release
-    releaseDate: "2026/07/30"
+    # PCP-25635: moves with the capabilityVersion (mcp-hub-recipes appVersion 1.21.0 -> 1.22.0) so
+    # the new catalog entry does not carry the 1.21 date. 2026/10/29 is the release date of the
+    # PLT-MCP-HUB-122 Jira fix version.
+    releaseDate: "2026/10/29"
     # Either a link to document or the document itself specifying what was fixed in this release.
     releaseNotes: "#cshid=new_features"
+    # PCP-26782: the minimum Data Plane versions this capability version declares (version.json "minDPVersion"). The
+    # CP orchestrator compares them with the Data Plane's dp-core-infrastructure / dp-configure-namespace appVersion
+    # before any Helm work, on every install and upgrade, and refuses with a 400 that the Hub turns into "Upgrade the
+    # Data Plane namespace configuration first" (tp-mcp-hub backend/src/cp-api/min-dp-refusal.ts). Kept here, not as
+    # literals in templates/mcp-gateway.yaml, so the coupling guard reads the value this chart actually publishes:
+    # dev/dp-configure-namespace-render-tests/mcp-gateway-chart-coupling-assert.sh renders the gateway chart this
+    # recipe installs against the OLDEST published dp-configure-namespace chart with this appVersion.
+    # Release rule (pm, 2026-10-22): "A GA-released chart version's minimum CP/DP versions never increase. Alpha/dev
+    # versions may change until GA, unless that alpha was handed to a customer or a field POC, in which case it counts
+    # as released for this rule." A Redeploy reinstalls the version a gateway runs, so a minimum raised after install
+    # could refuse that reinstall after its uninstall.
+    minDPVersion:
+      # 1.19.0 -> 1.22.0: the 1.22+ gateway chart renders a traefik.io IngressRoute when the Data Plane's ingress
+      # controller is Traefik (charts/tp-mcp-gateway/templates/ingress-traefik.yaml), and only dp-configure-namespace
+      # appVersion 1.22.0 and later grant the DP service account traefik.io ingressroutes (mcp-gateway-role.yaml,
+      # rbac.ingressController.traefik). Measured 2026-10-22 on a 1.21.4 namespace: a 1.22 gateway Upgrade, fresh
+      # Deploy and Redeploy each failed at Helm ("cannot get resource ingressroutes in API group traefik.io"), the
+      # Redeploy after it had uninstalled the running gateway (tp-mcp-hub docs/plan/PCP-26782-redeploy-proof.md).
+      # It applies to every Data Plane, not only Traefik ones: a minimum cannot name an ingress controller.
+      dpConfigureNamespace: "1.22.0"
+      # Unchanged, and it must stay at or below every supported Data Plane: the orchestrator answers a shortfall of
+      # EITHER minimum with the same sentence, and the Hub's instruction names the namespace configuration.
+      dpCoreInfrastructure: "1.19.0"
 
 image:
   name: common-distroless-base-debian-debug
-  # PCP-25107: 13.5 -> 13.6. Drives exactly ONE container -- the CP-side
-  # mcp-hub-recipe-extraction Job (render-verified). It is never emitted into the DP recipe and
-  # carries no digest key that must move in lockstep.
-  #
-  # Why 13.6: artifacts/control-plane/control-plane-1.21.0-images.txt declares it, tibco-cp-base
-  # renders it across its CP template sites, and bw-recipes / sb-recipes / bw5ce-utilities /
-  # bwce-utilities / sb-utilities already run 13.6 on THIS branch under the byte-identical
-  # busybox-sh Job contract -- which is what retires the "did 13.6 drop the shell" risk.
-  # Tag verified present in tibco-platform-docker-dev before pinning
-  # (sha256:d38bef1447eaabb6ca9d151d61b272005fe2d049d35510e0bd89c9834313df85).
-  #
-  # NOT a repo-wide sweep, so do not "align" the stragglers on sight: bpm, flogo, mft and devhub
-  # remain on 13.5, and apim / discoveryservice on 12.11.
-  #
-  # History (PCP-23334): 13.3 -> 13.5 matched the 1.20 HIGH-CVE sweep. MCP Hub was structurally
-  # excluded from that sweep because 4de6e2ded7 -- the PCP-23262 sweep commit itself -- is what
-  # ADDED these charts to releases/1.20.
+  # PCP-23334: 13.3 -> 13.5 to match the 1.20 HIGH-CVE sweep. The GA manifest
+  # artifacts/control-plane/control-plane-1.20.0-images.txt declares 13.5, and every sibling
+  # capability chart (bw, flogo) ships 13.5. MCP Hub was structurally excluded from that sweep
+  # because 4de6e2ded7 -- the PCP-23262 sweep commit itself -- is what ADDED these charts to
+  # releases/1.20. Tag verified present in tibco-platform-docker-dev before pinning
+  # (sha256:4e148a2af43caee0cbc72bc7705244d62be0d222749327e07f9d26edccd672db).
   registry: ""
   repo: ""
   # QUOTED deliberately: templates/mcp-gateway.yaml interpolates this bare into an image
   # reference, and an unquoted YAML scalar is parsed as a FLOAT -- a future 13.10 would render
-  # as 13.1 and pull the wrong image. Render-neutral for 13.6; it is the next minor that breaks.
-  tag: "13.6"
+  # as 13.1 and pull the wrong image. Render-neutral for 13.6 and 13.7; it is the next minor that breaks.
+  # PCP-25657: 13.6 -> 13.7, the BASE chart's pin (tibco-cp-base commonImages.distrolessDebug on releases/1.22,
+  # 1.22.0-alpha.137). Verified present in -dev (sha256:b1169778b4eb71487fd26b1750e6cd2152ecd2ae60f1a350fe87bae7c6e60fd3).
+  tag: "13.7"
   pullPolicy: IfNotPresent
 
 # Pod Security Context configuration
@@ -128,7 +142,87 @@ mcpGateway:
   # because the number it held had been taken while the branch was open (twice by the
   # automation lane, once by main itself, once by an open PR). Do not read a version out of
   # this comment; read it from the gateway Chart.yaml, which CHECK 1 forces this value to equal.
-  helmChartVersion: "1.21.1"
+  # PCP-24482 — the gateway chart now injects GATEWAY_CHART_VERSION into the dialhome-agent
+  # (template-only). CHECK 1 forces this value to equal charts/tp-mcp-gateway/Chart.yaml's
+  # version; read it from there, never from this comment.
+  #
+  # ⚠️ Newer gateway tags exist than this one — a GA (`tp-mcp-gateway-1.21.0`) and a 1.22 alpha
+  # — and staying on the 1.21 line here is deliberate, not an oversight. `main` lags both lanes
+  # by design and promotion is its own merge; moving this to 1.22 also turns CHECK 6 green while
+  # CONCEALING that the ten image pins predate what the 1.22 line shipped. Full reasoning is in
+  # charts/tp-mcp-gateway/Chart.yaml, next to the version this must equal.
+  # (HISTORY: superseded by PCP-25546, which moved main onto the 1.22 line.)
+  # PCP-24354: moved .23 -> .25 in lockstep with charts/tp-mcp-gateway/Chart.yaml. These two
+  # MUST be equal -- dev/check-mcp-version-sync.sh CHECK 1 guards exactly that, and bumping the
+  # gateway chart alone turns it RED and makes the emitted recipe request a chart version that
+  # this PR did not publish. (Caught by the PR cross-review; the gateway chart's own version
+  # comments do not mention this file, which is how it gets missed.)
+  # PCP-23832: moved with charts/tp-mcp-gateway/Chart.yaml .28 -> .31 (CHECK 1).
+  # PCP-24264: .31 -> .32 on the second resync — CHECK 1 requires this to equal the gateway
+  # chart's own version exactly, so it moves in the same commit.
+  # PCP-25126: .32 -> .34 with the gateway chart (CHECK 1).
+  # PCP-24390: .35 -> .36 with the gateway chart (CHECK 1).
+  # PCP-25210: .36 -> .37 with the gateway chart (CHECK 1) -- bundled-Redis password fix.
+  # PCP-25281/PCP-25280/PCP-25282: .37 -> .38 with the gateway chart (CHECK 1) -- three
+  # plugins.config drifts from the gateway repo (RateLimiter backend, Webhook raw guard,
+  # Summarizer allowlist globs).
+  # PCP-25379: .38 -> .39 with the gateway chart (CHECK 1) -- the full-mode Ingress allowlist
+  # fix (plain Ingress -> Traefik v3 IngressRoute). Merged onto origin/main after .38 landed.
+  # PCP-25488: .39 -> .40 with the gateway chart (CHECK 1) -- defaults
+  # MCPGATEWAY_POOL_RPC_FORWARD_TIMEOUT to 180s so a federated elicitation survives a
+  # cross-worker forward on a multi-replica production gateway.
+  # PCP-25546: .40 -> 1.22.0-alpha.21 with the gateway chart (CHECK 1).
+  # PCP-25553: .21 -> .22 with the gateway chart (CHECK 1).
+  # main-fix: .22 -> .24 with the gateway chart (CHECK 1).
+  # PCP-25635: .24 -> .29 with the gateway chart (CHECK 1).
+  # PCP-25403: .29 -> .31 with the gateway chart (CHECK 1). This pin is what hands Data Planes the
+  # narrowed public Gateway API route, so it has to move with the chart or a DP keeps being handed
+  # the open one. Re-cut from .27 on the merge with main — see the gateway Chart.yaml comment.
+  # PCP-25402: .31 -> .32 with the gateway chart (CHECK 1), same reasoning for the haProxy route.
+  # PCP-25406: .32 -> .33 with the gateway chart (CHECK 1) -- the nginx public Ingress becomes an
+  # allowlist by default. Re-cut from .26 on the merge with main; see the gateway Chart.yaml.
+  #
+  # ⭐ THE OPEN QUESTION THIS BLOCK USED TO CARRY IS SETTLED, and the answer is the one the code
+  # said rather than the one the comments below say. A previous revision here recorded two readings
+  # of whether a chart-default flip reaches an ALREADY-DEPLOYED CP-managed gateway, and refused to
+  # pick. It is now answered from source (release-progress 0f86bfb): a Hub-driven upgrade
+  # RE-RENDERS this recipe, so the new chart's defaults apply on upgrade. The flip DOES reach
+  # existing CP-managed installs.
+  #
+  # That agrees with the code trace recorded in the previous revision -- the Hub never runs helm,
+  # it PUTs this recipe to the CP orchestrator, and templates/mcp-gateway.yaml's `flags:` block
+  # names only install / createNamespace / dependencyUpdate, so no values strategy is requested and
+  # the DP provisioner-agent performs a plain upgrade. Two independent reads, same conclusion.
+  #
+  # ⚠️ WHAT IS STILL NOT MEASURED, so that this does not read as more settled than it is: the LIVE
+  # upgrade proof is deferred to post-GA, because the prerelease guard blocks it on an alpha chart.
+  # The residual risk is carried by the release note rather than by code -- an operator's hand-set
+  # chartValuesYaml overlay merges AFTER this recipe and therefore persists across the upgrade, so
+  # anyone who explicitly set nginxAllowlistEnabled: false keeps it. That is the intended
+  # behaviour (a deliberate opt-out must survive), but it also means the flip does not reach an
+  # install whose operator pinned the old value by hand.
+  #
+  # Pinning `nginxAllowlistEnabled: true` here is still deliberately NOT done, and the reason is
+  # unchanged by the above: unlike an image tag it is a per-DATA-PLANE routing decision (it depends
+  # on whether another Ingress shares that DP's gateway FQDN), while this recipe is per-CP and
+  # installs onto every Data Plane in the subscription. A constant here would override and silently
+  # win over the per-DP choice -- the failure mode the global.cp.routeResources comment in
+  # templates/mcp-gateway.yaml records as measured on a live DP (PCP-23774). With the re-render
+  # answer above, pinning is also unnecessary: the default reaches them on its own.
+  # PCP-24759 (1.22 pin to main): .32 -> .35 with the gateway chart (CHECK 1).
+  # PCP-26062 (2026-10-15): .35 -> .36, the published 1.22 CCRB candidate (CHECK 1).
+  # PCP-26062 owner decision (2026-10-15): .36 -> .37 -- main ships its own content, not
+  # the published artifact; moves with the gateway chart's own re-cut (CHECK 1).
+  # 1.22.0 IMAGE SPRINT (PCP-24326): "1.22.0" -> "1.22.1" with the gateway chart (CHECK 1); image.tag below moves
+  # "1.22.0" -> "1.22.1" with it, as every first-party gateway site does.
+  # 1.22.2 SPIN (PCP-24326): "1.22.1" -> "1.22.2" with the gateway chart (CHECK 1); image.tag below moves
+  # "1.22.1" -> "1.22.2" with it, as every first-party gateway site does.
+  # PCP-26950: this chart version carries the change of main #11459: a FULL gateway on the OpenShift router or on a Gateway API TIER 2
+  # controller no longer renders a public <pathPrefix>/servers route.
+  # 1.22 RESPIN candidate 1 (PCP-27433): "1.22.3" -> "1.22.4-alpha.1" with the gateway chart (CHECK 1).
+  # 1.22 RESPIN candidate 2 (PCP-27433): "1.22.4-alpha.1" -> "1.22.4-alpha.2" with the gateway chart (CHECK 1).
+  # 1.22.4 GA (PCP-25657): "1.22.4-alpha.2" -> "1.22.4" with the gateway chart (CHECK 1).
+  helmChartVersion: "1.22.4"
   image:
     # PCP-21327: this ONE tag drives ALL EIGHT first-party image sites in the emitted recipe
     # (templates/mcp-gateway.yaml) — lite, mcp-stack.mcpContextForge, mcp-stack.migration,
@@ -139,14 +233,15 @@ mcpGateway:
     # serving port 80 -> 8880 in both the probes and the images, so a chart-1.21/images-1.20
     # split leaves the pod NotReady forever. dev/check-mcp-version-sync.sh CHECK 7 enforces
     # that every site the gateway chart declares is actually pinned by this recipe.
-    tag: "1.21.0"
-    # GA (PCP-24504): a HAND-CUT GA ships TAG-ONLY. release-alpha.sh pins digests on the
-    # ALPHA lane only and there is no GA equivalent, so the empty digest below is deliberate,
-    # not a missing pin. Do not add one by hand -- see charts/tp-mcp-gateway/values.yaml.
-    # PCP-23089 (alpha lane): set by release-alpha alongside tag; empty = tag-only. Applies ONLY to the
+    # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the gateway image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+    # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+    # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+    # it names the same image under both tags (re-resolved in the registry).
+    tag: "1.22.4"
+    # PCP-23089: set by release-alpha alongside tag; empty = tag-only. Applies ONLY to the
     # three tp-mcp-gateway sites — the discovery / tibcoProxy / dialHome sidecars are separate
     # images and are pinned by tag alone (a shared digest would not resolve for them).
-    digest: ""
+    digest: "sha256:e995b0a8ce9a2cbb77d2674f44360a2bc7a34393b1e28d146ccd52e75bf23294"
   resources:
     requests:
       cpu: 500m
@@ -154,6 +249,1103 @@ mcpGateway:
     limits:
       cpu: "2"
       memory: 2Gi
+  # PCP-25386: literal, byte-for-byte copy of charts/tp-mcp-gateway/values.yaml's
+  # `plugins.config` (the `&plugins_config` anchor that chart shares between lite and full
+  # mode). `helm upgrade --reuse-values` freezes a gateway's plugin configuration at whatever
+  # this recipe pinned -- or, before this fix, at nothing, so it froze at FIRST-INSTALL content
+  # forever. The gateway chart's own plugins.config has already moved three times without this
+  # recipe carrying any of it forward (PCP-25281 RateLimiter backend, PCP-25280 webhook guard,
+  # PCP-25282 Summarizer allowlist -- see mcpGateway.helmChartVersion's .37 -> .38 comment
+  # above), so none of those fixes ever reached an existing, Hub-upgraded gateway. Must move in
+  # lockstep with mcpGateway.helmChartVersion whenever the gateway chart's plugins.config
+  # changes; dev/check-mcp-version-sync.sh CHECK 8 enforces byte-identical content so drift
+  # fails loud instead of shipping silently (the PCP-21327 image-tag pattern, applied here).
+  pluginConfig: |
+    plugin_dirs:
+      - "plugins/native"
+      - "plugins/custom"
+
+    plugin_settings:
+      parallel_execution_within_band: true
+      plugin_timeout: 120
+      fail_on_plugin_error: false
+      enable_plugin_api: true
+      plugin_health_check_interval: 120
+      include_user_info: false
+
+    plugins:
+      # Rate limiter — cpex_rate_limiter pip package (Rust core). PCP-25281: `backend` is
+      # injected PER MODE by the consuming template (lite: inline "memory"; full mode: the
+      # mcp-stack.rateLimiterRedisBlock value, see the top of this file) -- "redis" where real
+      # Redis is reachable (shares counters across replicas AND across a plugin
+      # re-instantiation), "memory" where it is not (lite; full mode with no
+      # Redis configured). Without a real backend, memory counters live in the plugin INSTANCE,
+      # and a push on ANY VS of the gateway re-instantiates every plugin instance, silently
+      # resetting every rate limit to zero -- that was the unconditional-memory bug.
+      # PCP-22399: kind points at the fork-side ObservableRateLimiterPlugin wrapper
+      # (subclasses the cpex_rate_limiter wheel, delegates 100% of enforcement) so a redis
+      # backend that fails open to memory (e.g. a transient outage in full mode) becomes
+      # observable — deduped WARNING + rate_limiter_degraded / rate_limiter_backend on the
+      # tools/call _meta. An explicit `backend: "memory"` binding (lite; full mode with no
+      # Redis) is a verbatim passthrough -- no degraded flag, no warning, nothing to observe,
+      # since memory is the deliberately-configured backend there, not a fallback. Requires a
+      # gateway image that carries the wrapper — first added in e20deb0d (PCP-22389); the
+      # image tags below pin build wip-poc-1-0b9555a (a descendant that contains it).
+      - name: "RateLimiterPlugin"
+        kind: "plugins.rate_limiter.observable_rate_limiter.ObservableRateLimiterPlugin"
+        description: "Per-user/tenant/tool rate limits"
+        version: "0.0.6"
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke"]
+        tags: ["limits", "throttle"]
+        mode: "disabled"
+        priority: 20
+        conditions: []
+        config:
+          RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER
+          by_user: "300/m"  # PCP-24390: was 60/m -- do not silently revert; by_tenant deliberately stays 600/m
+          by_tenant: "600/m"
+          by_tool:
+            search: "10/m"
+
+      # Secrets Detection — regex-based key/token detector
+      - name: "SecretsDetection"
+        kind: "plugins.secrets_detection.secrets_detection.SecretsDetectionPlugin"
+        description: "Detects keys/tokens/secrets in inputs/outputs"
+        version: "0.1.0"
+        # PCP-20254: tool_pre_invoke added so secrets in tool INPUT args are scanned (cpex
+        # dispatches only hooks declared here, so the method + this entry must ship together).
+        # PCP-19884: per-VS model — base mode is "disabled" (loaded-but-inert, no global
+        # security floor). Enforcement is opt-in PER VIRTUAL SERVER (and per VS-tool) via a
+        # Hub plugin binding, which gateway_plugin_manager._merge_tenant_config activates per
+        # context and _apply_security_floor then pins to blocking/fail-closed. A base-disabled,
+        # unbound plugin is left OFF (the floor never force-enables it).
+        # OPERATOR NOTE: to restore the GLOBAL always-on floor instead, set mode "enforce" with
+        # conditions: [] — that + the PCP-20184 floor = blocking and non-downgradable on every
+        # VS. To soften a global floor, use "permissive", or turn off a broad detector (e.g.
+        # base64_24) under config.enabled below.
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke", "tool_post_invoke", "resource_post_fetch"]
+        tags: ["security", "secrets", "dlp"]
+        mode: "disabled"
+        priority: 51
+        conditions: []
+        config:
+          enabled:
+            aws_access_key_id: true
+            aws_secret_access_key: true
+            google_api_key: true
+            slack_token: true
+            private_key_block: true
+            jwt_like: true
+            hex_secret_32: true
+            base64_24: true
+          redact: false
+          redaction_text: "***REDACTED***"
+          block_on_detection: true
+          min_findings_to_block: 1
+
+      # Post-ingestion write interlock (PCP-24140) — turns read/write separation from a
+      # deployment pattern into an enforced request-path control that leaves evidence.
+      # Once a principal has ingested content from a declared untrusted SOURCE tool, it may
+      # call a declared WRITE tool only if that source's allowlist permits it.
+      #
+      # NO ARGUMENT VALUE IS EVER COMPARED — the decision inputs are tool identity and
+      # ingestion history, which is what makes it immune to value splitting, re-encoding and
+      # canonicalisation gaps. Scope is SAME-PRINCIPAL: an enforced separation interlock with
+      # evidence, NOT general prompt-injection containment, and it does not close GhostJacking
+      # (the RCE leg never traverses the gateway).
+      #
+      # Ships INERT: `sources` and `write_tools` are empty, so the plugin short-circuits and
+      # gates nothing until an operator classifies their tools. mode "disabled" is the per-VS
+      # opt-in model (same as SecretsDetection above): enforcement comes from a Hub plugin
+      # binding, which _merge_tenant_config activates per context and _apply_security_floor
+      # then pins to blocking/fail-closed.
+      #
+      # ⚠️ A per-VS binding CAN replace these lists (the tenant merge is a shallow
+      # {**base, **override} and no config-floor stripper is registered for this class).
+      # Harmless while the base is empty — the binding IS the enforcement — but do not add a
+      # global baseline here and assume a binding cannot undo it.
+      - name: "SessionWriteGate"
+        kind: "plugins.session_write_gate.session_write_gate.SessionWriteGatePlugin"
+        description: "Deny a declared write tool after the principal ingested from a declared untrusted source, unless that source permits it"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["security", "provenance", "write-gate"]
+        mode: "disabled"
+        priority: 45
+        conditions: []
+        config:
+          sources: {}
+          write_tools: []
+          additional_sources: {}
+          additional_write_tools: []
+          # taint_ttl_seconds is deliberately NOT restated here. 1800 is
+          # SessionWriteGateConfig's own default (plugins/session_write_gate/
+          # session_write_gate.py) and nothing reconciles a copy in this file against it, so
+          # pinning it would drift silently the day the model default moves. The Hub's plugin
+          # form still offers the key, and a per-VS binding can still set it.
+
+      # Output Length Guard — truncate oversized tool outputs
+      - name: "OutputLengthGuardPlugin"
+        kind: "plugins.output_length_guard.output_length_guard.OutputLengthGuardPlugin"
+        description: "Guards tool outputs by enforcing max length"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["guard", "length", "outputs", "truncate"]
+        mode: "enforce"
+        priority: 160
+        conditions: []
+        config:
+          min_chars: 0
+          max_chars: 15000
+          strategy: "truncate"
+          ellipsis: "..."
+
+      # Safe HTML Sanitizer — strip XSS vectors
+      - name: "SafeHTMLSanitizer"
+        kind: "plugins.safe_html_sanitizer.safe_html_sanitizer.SafeHTMLSanitizerPlugin"
+        description: "Sanitize HTML to remove XSS vectors"
+        version: "0.1.0"
+        hooks: ["resource_post_fetch"]
+        tags: ["security", "html", "xss", "sanitize"]
+        mode: "enforce"
+        priority: 119
+        conditions: []
+        config:
+          allowed_tags:
+            - a
+            - p
+            - div
+            - span
+            - strong
+            - em
+            - code
+            - pre
+            - ul
+            - ol
+            - li
+            - h1
+            - h2
+            - h3
+            - h4
+            - h5
+            - h6
+            - blockquote
+            - img
+            - br
+            - hr
+            - table
+            - thead
+            - tbody
+            - tr
+            - th
+            - td
+            # PCP-25290/gw#7e16c8773c: kept (not unwrapped) so a bound HTMLToMarkdown can
+            # still promote <title> into a heading -- an explicit allowed_tags list overrides
+            # the code default rather than extending it, so omitting this here left the code
+            # fix (DEFAULT_ALLOWED_TAGS) with no effect on chart deployments, same class as
+            # PCP-19889 below.
+            - title
+          # PCP-19889: keep allowed_attrs in sync with code DEFAULT_ALLOWED_ATTRS so
+          # the deployed default does not silently drop table/th/td layout attributes
+          # (config overrides the code default, so an omitted key = dropped attr).
+          allowed_attrs:
+            "*": ["id", "class", "title", "alt"]
+            a: ["href", "rel", "target"]
+            img: ["src", "width", "height", "alt", "title"]
+            table: ["border", "cellpadding", "cellspacing", "summary"]
+            th: ["colspan", "rowspan"]
+            td: ["colspan", "rowspan"]
+          remove_comments: true
+          drop_unknown_tags: true
+          strip_event_handlers: true
+          sanitize_css: true
+          allow_data_images: false
+          remove_bidi_controls: true
+          to_text: false
+
+      # HTML to Markdown — convert fetched HTML to Markdown
+      - name: "HTMLToMarkdownPlugin"
+        kind: "plugins.html_to_markdown.html_to_markdown.HTMLToMarkdownPlugin"
+        description: "Converts HTML ResourceContent to Markdown"
+        version: "0.1.0"
+        hooks: ["resource_post_fetch"]
+        tags: ["transform", "markdown", "html"]
+        mode: "disabled"
+        priority: 120
+        conditions: []
+        config: {}
+
+      # Code Safety Linter — detect unsafe code patterns
+      - name: "CodeSafetyLinterPlugin"
+        kind: "plugins.code_safety_linter.code_safety_linter.CodeSafetyLinterPlugin"
+        description: "Detect unsafe code patterns in outputs"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["security", "code"]
+        # PCP-20254: enforce-by-default. OPERATOR NOTE: once enforced, the PCP-20184 security
+        # floor pins this plugin blocking + fail-closed and it CANNOT be downgraded at runtime —
+        # setting mode "permissive"/"disabled" here is NOT honored for this curated plugin (the
+        # floor re-pins it to blocking). A false positive on legitimate code-bearing tool OUTPUT
+        # is therefore a redeploy-only fix. PCP-20299: the real softening lever is the rule tiers
+        # below — move a noisy rule from blocked_patterns (hard block) to warn_patterns
+        # (non-blocking advisory, logged + annotated in result.metadata).
+        mode: "enforce"
+        priority: 155
+        conditions: []
+        config:
+          # PCP-24253: block-tier = LITERAL, dotted, unambiguous execution-sink CALLS. Every
+          # entry requires the call paren; none matches module acquisition or a bare word.
+          # `posix` has its OWN shorter list — `os` is a wrapper module, not the same object.
+          # Generated from the gateway's shipped defaults; keep them in sync (the plugin
+          # REPLACES its defaults with whatever this file provides, so a stale list here is
+          # a silent downgrade). Source of truth: tibco/tp-mcp-gateway:plugins/code_safety_linter/README.md.
+          blocked_patterns:
+            - "\\bos\\.(system|popen|execl|execle|execlp|execlpe|execv|execve|execvp|execvpe|_execvpe|spawnl|spawnle|spawnlp|spawnlpe|spawnv|spawnve|spawnvp|spawnvpe|_spawnvef|posix_spawn|posix_spawnp)\\s*\\("
+            - "\\bposix\\.(system|execv|execve|posix_spawn|posix_spawnp)\\s*\\("
+            - "\\bsubprocess\\.(Popen|call|run|check_call|check_output|getoutput|getstatusoutput|_fork_exec)\\s*\\("
+            - "\\b_posixsubprocess\\.(fork_exec)\\s*\\("
+            - "\\bpty\\.(spawn)\\s*\\("
+            - "\\basyncio\\.(subprocess\\.)?(create_subprocess_exec|create_subprocess_shell)\\s*\\("
+          # warn-tier = non-blocking advisory (logged + annotated in result.metadata):
+          # prose-prone constructs, Windows-only/`runpy` sinks whose false-positive cost is
+          # too high to block, the event-loop sinks (open receiver), and the dynamic
+          # ACQUISITION spellings — `__import__('os')`, `importlib.import_module`,
+          # `getattr(os, 'system')`. PCP-24253 measured 6 of 7 aliasing spellings hitting
+          # NEITHER tier before this change: the harm was no signal at all, not "not blocked".
+          warn_patterns:
+            - "\\beval\\s*\\("
+            - "\\bexec\\s*\\("
+            - "\\brm\\s+-rf\\b"
+            - "\\bos\\.(startfile)\\s*\\("
+            - "\\brunpy\\.(run_path|run_module)\\s*\\("
+            - "[\\w)]\\s*\\.(subprocess_exec|subprocess_shell)\\s*\\("
+            - "\\b__import__\\s*\\(\\s*(['\"])(asyncio\\.subprocess|_posixsubprocess|subprocess|commands|asyncio|posix|runpy|pty|os|nt)\\1"
+            - "\\bimportlib\\s*\\.\\s*import_module\\s*\\(\\s*(['\"])(asyncio\\.subprocess|_posixsubprocess|subprocess|commands|asyncio|posix|runpy|pty|os|nt)\\1"
+            - "\\bgetattr\\s*\\(\\s*(asyncio\\.subprocess|_posixsubprocess|subprocess|commands|asyncio|posix|runpy|pty|os|nt)\\s*,\\s*(['\"])(system|popen|execl|execle|execlp|execlpe|execv|execve|execvp|execvpe|_execvpe|spawnl|spawnle|spawnlp|spawnlpe|spawnv|spawnve|spawnvp|spawnvpe|_spawnvef|posix_spawn|posix_spawnp|startfile|run_path|run_module|system|execv|execve|posix_spawn|posix_spawnp|Popen|call|run|check_call|check_output|getoutput|getstatusoutput|_fork_exec|spawn|fork_exec|create_subprocess_exec|create_subprocess_shell|subprocess_exec|subprocess_shell)\\2"
+
+      # ============================================================
+      # Additional native plugins — registered with mode="disabled" so
+      # they surface in Hub's catalog (GET /admin/plugins returns
+      # disabled entries too) but don't fire until a user attaches them
+      # via plugin_bindings. Kinds taken from tp-mcp-gateway's
+      # reference plugins/config.yaml.
+      # ============================================================
+
+      - name: "SpanAttributeCustomizer"
+        kind: "plugins.span_attribute_customizer.span_attribute_customizer.SpanAttributeCustomizerPlugin"
+        description: "Customizes OpenTelemetry span attributes"
+        version: "1.0.0"
+        hooks: ["tool_pre_invoke", "resource_pre_fetch", "resource_post_fetch"]
+        tags: ["observability", "telemetry", "spans"]
+        mode: "disabled"
+        priority: 10
+        conditions: []
+        config: {}
+
+      - name: "ArgumentNormalizer"
+        kind: "plugins.argument_normalizer.argument_normalizer.ArgumentNormalizerPlugin"
+        description: "Normalizes Unicode, whitespace, casing, dates, numbers in args"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke"]
+        tags: ["transform", "normalize"]
+        mode: "disabled"
+        priority: 40
+        conditions: []
+        config: {}
+
+      - name: "ReplaceBadWordsPlugin"
+        kind: "plugins.regex_filter.search_replace.SearchReplacePlugin"
+        description: "Regex search-and-replace on prompts/tool I/O"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "prompt_post_fetch", "tool_pre_invoke", "tool_post_invoke"]
+        tags: ["transform", "regex"]
+        mode: "disabled"
+        priority: 150
+        conditions: []
+        config:
+          words: []
+
+      - name: "DenyListPlugin"
+        kind: "plugins.deny_filter.deny.DenyListPlugin"
+        description: "Blocks prompts matching denylist words"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch"]
+        tags: ["security", "denylist"]
+        mode: "disabled"
+        priority: 100
+        conditions: []
+        config:
+          words: []
+
+      - name: "ResourceFilterExample"
+        kind: "plugins.resource_filter.resource_filter.ResourceFilterPlugin"
+        description: "Validates resource URIs and limits content size"
+        version: "1.0.0"
+        hooks: ["resource_pre_fetch", "resource_post_fetch", "tool_post_invoke"]
+        tags: ["validation", "resource"]
+        mode: "disabled"
+        priority: 75
+        conditions: []
+        config:
+          max_content_size: 1048576
+
+      - name: "SchemaGuardPlugin"
+        kind: "plugins.schema_guard.schema_guard.SchemaGuardPlugin"
+        description: "Validates payloads against JSON Schema"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["validation", "schema"]
+        mode: "disabled"
+        priority: 45
+        conditions: []
+        config: {}
+
+      - name: "SPARCStaticValidator"
+        kind: "plugins.sparc_static_validator.sparc_static_validator.SPARCStaticValidatorPlugin"
+        description: "Static validation against SPARC rules"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke"]
+        tags: ["validation"]
+        mode: "disabled"
+        priority: 46
+        conditions: []
+        config: {}
+
+      - name: "CachedToolResultPlugin"
+        kind: "plugins.cached_tool_result.cached_tool_result.CachedToolResultPlugin"
+        description: "Caches successful tool responses"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "cache"]
+        mode: "disabled"
+        priority: 150
+        conditions: []
+        config: {}
+
+      - name: "FileTypeAllowlistPlugin"
+        kind: "plugins.file_type_allowlist.file_type_allowlist.FileTypeAllowlistPlugin"
+        description: "Restricts file types to an allowlist"
+        version: "0.1.0"
+        hooks: ["resource_pre_fetch", "resource_post_fetch"]
+        tags: ["validation", "allowlist"]
+        mode: "disabled"
+        priority: 30
+        conditions: []
+        config: {}
+
+      - name: "MarkdownCleanerPlugin"
+        kind: "plugins.markdown_cleaner.markdown_cleaner.MarkdownCleanerPlugin"
+        description: "Normalizes markdown headings and whitespace"
+        version: "0.1.0"
+        hooks: ["prompt_post_fetch", "resource_post_fetch"]
+        tags: ["transform", "markdown"]
+        mode: "disabled"
+        priority: 140
+        conditions: []
+        config: {}
+
+      - name: "JSONRepairPlugin"
+        kind: "plugins.json_repair.json_repair.JSONRepairPlugin"
+        description: "Repairs malformed JSON in tool outputs"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["transform", "json"]
+        mode: "disabled"
+        priority: 110
+        conditions: []
+        config: {}
+
+      - name: "CircuitBreaker"
+        kind: "plugins.circuit_breaker.circuit_breaker.CircuitBreakerPlugin"
+        description: "Trips on failing upstream tools"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "circuit"]
+        mode: "disabled"
+        priority: 25
+        conditions: []
+        config: {}
+
+      - name: "Watchdog"
+        kind: "plugins.watchdog.watchdog.WatchdogPlugin"
+        description: "Times out long-running tool calls"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "watchdog"]
+        mode: "disabled"
+        priority: 80
+        conditions: []
+        config: {}
+
+      - name: "RobotsLicenseGuard"
+        kind: "plugins.robots_license_guard.robots_license_guard.RobotsLicenseGuardPlugin"
+        description: "Enforces robots.txt and licensing rules on fetched resources"
+        version: "0.1.0"
+        hooks: ["resource_pre_fetch", "resource_post_fetch"]
+        tags: ["privacy", "compliance", "license"]
+        mode: "disabled"
+        priority: 50
+        conditions: []
+        config: {}
+
+      - name: "HarmfulContentDetector"
+        kind: "plugins.harmful_content_detector.harmful_content_detector.HarmfulContentDetectorPlugin"
+        description: "Detects harmful or unsafe content in payloads"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "tool_post_invoke"]
+        tags: ["security", "moderation"]
+        mode: "disabled"
+        priority: 30
+        conditions: []
+        config: {}
+
+      - name: "TimezoneTranslator"
+        kind: "plugins.timezone_translator.timezone_translator.TimezoneTranslatorPlugin"
+        description: "Translates timestamps across timezones"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["transform", "timezone"]
+        mode: "disabled"
+        priority: 140
+        conditions: []
+        config: {}
+
+      - name: "SQLSanitizer"
+        kind: "plugins.sql_sanitizer.sql_sanitizer.SQLSanitizerPlugin"
+        description: "Strips dangerous SQL fragments from arguments"
+        version: "0.1.0"
+        hooks: ["prompt_pre_fetch", "tool_pre_invoke"]
+        tags: ["security", "sql"]
+        mode: "disabled"
+        priority: 40
+        conditions: []
+        config: {}
+
+      - name: "HeaderInjector"
+        kind: "plugins.header_injector.header_injector.HeaderInjectorPlugin"
+        description: "Injects configured HTTP headers into resource fetch metadata"
+        version: "0.1.0"
+        hooks: ["resource_pre_fetch"]
+        tags: ["auth", "header"]
+        mode: "disabled"
+        priority: 20
+        conditions: []
+        config: {}
+
+      - name: "PrivacyNoticeInjector"
+        kind: "plugins.privacy_notice_injector.privacy_notice_injector.PrivacyNoticeInjectorPlugin"
+        description: "Injects privacy notices into responses"
+        version: "0.1.0"
+        hooks: ["prompt_post_fetch"]
+        tags: ["privacy", "compliance"]
+        mode: "disabled"
+        priority: 80
+        conditions: []
+        config: {}
+
+      - name: "ResponseCacheByPrompt"
+        kind: "plugins.response_cache_by_prompt.response_cache_by_prompt.ResponseCacheByPromptPlugin"
+        description: "Caches responses keyed by prompt"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["reliability", "cache"]
+        mode: "disabled"
+        priority: 151
+        conditions: []
+        config: {}
+
+      - name: "CodeFormatter"
+        kind: "plugins.code_formatter.code_formatter.CodeFormatterPlugin"
+        description: "Pretty-prints code blocks in responses"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke", "resource_post_fetch"]
+        tags: ["transform", "code"]
+        mode: "disabled"
+        priority: 120
+        conditions: []
+        config: {}
+
+      - name: "LicenseHeaderInjector"
+        kind: "plugins.license_header_injector.license_header_injector.LicenseHeaderInjectorPlugin"
+        description: "Adds license headers to generated artifacts"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke", "resource_post_fetch"]
+        tags: ["privacy", "license"]
+        mode: "disabled"
+        priority: 85
+        conditions: []
+        config: {}
+
+      - name: "CitationValidator"
+        kind: "plugins.citation_validator.citation_validator.CitationValidatorPlugin"
+        description: "Validates citation formatting in outputs"
+        version: "0.1.0"
+        hooks: ["resource_post_fetch", "tool_post_invoke"]
+        tags: ["privacy", "citation"]
+        mode: "disabled"
+        priority: 95
+        conditions: []
+        config: {}
+
+      - name: "ToonEncoder"
+        kind: "plugins.toon_encoder.toon_encoder.ToonEncoderPlugin"
+        description: "Encodes data using token-optimized format"
+        version: "0.1.0"
+        hooks: ["tool_post_invoke"]
+        tags: ["encoding", "format", "toon"]
+        mode: "disabled"
+        priority: 160
+        conditions: []
+        config: {}
+
+      - name: "ToolsTelemetryExporter"
+        kind: "plugins.tools_telemetry_exporter.telemetry_exporter.ToolsTelemetryExporterPlugin"
+        description: "Emits OpenTelemetry spans per tool call"
+        version: "0.1.0"
+        hooks: ["tool_pre_invoke", "tool_post_invoke"]
+        tags: ["observability", "telemetry"]
+        mode: "disabled"
+        priority: 200
+        conditions: []
+        config: {}
+
+      - name: PIIFilterPlugin
+        kind: cpex_pii_filter.PIIFilterPlugin
+        description: Detects and masks Personally Identifiable Information
+        version: 0.2.0
+        author: Mihai Criveti
+        hooks:
+        - prompt_pre_fetch
+        - prompt_post_fetch
+        - tool_pre_invoke
+        - tool_post_invoke
+        tags:
+        - security
+        - pii
+        - compliance
+        - filter
+        - gdpr
+        - hipaa
+        mode: disabled
+        priority: 50
+        conditions:
+        - prompts: []
+          server_ids: []
+          tenant_ids: []
+        config:
+          detect_ssn: true
+          detect_credit_card: true
+          detect_email: true
+          detect_phone: false
+          detect_ip_address: false
+          default_mask_strategy: partial
+          redaction_text: '[PII_REDACTED]'
+          block_on_detection: false
+          log_detections: true
+          include_detection_details: true
+          whitelist_patterns:
+          - test@example.com
+          - 555-555-5555
+      - name: URLReputationPlugin
+        kind: cpex_url_reputation.URLReputationPlugin
+        description: Static URL reputation checks using blocked domains and URL patterns
+        version: 0.3.2
+        author: ContextForge Contributors
+        hooks:
+        - resource_pre_fetch
+        tags:
+        - security
+        - url
+        - reputation
+        mode: disabled
+        priority: 60
+        conditions: []
+        # PCP-19890: full 7-field config surface + version/author reconciled to the
+        # installed cpex_url_reputation 0.3.2 wheel (manifest), not the stale
+        # 0.1.1/Mihai Criveti. Values are the wheel manifest defaults except the
+        # sample blocked_domains entry.
+        config:
+          whitelist_domains: []
+          allowed_patterns: []
+          blocked_domains:
+          - malicious.example.com
+          blocked_patterns: []
+          use_heuristic_check: false
+          entropy_threshold: 3.65
+          block_non_secure_http: true
+      - name: RetryWithBackoffPlugin
+        kind: cpex_retry_with_backoff.RetryWithBackoffPlugin
+        description: Detects transient failures and asks the gateway to re-invoke the tool after a jittered exponential backoff delay
+        version: 0.1.0
+        author: Mihai Criveti
+        hooks:
+        - tool_post_invoke
+        tags:
+        - retry
+        - backoff
+        - resilience
+        mode: disabled
+        priority: 170
+        conditions: []
+        config:
+          max_retries: 2
+          backoff_base_ms: 200
+          max_backoff_ms: 5000
+          retry_on_status:
+          - 429
+          - 500
+          - 502
+          - 503
+          - 504
+          jitter: true
+          check_text_content: false
+          tool_overrides: {}
+      - name: EncodedExfilDetector
+        # PCP-21038: point at the bare cpex_encoded_exfil_detection wheel. The v1.0.4+ wheel recurses
+        # into CopyOnWriteDict natively, so the old in-repo cow_compat compat wrapper was deleted from
+        # the gateway image (gateway PR #121 / PCP-20589 / PCP-20883). The chart config kind must match
+        # the image's module layout, else the plugin fails to load and the security-floor errors every call.
+        kind: cpex_encoded_exfil_detection.EncodedExfilDetectorPlugin
+        description: Detects suspicious encoded exfiltration patterns in prompts, tool outputs, and resources
+        version: 0.2.0
+        author: Mihai Criveti
+        hooks:
+        - prompt_pre_fetch
+        - tool_post_invoke
+        - resource_post_fetch
+        tags:
+        - security
+        - exfiltration
+        - dlp
+        - encoding
+        mode: disabled  # PCP-19885: per-VS opt-in only (no global floor) — enforcement comes from a Hub VS-level binding
+        priority: 52
+        conditions: []
+        config:
+          enabled:
+            base64: true
+            base64url: true
+            hex: true
+            percent_encoding: true
+            escaped_hex: true
+          min_encoded_length: 24
+          min_decoded_length: 12
+          min_entropy: 3.3
+          min_printable_ratio: 0.7
+          min_suspicion_score: 3
+          max_scan_string_length: 200000
+          max_findings_per_value: 50
+          redact: false
+          redaction_text: '***ENCODED_REDACTED***'
+          block_on_detection: true
+          min_findings_to_block: 1
+          include_detection_details: true
+          allowlist_patterns: []
+          extra_sensitive_keywords: []
+          extra_egress_hints: []
+          max_decode_depth: 2
+          max_recursion_depth: 32
+          log_detections: true
+      - name: VirusTotalURLCheckerPlugin
+        kind: plugins.virus_total_checker.virus_total_checker.VirusTotalURLCheckerPlugin
+        description: Integrates with VirusTotal v3 to check URLs/domains/IPs and local files
+        version: 0.1.0
+        author: Mihai Criveti
+        hooks:
+        - resource_pre_fetch
+        - resource_post_fetch
+        - prompt_post_fetch
+        - tool_post_invoke
+        tags:
+        - security
+        - threat
+        mode: disabled
+        priority: 61
+        conditions: []
+        config:
+          enabled: true
+          api_key_env: VT_API_KEY
+          timeout_seconds: 8.0
+          check_url: true
+          check_domain: true
+          check_ip: true
+          scan_if_unknown: false
+          wait_for_analysis: false
+          max_wait_seconds: 8
+          poll_interval_seconds: 1.0
+          block_on_verdicts:
+          - malicious
+          min_malicious: 1
+          cache_ttl_seconds: 300
+          max_retries: 3
+          base_backoff: 0.5
+          max_delay: 8.0
+          jitter_max: 0.2
+          enable_file_checks: true
+          file_hash_alg: sha256
+          upload_if_unknown: false
+          upload_max_bytes: 10485760
+          scan_tool_outputs: true
+          max_urls_per_call: 5
+          url_pattern: https?://[\w\-\._~:/%#\[\]@!\$&'\(\)\*\+,;=]+
+          min_harmless_ratio: 0.0
+          scan_prompt_outputs: true
+          scan_resource_contents: true
+          allow_url_patterns: []
+          deny_url_patterns: []
+          allow_domains: []
+          deny_domains: []
+          allow_ip_cidrs: []
+          deny_ip_cidrs: []
+          override_precedence: deny_over_allow
+      - name: Summarizer
+        kind: plugins.summarizer.summarizer.SummarizerPlugin
+        description: Summarize long text content using an LLM
+        version: 0.1.0
+        author: ContextForge
+        hooks:
+        - resource_post_fetch
+        - tool_post_invoke
+        tags:
+        - summarize
+        - llm
+        - content
+        mode: disabled
+        priority: 170
+        conditions: []
+        config:
+          provider: openai
+          openai:
+            api_base: https://api.openai.com/v1
+            api_key_env: OPENAI_API_KEY
+            model: gpt-4o-mini
+            temperature: 0.2
+            max_tokens: 512
+            use_responses_api: true
+          anthropic:
+            api_base: https://api.anthropic.com/v1
+            api_key_env: ANTHROPIC_API_KEY
+            model: claude-3-5-sonnet-latest
+            max_tokens: 512
+            temperature: 0.2
+          prompt_template: 'You are a helpful assistant. Summarize the following content succinctly
+
+            in no more than {max_tokens} tokens. Focus on key points, remove
+
+            redundancy, and preserve critical details.
+
+            '
+          include_bullets: true
+          language: null
+          threshold_chars: 800
+          hard_truncate_chars: 24000
+          # PCP-25282/PCP-24652: glob-matched against the gateway slug <server>-<tool>
+          # (0ffe53e49#L722) -- the literal-only list never matched a federated tool.
+          tool_allowlist:
+          - search
+          - "*-search*"
+          - retrieve
+          - "*-retrieve*"
+          resource_uri_prefixes:
+          - http://
+          - https://
+      - name: VaultPlugin
+        kind: plugins.vault.vault_plugin.Vault
+        description: Generates bearer tokens based on vault-saved tokens
+        version: 0.0.1
+        author: Adrian Popa
+        hooks:
+        - tool_pre_invoke
+        tags:
+        - security
+        - vault
+        - OAUTH2
+        mode: disabled
+        priority: 10
+        conditions:
+        - prompts: []
+          server_ids: []
+          tenant_ids: []
+        config:
+          system_tag_prefix: system
+          vault_header_name: X-Vault-Tokens
+          vault_handling: raw
+          system_handling: tag
+      - name: WebhookNotification
+        kind: plugins.webhook_notification.webhook_notification.WebhookNotificationPlugin
+        description: Send HTTP webhook notifications on events, violations, and state changes
+        version: 1.0.0
+        author: Manav Gupta
+        hooks:
+        - tool_pre_invoke
+        - tool_post_invoke
+        - prompt_post_fetch
+        - resource_post_fetch
+        tags:
+        - notification
+        - webhook
+        - monitoring
+        - observability
+        mode: disabled
+        priority: 900
+        conditions: []
+        config:
+          webhooks:
+          - url: https://example.invalid/webhook
+            events:
+            - violation
+            - tool_success
+            - tool_error
+            - rate_limit_exceeded
+            - pii_detected
+            authentication:
+              type: none
+            retry_attempts: 2
+            retry_delay: 1000
+            timeout: 10
+            enabled: false
+          # PCP-25280: Jinja raw/endraw guard so the gateway's Jinja config-load pass (use_jinja=True)
+          # does not blank these placeholders to "" -- mirrors 0ffe53e49#L1268-L1278 verbatim.
+          default_template: |
+            {% raw %}{
+              "event": "{{event}}",
+              "plugin": "{{plugin_name}}",
+              "timestamp": "{{timestamp}}",
+              "request_id": "{{request_id}}",
+              "user": "{{user}}",
+              "tenant_id": "{{tenant_id}}",
+              "violation": {{violation}},
+              "metadata": {{metadata}}
+            }{% endraw %}
+          include_payload_data: false
+          max_payload_size: 1000
+      - name: ContentModeration
+        kind: plugins.content_moderation.content_moderation.ContentModerationPlugin
+        description: Advanced content moderation using AI services (IBM Watson, IBM Granite Guardian, OpenAI)
+        version: 1.0.0
+        author: Manav Gupta
+        hooks:
+        - prompt_pre_fetch
+        - tool_pre_invoke
+        - tool_post_invoke
+        tags:
+        - safety
+        - moderation
+        - content
+        - ai
+        - ibm
+        - watson
+        - granite
+        mode: disabled
+        priority: 30
+        conditions: []
+        config:
+          provider: ibm_granite
+          fallback_provider: null
+          fallback_on_error: warn
+          ibm_granite:
+            ollama_url: http://localhost:11434
+            model: granite3-guardian
+            temperature: 0.1
+            timeout: 30
+          categories:
+            hate:
+              threshold: 0.7
+              action: warn
+            violence:
+              threshold: 0.8
+              action: warn
+            sexual:
+              threshold: 0.6
+              action: warn
+            self_harm:
+              threshold: 0.5
+              action: warn
+            harassment:
+              threshold: 0.7
+              action: warn
+            profanity:
+              threshold: 0.6
+              action: redact
+            toxic:
+              threshold: 0.7
+              action: warn
+          audit_decisions: true
+          include_confidence_scores: true
+          enable_caching: true
+          cache_ttl: 3600
+          max_text_length: 10000
+      - name: ALTKJsonProcessor
+        kind: plugins.altk_json_processor.json_processor.ALTKJsonProcessor
+        description: Uses JSON Processor from ALTK to extract data from long JSON responses
+        version: 0.1.0
+        author: Jason Tsay
+        hooks:
+        - tool_post_invoke
+        tags:
+        - plugin
+        - llm
+        - transformer
+        - code-execution
+        mode: disabled
+        priority: 150
+        conditions:
+        - server_ids: []
+          tenant_ids: []
+        config:
+          jsonprocessor_query: ''
+          llm_provider: watsonx
+          watsonx:
+            wx_api_key_env: WX_API_KEY
+            wx_project_id_env: WX_PROJECT_ID
+            wx_url: https://us-south.ml.cloud.ibm.com
+          ollama:
+            ollama_url: http://localhost:11434
+          openai:
+            api_key_env: OPENAI_API_KEY
+          anthropic:
+            api_key_env: ANTHROPIC_API_KEY
+          model_id: ibm/granite-3-3-8b-instruct
+          length_threshold: 100000
+      - name: UnifiedPDPPlugin
+        kind: plugins.unified_pdp.unified_pdp.UnifiedPDPPlugin
+        description: Unified Policy Decision Point for access control across multiple policy engines
+        version: 0.1.0
+        author: yiannis2804
+        hooks:
+        - tool_pre_invoke
+        - resource_pre_fetch
+        tags:
+        - security
+        - policy
+        - access-control
+        - pdp
+        - rbac
+        - mac
+        mode: disabled
+        priority: 10
+        conditions: []
+        config:
+          engines:
+          - name: native
+            enabled: true
+            priority: 1
+            settings:
+              rules_file: plugins/unified_pdp/default_rules.json
+          - name: mac
+            enabled: false
+            priority: 2
+            settings:
+              relaxed_star: false
+          - name: opa
+            enabled: false
+            priority: 3
+            settings:
+              opa_url: http://localhost:8181
+              policy_path: mcpgateway
+              timeout_ms: 5000
+              max_retries: 3
+          - name: cedar
+            enabled: false
+            priority: 4
+            settings:
+              cedar_url: http://localhost:8700
+              timeout_ms: 5000
+              max_retries: 3
+          combination_mode: all_must_allow
+          default_decision: deny
+          cache:
+            enabled: true
+            ttl_seconds: 60
+            max_entries: 10000
+          performance:
+            timeout_ms: 1000
+            parallel_evaluation: true
+      - name: JwtClaimsExtractionPlugin
+        kind: plugins.jwt_claims_extraction.jwt_claims_extraction.JwtClaimsExtractionPlugin
+        description: Extracts JWT claims and stores them in global context state for downstream authorization plugins
+        version: 1.0.0
+        author: yiannis2804
+        hooks:
+        - http_auth_resolve_user
+        tags:
+        - auth
+        - jwt
+        - claims
+        - rbac
+        - abac
+        - rfc9396
+        mode: disabled
+        priority: 10
+        conditions: []
+        config:
+          context_key: jwt_claims
+      # Permission — per-user authorization for OAuth-authenticated inbound Virtual
+      # Server requests (PCP-19981). Maps JWT groups -> roles -> allowed tools and
+      # grants/denies each inbound tool call (default-deny). Pairs with the
+      # JwtClaimsExtractionPlugin dependency above. Ships disabled; enable per-VS via
+      # the Hub "Add plugin to http_auth_check_permission" binding.
+      - name: PermissionPlugin
+        kind: plugins.permissions.permissions.PermissionPlugin
+        description: "Per-user authorization for OAuth inbound VS requests: JWT groups -> roles -> allowed tools (default-deny)"
+        version: 1.0.0
+        author: TIBCO
+        hooks:
+        - http_auth_check_permission
+        tags:
+        - auth
+        - authorization
+        - rbac
+        - oauth
+        - permission
+        - inbound
+        - security
+        mode: disabled
+        priority: 20
+        conditions: []
+        config:
+          claims_context_key: jwt_claims
+          group_claim: groups
+          default_decision: deny
+          enforce_for_auth_methods:
+          - oauth_access_token
+          - oauth_access_token_unprovisioned
+          bypass_admin: true
+          group_role_map: {}
+          roles: {}
+  # PCP-25386 (review follow-up, same PR): the RateLimiterPlugin's redis backend fragment the
+  # content above still carries as a literal placeholder (RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER).
+  # Literal copy of charts/tp-mcp-gateway/values.yaml's mcp-stack.rateLimiterRedisBlock. Full
+  # mode's configmap-gateway-plugin.yaml substitutes this placeholder ONLY when real Redis is
+  # reachable (mcp-stack.redis.enabled, true by default); when it IS, the template reads
+  # .Values.rateLimiterRedisBlock unconditionally and `trim`s it with no nil-guard. A Hub-driven
+  # upgrade of a gateway installed before this key existed carries it forward as ABSENT
+  # (--reuse-values keeps the old coalesced values, which predate the key), so without this pin
+  # the render FAILS outright: `executing ... at <trim>: invalid value; expected string` --
+  # reproduced directly: `helm template charts/tp-mcp-gateway --set lite.enabled=false --set
+  # mcp-stack.enabled=true --set mcp-stack.rateLimiterRedisBlock=null` crashes with that exact
+  # error; omitting only the --set renders clean. Must move in lockstep with pluginConfig above
+  # whenever the gateway chart's version moves; dev/check-mcp-version-sync.sh CHECK 8 enforces
+  # byte-identical content, same as pluginConfig.
+  rateLimiterRedisBlock: |
+    backend: "redis"
+    redis_url: '{{ env.RATELIMITER_REDIS_URL | default(env.REDIS_URL | default("redis://redis:6379/0")) }}'
+    redis_key_prefix: "rl"
+    fail_mode: "open"
+    algorithm: "fixed_window"
+  # PCP-25401: literal copy of charts/tp-mcp-gateway/values.yaml's
+  # global.tibco.logging.fluentbit.image.tag (a TIBCO common image, not a first-party
+  # tp-mcp-* one -- CHECK 7's firstparty_sites() deliberately does not derive it, so it
+  # was never one of the eight image sites that check already pins). Found sweeping
+  # PCP-25386's recipe-pin fix: `helm upgrade --reuse-values` freezes this tag the same
+  # way it froze plugin config, so the PCP-25107 CVE remediation (5.1.0 -> 5.1.2) never
+  # reached an already-installed, Hub-upgraded gateway -- only fresh installs got it.
+  # Must move in lockstep with charts/tp-mcp-gateway/values.yaml's fluentbit tag;
+  # dev/check-mcp-version-sync.sh CHECK 8 enforces it the same way as pluginConfig and
+  # rateLimiterRedisBlock above.
+  # PCP-25657: 5.1.2 -> 5.1.3 in lockstep with charts/tp-mcp-gateway/values.yaml (CHECK 8).
+  # PCP-25657: 5.1.3 -> 5.1.5 in lockstep with charts/tp-mcp-gateway/values.yaml (CHECK 8), the base chart's pin.
+  fluentbitTag: "5.1.5"
   # PCP-21876 (per-DP custom routing, PCP-18809) / PCP-23774: there is deliberately NO
   # routeResources block here, and none must be re-added.
   #
