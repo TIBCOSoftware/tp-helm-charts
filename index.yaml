@@ -8522,6 +8522,74 @@ entries:
       app.helm.sh/component: control-plane
       app.helm.sh/name: tibco-cp-base
     apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T12:28:59.29742277Z"
+    dependencies:
+    - name: tp-cp-infra
+      repository: ""
+      version: 1.22.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.22.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.22.*
+    - name: router-operator
+      repository: ""
+      version: 1.22.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: ' 0.156.*'
+    - name: tp-cp-configuration
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-core
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-core-finops
+      repository: ""
+      version: 1.22.*
+    - condition: tp-cp-o11y.enabled
+      name: tp-cp-o11y
+      repository: ""
+      version: 1.22.*
+    - condition: tp-cp-integration-common.enabled
+      name: tp-cp-integration-common
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-cli
+      repository: ""
+      version: 1.17.*
+    - name: tp-cp-alertmanager
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-prometheus
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-auditsafe
+      repository: ""
+      version: 1.21.*
+    - name: tp-dp-proxy
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Platform base chart
+    digest: 01c7e0fd46c7dfb7916e0b74fb479a8ba2946da43c2ba8e8db3a0de1242cba7e
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: tibco-cp-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.22.0-alpha.139/tibco-cp-base-1.22.0-alpha.139.tgz
+    version: 1.22.0-alpha.139
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tibco-cp-base
+    apiVersion: v2
     appVersion: 1.21.0
     created: "2026-10-12T05:45:06.00126727Z"
     dependencies:
@@ -9260,6 +9328,32 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
     version: 1.22.0-alpha.28
   - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T12:28:59.471564946Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: e320781e723430391e5bf9cc42782a65da8f81806d7dedc8dc527ad583c1defe
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
+    version: 1.22.0-alpha.28
+  - apiVersion: v2
     appVersion: 1.21.0
     created: "2026-10-12T05:23:19.361175831Z"
     dependencies:
@@ -9659,7 +9753,7 @@ entries:
   tibco-cp-flogo:
   - apiVersion: v2
     appVersion: 1.22.0
-    created: "2026-10-29T10:47:34.466829526Z"
+    created: "2026-10-29T12:28:59.6819572Z"
     dependencies:
     - condition: flogo-recipes.enabled
       name: flogo-recipes
@@ -9674,7 +9768,7 @@ entries:
       repository: ""
       version: 1.22.*
     description: TIBCO Controlplane chart for FLOGO Capability
-    digest: dac51a565a603a339e071c3d64487ebb9114f4d19547ba0a734d875c0a91877d
+    digest: bd965ac9409a19929a00139fe1133f9970a17c28582fa7937ef6f30dbe502646
     name: tibco-cp-flogo
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.22.0-alpha.34/tibco-cp-flogo-1.22.0-alpha.34.tgz
@@ -9697,6 +9791,28 @@ entries:
       version: 1.22.*
     description: TIBCO Controlplane chart for FLOGO Capability
     digest: 194bf3fcaa157e8e708b08645fd205574760836fc9913e817b5980e54229cc37
+    name: tibco-cp-flogo
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.22.0-alpha.34/tibco-cp-flogo-1.22.0-alpha.34.tgz
+    version: 1.22.0-alpha.34
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T10:47:34.466829526Z"
+    dependencies:
+    - condition: flogo-recipes.enabled
+      name: flogo-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: flogo-webserver.enabled
+      name: flogo-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: flogo-utilities.enabled
+      name: flogo-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for FLOGO Capability
+    digest: dac51a565a603a339e071c3d64487ebb9114f4d19547ba0a734d875c0a91877d
     name: tibco-cp-flogo
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.22.0-alpha.34/tibco-cp-flogo-1.22.0-alpha.34.tgz
@@ -17931,4 +18047,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-10-29T10:47:34.467920921Z"
+generated: "2026-10-29T12:28:59.683153786Z"
