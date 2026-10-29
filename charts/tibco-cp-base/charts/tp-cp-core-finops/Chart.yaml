@@ -3,10 +3,13 @@
 # in the license file that is distributed with this file.
 
 apiVersion: v2
-appVersion: 1.21.0
+appVersion: 1.22.0
 dependencies:
 - name: monitoring-service
-  version: 1.21.*
+  version: 1.22.*
+  # PCP-20154 (orch-mon merge): monitoring now runs in-process in the orchestrator. Keep the
+  # standalone chart installable (rollback safety net) but off by default.
+  condition: monitoring-service.enabled
 description: A Helm chart for -- tp-cp-core-finops
 name: tp-cp-core-finops
-version: 1.21.10
+version: 1.22.8

@@ -1,0 +1,76 @@
+-- Copyright (c) 2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
+-- Rollback of schema version 6 (PCP-24963) — back to version 5.
+--
+-- ⚠️ THIS DELIBERATELY DOES NOT DROP THE COLUMN, following 3-down.sql, 4-down.sql and
+-- 5-down.sql. The ordinary reason applies here exactly as it does there: a rollback exists to
+-- get a CP running again, and the realistic sequence leaves some Hub pods already on the new
+-- image. Dropping a column they name would raise 42703 on the next write — and every
+-- CP_SERVERS write names its columns explicitly, so that is `POST`/`PUT` of ANY MCP server
+-- failing, not a cosmetic degradation.
+--
+-- ⚠️ THE REASON SPECIFIC TO THIS COLUMN, WHICH IS STRONGER THAN 5-down.sql's. Dropping the
+-- version-5 columns would destroy EVIDENCE. Dropping this one CHANGES BEHAVIOUR, in the
+-- permissive direction, permanently:
+--   * The column is three-state. NULL means "never declared", and the Hub's contract for NULL
+--     is to OMIT the key from the outbound gateway body. The gateway guard is
+--     `if injectable_headers is not None`, so an omitted key is a deliberate NO-OP that leaves
+--     whatever the gateway already holds IN FORCE.
+--   * So dropping the column does not reset the allow-lists — it makes every row read as
+--     "never declared", which makes the Hub stop sending anything, which leaves every existing
+--     grant standing on every gateway, unreadable and unrevocable from the console.
+--   * An operator who had explicitly REVOKED a header (stored as '[]') loses exactly that fact,
+--     and the revocation silently reverts to a grant. That is the failure mode this column was
+--     added to eliminate, reintroduced by its own rollback.
+-- Retention costs one nullable TEXT column on a table that already has fourteen. It is not
+-- close. ⚠️ Recount against 6-up.sql before editing that sentence: version-map.yaml records this
+-- repo publishing the wrong column shape one version ago by adapting a paragraph without
+-- re-counting, and 5-down.sql repeats the warning for the same reason.
+--
+-- ⇒ IF THIS COLUMN MUST GENUINELY BE REMOVED — a schema audit, not a rollback — that is its own
+-- forward migration, and it must first revoke the grants it is about to make unreachable.
+-- Dropping it while any gateway still holds a grant is not a cleanup, it is a privilege leak.
+--
+-- ⚠️ AND NOTHING HERE WILL STOP YOU. Both gaps 5-down.sql documents are still true and were
+-- re-checked against scripts/database/tests/migration-invariants.bats for this change:
+--   - down files are NOT in the sha256 pin set (`_required_pins` is up-only, because the pin
+--     models tp-mcp-hub's pg-migrate.ts whose scan is /^(\d+)-up\.sql$/). Extending the freeze
+--     to down files is tracked on PCP-24857.
+--   - invariant 8 checks only that this FILE EXISTS. Nothing reads its contents, so a body that
+--     drops the column — or an empty one — passes CI unchanged.
+-- Meanwhile postgres-helper.bash's manageDbSchemaCommand calls persist_all_down_sql_to_efs on
+-- every successful run, copying this file from the image over the EFS copy a rollback actually
+-- executes. So a later edit adding a DROP here would become rollback-LIVE, silently, with no
+-- check anywhere comparing it.
+--
+-- ⚠️ DO NOT ASSUME A CROSS-REPO GUARD COVERS THIS. 5-down.sql points at tp-mcp-hub's
+-- `backend/tests/gateway-pair-down-migration.test.ts`, which sweeps every `*-down.sql` for a
+-- DROP of a protected column. Two things about that, both load-bearing: its protected set is
+-- the version-4 pair plus the version-5 columns, so it does NOT cover INJECTABLE_HEADERS unless
+-- someone extends it; and it arrives with tp-mcp-hub#1147, whose merge state was NOT verified
+-- when this file was written. Treat it as absent. THIS FILE'S CORRECTNESS RESTS ON REVIEW.
+--
+-- ⚠️ Do not promote that to a ✅ on sight: strengthening a claim feels like editing and behaves
+-- like asserting, so the premise goes unchecked. 5-down.sql records that happening here once.
+--
+-- ⚠️ THIS NOTE BELONGS IN 6-up.sql AND IS HERE INSTEAD, DELIBERATELY — the same reason
+-- 5-down.sql carries its GATEWAYS note. Once 6-up.sql is on `main`, any self-apply install that
+-- has run version 6 has recorded its sha256, and tp-mcp-hub's pg-migrate.ts refuses to start
+-- when an applied migration's bytes change. A COMMENT-ONLY edit changes those bytes exactly as
+-- much as a statement would. Down files are outside that scan and outside the pin set, so this
+-- file can carry it safely. Move it into the header of the next N-up.sql that touches
+-- CP_SERVERS, where a DBA is more likely to meet it.
+--
+-- What this file DOES do is move the version marker back, which is what the upgrade loop keys
+-- on: a database at 5 re-runs 6-up.sql on the next upgrade, and its one statement is idempotent
+-- (`ADD COLUMN IF NOT EXISTS`), so re-applying over a retained column is a no-op.
+
+BEGIN;
+
+-- See the note in 4-up.sql: UPDATE, never INSERT — postgres-helper.bash reads this with a bare
+-- single-value SELECT and whitespace-strips the result, so a second row breaks the version gate.
+UPDATE SCHEMA_VERSION SET VERSION = 5;
+
+COMMIT;

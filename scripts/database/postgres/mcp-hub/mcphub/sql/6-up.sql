@@ -1,0 +1,114 @@
+-- Copyright (c) 2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
+-- Schema version 6 (PCP-24963) — CP_SERVERS.INJECTABLE_HEADERS, the per-server allow-list of
+-- header NAMES a gateway plugin is permitted to inject onto the upstream request.
+--
+-- WHY A NEW FILE RATHER THAN A FOLD INTO 5-up.sql — the question was asked, not assumed, and
+-- the answer is the same one 5-up.sql gives for 4-up.sql. 5-up.sql is merged to main (#10965,
+-- 2026-09-25T04:16:40Z), so hub images built from main already bake it. The fold-instead-of-add
+-- rule applies only to a migration still on an UNMERGED PR. Editing it now would:
+--   * brick every SELF-APPLY install (DB_AUTO_MIGRATE, the default outside CP) that has already
+--     run version 5 — tp-mcp-hub's pg-migrate.ts records each applied migration's sha256 and
+--     REFUSES TO START when those bytes change;
+--   * fail silently on a CP install — manageDbSchema sees the version already at target, prints
+--     "no action needed", and the edited bytes never arrive.
+-- Note 5-up.sql is NOT yet in scripts/database/tests/released-migrations.txt (only 1/2/3 are),
+-- so an edit would trip no check in this repo. That is a gap in the pin file, not permission.
+--
+-- ─────────────────────────────────────────────────────────────────────────────────────────
+-- ⚠️ THIS COLUMN IS DELIBERATELY NULLABLE WITH NO DEFAULT, BREAKING THE CP_SERVERS HOUSE STYLE.
+-- Every other TEXT column on this table carries `DEFAULT ''` (1-up.sql) or `DEFAULT '{}'`.
+-- This one must not, and the reason is the whole point of the column rather than a preference.
+--
+-- The value is THREE-STATE, and the Hub's outbound contract keys on which state a row is in:
+--   NULL          "never declared"  → the Hub OMITS the key from the gateway body.
+--   '[]'          "explicitly revoked" → the Hub sends an explicitly present empty JSON array.
+--   '["X-Foo"]'   "granted"         → the Hub sends the list.
+-- The gateway's guard is `if injectable_headers is not None`, so an omitted key is a deliberate
+-- no-op that LEAVES ANY PRIOR GRANT IN FORCE. NULL and '[]' therefore mean opposite things and
+-- must stay distinguishable in storage.
+--
+-- `DEFAULT '[]'` would collapse them: every pre-existing row would read as "explicitly revoked"
+-- and the first post-upgrade push would re-PUT every peer on every data plane with an empty
+-- array — a FLEET-WIDE SILENT REVOCATION performed by a schema default. Nothing would report it.
+--
+-- `DEFAULT ''` is worse still, and not for the obvious reason. '' is not valid JSON, but the
+-- failure is upstream of any parse: tp-mcp-hub's sync/_shared.ts restorePreservedColumns DROPS
+-- a preserved value equal to '' when re-inserting rows after a pull. So the REVOKED state — and
+-- only that state — would be silently lost on every Refresh-from-Gateway and revert to a grant.
+-- A fail-permissive hole inside the mechanism that exists to close a fail-permissive hole, and
+-- a test asserting "a declared list survives a pull" would still pass.
+--
+-- ⇒ Store "revoked" as the two-character string '[]'. NEVER as '' and NEVER as NULL.
+--
+-- ─────────────────────────────────────────────────────────────────────────────────────────
+-- ⚠️ THIS IS NOT A SECRET, AND THAT IS PRECISELY WHY IT NEEDS MANUAL PROTECTION.
+-- The value is a list of header NAMES, not header values — CP_SERVERS.TOKEN and .HEADERS carry
+-- the credentials, and those are registered in tp-mcp-hub's secret-columns.ts (SECRET_COLUMNS
+-- and ENCRYPTED_AT_REST_COLUMNS). INJECTABLE_HEADERS must NOT be added to either: encrypting it
+-- would make the column unqueryable (random salt/IV, and updateWhere does not encrypt the WHERE
+-- map) and would mask the names from the very operator who has to audit them.
+--
+-- The trap is that tp-mcp-hub's sync/pull.ts pulls CP_SERVERS with legacyReplace — a blanket
+-- DELETE followed by a re-INSERT from a fixed key list — and its `preserveColumns` rescue list
+-- is DERIVED FROM SECRET_COLUMNS. So a deliberately non-secret column is exactly the shape that
+-- gets wiped on every pull, with no error and no log. It must be added to preserveColumns BY
+-- HAND on the Hub side, in the same change. Nothing in this repo can check that.
+--
+-- ─────────────────────────────────────────────────────────────────────────────────────────
+-- ⚠️ THE GATEWAY HALF DOES NOT EXIST YET. Stated because the ticket said the opposite.
+-- PCP-24574 / tp-mcp-gateway#399 merged as ae449fa4 carrying ONE file — a 4300-line plan
+-- document — and zero Python: `git grep injectable_headers origin/main -- '*.py'` returns
+-- nothing on that repo. That plan's D5 gates the GATEWAY PR on the Hub change landing, so this
+-- column and the wire shape it feeds are the first half of a two-repo change, shipped first.
+-- Until the gateway implements the field, a Hub PUT carrying it is accepted and DISCARDED
+-- (GatewayUpdate inherits extra="ignore"), returning 200 with no diagnostic. The column is
+-- therefore INERT, not broken — it records operator intent that nothing yet consumes.
+--
+-- ─────────────────────────────────────────────────────────────────────────────────────────
+-- ⚠️ A DATABASE DRIVEN TO VERSION 6 BY AN IMAGE THAT LACKS THIS FILE WILL NOT SELF-REPAIR.
+-- The trap 2/3/4/5-up.sql each document: upgradeDBSchema early-returns on "already at the
+-- required version", so a later image carrying this file never runs it. The repair is the chart
+-- flag `rerunCurrentUpgrade: true` on mcp-hub-webserver for one upgrade, not manual SQL.
+-- The statement below is idempotent, so the rerun is safe on a database that already has it.
+--
+-- ⚠️ AND version-map.yaml's mcphub VALUE MUST MOVE 5 → 6 IN THIS SAME CHANGE. Leave it at 5 and
+-- the db-setup Job resolves target=5, sees current=5, early-returns, and this column never
+-- arrives. The consequence here is specific: the Hub reads the column defensively through
+-- lib/column-capability.ts, so the feature ships INERT on that CP — an operator can type a
+-- header name into the UI, see it accepted, and have it silently never reach storage. Bump the
+-- VALUE of the existing "1.20.0" key; do NOT add a "1.21.0"/"1.22.0" key (appVersion is pinned
+-- at 1.20.0 by PCP-23334 and resolve_target_schema_version keeps only keys <= that, so a newer
+-- key is unreachable — see the file's own header).
+--
+-- The 1.20-line consequence is the same as every version since and still accepted: a 1.20
+-- database also runs this file. One additive nullable column, inert on a release whose code does
+-- not read it.
+--
+-- SQLITE MIRROR: tp-mcp-hub backend/src/sqlite-schema.ts, in the same change. ⚠️ Its absence
+-- FAILS NO CHECK here — schema-parity asserts only sqlite ⊆ postgres, so a postgres-only column
+-- is invisible to it. It does fail in the other direction: the hub-side SQLite column cannot
+-- land before THIS file is on tp-helm-charts main, because schema-parity resolves postgres from
+-- HELM_CHARTS_SQL_REF=main. THIS PR MERGES FIRST. (backend/tests/setup.ts is NOT a mirror site
+-- for a column — it has carried no SCHEMA constant since PCP-21189, despite what 5-up.sql's
+-- header and tp-mcp-hub's CLAUDE.md schema-flow step 5 still say.)
+
+BEGIN;
+
+-- The allow-list, stored as a JSON array string. TEXT rather than TEXT[]/JSONB because the Hub
+-- is dual-engine: its query layer rewrites only $N → ? and normalises nothing, so a pg array
+-- would surface as a JS array from the pg driver and as a string from SQLite, and no code path
+-- reconciles the two. TEXT is the only type that reads identically on both.
+--
+-- ⚠️ NO DEFAULT — NULL ("never declared") and '[]' ("explicitly revoked") are different
+-- instructions to the gateway. See the header before adding one.
+ALTER TABLE CP_SERVERS ADD COLUMN IF NOT EXISTS INJECTABLE_HEADERS TEXT;
+
+-- UPDATE, not INSERT. postgres-helper.bash reads the version with a bare
+-- `SELECT VERSION FROM SCHEMA_VERSION` and whitespace-strips the result, so a second row would
+-- collapse to the string "56" at the version gate and break the upgrade loop's arithmetic.
+UPDATE SCHEMA_VERSION SET VERSION = 6;
+
+COMMIT;

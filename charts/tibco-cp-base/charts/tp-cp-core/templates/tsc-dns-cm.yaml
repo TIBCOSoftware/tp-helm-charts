@@ -26,6 +26,10 @@ data:
   TP_CP_IDP_HOST: {{ include "tpcontrol-plane.consts.tpIdpJobServiceName" . }}
   TP_CP_PERMISSIONS_ENGINE_HOST: {{ include "tpcontrol-plane.consts.tpCpPermissionEngineServiceName" . }}
   TP_CP_MONITORING_HOST: {{ include "tpcontrol-plane.consts.cpMonitoringServiceName" . }}
+  # FINOPS_PROMETHEUS_HOST (PCP-20154 orch-mon merge): finops Prometheus service consumed by the
+  # in-process monitoring code now folded into the orchestrator. Mirrors the value formerly served
+  # from the tp-cp-finops-dnsdomains configmap.
+  FINOPS_PROMETHEUS_HOST: prometheus-service.{{ include "tp-control-plane.consts.namespace" . }}.svc.cluster.local
   TP_CP_ALERT_SERVICE_HOST: {{ include "tpcontrol-plane.consts.tpCpAlertServiceName" . }}
   TP_DP_PROXY_HOST: {{ include "tpcontrol-plane.consts.tpDpProxy" . }}
   SYSTEM_INTERNAL_PROVISIONER_AGENT_HOST: {{ include "tpcontrol-plane.consts.provisionerAgentURLFramework" . }}

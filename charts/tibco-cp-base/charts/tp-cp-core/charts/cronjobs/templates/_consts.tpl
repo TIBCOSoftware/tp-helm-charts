@@ -77,8 +77,21 @@
 {{- define "tp-cp-cronjobs.consts.tscConfigurationLocationScheduler" }}file:///tmp/private/tsc/config/tp-cp-cronjobs/cpcronjobsapi.json{{ end -}}
 {{- define "tp-cp-cronjobs.consts.disableConfigurationRefresh" }}false{{ end -}}
 
-{{- define "tp-cp-cronjobs.consts.psqlMaxOpenConnections" }}30{{ end -}}
-{{- define "tp-cp-cronjobs.consts.psqlMaxIdleConnections" }}7{{ end -}}
+{{/*
+  PCP-19871 (orch-mon merge): 30 -> 45 open, 7 -> 12 idle.
+
+  cp-cronjobs took on two pieces of the decommissioned monitoring-service's work as DIRECT SQL,
+  not through UTM: RefreshPrometheusHealth writes the capability and resource colours every
+  minute, and RefreshResourceStatus grades the bare-metal domains and BW6 agents and writes both
+  buckets in one transaction. Neither existed when 30/7 was set.
+
+  The rest of monitoring's 150/35 went to user-subscriptions, which serves the orchestrator's
+  monitoring traffic over UTM (see tp-cp-core/files/common.yaml). The orchestrator itself is
+  unchanged at 30/7 — it gained HTTP clients, not database connections. 375 total after the merge
+  against 410 before it.
+*/}}
+{{- define "tp-cp-cronjobs.consts.psqlMaxOpenConnections" }}45{{ end -}}
+{{- define "tp-cp-cronjobs.consts.psqlMaxIdleConnections" }}12{{ end -}}
 
 {{- define "tp-cp-cronjobs.consts.tscConfigLocation" }}/tmp/private/tsc{{ end -}}
 {{- define "tp-cp-cronjobs.consts.tscConfigLocationCommon" }}file:///tmp/private/tsc/config/common/tsc-config.json{{ end -}}

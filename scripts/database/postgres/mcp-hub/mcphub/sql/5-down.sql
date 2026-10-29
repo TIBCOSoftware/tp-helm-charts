@@ -1,0 +1,92 @@
+-- Copyright (c) 2026. Cloud Software Group, Inc.
+-- This file is subject to the license terms contained
+-- in the license file that is distributed with this file.
+
+-- Rollback of schema version 5 (PCP-24759 AC 5) — back to version 4.
+--
+-- ⚠️ THIS DELIBERATELY DOES NOT DROP THE COLUMNS, following 3-down.sql and 4-down.sql. The
+-- ordinary reason applies here exactly as it does there: a rollback exists to get a CP running
+-- again, and the realistic sequence leaves some Hub pods already on the new image. Dropping a
+-- column they name would raise 42703 on the next dial-home `hello` — and that error closes the
+-- control-channel socket, turning a cosmetic problem into every dial-home gateway
+-- disconnecting.
+--
+-- ⚠️ THE REASON SPECIFIC TO THESE FIVE, which is NOT the same as 4-down.sql's. The pair is a
+-- security discriminator, so dropping it re-exposes a product. These are not. What dropping
+-- them destroys is EVIDENCE:
+--   * RUNTIME_HEALTH + _OBSERVED_AT + _ERROR are the record of an operator-visible incident.
+--     A rollback performed BECAUSE gateways were unhealthy would erase the only stored trace
+--     of which ones and why — at exactly the moment someone needs it.
+--   * APPLIED_CONFIG_REVISION is the only record of what each gateway actually confirmed. Drop
+--     it and every gateway reverts to "never reported", which is indistinguishable from an
+--     agent that has genuinely never reported. On the next upgrade the Hub cannot tell a
+--     gateway that already applied revision N from one that never did, so it either re-issues
+--     to everything or trusts nothing.
+-- Retention costs three nullable columns and two NOT NULL ones with harmless defaults — nothing
+-- against losing the record of which gateways were unhealthy and why. It is not close.
+-- ⚠️ Recount against 5-up.sql before editing that sentence: version-map.yaml records this repo
+-- publishing the wrong column shape one version ago by adapting a paragraph without re-counting.
+--
+-- ⇒ IF THESE COLUMNS MUST GENUINELY BE REMOVED — a schema audit, not a rollback — that is its
+-- own forward migration, and it should say in its own text what evidence it is discarding.
+--
+-- ⚠️ AND NOTHING WILL STOP YOU, WHICH IS WHY IT IS SPELLED OUT HERE. Two measured gaps, both
+-- documented in scripts/database/tests/migration-invariants.bats and both still true:
+--   - down files are NOT in the sha256 pin set (`_required_pins` is up-only, because the pin
+--     models tp-mcp-hub's pg-migrate.ts whose scan is /^(\d+)-up\.sql$/). Extending the freeze
+--     to down files is tracked on PCP-24857.
+--   - invariant 8 checks only that this FILE EXISTS. Nothing reads its contents, so a body
+--     that drops columns — or an empty one — passes CI unchanged.
+-- Meanwhile postgres-helper.bash's manageDbSchemaCommand calls persist_all_down_sql_to_efs on
+-- every successful run, copying this file from the image over the EFS copy a rollback actually
+-- executes. So a later edit adding DROPs here would become rollback-LIVE, silently, with no
+-- check anywhere comparing it.
+--
+-- ✅ A check DOES read these bodies, and it is on `main` now: tp-mcp-hub's
+-- `backend/tests/gateway-pair-down-migration.test.ts` (landed with tibco/tp-mcp-hub#1147) sweeps
+-- every `*-down.sql` for a DROP of a protected column, and that set is the pair PLUS the five
+-- added here. So a future edit that adds one fails a test rather than shipping silently.
+--
+-- ⚠️ THE GUARD LIVES IN ANOTHER REPO, which is the part to keep in mind: nothing in THIS repo
+-- fails if that sweep is later narrowed or deleted. The ✅ above is a fact today and is not
+-- self-enforcing.
+--
+-- ⚠️ Re-check the premise before strengthening any claim in this file: strengthening feels like
+-- editing and behaves like asserting, so the premise goes unchecked. It happened here once —
+-- this very paragraph carried a ✅ while the test it credited did not exist yet.
+--
+-- ⚠️ `LAST_HEALTH_CHECK` (declared in 1-up.sql's `CREATE TABLE … GATEWAYS`) NAMES A NEARBY FACT
+-- AND IS VERY MUCH ALIVE. DO NOT DROP IT.
+-- The Hub writes it on all four health-check outcomes (`registry-health.ts`) and on deploy
+-- (`deploy.ts`), serializes it as the API field `lastHealthCheck` (`serialize.ts`), declares it
+-- in its row type, and asserts it in tests. Dropping it breaks the gateway serializer.
+--
+-- ⚠️ A "whole-tree search" in THIS repo cannot see the application, and its zero is
+-- byte-identical to a real absence — so state the scope before calling any column dead here.
+-- (A previous revision called this one dead on exactly that reasoning.)
+--
+-- What the two columns actually are: `LAST_HEALTH_CHECK` records WHEN a probe last ran;
+-- `RUNTIME_HEALTH_OBSERVED_AT` records when the HEALTH VERDICT beside it was observed. Related,
+-- not redundant — and for "is this gateway well, and how current is that answer" the version-5
+-- pair is the one to read, because a timestamp with no verdict next to it cannot answer it.
+--
+-- ⚠️ THIS NOTE BELONGS IN 5-up.sql AND IS HERE INSTEAD, DELIBERATELY. 5-up.sql is now on `main`,
+-- so any self-apply install that has already run version 5 has recorded its sha256 — and
+-- tp-mcp-hub's pg-migrate.ts REFUSES TO START when an applied migration's bytes change. A
+-- COMMENT-ONLY edit changes those bytes exactly as much as a statement would. The runner's own
+-- error says it: "Do not edit an applied migration in place; add a new higher-numbered
+-- N-up.sql." Down files are outside that scan (`/^(\d+)-up\.sql$/`) and outside the pin set, so
+-- this file can carry it safely. Move it into the header of the next N-up.sql that touches
+-- GATEWAYS, where a DBA is more likely to meet it.
+--
+-- What this file DOES do is move the version marker back, which is what the upgrade loop keys
+-- on: a database at 4 re-runs 5-up.sql on the next upgrade, and every statement there is
+-- idempotent (`ADD COLUMN IF NOT EXISTS`), so re-applying over retained columns is a no-op.
+
+BEGIN;
+
+-- See the note in 4-up.sql: UPDATE, never INSERT — postgres-helper.bash reads this with a bare
+-- single-value SELECT and whitespace-strips the result, so a second row breaks the version gate.
+UPDATE SCHEMA_VERSION SET VERSION = 4;
+
+COMMIT;
