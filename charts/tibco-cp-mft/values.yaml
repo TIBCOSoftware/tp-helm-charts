@@ -1,0 +1,39 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# global.tibco.* is the CP contract injected by the provisioner; placeholders below are for local helm template/lint.
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+    serviceAccount: ""
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          tag: 5.1.5
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+# Publish the MFT DP recipe so the CP auto-provisions the adapter; disable to install the webserver only.
+mft-recipes:
+  enabled: true
