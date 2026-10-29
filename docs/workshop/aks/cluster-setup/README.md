@@ -279,11 +279,16 @@ Before we deploy ingress or observability tools on an empty AKS cluster; we need
 Please use the following commands to install [cert-manager](https://cert-manager.io/docs/installation/helm/) to automatically provision, manage, and renew TLS/SSL certificates
 
 ```bash
-helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
+helm upgrade --install --wait --timeout 1h --create-namespace --reset-then-reuse-values \
   -n cert-manager cert-manager cert-manager \
   --labels layer=0 \
-  --repo "https://charts.jetstack.io" --version "v1.17.1" -f - <<EOF
-installCRDs: true
+  --repo "https://charts.jetstack.io" --version "v1.21.2" -f - <<EOF
+# --reset-then-reuse-values preserves any custom values from a prior release on re-run while
+# dropping keys removed in v1.21 (e.g. prometheus.servicemonitor.targetPort). Requires Helm >= 3.14.
+installCRDs: false # keep false: a replayed legacy installCRDs=true would conflict with crds.enabled (cert-manager v1.21.2 fails on both)
+crds:
+  enabled: true
+  keep: true
 podLabels:
   azure.workload.identity/use: "true"
 serviceAccount:
@@ -304,7 +309,8 @@ Before creating ingress on this AKS cluster, we need to install [external-dns](h
 helm upgrade --install --wait --timeout 1h --create-namespace  --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.22.0" -f - <<EOF
+policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
 provider: azure
 sources:
   - service

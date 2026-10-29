@@ -202,7 +202,7 @@ You can use the following command to install the eck-operator via helm, optional
 
 ```bash
 # Install eck-operator
-helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.16.0"
+helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "3.5.0"
 
 # Wait for eck-operator to be installed 
 # Verify it by checking the statefulset logs using following command
@@ -226,7 +226,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 domain: ${TP_DOMAIN}
 es:
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     enabled: false
   storage:
@@ -240,7 +240,7 @@ es:
   #     cpu: "1"
   #     memory: "2Gi"
 kibana:
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     enabled: false
   # following are the default requests and limits for application container, uncomment and change as required
@@ -253,7 +253,7 @@ kibana:
   #     memory: "2Gi"
 apm:
   enabled: true
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     enabled: false
   # following are the default requests and limits for application container, uncomment and change as required

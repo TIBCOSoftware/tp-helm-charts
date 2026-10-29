@@ -150,7 +150,7 @@ For example, you can setup to use NFS for persistence volumes on MicroK8s, refer
 The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller or Gateway Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
 
 The incoming requests include:
-- OpenTelemtry data like traces and metrics from BW5 applications
+- OpenTelemetry data like logs, traces and metrics from BW5 applications
 - TEA Agent leader election notification for BW6 applications
 
 In the current release, Control Tower Data Plane supports:
@@ -159,6 +159,8 @@ In the current release, Control Tower Data Plane supports:
 - **HAProxy** (ingress controller)
 - **NGINX Gateway Fabric** (gateway controller)
 - **Traefik Gateway Controller** (gateway controller)
+- **Istio Gateway Controller** (gateway controller)
+- **NetScaler CPX Gateway** (gateway controller)
 - **OpenShift Routes** (for OpenShift/OKD clusters)
 
 > [!IMPORTANT]
@@ -169,6 +171,8 @@ In the current release, Control Tower Data Plane supports:
 > - **HAProxy** - High-performance load balancer for production environments (Ingress Controller)
 > - **NGINX Gateway Fabric** - Modern Gateway API-based controller (Gateway Controller)
 > - **Traefik Gateway Controller** - Modern Gateway API-based controller (Gateway Controller)
+> - **Istio Gateway Controller** - Modern Gateway API-based controller (Gateway Controller)
+> - **NetScaler CPX Gateway** - Enterprise-grade load balancer gateway controller (Gateway Controller)
 > - **OpenShift Routes** - For OpenShift or OKD clusters (uses native Route resources)
 
 ### Install Traefik Ingress Controller
@@ -217,7 +221,7 @@ Traefik is the default ingress controller when registering the Bare‑Metal Data
 The Control Tower Data Plane on TIBCO Platform requires an Ingress Controller to route all incoming requests to the corresponding TIBCO service components running in the MicroK8s cluster.
 
 The incoming requests include:
-- OpenTelemtry data like traces and metrics from BW5 applications
+- OpenTelemetry data like logs, traces and metrics from BW5 applications
 - TEA Agent leader election notification for BW6 applications
 
 In current release, Control Tower Data Plane supports the Nginx Ingress Controller.
@@ -346,7 +350,7 @@ EOF
 Istio Gateway Controller is a modern Gateway API-based controller that provides advanced routing capabilities using Kubernetes Gateway API resources. It offers better performance and more features compared to traditional ingress controllers.
 
 The incoming requests include:
-- OpenTelemetry data like traces and metrics from BW5 applications
+- OpenTelemetry data like logs, traces and metrics from BW5 applications
 - TEA Agent leader election notification for BW6 applications
 
 In current release, Control Tower Data Plane supports the Istio Gateway Controller.
@@ -928,7 +932,7 @@ Alternatively, you can also install Prometheus on another machine that allows yo
 
 > [!IMPORTANT]
 >
->  - You need to substitute the `%%data_plane_id%%` and `%%host_name_fqdn%%` in [prometheus_scrape_static_config.yaml](./prometheus_scrape_static_config.yaml)
+>  - You need to substitute the `%%dataplane_id%%` and `%%host_name_fqdn%%` in [prometheus_scrape_static_config.yaml](./prometheus_scrape_static_config.yaml)
 >  - Multiple scrape job targets `otel-metrics_%%dataplane_id%%` can be combined in the same static config yaml file
 >  - To reload the static scrape config with new Control Tower Data Plane targets, rerun the `helm upgrade --install` command for Prometheus
 >     - This will not disrupt the existing metrics data in persistence
@@ -1064,7 +1068,7 @@ If you do not have an existing ElasticSearch server server already installed in 
 > [!NOTE]
 >
 > - You can [install another MicroK8s](#installation-of-microk8s) cluster on a delegated machine separately to host both the Prometheus and ElasticSearch servers for collectiing Observability data. Following the same `helm` install step for ElasticSearch so multiple Control Tower Data Planes can use the same Observability backend servers as Global Observability resource in TIBCO Platform
-> - Note down the URL `http://<machine-host_name>/o11y/traces-server` when you configure the traces server of Observability resource in TIBCO Platform
+> - Note down the URL `https://<machine-host_name>/o11y/traces-server` when you configure the traces server of Observability resource in TIBCO Platform
 
 ---
 

@@ -216,11 +216,16 @@ Before we deploy ingress or observability tools on an empty GKE cluster; we need
 
 ```bash
 # install cert-manager
-helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
+helm upgrade --install --wait --timeout 1h --create-namespace --reset-then-reuse-values \
   -n cert-manager cert-manager cert-manager \
   --labels layer=0 \
-  --repo "https://charts.jetstack.io" --version "v1.16.1" -f - <<EOF
-installCRDs: true
+  --repo "https://charts.jetstack.io" --version "v1.21.2" -f - <<EOF
+# --reset-then-reuse-values preserves any custom values from a prior release on re-run while
+# dropping keys removed in v1.21 (e.g. prometheus.servicemonitor.targetPort). Requires Helm >= 3.14.
+installCRDs: false # keep false: a replayed legacy installCRDs=true would conflict with crds.enabled (cert-manager v1.21.2 fails on both)
+crds:
+  enabled: true
+  keep: true
 serviceAccount:
   create: true
   name: cert-manager
@@ -232,7 +237,8 @@ EOF
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.0" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.22.0" -f - <<EOF
+policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
 provider: google
 sources:
   - service
@@ -251,7 +257,8 @@ EOF
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.0" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.22.0" -f - <<EOF
+policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
 provider: google
 sources:
   - service
@@ -272,8 +279,8 @@ EOF
 ```bash
 $ helm ls -A -a
 NAME                                     	NAMESPACE          	REVISION	UPDATED                                	STATUS  	CHART                          	APP VERSION
-cert-manager                             	cert-manager       	1       	2024-10-24 21:55:13.997845236 +0000 UTC	deployed	cert-manager-v1.16.1           	v1.16.1  
-external-dns                             	external-dns-system	1       	2024-10-24 21:57:34.910890603 +0000 UTC	deployed	external-dns-1.15.0            	0.15.0      
+cert-manager                             	cert-manager       	1       	2024-10-24 21:55:13.997845236 +0000 UTC	deployed	cert-manager-v1.21.2           	v1.21.2  
+external-dns                             	external-dns-system	1       	2024-10-24 21:57:34.910890603 +0000 UTC	deployed	external-dns-1.22.0            	0.22.0      
 ```
 
 # Install Ingress Controller
@@ -430,11 +437,12 @@ export DP_NAMESPACE="ns" # Replace with your Data Plane namespace
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ingress-system traefik traefik \
   --labels layer=1 \
-  --repo "https://traefik.github.io/charts" --version "32.1.1" -f - <<EOF
+  --repo "https://traefik.github.io/charts" --version "41.6.0" -f - <<EOF
 hub:  # for hub
   enabled: false
 service:  # for external-dns
-  type: LoadBalancer
+  spec:  # chart 41 moved service.type under service.spec; flat service.type is silently ignored and defaults to LoadBalancer
+    type: LoadBalancer
 ingressClass:
   name: traefik
 providers:  # for external service
@@ -545,7 +553,7 @@ The `kong` ingress class is the ingress that DP will be used by user app endpoin
 
 ```bash
 # install eck-operator
-helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.16.0"
+helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "3.5.0"
 
 # wait for eck-operator to be installed 
 # verify it by checking the statefulset logs using follwing command
@@ -558,7 +566,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 domain: ${TP_DOMAIN}
 es:
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-es-http
@@ -573,7 +581,7 @@ es:
   #     cpu: "1"
   #     memory: "2Gi"
 kibana:
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-kb-http
@@ -587,7 +595,7 @@ kibana:
   #     memory: "2Gi"
 apm:
   enabled: true
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-apm-http
@@ -666,10 +674,14 @@ kubectl get secret dp-config-es-es-elastic-user -n elastic-system -o jsonpath="{
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n prometheus-system kube-prometheus-stack kube-prometheus-stack \
   --labels layer=2 \
-  --repo "https://prometheus-community.github.io/helm-charts" --version "65.2.0" -f <(envsubst '${TP_DOMAIN}, ${TP_INGRESS_CLASS}' <<'EOF'
+  --repo "https://prometheus-community.github.io/helm-charts" --version "91.8.2" -f <(envsubst '${TP_DOMAIN}, ${TP_INGRESS_CLASS}' <<'EOF'
+crds:
+  upgradeJob:
+    enabled: true
 grafana:
-  plugins:
-    - grafana-piechart-panel
+  # grafana-piechart-panel is an Angular plugin and does not load on
+  # Grafana 13 (bundled from chart 84+); removed for the 91.8.2 upgrade.
+  plugins: []
   ingress:
     enabled: true
     ingressClassName: ${TP_INGRESS_CLASS}
@@ -677,6 +689,10 @@ grafana:
     - grafana.${TP_DOMAIN}
 prometheus:
   prometheusSpec:
+    # pin the Prometheus server to the 3.13 LTS line; chart 91.8.2 defaults
+    # to the non-LTS v3.14.0. Operator v0.94.1 supports 3.13.x.
+    image:
+      tag: v3.13.4-distroless
     enableRemoteWriteReceiver: true
     remoteWriteDashboards: true
     additionalScrapeConfigs:

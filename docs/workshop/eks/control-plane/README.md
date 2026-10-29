@@ -111,7 +111,8 @@ Before creating ingress on this EKS cluster, we need to install [external-dns](h
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.22.0" -f - <<EOF
+policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
 serviceAccount:
   create: false
   name: external-dns 
@@ -408,7 +409,7 @@ httpIngress:
     alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
     # this is to support 1.3 TLS for ALB, Please refer AWS doc: https://aws.amazon.com/about-aws/whats-new/2023/03/application-load-balancer-tls-1-3/
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
+    external-dns.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
 traefik:
@@ -439,7 +440,7 @@ httpIngress:
     alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
     # this is to support 1.3 TLS for ALB, Please refer AWS doc: https://aws.amazon.com/about-aws/whats-new/2023/03/application-load-balancer-tls-1-3/
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
+    external-dns.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
 # you don't need to deploy the ingress controller again
@@ -541,7 +542,7 @@ hybrid-proxy:
   #   allocateLoadBalancerNodePorts: false
   #   # annotation for load balancer service
   #   annotations:
-  #     external-dns.alpha.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
+  #     external-dns.kubernetes.io/hostname: "*.${TP_TUNNEL_DOMAIN}"
   #     service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${TP_TUNNEL_DOMAIN_CERT_ARN}"
   #     service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=false
   #     service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
@@ -593,7 +594,7 @@ router-operator:
     #    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
     #    nginx.ingress.kubernetes.io/proxy-body-size: "150m"
     #   # annotation for `alb` ingress class
-    #   external-dns.alpha.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
+    #   external-dns.kubernetes.io/hostname: "*.${TP_MY_DOMAIN}"
     #   alb.ingress.kubernetes.io/group.name: "${TP_MY_DOMAIN}"
     #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     #   alb.ingress.kubernetes.io/backend-protocol: HTTP

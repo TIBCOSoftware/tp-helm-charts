@@ -90,7 +90,8 @@ Before creating ingress on this EKS cluster, we need to install [external-dns](h
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n external-dns-system external-dns external-dns \
   --labels layer=0 \
-  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.15.2" -f - <<EOF
+  --repo "https://kubernetes-sigs.github.io/external-dns" --version "1.22.0" -f - <<EOF
+policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
 serviceAccount:
   create: false
   name: external-dns 
@@ -213,7 +214,7 @@ httpIngress:
     serviceName: dp-config-aws-traefik
   annotations:
     alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+    external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
 traefik:
@@ -264,7 +265,7 @@ httpIngress:
     serviceName: dp-config-aws-kong-kong-proxy
   annotations:
     alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
-    external-dns.alpha.kubernetes.io/hostname: "*.${TP_APPS_DOMAIN}"
+    external-dns.kubernetes.io/hostname: "*.${TP_APPS_DOMAIN}"
     # this will be used for external-dns annotation filter
     kubernetes.io/ingress.class: alb
 ingress-nginx:
@@ -325,7 +326,7 @@ Please use the following command to install Elastic stack
 
 ```bash
 # install eck-operator
-helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "2.16.0"
+helm upgrade --install --wait --timeout 1h --labels layer=1 --create-namespace -n elastic-system eck-operator eck-operator --repo "https://helm.elastic.co" --version "3.5.0"
 
 # wait for eck-operator to be installed 
 # verify it by checking the statefulset logs using following command
@@ -338,7 +339,7 @@ helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   --repo "${TP_TIBCO_HELM_CHART_REPO}" --version "^1.0.0" -f - <<EOF
 domain: ${TP_DOMAIN}
 es:
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-es-http
@@ -353,7 +354,7 @@ es:
   #     cpu: "1"
   #     memory: "2Gi"
 kibana:
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-kb-http
@@ -367,7 +368,7 @@ kibana:
   #     memory: "2Gi"
 apm:
   enabled: true
-  version: "8.17.3"
+  version: "9.5.3"
   ingress:
     ingressClassName: ${TP_INGRESS_CLASS}
     service: ${TP_ES_RELEASE_NAME}-apm-http
@@ -445,10 +446,14 @@ Please use the following command to install Prometheus stack
 helm upgrade --install --wait --timeout 1h --create-namespace --reuse-values \
   -n prometheus-system kube-prometheus-stack kube-prometheus-stack \
   --labels layer=2 \
-  --repo "https://prometheus-community.github.io/helm-charts" --version "48.3.4" -f <(envsubst '${TP_DOMAIN}, ${TP_INGRESS_CLASS}' <<'EOF'
+  --repo "https://prometheus-community.github.io/helm-charts" --version "91.8.2" -f <(envsubst '${TP_DOMAIN}, ${TP_INGRESS_CLASS}' <<'EOF'
+crds:
+  upgradeJob:
+    enabled: true
 grafana:
-  plugins:
-    - grafana-piechart-panel
+  # grafana-piechart-panel is an Angular plugin and does not load on
+  # Grafana 13 (bundled from chart 84+); removed for the 91.8.2 upgrade.
+  plugins: []
   ingress:
     enabled: true
     ingressClassName: ${TP_INGRESS_CLASS}
@@ -459,6 +464,10 @@ grafana:
   # adminPassword: prom-operator
 prometheus:
   prometheusSpec:
+    # pin the Prometheus server to the 3.13 LTS line; chart 91.8.2 defaults
+    # to the non-LTS v3.14.0. Operator v0.94.1 supports 3.13.x.
+    image:
+      tag: v3.13.4-distroless
     enableRemoteWriteReceiver: true
     remoteWriteDashboards: true
     additionalScrapeConfigs:

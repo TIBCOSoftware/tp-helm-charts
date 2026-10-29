@@ -89,7 +89,7 @@ export ACM_CERTIFICATE_ARN="arn:aws:acm:us-west-2:123456789012:certificate/12345
 
 # 2. Run the Helm Upgrade / Install
 # Note: Below is just a sample command. Please replace the values with your actual values.
-# For adding additional annotations, please refer https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/guide/service/annotations/
+# For adding additional annotations, please refer https://kubernetes-sigs.github.io/aws-load-balancer-controller/v3.5/guide/service/annotations/
 helm upgrade --install haproxy-ingress haproxytech/kubernetes-ingress \
   --create-namespace --namespace haproxy-controller \
   --set haproxy.controller.service.type=LoadBalancer \
@@ -197,7 +197,7 @@ metadata:
   namespace: ${DP_NAMESPACE}
   annotations:
     alb.ingress.kubernetes.io/group.name: "${DOMAIN}"
-    external-dns.alpha.kubernetes.io/hostname: "*.${DOMAIN}"
+    external-dns.kubernetes.io/hostname: "*.${DOMAIN}"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/certificate-arn: "${ACM_CERTIFICATE_ARN}"
     alb.ingress.kubernetes.io/healthcheck-path: /healthz

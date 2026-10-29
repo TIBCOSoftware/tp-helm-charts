@@ -138,7 +138,7 @@ traefik:
   service:
     type: LoadBalancer
     annotations:
-      external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+      external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
       service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
   ingressRoute: # for dashboard
     dashboard:

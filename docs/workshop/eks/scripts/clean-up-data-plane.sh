@@ -18,8 +18,14 @@ _efs_id=$(kubectl get sc ${TP_STORAGE_CLASS_EFS} -oyaml --ignore-not-found=true 
 [ "${_efs_id}" != "" ] || { echo "Storage class ${TP_STORAGE_CLASS_EFS} not found, continuing with deletion of other objects"; }
 
 >/dev/null 2>&1
+# Delete Ingress and Gateway objects first so their cloud load balancers are torn down
+# before the cluster is deleted; otherwise leaked load balancers block network deletion.
 echo "Deleting all ingress objects"
-kubectl delete ingress -A --all
+kubectl delete ingress -A --all --timeout=180s
+
+echo "Deleting all gateway objects"
+kubectl delete httproute -A --all --ignore-not-found=true --timeout=180s 2>/dev/null
+kubectl delete gateway -A --all --ignore-not-found=true --timeout=180s 2>/dev/null
 
 echo "Sleep 2 minutes"
 sleep 120
