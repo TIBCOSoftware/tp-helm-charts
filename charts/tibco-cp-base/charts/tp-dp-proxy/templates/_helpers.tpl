@@ -38,6 +38,14 @@ Create chart name and version as used by the chart label.
 
 {{- define "tp-dp-proxy.consts.svcName" }}dp-proxy{{ end -}}
 
+{{- define "tp-dp-proxy.consts.serviceAccount" -}}
+{{- if empty .Values.global.tibco.serviceAccount -}}
+{{- "control-plane-sa" -}}
+{{- else -}}
+{{- .Values.global.tibco.serviceAccount -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 ================================================================
                   SECTION LABELS

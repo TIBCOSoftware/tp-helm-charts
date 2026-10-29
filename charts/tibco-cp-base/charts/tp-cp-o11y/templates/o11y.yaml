@@ -4,7 +4,7 @@
   in the license file that is distributed with this file.
 */}}
 {{- /* PCP-23522: metricsPush gate — disk-buffered OTLP push for otel-userapp-metrics (default recipe). */ -}}
-{{- $mp := .Values.capabilities.o11y.default.metricsPush | default dict -}}
+{{- $mp := .Values.capabilities.o11y.metricsPush | default dict -}}
 
 apiVersion: v1
 kind: ConfigMap
@@ -16,11 +16,11 @@ metadata:
 data:
   version.json: |
     {
-      "capabilityVersion": "1.21.0",
+      "capabilityVersion": "1.22.0",
       "minCPVersion": "1.2.0",
       "maxCPVersion": "",
-      "releaseDate": {{ .Values.capabilities.o11y.default.releaseDate | quote }},
-      "releaseNotes": {{ .Values.capabilities.o11y.default.releaseNotes | quote }},
+      "releaseDate": {{ .Values.capabilities.o11y.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.o11y.releaseNotes | quote }},
       "minVersionRequiredForUpgrade": "1.2.0",
       "minDPVersion": {
         "dp-core-infrastructure": "1.4.0",
@@ -44,7 +44,7 @@ data:
           {
             "name": "otel-userapp",
             "description": "otel userapp",
-            "monitoringPriority": "essential"
+            "monitoringPriority": "optional"
           },
           {
             "name": "otel-userapp-metrics",
@@ -59,28 +59,120 @@ data:
         "allowMultipleInstances": false
       }
     }
+  customization.yaml: |
+    values:
+      - content: |
+          o11yservice:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 1024Mi
+            autoscaling:
+              enabled: true
+              minReplicas: 1
+              maxReplicas: 5
+              targetCPUUtilizationPercentage: 80
+              targetMemoryUtilizationPercentage: 80
+            global:
+              cp:
+                logging:
+                  fluentbit:
+                    resources:
+                      requests:
+                        cpu: 10m
+                        memory: 15Mi
+                      limits:
+                        cpu: 50m
+                        memory: 30Mi
+          opentelemetry-collector:
+            otel-userapp:
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 1000m
+                  memory: 1024Mi
+              autoscaling:
+                enabled: true
+                minReplicas: 1
+                maxReplicas: 3
+                targetCPUUtilizationPercentage: 80
+                targetMemoryUtilizationPercentage: 80
+                behavior:
+                  scaleUp:
+                    stabilizationWindowSeconds: 15
+                  scaleDown:
+                    stabilizationWindowSeconds: 15
+            otel-userapp-metrics:
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 512Mi
+                limits:
+                  cpu: 1000m
+                  memory: 1024Mi
+              config:
+                processors:
+                  memory_limiter:
+                    check_interval: 5s
+                    limit_percentage: 80
+                    spike_limit_percentage: 25
+          jaeger:
+            jaeger:
+              replicas: 1
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 1000m
+                  memory: 1024Mi
   recipe.yaml: |
     recipe:
       deploymentStrategy: "weighted-concurrency"
       helmCharts:
         - name: o11yservice
           namespace: ${NAMESPACE}
-          version: {{ .Values.capabilities.o11y.default.o11yservice.version | quote }}
+          version: {{ .Values.capabilities.o11y.o11yservice.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
           values:
             - content: |
                 global:
+                  o11yservice:
+                    job:
+                      image:
+                        tag: {{ .Values.global.tibco.commonImages.cpScripts.tag | quote }}
                   cp:
                     logging:
                       fluentbit:
                         image:
                           tag: {{ .Values.global.tibco.commonImages.fluentbit.tag | quote }}
-                  o11yservice:
-                    job:
-                      image:
-                        tag: {{ .Values.global.tibco.commonImages.cpScripts.tag | quote }}
+                    resources:
+                      o11y:
+                        logsServer:
+                          config:
+                            exporter:
+                              userapp:
+                                enabled: false
+                              services:
+                                enabled: false
+                        metricsServer:
+                          enabled: false
+                        tracesServer:
+                          enabled: false
+                autoscaling:
+                  enabled: true
+                  minReplicas: 1
+                  maxReplicas: 5
+                  targetCPUUtilizationPercentage: 80
+                  targetMemoryUtilizationPercentage: 80
           flags:
             install: true
             createNamespace: false
@@ -88,7 +180,7 @@ data:
         - name: opentelemetry-collector
           namespace: ${NAMESPACE} 
           releaseName: otel-services
-          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          version: {{ .Values.capabilities.o11y.opentelemetryCollector.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -122,7 +214,7 @@ data:
         - name: opentelemetry-collector
           namespace: ${NAMESPACE}
           releaseName: otel-userapp
-          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          version: {{ .Values.capabilities.o11y.opentelemetryCollector.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -130,6 +222,7 @@ data:
             - content: |
                 global:
                   cp:
+                    o11yv3Gated: true
                     serviceLogs:
                       enabled: true
                     serviceTraces:
@@ -154,9 +247,26 @@ data:
                   networking.platform.tibco.com/logServer-egress: enable
                   networking.platform.tibco.com/internet-egress: enable
                   networking.platform.tibco.com/cluster-egress: enable
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 256Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 1024Mi
+                autoscaling:
+                  enabled: true
+                  minReplicas: 1
+                  maxReplicas: 3
+                  behavior:
+                    scaleUp:
+                      stabilizationWindowSeconds: 15
+                    scaleDown:
+                      stabilizationWindowSeconds: 15
+                  targetCPUUtilizationPercentage: 80
+                  targetMemoryUtilizationPercentage: 80
                 serviceAccount:
                   create: false
-                  annotations: {}
                   name: ${SERVICE-ACCOUNT}
                 extraEnvs:
                   - name: KUBE_NODE_NAME
@@ -185,9 +295,23 @@ data:
                     hostPort: 4318
                     protocol: TCP
                   metrics:
-                    enabled: false
+                    enabled: true
                     containerPort: 8888
                     servicePort: 8888
+                    hostPort: 8888
+                    protocol: TCP
+                  otlp-tas:
+                    enabled: true
+                    containerPort: 24317
+                    servicePort: 24317
+                    hostPort: 24317
+                    protocol: TCP
+                    appProtocol: grpc
+                  otlp-http-tas:
+                    enabled: true
+                    containerPort: 24318
+                    servicePort: 24318
+                    hostPort: 24318
                     protocol: TCP
                 config:
                   receivers:
@@ -201,6 +325,16 @@ data:
                               - http://*
                               - https://*
                           endpoint: 0.0.0.0:4318
+                    otlp/auditsafe:
+                      protocols:
+                        grpc:
+                          endpoint: 0.0.0.0:24317
+                        http:
+                          cors:
+                            allowed_origins:
+                              - http://*
+                              - https://*
+                          endpoint: 0.0.0.0:24318
                     k8s_events:
                       namespaces: ["${env:app_namespace}"]
                   processors:
@@ -210,6 +344,20 @@ data:
                       spike_limit_percentage: 25
                       limit_mib: 2000
                     batch: {}
+                    filter/userapp:
+                      logs:
+                        include:
+                          match_type: strict
+                          resource_attributes:
+                          - key: workload_type
+                            value: user-app
+                    filter/svc:
+                      logs:
+                        include:
+                          match_type: regexp
+                          resource_attributes:
+                          - key: workload_type
+                            value: infra|capability-service
                     filter/devnull-logs:
                       error_mode: ignore
                       logs:
@@ -309,6 +457,68 @@ data:
                           - tag_name: capability_instance_id
                             key: platform.tibco.com/capability-instance-id
                             from: pod
+                    transform/logs:
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(resource.attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
+                        - set(resource.attributes["pod_namespace"], "") where resource.attributes["app_type"] == "bw5"
+                        - set(resource.attributes["pod_name"], resource.attributes["k8s.pod.name"])
+                        - set(resource.attributes["pod_name"], "") where resource.attributes["app_type"] == "bw5"
+                        - set(resource.attributes["pod_uid"], resource.attributes["k8s.pod.uid"])
+                        - set(resource.attributes["pod_start_time"], resource.attributes["k8s.pod.start_time"])
+                        - set(resource.attributes["workload_type"], "user-app") where IsMatch(resource.attributes["app_type"], "msg-*") or IsMatch(body["host_cloud_type"], "control-tower")
+                        - set(resource.attributes["app_id"], body["app_id"]) where IsMatch(body["host_cloud_type"], "control-tower")
+                        - set(resource.attributes["app_id"], resource.attributes["capability_instance_id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
+                        - set(resource.attributes["server_name"], resource.attributes["pod_name"]) where IsMatch(resource.attributes["app_type"], "msg-*")
+                        - set(resource.attributes["server_name"], body["server_name"]) where IsMatch(body["host_cloud_type"], "control-tower")
+                        - delete_key(resource.attributes, "k8s.namespace.name")
+                        - delete_key(resource.attributes, "k8s.pod.name")
+                        - delete_key(resource.attributes, "k8s.pod.uid")
+                        - delete_key(resource.attributes, "k8s.pod.ip")
+                        - delete_key(resource.attributes, "k8s.pod.start_time")
+                    transform/logs-ext:
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(body["@timestamp"], body["log_time"])
+                        - set(body["app_id"], resource.attributes["app_id"]) where body["app_id"] == nil
+                        - set(body["app_name"], resource.attributes["app_name"])
+                        - set(body["app_tags"], resource.attributes["app_tags"])
+                        - set(body["app_type"], resource.attributes["app_type"])
+                        - set(body["app_version"], resource.attributes["app_version"])
+                        - set(body["capability_instance_id"], resource.attributes["capability_instance_id"])
+                        - set(body["dataplane_id"], resource.attributes["dataplane_id"])
+                        - set(body["dataplane_id"], "${DATAPLANE-ID}") where resource.attributes["dataplane_id"] == nil
+                        - set(body["pod_name"], resource.attributes["pod_name"])
+                        - set(body["pod_namespace"], resource.attributes["pod_namespace"])
+                        - set(body["pod_uid"], resource.attributes["pod_uid"])
+                        - set(body["pod_start_time"], resource.attributes["pod_start_time"])
+                        - set(body["workload_type"], resource.attributes["workload_type"])
+                        - set(body["server_name"], resource.attributes["server_name"]) where body["server_name"] == nil
+                    transform/svclogs-ext:
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(body["@timestamp"], FormatTime(log.time, "%Y-%m-%dT%H:%M:%S.%LZ"))
+                        - set(body["dataplane_id"], resource.attributes["dataplane_id"])
+                        - set(body["capability_instance_id"], resource.attributes["capability_instance_id"])
+                        - set(body["workload_type"], resource.attributes["workload_type"])
+                        - set(body["pod_name"], resource.attributes["k8s.pod.name"])
+                        - set(body["pod_namespace"], resource.attributes["k8s.namespace.name"])
+                        - set(body["pod_start_time"], resource.attributes["k8s.pod.start_time"])
+                        - set(body["pod_uid"], resource.attributes["k8s.pod.uid"])
+                        - set(body["pod_ip"], resource.attributes["k8s.pod.ip"])
+                    transform/msg-excl:
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(resource.attributes["workload_type"], "user-app") where IsMatch(resource.attributes["app_type"], "msg-*") or IsMatch(body["host_cloud_type"], "control-tower")
+                    transform/es-bodymap:
+                      log_statements:
+                      - context: scope
+                        statements:
+                        - set(attributes["elastic.mapping.mode"], "bodymap")
                     transform/traces:
                       trace_statements:
                       - context: span
@@ -325,6 +535,34 @@ data:
                           - set(attributes["app_version"], resource.attributes["app_version"])
                           - set(attributes["capability_instance_id"], resource.attributes["capability_instance_id"])
                           - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
+                    transform/auditsafe:
+                      error_mode: ignore
+                      log_statements:
+                      - context: log
+                        statements:
+                        - set(cache["ep0"]["prop_name"], "dataplane_id")
+                        - set(cache["ep0"]["prop_value"], resource.attributes["dataplane_id"])
+                        - set(cache["ep0"]["prop_value"], "${DATAPLANE-ID}") where resource.attributes["dataplane_id"] == nil
+                        - set(cache["ep1"]["prop_name"], "workload_type")
+                        - set(cache["ep1"]["prop_value"], resource.attributes["workload_type"])
+                        - set(cache["ep2"]["prop_name"], "namespace")
+                        - set(cache["ep2"]["prop_value"], resource.attributes["pod_namespace"])
+                        - set(cache["ep3"]["prop_name"], "pod_name")
+                        - set(cache["ep3"]["prop_value"], resource.attributes["pod_name"])
+                        - set(cache["ep4"]["prop_name"], "app_id")
+                        - set(cache["ep4"]["prop_value"], resource.attributes["app_id"])
+                        - set(cache["ep5"]["prop_name"], "origin")
+                        - set(cache["ep5"]["prop_value"], "pod")
+                        - set(cache["ep5"]["prop_value"], "external") where resource.attributes["dataplane_id"] == nil
+                        - set(cache["len"], Len(body["extra_props"])) where body["extra_props"] != nil or Len(body["extra_props"]) > 0
+                        - set(cache["len"], 0) where body["extra_props"] == nil or Len(body["extra_props"]) == 0
+                        - append(body["extra_props"], values = ["el0", "el1", "el2", "el3", "el4", "el5"])
+                        - set(body["extra_props"][Int(cache["len"])], cache["ep0"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(1))], cache["ep1"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(2))], cache["ep2"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(3))], cache["ep3"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(4))], cache["ep4"])
+                        - set(body["extra_props"][Int(cache["len"]+Int(5))], cache["ep5"])
                     filter/pod-warnings:
                       error_mode: ignore
                       logs:
@@ -392,29 +630,17 @@ data:
                       log_statements:
                         - context: log
                           statements:
-                            # Set resource attributes for count connector metric labels
                             - set(resource.attributes["audit.service_name"], "KubernetesEventNotify")
-                            - set(resource.attributes["audit.audit_event"], "POD_CRASH_LOOP") where attributes["k8s.event.reason"] == "BackOff"
-                            - set(resource.attributes["audit.audit_event"], "POD_OOM_KILLED") where attributes["k8s.event.reason"] == "OOMKilled"
-                            - set(resource.attributes["audit.audit_event"], "POD_CONTAINER_FAILED") where attributes["k8s.event.reason"] == "Failed"
-                            - set(resource.attributes["audit.audit_event"], "POD_IMAGE_PULL_FAILED") where attributes["k8s.event.reason"] == "ErrImagePull"
-                            - set(resource.attributes["audit.audit_event"], "POD_IMAGE_PULL_BACKOFF") where attributes["k8s.event.reason"] == "ImagePullBackOff"
-                            - set(resource.attributes["audit.audit_event"], "POD_SCHEDULING_FAILED") where attributes["k8s.event.reason"] == "FailedScheduling"
-                            - set(resource.attributes["audit.audit_event"], "POD_VOLUME_MOUNT_FAILED") where attributes["k8s.event.reason"] == "FailedMount"
-                            - set(resource.attributes["audit.audit_event"], "POD_VOLUME_ATTACH_FAILED") where attributes["k8s.event.reason"] == "FailedAttachVolume"
                             - set(resource.attributes["audit.audit_status"], "FAILURE")
                             # audit_status: WARNING for probe/volume events (lower priority than pod crash/image failures)
-                            - set(resource.attributes["audit.audit_status"], "WARNING") where attributes["k8s.event.reason"] == "Unhealthy" or attributes["k8s.event.reason"] == "FailedMount" or attributes["k8s.event.reason"] == "FailedAttachVolume"
+                            - set(resource.attributes["audit.audit_status"], "WARNING") where attributes["k8s.event.reason"] == "FailedMount" or attributes["k8s.event.reason"] == "FailedAttachVolume"
                             - set(resource.attributes["audit.app_id"], resource.attributes["app_id"])
                             - set(resource.attributes["audit.app_type"], resource.attributes["app_type"])
                             - set(resource.attributes["audit.dataplane_id"], resource.attributes["dataplane_id"])
                             - set(resource.attributes["audit.instance"], resource.attributes["k8s.object.name"])
                             - set(resource.attributes["audit.app_instance"], resource.attributes["k8s.object.name"])
-                            # Severity: default warning for forwarded Warning pod events
                             - set(resource.attributes["audit.severity"], "warning")
-                            # Severity: critical for pod crash/image/scheduling failures
                             - set(resource.attributes["audit.severity"], "critical") where attributes["k8s.event.reason"] == "BackOff" or attributes["k8s.event.reason"] == "OOMKilled" or attributes["k8s.event.reason"] == "ErrImagePull" or attributes["k8s.event.reason"] == "ImagePullBackOff" or attributes["k8s.event.reason"] == "FailedScheduling" or attributes["k8s.event.reason"] == "Failed"
-                            # Scope: derived from workload_type label (user-app=APP, capability-service=CAP, infra=DP)
                             - set(resource.attributes["audit.scope"], "DP") where resource.attributes["workload_type"] == "infra"
                             - set(resource.attributes["audit.scope"], "CAP") where resource.attributes["workload_type"] == "capability-service"
                             - set(resource.attributes["audit.scope"], "APP") where resource.attributes["workload_type"] == "user-app"
@@ -499,29 +725,195 @@ data:
                             - set(body["extra_props"][12], cache["ep12"])
                   exporters:
                     debug: {}
+                    otlphttp/cp-audit:
+                      endpoint: ${env:PLATFORM_POD_ALERT_EVENT_EXPORTER_OTLP_URL}
+                    elasticsearch/log:
+                      mapping:
+                        mode: bodymap
+                      endpoints:
+                      - ${env:LOGS_EXPORTER_APP_ES_ENDPOINT}
+                      logs_index: ${env:LOGS_EXPORTER_APP_ES_INDEX_NAME}
+                      user: ${env:LOGS_EXPORTER_APP_ES_USERNAME}
+                      password: ${env:LOGS_EXPORTER_APP_ES_PASSWORD}
+                      retry:
+                        enabled: false
+                      tls:
+                        insecure: false
+                        insecure_skip_verify: true
+                      headers: ${env:headers_logs_expo_userapp}
+                    elasticsearch/auditsafe:
+                      mapping:
+                        mode: bodymap
+                      endpoints:
+                      - ${env:LOGS_EXPORTER_AUDITSAFE_ES_ENDPOINT}
+                      logs_index: ${env:LOGS_EXPORTER_AUDITSAFE_ES_INDEX_NAME}
+                      user: ${env:LOGS_EXPORTER_AUDITSAFE_ES_USERNAME}
+                      password: ${env:LOGS_EXPORTER_AUDITSAFE_ES_PASSWORD}
+                      retry:
+                        enabled: false
+                      tls:
+                        insecure: false
+                        insecure_skip_verify: true
+                      headers: ${env:headers_logs_expo_auditsafe}
                     otlp/trace:
                       endpoint: ${env:JAEGER_COLLECTOR_ENDPOINT}
                       tls:
                         insecure: true
-                    otlphttp/cp-audit:
-                      endpoint: ${env:PLATFORM_POD_ALERT_EVENT_EXPORTER_OTLP_URL}
+                    otlphttp/logs-export:
+                      endpoint: ${env:LOGS_EXPORTER_APP_OTLPHTTP_URL}
+                      tls:
+                        insecure_skip_verify: true
+                    otlp/logs-export:
+                      endpoint: ${env:LOGS_EXPORTER_APP_OTLPGRPC_URL}
+                      tls:
+                        insecure: true
+                        insecure_skip_verify: true
+                    otlphttp/traces-export:
+                      endpoint: ${env:TRACES_EXPORTER_OTLPHTTP_URL}
+                      tls:
+                        insecure_skip_verify: true
+                    otlp/traces-export:
+                      endpoint: ${env:TRACES_EXPORTER_OTLPGRPC_URL}
+                      tls:
+                        insecure: true
+                        insecure_skip_verify: true
+                    kafka/logs-export-auth:
+                      brokers: ${env:LOGS_EXPORTER_APP_KAFKA_BROKERS}
+                      protocol_version: ${env:LOGS_EXPORTER_APP_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_APP_KAFKA_TOPIC}
+                      auth:
+                        plain_text:
+                          username: ${env:LOGS_EXPORTER_APP_KAFKA_USERNAME}
+                          password: ${env:LOGS_EXPORTER_APP_KAFKA_PASSWORD}
+                    kafka/logs-export:
+                      brokers: ${env:LOGS_EXPORTER_APP_KAFKA_BROKERS}
+                      protocol_version: ${env:LOGS_EXPORTER_APP_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_APP_KAFKA_TOPIC}
+                    kafka/traces-export-auth:
+                      brokers: ${env:TRACES_EXPORTER_KAFKA_BROKERS}
+                      protocol_version: ${env:TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      traces:
+                        topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
+                      auth:
+                        plain_text:
+                          username: ${env:TRACES_EXPORTER_KAFKA_USERNAME}
+                          password: ${env:TRACES_EXPORTER_KAFKA_PASSWORD}
+                    kafka/traces-export:
+                      brokers: ${env:TRACES_EXPORTER_KAFKA_BROKERS}
+                      protocol_version: ${env:TRACES_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      traces:
+                        topic: ${env:TRACES_EXPORTER_KAFKA_TOPIC}
+                    elasticsearch/svclog:
+                      mapping:
+                        mode: bodymap
+                      endpoints:
+                      - ${env:LOGS_EXPORTER_SVC_ES_ENDPOINT}
+                      logs_index: ${env:LOGS_EXPORTER_SVC_ES_INDEX_NAME}
+                      user: ${env:LOGS_EXPORTER_SVC_ES_USERNAME}
+                      password: ${env:LOGS_EXPORTER_SVC_ES_PASSWORD}
+                      retry:
+                        enabled: false
+                      tls:
+                        insecure: false
+                        insecure_skip_verify: true
+                      headers: ${env:headers_logs_expo_services}
+                    otlphttp/service-logs-export:
+                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLPHTTP_URL}
+                      tls:
+                        insecure_skip_verify: true
+                    otlp/service-logs-export:
+                      endpoint: ${env:LOGS_EXPORTER_SVC_OTLPGRPC_URL}
+                      tls:
+                        insecure: true
+                        insecure_skip_verify: true
+                    kafka/service-logs-export-auth:
+                      brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
+                      protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
+                      auth:
+                        plain_text:
+                          username: ${env:LOGS_EXPORTER_SVC_KAFKA_USERNAME}
+                          password: ${env:LOGS_EXPORTER_SVC_KAFKA_PASSWORD}
+                    kafka/service-logs-export:
+                      brokers: ${env:LOGS_EXPORTER_SVC_KAFKA_BROKERS}
+                      protocol_version: ${env:LOGS_EXPORTER_SVC_KAFKA_PROTOCOL_VERSION}
+                      logs:
+                        topic: ${env:LOGS_EXPORTER_SVC_KAFKA_TOPIC}
+                    opensearch/log:
+                      mapping:
+                        mode: bodymap
+                      logs_index: ${env:LOGS_EXPORTER_APP_OS_INDEX_NAME}
+                      http:
+                        endpoint: ${env:LOGS_EXPORTER_APP_OS_ENDPOINT}
+                        headers: ${env:headers_logs_expo_userapp}
+                        auth:
+                          authenticator: basicauth/os_userapp
+                        tls:
+                          insecure: false
+                          insecure_skip_verify: true
+                    opensearch/svclog:
+                      mapping:
+                        mode: bodymap
+                      logs_index: ${env:LOGS_EXPORTER_SVC_OS_INDEX_NAME}
+                      http:
+                        endpoint: ${env:LOGS_EXPORTER_SVC_OS_ENDPOINT}
+                        headers: ${env:headers_logs_expo_services}
+                        auth:
+                          authenticator: basicauth/os_svc
+                        tls:
+                          insecure: false
+                          insecure_skip_verify: true
+                    opensearch/auditsafe:
+                      mapping:
+                        mode: bodymap
+                      logs_index: ${env:LOGS_EXPORTER_AUDITSAFE_OS_INDEX_NAME}
+                      http:
+                        endpoint: ${env:LOGS_EXPORTER_AUDITSAFE_OS_ENDPOINT}
+                        headers: ${env:headers_logs_expo_auditsafe}
+                        auth:
+                          authenticator: basicauth/os_auditsafe
+                        tls:
+                          insecure: false
+                          insecure_skip_verify: true
                   extensions:
-                    health_check: {}
+                    health_check:
+                      endpoint: ${env:MY_POD_IP}:13133
+                    basicauth/os_userapp:
+                      client_auth:
+                        username: ${env:LOGS_EXPORTER_APP_OS_USERNAME}
+                        password: ${env:LOGS_EXPORTER_APP_OS_PASSWORD}
+                    basicauth/os_svc:
+                      client_auth:
+                        username: ${env:LOGS_EXPORTER_SVC_OS_USERNAME}
+                        password: ${env:LOGS_EXPORTER_SVC_OS_PASSWORD}
+                    basicauth/os_auditsafe:
+                      client_auth:
+                        username: ${env:LOGS_EXPORTER_AUDITSAFE_OS_USERNAME}
+                        password: ${env:LOGS_EXPORTER_AUDITSAFE_OS_PASSWORD}
                   service:
                     telemetry:
                       logs: {}
                     extensions:
                       - health_check
+                      - basicauth/os_userapp
+                      - basicauth/os_svc
+                      - basicauth/os_auditsafe
                     pipelines:
-                      logs:
-                        exporters:
-                          - debug
-                        processors:
-                          - filter/devnull-logs
-                          - memory_limiter
-                          - batch
-                        receivers:
-                          - otlp
+                      logs/app:
+                        receivers: ${env:app_logs_receiver}
+                        processors: ${env:app_logs_processor}
+                        exporters: ${env:app_logs_exporter}
+                      logs/auditsafe:
+                        receivers: ${env:auditsafe_receiver}
+                        processors: ${env:auditsafe_processor}
+                        exporters: ${env:auditsafe_exporter}
+                      logs/svc:
+                        exporters: ${env:svc_logs_exporter}
+                        processors: ${env:svc_logs_processor}
+                        receivers: ${env:svc_logs_receiver}
                       traces:
                         receivers: ${env:traces_receiver}
                         processors: ${env:traces_processor}
@@ -547,7 +939,7 @@ data:
         - name: opentelemetry-collector
           namespace: ${NAMESPACE}
           releaseName: otel-userapp-metrics
-          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          version: {{ .Values.capabilities.o11y.opentelemetryCollector.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -592,13 +984,28 @@ data:
                       - key: hawktargets
                         path: hawktargets.yml
                       name: o11y-service
+                  - name: hawkauth
+                    secret:
+                      # 0440: credential files readable by the collector (uid/fsGroup 1000) only.
+                      defaultMode: 288
+                      # PCP-24369: rendered by the o11y-service chart from the per-DP credential that
+                      # cp-orchestrator puts in the o11yv3 model. optional: a data plane without the
+                      # Secret (non control-tower, or no token yet) must still schedule — a
+                      # non-optional Secret volume wedges the pod in ContainerCreating; a missing FILE
+                      # only fails the Hawk scrape.
+                      optional: true
+                      secretName: o11y-hawk-metric-auth
                 {{- if $mp.enabled }}
                   - name: metrics-queue
                     # PCP-23522: node-ephemeral disk for the file_storage queue. NOT medium: Memory
                     # (that would reinstate RAM pressure). Survives container restart / OOM-kill in
                     # place (replay); a pod reschedule wipes it, an accepted loss <= today's pull
                     # gaps. sizeLimit is a HARD cap (pod eviction if exceeded) so it is kept above
-                    # queue.sizeBytes, letting the sending_queue shed data first. Ownership: the
+                    # the SUM of the disk-buffered queues. PCP-24428: a BYO DP runs TWO queues on this
+                    # one volume (the BYO leg — otlp or kafka — plus otlphttp/cp-metrics), so sizeLimit
+                    # must clear ~2x queue.sizeBytes + boltdb overhead (default bumped to 1Gi;
+                    # perf-validate the dual-queue worst case per the PCP-23710 method). Queue sheds first.
+                    # Ownership: the
                     # subchart podSecurityContext (fsGroup 1000 + fsGroupChangePolicy Always) lets
                     # the uid-1000 collector write it — no chown initContainer needed.
                     emptyDir:
@@ -607,6 +1014,9 @@ data:
                 extraVolumeMounts:
                   - mountPath: /conf/hawkconsole
                     name: hawktargets
+                  - mountPath: /conf/hawkauth
+                    name: hawkauth
+                    readOnly: true
                 {{- if $mp.enabled }}
                   - mountPath: /var/lib/otelcol/metrics-queue
                     name: metrics-queue
@@ -657,6 +1067,7 @@ data:
                     protocol: TCP
                 config:
                   receivers:
+                    nop: {}
                     otlp:
                       protocols:
                         grpc:
@@ -670,7 +1081,8 @@ data:
                     # PCP-23799: scrape THIS collector's own :8888 self-telemetry (otelcol_*) so the
                     # pipeline-degradation signals (queue depth / drops / send failures / receiver
                     # backpressure / RSS) ride the same delivery to CP Prometheus. Static localhost
-                    # target — dataplane_id is stamped downstream by transform/msg.
+                    # target — no kubernetes_sd, so it needs no RBAC (works in ns-role or clusterrole
+                    # mode); dataplane_id is stamped downstream by transform/msg.
                     prometheus/otelcol-self:
                       config:
                         scrape_configs:
@@ -758,8 +1170,12 @@ data:
                            scrape_interval: 120s
                            scheme: https
                            basic_auth:
-                             username: mtuser
-                             password: QPuf6#2$$A
+                             # PCP-24369: credential from the o11y-hawk-metric-auth Secret, never
+                             # inline (inline would put the plaintext in this collector's ConfigMap).
+                             # Re-read on every scrape (prometheus/common FileSecret.Fetch), so a
+                             # rotated token is picked up without restarting the collector.
+                             username_file: /conf/hawkauth/username
+                             password_file: /conf/hawkauth/password
                            honor_labels: true
                            tls_config:
                              insecure_skip_verify: true
@@ -801,6 +1217,8 @@ data:
                            scrape_interval: 20s
                            kubernetes_sd_configs:
                            - role: pod
+                             namespaces:
+                               names: ${env:app_namespaces}
                            metric_relabel_configs:
                            - action: labeldrop
                              regex: "ServerState"
@@ -848,8 +1266,12 @@ data:
                            scrape_interval: 120s
                            scheme: https
                            basic_auth:
-                             username: mtuser
-                             password: QPuf6#2$$A
+                             # PCP-24369: credential from the o11y-hawk-metric-auth Secret, never
+                             # inline (inline would put the plaintext in this collector's ConfigMap).
+                             # Re-read on every scrape (prometheus/common FileSecret.Fetch), so a
+                             # rotated token is picked up without restarting the collector.
+                             username_file: /conf/hawkauth/username
+                             password_file: /conf/hawkauth/password
                            honor_labels: true
                            tls_config:
                              insecure_skip_verify: true
@@ -1097,16 +1519,24 @@ data:
                         statements:
                         - set(attributes["app_id"], resource.attributes["capability_instance_id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
                         - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
+                    transform/ns:
+                      metric_statements:
+                      - context: resource
+                        statements:
+                        - set(attributes["k8s.namespace.name"], attributes["app_namespace"]) where attributes["k8s.namespace.name"] != nil and attributes["app_namespace"] != nil and attributes["app_namespace"] != attributes["k8s.namespace.name"]
+                    groupbyattrs:
+                      keys:
+                      - app_namespace
                     {{- if $mp.enabled }}
                     # PCP-23925: the CP-System push exporter (otlphttp/cp-metrics) has no
                     # resource_to_telemetry_conversion (otlphttp structurally can't), unlike the
                     # pull prometheus/ext exporter which promoted OTLP resource attributes ->
                     # per-series Prometheus labels. Reproduce that rtc on the push path by merging
                     # the metric's resource (envelope) attributes into its datapoint attributes so
-                    # they land as series labels on CP Prometheus (app_type, dataplane_id, app_id,
-                    # capability_instance_id, workload_type, k8s_namespace_name, service_name, ...).
-                    # Wired into metrics/appengines only when push is enabled; pull-mode render
-                    # stays byte-identical. See tasks/PCP-23925-fix-handoff.md.
+                    # they land as series labels on CP Prometheus (app_type/dataplane_id/app_id/
+                    # capability_instance_id/workload_type/k8s_*/service_name/...). Wired into
+                    # metrics/appengines only when push is enabled; pull-mode render stays
+                    # byte-identical. See tasks/PCP-23925-fix-handoff.md.
                     transform/userapp-promote-resource:
                       metric_statements:
                       - context: datapoint
@@ -1136,6 +1566,14 @@ data:
                         statements:
                         - set(attributes["k8s.namespace.name"], resource.attributes["k8s.namespace.name"]) where resource.attributes["k8s.namespace.name"] != nil
                         - set(attributes["service.name"], resource.attributes["service.name"]) where resource.attributes["service.name"] != nil
+                        # PCP-25027: groupbyattrs (keys: app_namespace) demotes the app-emitted
+                        # app_namespace label from the datapoint to the resource so transform/ns can read
+                        # it. Under push (otlphttp/cp-metrics, no rtc) resource attrs never become labels,
+                        # so app_namespace was lost (only k8s_namespace_name survived via the set() above).
+                        # Re-promote it here. The datapoint key is IDENTICAL to the rtc source key
+                        # ("app_namespace"), so the :4319 prometheus/user rtc exporter dedupes it cleanly
+                        # (no "duplicate label names" drop); pull-mode render stays unchanged.
+                        - set(attributes["app_namespace"], resource.attributes["app_namespace"]) where resource.attributes["app_namespace"] != nil
                         # PCP-24403: EMS (job="ems-pod", app_type="msg-ems") cards filter on
                         # capability_instance_id (+ the msg envelope), resource attrs lost under push
                         # (otlphttp, no rtc). This processor runs on the SHARED metrics/prom pipeline, so
@@ -1153,6 +1591,7 @@ data:
                     {{- end }}
                   exporters:
                     debug: {}
+                    nop: {}
                     prometheus/user:
                       endpoint: 0.0.0.0:4319
                       enable_open_metrics: true
@@ -1163,6 +1602,49 @@ data:
                       enable_open_metrics: true
                       resource_to_telemetry_conversion:
                         enabled: true
+                    otlphttp/metrics-export:
+                      endpoint: ${env:METRICS_EXPORTER_OTLPHTTP_URL}
+                      tls:
+                        insecure_skip_verify: true
+                      headers: ${env:headers_metrics_otlp_exporter}
+                      {{- if $mp.enabled }}
+                      # PCP-23522: same disk-buffered queue for the user's BYO OTLP endpoint.
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
+                    otlp/metrics-export:
+                      endpoint: ${env:METRICS_EXPORTER_OTLPGRPC_URL}
+                      tls:
+                        insecure: true
+                        insecure_skip_verify: true
+                      headers: ${env:headers_metrics_otlp_exporter}
+                      {{- if $mp.enabled }}
+                      # PCP-24428: disk-buffer the BYO OTLP gRPC leg too (parity with the http BYO
+                      # exporter above and the cp-metrics push exporter). exporterhelper's
+                      # sending_queue + file_storage works identically for otlp (grpc) and otlphttp.
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
                     {{- if $mp.enabled }}
                     # PCP-23522: CP-System metrics PUSH exporter, disk-buffered (file_storage-backed
                     # persistent sending_queue) — collector emits-and-forgets, so memory tracks queue
@@ -1186,6 +1668,52 @@ data:
                         max_interval: 30s
                         max_elapsed_time: 300s
                     {{- end }}
+                    kafka/metrics-export-auth:
+                      brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
+                      protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      metrics:
+                        topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
+                      auth:
+                        plain_text:
+                          username: ${env:METRICS_EXPORTER_KAFKA_USERNAME}
+                          password: ${env:METRICS_EXPORTER_KAFKA_PASSWORD}
+                      {{- if $mp.enabled }}
+                      # PCP-24428: disk-buffer the BYO kafka leg too. The kafka exporter uses
+                      # exporterhelper, so it takes the same file_storage-backed sending_queue as the
+                      # otlp/otlphttp legs (the Sarama producer's own buffering sits behind this queue).
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
+                    kafka/metrics-export:
+                      brokers: ${env:METRICS_EXPORTER_KAFKA_BROKERS}
+                      protocol_version: ${env:METRICS_EXPORTER_KAFKA_PROTOCOL_VERSION}
+                      metrics:
+                        topic: ${env:METRICS_EXPORTER_KAFKA_TOPIC}
+                      {{- if $mp.enabled }}
+                      # PCP-24428: disk-buffer the BYO kafka leg too (see kafka/metrics-export-auth).
+                      sending_queue:
+                        enabled: true
+                        storage: file_storage/metrics
+                        num_consumers: 10
+                        sizer: bytes
+                        queue_size: {{ dig "queue" "sizeBytes" 268435456 $mp | int64 }}
+                        block_on_overflow: false
+                      retry_on_failure:
+                        enabled: true
+                        initial_interval: 5s
+                        max_interval: 30s
+                        max_elapsed_time: 300s
+                      {{- end }}
                   extensions:
                     health_check: {}
                     {{- if $mp.enabled }}
@@ -1230,6 +1758,9 @@ data:
                         receivers: [prometheus/otelcol-self]
                         processors: [memory_limiter, transform/msg, batch]
                         exporters: ${env:metrics_prom_exp}
+                      metrics/ext:
+                        receivers: ${env:metrics_ext_rec}
+                        exporters: ${env:metrics_ext_exp}
           flags:
             install: true
             createNamespace: false
@@ -1238,7 +1769,7 @@ data:
         - name: opentelemetry-collector
           namespace: ${NAMESPACE} 
           releaseName: otel-finops
-          version: {{ .Values.capabilities.o11y.default.opentelemetryCollector.version | quote }}
+          version: {{ .Values.capabilities.o11y.opentelemetryCollector.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -1272,7 +1803,7 @@ data:
         - name: jaeger
           namespace: ${NAMESPACE}
           releaseName: jaeger
-          version: {{ .Values.capabilities.o11y.default.jaeger.version | quote }}
+          version: {{ .Values.capabilities.o11y.jaeger.version | quote }}
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -1281,38 +1812,51 @@ data:
                 global:
                   cp:
                     resources:
-                      o11yv3:
-                        tracesServer:
-                          config:
-                            exporter:
-                              enabled: true
-                              kind: localStore
-                            proxy:
-                              enabled: true
-                              kind: localStore
                       o11y:
                         tracesServer:
                           enabled: false
                 fullnameOverride: jaeger
                 storage:
-                  type: memory
+                  type: elasticsearch
+                  elasticsearch:
+                    tls:
+                      enabled: false
+                      secretName: jaeger-elasticsearch
                 jaeger:
                   podLabels:
                     networking.platform.tibco.com/kubernetes-api: enable
                     networking.platform.tibco.com/logServer-egress: enable
                     networking.platform.tibco.com/internet-egress: enable
                     networking.platform.tibco.com/cluster-egress: enable
-                    networking.platform.tibco.com/prometheus: enable
                   resources:
                     requests:
-                      cpu: 256m
-                      memory: 128Mi
+                      cpu: 200m
+                      memory: 256Mi
                     limits:
-                      cpu: 500m
-                      memory: 512Mi
+                      cpu: 1000m
+                      memory: 1024Mi
                   serviceAccount:
                     create: false
                     name: ${SERVICE-ACCOUNT}
+                uiconfig:
+                  monitor:
+                    menuEnabled: false
+                  dependencies:
+                    menuEnabled: false
+                  menu:
+                    - label: "Control Panel"
+                      items:
+                        - label: "Home"
+                          url: "../../../../cp"
+                        - label: "Data Planes"
+                          url: "../../../../cp/app/subscription"
+                        - label: "Observability"
+                          url: "../../../../cp/metrics"
+                  linkPatterns:
+                    - type: "tags"
+                      key: "app_id"
+                      url: "../../../../cp/#{app_type}/appdetails/processes?dp_id=#{dataplane_id}&capability_instance_id=#{capability_instance_id}&app_id=#{app_id}"
+                      text: "Open app details #{app_name}"
                 userconfig:
                   service:
                     extensions: [jaeger_storage, jaeger_query, healthcheckv2]
@@ -1340,11 +1884,24 @@ data:
                       base_path: /o11y/v1/traceproxy/${DATAPLANE-ID}
                       storage:
                         traces: primary_store
+                      ui:
+                        config_file: /etc/jaeger/ui-config.json
                     jaeger_storage:
                       backends:
                         primary_store:
-                          memory:
-                            max_traces: 100000
+                          elasticsearch:
+                            server_urls: ["${env:ES_SERVER_URLS}"]
+                            auth:
+                              basic:
+                                username: "${env:ES_USERNAME}"
+                                password: "${env:ES_PASSWORD}"
+                            tls:
+                              insecure_skip_verify: true
+                            # Index templates are pre-created in Elasticsearch (dp-config-es),
+                            # so Jaeger must not create them on startup. This also skips the
+                            # PUT _index_template request whose duplicate Authorization header
+                            # (go-elasticsearch v9.x) is rejected by AWS ELB with a 400. (PCP-21169)
+                            create_mappings: false
                   receivers:
                     otlp:
                       protocols:
@@ -1406,13 +1963,13 @@ spec:
         - name: RECIPE_TARGET_LOCATION
           value: "/private/tsc/config/capabilities/infra"
         - name: RECIPE_RELEASE_VERSION
-          value: "1.21.0"
+          value: "1.22.0"
         - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
           value: ""
         - name: OVERWRITE_RECIPE
-          value: {{ .Values.capabilities.o11y.default.overwriteRecipe | quote }}
+          value: {{ .Values.capabilities.o11y.overwriteRecipe | quote }}
         - name: IS_LATEST
-          value: {{ .Values.capabilities.o11y.default.isLatest | quote }}
+          value: {{ .Values.capabilities.o11y.isLatest | quote }}
         volumeMounts:
         - name: {{ include "tp-cp-o11y.appName" . }}-o11y-volume
           mountPath: /opt/tibco/recipe

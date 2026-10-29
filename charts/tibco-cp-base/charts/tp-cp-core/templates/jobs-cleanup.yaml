@@ -308,7 +308,7 @@ spec:
         - name: AWS_REGION
           value: {{ .Values.global.tibco.region }}
         - name: DELETE_DB_ON_UNINSTALL
-          value: {{ .Values.cp.deleteDBOnUninstall | quote }}
+          value: {{ .Values.global.cp.deleteDBOnUninstall | quote }}
         - name: PSQL_SCRIPTS_LOCATION
           value: /opt/tibco/tsc/scripts/postgres/tibco-cp-base
         - name: BASE_SCRIPTS_LOCATION
