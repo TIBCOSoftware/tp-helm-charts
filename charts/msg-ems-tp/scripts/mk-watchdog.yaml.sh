@@ -15,8 +15,8 @@ services:
       # cmd: wait-for-shutdown.sh
       cwd: /logs/${MY_POD_NAME}
       log:
-        size: 200
-        num: 50
+        size: 100
+        num: 30
         # debugfile: /logs/${MY_POD_NAME}/ftlserver.log
         rotateonfirststart: true
   - name: pod-stats
@@ -25,7 +25,7 @@ services:
       cwd: /logs/${MY_POD_NAME}/pod-stats
       log:
         size: 10
-        num: 50
+        num: 14
         debugfile: /logs/${MY_POD_NAME}/pod-stats/pod-mon.csv
         rotateonfirststart: true
   - name: health-watcher
@@ -34,7 +34,7 @@ services:
       cwd: /logs/${MY_POD_NAME}/health-watcher
       log:
         size: 10
-        num: 50
+        num: 14
         debugfile: /logs/${MY_POD_NAME}/health-watcher/health.csv
         rotateonfirststart: true
   - name: fluentbit
@@ -43,7 +43,7 @@ services:
       cwd: /logs/${MY_POD_NAME}/fluentbits
       logger: stdout
       log:
-        size: 200
-        num: 25
+        size: 20
+        num: 14
         rotateonfirststart: true
 EOF

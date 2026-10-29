@@ -132,18 +132,13 @@ spec:
             - name: HAWK_QUERYNODE_DATABASE_ENDPOINT_URL
               value: "$(PGHOST):$(PGPORT)"
             - name: CP_MONITORING_SERVICE_HOST_PORT
-              value: {{ include "tp-hawk-infra-querynode.consts.monitoringService" . }}  
+              value: {{ include "tp-hawk-infra-querynode.consts.orchestrator" . }}  
             {{- if eq .Values.global.external.db_ssl_mode "verify-full" }}
             - name: datasource_tls_cacert_file
               value: {{ .Values.global.external.db_ssl_root_cert }}
             - name: DATASOURCE_TLS_SKIP_HOSTNAME_VERIFICATION
               value: "false"
             {{- end }}
-            - name: METRIC_AUTH_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: metric-token-query-secret
-                  key: metric_auth_token
           {{- if .Values.global.cp.enableResourceConstraints }}
           {{- with .Values.resources }}
           resources:

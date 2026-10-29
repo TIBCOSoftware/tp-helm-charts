@@ -14,7 +14,7 @@ need.msg.ems.params
 */}}
 {{ define "need.msg.ems.params" }}
 {{-  $dpParams := include "need.msg.dp.params" . | fromYaml -}}
-{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.1-34" $dpParams.dp.registry $dpParams.dp.repo -}}
+{{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.5.1-38" $dpParams.dp.registry $dpParams.dp.repo -}}
 #{-  $emsDefaultFullImage := printf "%s/%s/msg-ems-all:10.4.0-56" $dpParams.dp.registry $dpParams.dp.repo -}}
 # Set EMS defaults
 {{- $name := ternary .Release.Name .Values.ems.name ( not .Values.ems.name ) -}}
@@ -131,7 +131,7 @@ ems:
   use: "{{ $use }}"
   capabilityName: "{{ $capabilityName }}"
   isProduction: {{ $isProduction }}
-  zoneLabel: {{ .Values.ems.zoneLabel | default "topology.kubernetes.io/zone" }}
+  zoneLabel: {{ .Values.ems.zoneLabel | default "none" }}
   pvcShareName: {{ $pvcShareName }}
   pvcShareSize: {{ $pvcShareSize }}
   activationSecret: "{{ .Values.ems.activationSecret | default "cp-license-file-secret" }}"
@@ -247,13 +247,12 @@ note: expects a $emsParams as its argument
 {{- define "ems.std.labels" }}
 release: "{{ .dp.release }}"
 tib-dp-app: msg-ems-ftl
-tib-msgdp-mm-version: "1.21.0-0"
+tib-msgdp-mm-version: "1.22.0-0"
 tib-msg-group-name: "{{ .ems.name }}"
 tib-msg-ems-name: "{{ .ems.name }}"
 tib-msg-ems-sizing: "{{ .ems.sizing }}"
 tib-msg-ems-use: "{{ .ems.use }}"
 app.kubernetes.io/name: "ems"
-platform.tibco.com/app-type: "msg-ems"
 app.kubernetes.io/part-of: "{{ .ems.name }}"
 platform.tibco.com/app.resources.requests.cpu: {{ if and .ems.resources .ems.resources.requests -}} {{ .ems.resources.requests.cpu | default "100m" | quote }} {{- else -}} "100m" {{- end }}
 platform.tibco.com/app.resources.requests.memory: {{ if and .ems.resources .ems.resources.requests -}}  {{ .ems.resources.requests.memory | default "128Mi" | quote }} {{- else -}} "128Mi" {{- end }}
@@ -276,7 +275,7 @@ prometheus.io/insecure_skip_verify: "true"
 ems.prom.o11y.labels 
 */}}
 {{- define "ems.prom.o11y.labels" }}
-platform.tibco.com/scrape_o11y: "true"
+platform.tibco.com/app-type: "msg-ems"
 prometheus.io/scrape: "true"
 prometheus.io/port: "{{ .ems.ports.httpPort }}"
 {{- end }}

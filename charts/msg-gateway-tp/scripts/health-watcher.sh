@@ -17,7 +17,6 @@ ENV OPTIONS:
     LOG_ALERT_PORT      - Port for fluentbits alerting (default 8099)
 "
 csvfile="${HEALTH_CSV:-./health.csv}"
-stsdata="my-sts.json"
 interval="${HEALTH_INTERVAL:-20}"
 action="${HEALTH_ACTION:-watcher}"
 export podBase="${HOSTNAME%-*}"
@@ -67,21 +66,24 @@ function rotate_log() {
 }
 
 function sts_get_config {
-    quorumStrategy="" replicas="" isLeader="" quorumMin="1" 
-    echo "#+: " kubectl get sts "$STS_NAME" -o json " > $stsdata"
-    kubectl get sts "$STS_NAME" -o json > $stsdata
+    local stsjson xreplicas
+    echo "#+: " kubectl get sts "$STS_NAME" -o json
+    stsjson="$(kubectl get sts "$STS_NAME" -o json)"
     [ $? -ne 0 ] && log " No STS data, not watching health ..." && return 1
-    replicas="$(cat $stsdata | jq '.spec.replicas' )"
-    namespace="$(cat $stsdata | jq -r '.metadata.namespace' )"
-    headless="$(cat $stsdata | jq -r '.spec.servicename' )"
+    xreplicas="$(echo "$stsjson" | jq -e '.spec.replicas|numbers' )"
+    [ $? -ne 0 ] && log " Invalid STS data, keeping last config ..." && return 1
+    quorumStrategy="" isLeader="" quorumMin="1"
+    replicas="$xreplicas"
+    namespace="$(echo "$stsjson" | jq -r '.metadata.namespace' )"
+    headless="$(echo "$stsjson" | jq -r '.spec.servicename' )"
     export podDomain="${MY_POD_DOMAIN:-$headless.$namespace.svc}"
-    quorumStrategy="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/quorum-strategy"]' )"
+    quorumStrategy="$(echo "$stsjson" | jq -r '.metadata.annotations["platform.tibco.com/quorum-strategy"]' )"
     lastReplicas=$replicas
-    isLeader="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/leader-endpoint"]' )"
+    isLeader="$(echo "$stsjson" | jq -r '.metadata.annotations["platform.tibco.com/leader-endpoint"]' )"
     [ "$isLeader" = "null" ] && isLeader=""
-    quorumMin="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/quorum-min"]' )"
-    replicaMin="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/replica-min"]' )"
-    replicaMax="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/replica-max"]' )"
+    quorumMin="$(echo "$stsjson" | jq -r '.metadata.annotations["platform.tibco.com/quorum-min"]' )"
+    replicaMin="$(echo "$stsjson" | jq -r '.metadata.annotations["platform.tibco.com/replica-min"]' )"
+    replicaMax="$(echo "$stsjson" | jq -r '.metadata.annotations["platform.tibco.com/replica-max"]' )"
     if [ "$quorumMin" = "null" ] || [ -z "$quorumMin" ] ; then 
         quorumMin="1"
     fi
@@ -99,7 +101,7 @@ function sts_get_config {
         alert "spec-alert $STS_NAME: replicas = $replicas, max=$replicaMax"
     fi
     # isInQuorum="http://localhost:9013/api/v1/available"
-    isInQuorum="$(cat $stsdata | jq -r '.metadata.annotations["platform.tibco.com/is-in-quorum"]' )"
+    isInQuorum="$(echo "$stsjson" | jq -r '.metadata.annotations["platform.tibco.com/is-in-quorum"]' )"
     [ "$isInQuorum" = "null" ] && isInQuorum=""
     [ "$quorumStrategy" = "quorum-based" ] && quorumMin=$(( $replicas / 2 + 1 ))
     # FIXME: headless
@@ -129,9 +131,8 @@ function sts_check_health {
     curlTimeout="--max-time 5 --connect-timeout 3"
     inQuorumCount=0 leader="" missingList= health=bad
     # Check for scaling actions
-    kubectl get sts "$STS_NAME" -o json > $stsdata
-    xreplicas="$(cat $stsdata | jq '.spec.replicas' )"
-    [ "$xreplicas" != "$lastReplicas" ] && \
+    xreplicas="$(kubectl get sts "$STS_NAME" -o json | jq -e '.spec.replicas|numbers' )"
+    [ -n "$xreplicas" ] && [ "$xreplicas" != "$lastReplicas" ] && \
             alert "scaling-alert $STS_NAME: replicas = $xreplicas, was $lastReplicas" &&
             sts_get_config
 
@@ -189,6 +190,7 @@ function watcher {
     # timestamp,health,quorum-strategy,replicas,leader,inquorum-count,missing-list
     echo  "datetime,health,quorum-strategy,replicas,qMin,leader,inquorum-count,missing-list" > $csvfile
     sts_get_config
+    noLabelCount=0
     
     while true
     do
@@ -208,6 +210,16 @@ function watcher {
             echo "#+: " kubectl patch pod/$MY_POD_NAME --type=merge -p="$spec"
             kubectl patch pod/$MY_POD_NAME --type=merge -p="$spec"
             [ $? -eq 0 ] && oldrole="$role"
+        fi
+        # Check active pod has leader label
+        if [ -n "$leader" ] ; then
+            leaderRole=$(kubectl get pod/$leader -o jsonpath='{.metadata.labels.tib-msg-stsrole}' )
+            if [ $? -eq 0 ] && [ "$leaderRole" != "leader" ] ; then
+                noLabelCount=$(( $noLabelCount + 1 ))
+                [ $noLabelCount -gt 3 ] && alert "label-alert $STS_NAME: active pod $leader has role=$leaderRole, not leader"
+            else
+                noLabelCount=0
+            fi
         fi
     
         # Do not delay pod restarts!

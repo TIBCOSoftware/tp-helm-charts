@@ -6,7 +6,7 @@ This chart is an example of how to deploy the preview EMS-MCP server in a platfo
 - Only values required are the standard `global.cp...` settings used for installing `tibco-cp-messaging` (or `tibco-cp-base`)
 ```bash
 helm get values tibco-cp-messaging | \
-helm upgrade --install -f - tibco-tessa-messaging tp-helm-charts/tibco-tessa-messaging --version=1.21.20
+helm upgrade --install -f - tibco-tessa-messaging tp-helm-charts/tibco-tessa-messaging --version=1.22.14
 ```
 - current version= 1.21.5
 
@@ -50,6 +50,7 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 ## Example vscode prompts
 - `how many of my EMS servers are healthy`
 - `how many connections do I have to my EMS servers`
+- `what are the top 5 queues with the largest backlog`
 
 Response: Ran `tibco_ems_get_server_status` 
 Completed with input: {
@@ -112,6 +113,20 @@ curl -k -i -X POST -H "Authorization: Bearer $myCicToken" -H "Content-Type: appl
 ## TibcoRoute object for vscode access
 - The CP chart `tibco-tessa-messaging` installs a K8s CR `TibcoRoute/tp-cp-msg-tessa-emsmcp` , that uses the dp-proxy and the dataplaneID to route requests to a DP tessa-ems-mcp server.
 - This route is secured via CIC OAuth Token
+
+## Unauthenticated MCP methods (DP haproxy)
+- The DP-side haproxy (`haproxy.cfg` in `msg-tessa-ems-mcp`) allows these JSON-RPC methods on `POST /mcp` without credentials, so clients can discover tools:
+    - `initialize`, `notifications/initialized` (session setup; the server requires an `Mcp-Session-Id`)
+    - `tools/list`
+- All other methods (`tools/call`, `prompts/list`, ...), batched requests, and `GET`/`DELETE /mcp` still require `Authorization` or `X-Atmosphere-Token`, checked on every request against `tp-msg-gateway`.
+- Upstream routes (e.g. the CP `TibcoRoute`) may still enforce their own authentication.
+- To disable auth entirely, set `emsmcp.haproxyNoauth: true` (uses `haproxy.noauth.cfg`).
+```bash
+curl -i -X POST -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}}}' "$myUrl"
+# use the returned Mcp-Session-Id
+curl -i -X POST -H "Content-Type: application/json" -H "Mcp-Session-Id: $mySession" -H "MCP-Protocol-Version: 2025-06-18" -d '{"jsonrpc": "2.0", "method": "notifications/initialized"}' "$myUrl"
+curl -i -X POST -H "Content-Type: application/json" -H "Mcp-Session-Id: $mySession" -H "MCP-Protocol-Version: 2025-06-18" -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}' "$myUrl"
+```
 
 ## Trouble-shooting
 - VScode when URL uses self-signed certificates

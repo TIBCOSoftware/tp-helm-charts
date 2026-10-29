@@ -16,14 +16,22 @@ function createOldCredentials {
 # export TIBEMS_OAUTH2_ACCESS_TOKEN=$MSG_ADMIN_BEARER
 # expect initially MSG_CLI_APPNAME=ems-ct
 export cliDir="/logs/cli/$RANDOM"
-checkAuth=$(/app/ems-registration check-dp-admin 2>&1)
-rtc=$?
-[ $rtc -ne 0 ] && echo "Manage Dataplane permission required, exiting." && exit $rtc
+if [ -n "$MSG_CLI_USER" ] ; then
+    # An array keeps the login intact as one argument: EMS user names may contain spaces.
+    cliArgs=(-user "$MSG_CLI_USER")
+else
+    /app/ems-registration check-dp-admin -role admin >/dev/null 2>&1
+    [ $? -eq 0 ] && cliuser=admin
+    [ -z "$cliuser" ] && /app/ems-registration check-dp-admin -role view >/dev/null 2>&1
+    [ $? -eq 0 ] && cliuser=view
+    [ -z "$cliuser" ] && echo "No CLI credentials found." && exit 1
+    cliArgs=(-role "$cliuser")
+fi
 mkdir -p $cliDir && pushd $cliDir
 if [[ "$MSG_CLI_APPNAME" =~ ^ems ]]; then
     echo "Using app = $MSG_CLI_APPNAME"
-    /app/ems-registration tibemsadmin "$MSG_CLI_RIID"
-    if [ $? -ne 0 ] ; then
+    /app/ems-registration tibemsadmin "${cliArgs[@]}" "$MSG_CLI_RIID"
+    if [ $? -ne 0 ] && [ -z "$MSG_CLI_USER" ] ; then
         # RETRY in case this is a pre 1.21.0 EMS instance without a viewUser
         createOldCredentials tmp.credentials.yaml
         EMS_DP_CREDENTIALS="$PWD/tmp.credentials.yaml" /app/ems-registration tibemsadmin "$MSG_CLI_RIID"
@@ -32,12 +40,14 @@ if [[ "$MSG_CLI_APPNAME" =~ ^ems ]]; then
 elif [[ "$MSG_CLI_APPNAME" =~ ^as ]]; then
     echo "Using app = $MSG_CLI_APPNAME"
     /app/ems-registration tibdg "$MSG_CLI_RIID"
-elif [[ "$MSG_CLI_APPNAME" =~ ^support ]]; then
-    if [[ "$DP_SUPPORT_SHELL_ENABLED" =~ ^[FfNn0] ]]; then
+elif [[ "$MSG_CLI_APPNAME" =~ ^support ]] ; then
+    if ! [[ "$DP_SUPPORT_SHELL_ENABLED" =~ ^([Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1)$ ]]; then
         echo "Support shell has been disabled, exiting."
         exit 0
     fi
     echo "Using app = $MSG_CLI_APPNAME"
+    /app/ems-registration check-dp-admin -role admin >/dev/null 2>&1
+    [ $? -ne 0 ] && echo "No CLI credentials found." && exit 1
     bash
 else
     echo "Unknown app = $MSG_CLI_APPNAME"

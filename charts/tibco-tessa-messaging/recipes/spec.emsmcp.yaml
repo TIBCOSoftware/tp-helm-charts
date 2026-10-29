@@ -8,6 +8,19 @@ files:
   platform/emsmcp/versions.json: |
     [
       {
+        "capabilityVersion": "1.22.0",
+        "minRollbackVersion": "1.22.0",
+        "minCPVersion": "1.19.0",
+        "maxCPVersion": "",
+        "releaseDate": "2026/09/28",
+        "releaseNotes": "Enhancements, Bug fixes, etc.",
+        "minVersionRequiredForUpgrade": "1.19.0",
+        "minDPVersion": {
+          "dp-core-infrastructure": "1.19.0",
+          "dp-configure-namespace": "1.19.0"
+        }
+      },
+      {
         "capabilityVersion": "1.21.0",
         "minRollbackVersion": "1.21.0",
         "minCPVersion": "1.19.0",
@@ -34,12 +47,12 @@ files:
         }
       }
     ]
-  platform/emsmcp/1.21.0/recipe.yaml: |
+  platform/emsmcp/1.22.0/recipe.yaml: |
     recipe:
       helmCharts:
         - name: msg-tessa-ems-mcp
           namespace: ${NAMESPACE}
-          version: "1.21.23"
+          version: "1.22.14"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -48,7 +61,7 @@ files:
             install: true
             createNamespace: false
             dependencyUpdate: true
-  platform/emsmcp/1.21.0/package.json: |
+  platform/emsmcp/1.22.0/package.json: |
     {
       "package": {
         "services": [
@@ -59,7 +72,7 @@ files:
           }
         ],
         "mcpServer": {
-          "endpointPath": "/tibco/agent/msgdp/tessa/ems/mcp"
+          "endpointPath": "/tibco/agent/msg/tessa/ems/mcp"
         },
         "dependsOn": [
     	      {
@@ -81,12 +94,12 @@ files:
         "capabilityResourceDependencies": []
       }
     }
-  platform/emsmcp/1.19.0/recipe.yaml: |
+  platform/emsmcp/1.21.0/recipe.yaml: |
     recipe:
       helmCharts:
         - name: msg-tessa-ems-mcp
           namespace: ${NAMESPACE}
-          version: "1.21.20"
+          version: "1.21.23"
           repository:
             chartMuseum:
               host: ${HELM_REPO}
@@ -95,7 +108,7 @@ files:
             install: true
             createNamespace: false
             dependencyUpdate: true
-  platform/emsmcp/1.19.0/package.json: |
+  platform/emsmcp/1.21.0/package.json: |
     {
       "package": {
         "services": [
