@@ -29,6 +29,55 @@ spec:
           name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
           key: TSC_DNS_DOMAIN
   endpoints:
+{{- if eq (lower (toString .Values.backend.dialHome.enabled)) "true" }}
+    # PCP-24482 — dial-home WebSocket, EXEMPT from the CP auth listener.
+    #
+    # Must be listed BEFORE /cp/mcp-hub/api: this path is a strict suffix of it, and the
+    # more specific entry has to match first. Verified on a live CP (ins-syan-122a12) —
+    # with this entry first, a client carrying ONLY a bootstrap token gets
+    # `101 Switching Protocols`; every other path under /cp/mcp-hub/api still answers 401.
+    #
+    # WHY `config: empty` rather than `secure`. The endpoint a dial-home gateway connects
+    # to is reached by a process in the CUSTOMER's cluster, whose only credential is the
+    # bootstrap token this Hub minted for it. It has no CP session and cannot obtain one,
+    # so `config: secure` rejects it with
+    #   401 Www-Authenticate: Bearer realm="TIBCO Cloud Authentication"
+    # before the Hub ever sees the token — a connect-time failure naming a realm the
+    # gateway has never heard of. (Measured: the install command we render carries no CP
+    # credential, so as shipped it could not connect through a CP ingress.)
+    #
+    # This does NOT make the path unauthenticated. Bootstrap-token auth is the DESIGNED
+    # gate here: the upgrade is handled on the raw http.Server via `server.on('upgrade')`,
+    # deliberately bypassing Express, API-key auth and CP-RBAC — "the lookup here IS the
+    # authentication" (backend/src/dialhome/ws-server.ts). The token is sha256-hashed and
+    # compared in constant time, is region-scoped, and is expirable and revocable.
+    # `config: empty` removes a gate that was never meant to be on this path; the gate that
+    # is meant to be here stays.
+    #
+    # Gated on dialHome.enabled so the exemption only exists on deployments that actually
+    # serve dial-home — there is no reason to expose it where the feature is off.
+    #
+    # ⚠️ PCP-24879: that gate is `eq (toString .) "true"`, NOT a bare `if .`, and it MUST stay
+    # in lockstep with the deployment.yaml gates on the same value. A bare `if` is Helm
+    # truthiness, so `--set-string ...dialHome.enabled=false` was TRUE here — which, once the
+    # deployment side was tightened, would have split the feature: the Hub's env vars gone
+    # while THIS auth-exemption route still rendered. An exemption outliving the feature it
+    # exempts is the wrong half to leave behind. (Measured before the fix: 0 dial-home env
+    # vars, 3 route hits. Caught by the Copilot review on #10959.)
+    # The guard's S7 reconciles EVERY template in this directory against its gate table, so
+    # this file cannot drift back on its own.
+    - path: /cp/mcp-hub/api/mcp-hub/dialhome/ws
+      internalPath: /api/mcp-hub/dialhome/ws
+      port: {{ .Values.backend.port }}
+      protocol: http
+      proxies:
+        - listener: virtual
+          config: empty
+          fqdn: "${TSC_DNS_DOMAIN}"
+          allowClientCache: false
+          allowXFrameOptions: false
+          enableRedirects: false
+{{- end }}
     - path: /cp/mcp-hub/api
       internalPath: /api
       port: {{ .Values.backend.port }}
