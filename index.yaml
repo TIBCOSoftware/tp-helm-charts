@@ -4363,6 +4363,19 @@ entries:
     version: 0.72.19
   msg-activespaces-tp:
   - apiVersion: v2
+    appVersion: 5.2.0-8
+    created: "2026-10-29T17:30:47.459056007Z"
+    description: Tibco ActiveSpaces distributed data grid
+    digest: c24a819327cbc784de7c73a1c6210a5c51c7bd0ed613871341e7cc3d3216d27d
+    home: https://www.tibco.com/products/tibco-activespaces
+    keywords:
+    - msg-activespaces
+    name: msg-activespaces-tp
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-activespaces-tp-1.22.14/msg-activespaces-tp-1.22.14.tgz
+    version: 1.22.14
+  - apiVersion: v2
     appVersion: 5.2.0-7
     created: "2026-10-07T06:21:10.204482247Z"
     description: Tibco ActiveSpaces distributed data grid
@@ -4389,6 +4402,23 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-activespaces-tp-1.19.23/msg-activespaces-tp-1.19.23.tgz
     version: 1.19.23
   msg-ems-tp:
+  - apiVersion: v2
+    appVersion: 10.5.1-38
+    created: "2026-10-29T17:30:47.63327811Z"
+    description: Data-plane provisioning chart for EMS server group
+    digest: 445cda90b6182e6f5dfc9f94dd52cfdcc869a0d4bb17ee43cbbe9f602422f34a
+    keywords:
+    - tibco-platform
+    - data-plane
+    - messaging
+    - EMS
+    maintainers:
+    - email: tcm@tibco.com
+      name: TIBCO Cloud Messaging Team
+    name: msg-ems-tp
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-ems-tp-1.22.14/msg-ems-tp-1.22.14.tgz
+    version: 1.22.14
   - apiVersion: v2
     appVersion: 10.5.1-34
     created: "2026-10-07T06:21:10.467824544Z"
@@ -4663,6 +4693,17 @@ entries:
     version: 1.3.14
   msg-gateway-tp:
   - apiVersion: v2
+    appVersion: 10.5.1-25
+    created: "2026-10-29T17:30:47.772004351Z"
+    description: A Helm chart for deploying msg-gateway in K8DPs
+    digest: 7fda372302025d5f3d8d20757f3914891fc6a3ad045c9d964e98e1fc54b9d440
+    keywords:
+    - tp-msg-gateway
+    name: msg-gateway-tp
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-gateway-tp-1.22.14/msg-gateway-tp-1.22.14.tgz
+    version: 1.22.14
+  - apiVersion: v2
     appVersion: 10.5.1-18
     created: "2026-10-07T06:21:10.68636523Z"
     description: A Helm chart for deploying msg-gateway in K8DPs
@@ -4914,6 +4955,15 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-pulsar-tp-1.3.14/msg-pulsar-tp-1.3.14.tgz
     version: 1.3.14
   msg-tessa-ems-mcp:
+  - apiVersion: v2
+    appVersion: 1.22.0-8
+    created: "2026-10-29T17:30:47.929833172Z"
+    description: A Helm chart for deploying tessa ems-mcp-server
+    digest: 10168b5177a65f253b0b21a08e9233f1e01a828b21b5638cda6cdb9f8d1808ce
+    name: msg-tessa-ems-mcp
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/msg-tessa-ems-mcp-1.22.14/msg-tessa-ems-mcp-1.22.14.tgz
+    version: 1.22.14
   - apiVersion: v2
     appVersion: 1.21.0-5
     created: "2026-10-07T06:21:10.884519737Z"
@@ -9277,7 +9327,7 @@ entries:
   tibco-cp-bw:
   - apiVersion: v2
     appVersion: 1.22.0
-    created: "2026-10-29T17:18:13.083287461Z"
+    created: "2026-10-29T17:30:48.131556162Z"
     dependencies:
     - condition: bw-recipes.enabled
       name: bw-recipes
@@ -9296,7 +9346,7 @@ entries:
       repository: ""
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
-    digest: 574435cd299ee33b7b9e13c0c300826771d47c88d0d517a05770ef2f054e95e7
+    digest: 25b9a57b394f09cf7d7e2081367733012c5f6138c1c8ac26515f2f4b184d003c
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -9401,6 +9451,32 @@ entries:
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
     digest: b163a253e5b4ac6142c634210fc7d3ec275012cf301eb04b8d357b7e49132134
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
+    version: 1.22.0-alpha.28
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T17:18:13.083287461Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 574435cd299ee33b7b9e13c0c300826771d47c88d0d517a05770ef2f054e95e7
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -9823,7 +9899,7 @@ entries:
   tibco-cp-flogo:
   - apiVersion: v2
     appVersion: 1.22.0
-    created: "2026-10-29T17:18:13.291754817Z"
+    created: "2026-10-29T17:30:48.301904572Z"
     dependencies:
     - condition: flogo-recipes.enabled
       name: flogo-recipes
@@ -9838,7 +9914,7 @@ entries:
       repository: ""
       version: 1.22.*
     description: TIBCO Controlplane chart for FLOGO Capability
-    digest: 20194bd27c7c0eac63a5ad149f2e431a27c5e46ae989a8a2b391b1a02ab4ceb1
+    digest: 0a91cd63302954e2d0d13841adc3ef57aa5f60ceb02a73d060efb194d562c946
     name: tibco-cp-flogo
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.22.0-alpha.34/tibco-cp-flogo-1.22.0-alpha.34.tgz
@@ -9927,6 +10003,28 @@ entries:
       version: 1.22.*
     description: TIBCO Controlplane chart for FLOGO Capability
     digest: f696e1c30dbc20a8f479b49ab121fe5343362b36bf5b2709f042531a5bd5fb3e
+    name: tibco-cp-flogo
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.22.0-alpha.34/tibco-cp-flogo-1.22.0-alpha.34.tgz
+    version: 1.22.0-alpha.34
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T17:18:13.291754817Z"
+    dependencies:
+    - condition: flogo-recipes.enabled
+      name: flogo-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: flogo-webserver.enabled
+      name: flogo-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: flogo-utilities.enabled
+      name: flogo-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for FLOGO Capability
+    digest: 20194bd27c7c0eac63a5ad149f2e431a27c5e46ae989a8a2b391b1a02ab4ceb1
     name: tibco-cp-flogo
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.22.0-alpha.34/tibco-cp-flogo-1.22.0-alpha.34.tgz
@@ -10240,6 +10338,27 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-flogo-1.13.0/tibco-cp-flogo-1.13.0.tgz
     version: 1.13.0
   tibco-cp-hawk:
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T17:30:48.460587696Z"
+    dependencies:
+    - condition: tp-cp-hawk-infra-querynode.enabled
+      name: tp-cp-hawk-infra-querynode
+      repository: ""
+      version: 1.22.14
+    description: TIBCO Platform Control Plane - Hawk Infra Bundle
+    digest: 64eaac7ef1883656a0ccac41f9c0cc052bb8990aeae20f70d711878884e7a182
+    icon: https://pbs.twimg.com/profile_images/1064638558110007296/K6HqaXwh_400x400.jpg
+    keywords:
+    - tibco-platform
+    - control-plane
+    - hawk
+    maintainers:
+    - name: TIBCO Cloud Hawk Team
+    name: tibco-cp-hawk
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-hawk-1.22.14/tibco-cp-hawk-1.22.14.tgz
+    version: 1.22.14
   - apiVersion: v2
     appVersion: 1.21.0
     created: "2026-10-07T06:21:12.087514825Z"
@@ -11197,6 +11316,23 @@ entries:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-developer-hub-1.3.18/tibco-developer-hub-1.3.18.tgz
     version: 1.3.18
   tibco-tessa-messaging:
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T17:30:48.615823756Z"
+    description: TIBCO Platform Control Plane -- Messaging
+    digest: 41ada92a8e3ccf4676e4ddb2bf465293a456fe7b4406ff5778351ba147fe5a05
+    keywords:
+    - tibco-platform
+    - control-plane
+    - messaging
+    - EMS
+    maintainers:
+    - email: tcm@tibco.com
+      name: TIBCO Cloud Messaging Team
+    name: tibco-tessa-messaging
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-tessa-messaging-1.22.14/tibco-tessa-messaging-1.22.14.tgz
+    version: 1.22.14
   - apiVersion: v2
     appVersion: 1.21.0
     created: "2026-10-07T06:21:12.472275071Z"
@@ -17586,6 +17722,18 @@ entries:
     version: 1.3.17
   tp-dp-hawk-console:
   - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T17:30:48.769651824Z"
+    description: A Helm chart for deploying the tp-dp-hawk-console service
+    digest: d608379ec14c7c5c1fa6f95e354847baa3aa25406f4dac3172c5005f2436ed44
+    keywords:
+    - hawk-console
+    - tp-msg-gateway
+    name: tp-dp-hawk-console
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-dp-hawk-console-1.22.14/tp-dp-hawk-console-1.22.14.tgz
+    version: 1.22.14
+  - apiVersion: v2
     appVersion: 1.21.0
     created: "2026-10-07T06:21:12.694416729Z"
     description: A Helm chart for deploying the tp-dp-hawk-console service
@@ -18203,4 +18351,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-10-29T17:18:13.514930513Z"
+generated: "2026-10-29T17:30:48.771196335Z"
