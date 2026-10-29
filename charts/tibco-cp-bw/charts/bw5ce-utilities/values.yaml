@@ -29,7 +29,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.2
+          tag: 5.1.5
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -50,13 +50,13 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 222-distroless
+  tag: 259-distroless
   pullPolicy: IfNotPresent
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.6
+    tag: 13.7
 
 nameOverride: ""
 
@@ -143,11 +143,11 @@ bwPluginsJobA:
           endOfSupportDate: ""
   tci-bw-plugin-lx:
     tags:
-      - tag: 1.1.0.v23.1-tci-2.0
+      - tag: 1.1.0.v31.1-tci-2.0
         metadata:
-          displayVersion: "1.1.0 HF3"
+          displayVersion: "1.1.0 HF4"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-large-xml"
-          releaseDate: "June 2024"
+          releaseDate: "July 2026"
           supportedBWVersions: "5.9.3 - 5.16.1"
           endOfSupportDate: ""
   tci-bw-plugin-mongodb:

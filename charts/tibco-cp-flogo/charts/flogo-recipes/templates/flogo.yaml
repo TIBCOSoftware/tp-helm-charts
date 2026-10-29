@@ -13,7 +13,7 @@ data:
   version.json: |
     {
       "capabilityVersion": {{ .Chart.AppVersion | quote }},
-      "minCPVersion": "1.21.0",
+      "minCPVersion": "1.22.0",
       "maxCPVersion": "",
       "releaseDate": {{ .Values.capabilities.flogo.releaseDate | quote }},
       "releaseNotes": {{ .Values.capabilities.flogo.releaseNotes | quote }},
@@ -73,7 +73,7 @@ data:
       helmCharts:
         - name: flogoprovisioner
           namespace: ${NAMESPACE}
-          version: "1.21.12"
+          version: "1.22.4"
           repository:
             chartMuseum:
               host: ${HELM_REPO}

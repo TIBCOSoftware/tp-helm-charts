@@ -78,7 +78,7 @@ global:
         apps:
           enabled: true
         image:
-          tag: 5.1.2
+          tag: 5.1.5
         resources:
           requests:
             cpu: 10m
@@ -269,7 +269,7 @@ config:
   APP_INIT_MEMORY_LIMIT: "400Mi"
   APP_INIT_MEMORY_REQUEST: "100Mi"
   ARTIFACT_MANAGER_PORT: "7813"
-  FLOGO_APP_BASE_IMAGE_TAG: "2.26.8-b678"
+  FLOGO_APP_BASE_IMAGE_TAG: "2.26.8-b714-main"
   # Flogo app-build Job config (consumed by the provisioner + build job); override per install.
   # CPU limit blank = uncapped (faster builds). A memory limit is set so an oversized build is
   # OOM-killed cleanly instead of starving neighbors under node pressure; blank would uncap it.
@@ -290,7 +290,7 @@ config:
   FLOGO_APP_BUILD_MODULE_PROXY_SUMDB_HOSTS: "sum.golang.org"
   FLOGO_APP_BUILD_MODULE_PROXY_URL: "http://flogoprovisioner:7817"
   FLOGO_APP_BUILD_TIMEOUT_SECONDS: "300"
-  FLOGO_APP_BUILDER_IMAGE_TAG: "1032-platform-1.21.0"
+  FLOGO_APP_BUILDER_IMAGE_TAG: "1037"
   INFRA_OAUTH_CLIENT_IMAGE_TAG: "1007"
 
 publicApi:

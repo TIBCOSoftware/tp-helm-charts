@@ -187,6 +187,8 @@ spec:
               key: REGION
         - name: LOG_LEVEL
           value: "INFO"
+        - name: CHART_APP_VERSION
+          value: {{ .Chart.AppVersion }}
         volumeMounts:
           - name: store-vol
             mountPath: {{ .Values.volumes.bwwebserver.mountPath }}
