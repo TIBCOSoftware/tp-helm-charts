@@ -20,8 +20,8 @@ appConfig:
   workloadType: "user-app"
   appVersion: "1.0.0"
   originalAppName: ""
-  flogoBuildTypeTag: "2.26.8-b700"
-  flogoBaseImageTag: "2.26.8-b700"
+  flogoBuildTypeTag: "2.26.9-b784"
+  flogoBaseImageTag: "2.26.9-b784"
   customFQImage: ""
   tags: ""
   connectors: ""
@@ -58,9 +58,9 @@ image:
   repository: ""
   pullPolicy: IfNotPresent
   appInitImageName: "tp-flogo-app-init"
-  appInitImageTag: "86"
+  appInitImageTag: "102"
   fluentBitImageName: "common-fluentbit"
-  fluentBitImageTag: "5.1.2"
+  fluentBitImageTag: "5.1.5"
   flogoBaseImageName: "tp-flogo-app-base"
 
 imagePullSecrets: []
@@ -203,6 +203,15 @@ service:
   # ports:
   #  - port: 9999
   #    targetPort: 9999
+  # Backend TLS for a wss:// app, service-scoped controllers.
+  # Only needed when the websocket trigger sets enableTLS: true: the app then
+  # serves TLS itself while the router forwards plain HTTP, and the handshake
+  # fails with "Client sent an HTTP request to an HTTPS server". A websocket
+  # app that does not enable TLS on its trigger needs nothing here.
+  # traefik and kong read these off the Service, so putting them under
+  # ingress.annotations has no effect.
+  #   traefik.ingress.kubernetes.io/service.serversscheme: https
+  #   konghq.com/protocol: https
   annotations: {}
   labels: {}
   # for GKE gateway loadbalancer health check policy
@@ -214,6 +223,14 @@ ingress:
   # currently supported controllerName are: nginx, kong, traefik
   controllerName: ""
   resourceInstanceName: ""
+  # Backend TLS for a wss:// app, ingress-scoped controllers. See
+  # service.annotations above for when this is needed; nginx and haproxy read
+  # it from the Ingress, traefik and kong do not.
+  #   nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  #   haproxy.org/server-ssl: "true"
+  # OpenShift Route also renders from this block, but its tls.termination is
+  # hardcoded to "edge" in openshift-route.yaml, so re-encrypting to a
+  # TLS-enabled websocket app cannot be expressed here without a chart change.
   annotations: {}
     # kubernetes.io/tls-acme: "true"
   rules:
@@ -237,6 +254,29 @@ gateway:
   sectionName: ""
   controllerName: ""
   resourceInstanceName: ""
+  # GKE URL Map compatibility. When true, the generated HTTPRoute omits
+  # spec.hostnames and publishes the host on the
+  # platform.tibco.com/gateway-hostname annotation instead.
+  # Use this when the Gateway is shared with existing hostname-less HTTPRoutes
+  # that GKE would otherwise partition into a separate URL Map host rule,
+  # causing 404s on the pre-existing routes.
+  # Applies to Helm-managed apps only; apps exposed through the Control Plane
+  # UI always carry spec.hostnames.
+  # Caveats when enabled:
+  #  - requires a flogoprovisioner build that reads the annotation; on older
+  #    builds listing the app's endpoints fails.
+  #  - the route then matches every hostname the parent listener accepts; on
+  #    GKE a hostname-less route acts as the Gateway's default backend, so at
+  #    most one app on a Gateway may use path "/".
+  #  - every app sharing the listener must use a unique, non-overlapping path
+  #    prefix; ties resolve by oldest creation timestamp, then by
+  #    alphabetical "{namespace}/{name}".
+  #  - X-Forwarded-Host is still set from rules[].host by the default
+  #    filters; a path that supplies its own filters must set it itself.
+  gkeUrlMapEnabled: false
+  # Backend TLS for a wss:// app, Gateway API. There is no annotation for it:
+  # a TLS-enabled websocket app needs a BackendTLSPolicy targeting this app's
+  # Service, applied separately. It cannot be set from this chart.
   annotations: {}
   rules:
   - host: example.com

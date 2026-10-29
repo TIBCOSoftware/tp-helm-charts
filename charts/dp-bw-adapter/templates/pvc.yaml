@@ -9,8 +9,21 @@ metadata:
   labels:
     {{- include "bwadapter.labels" . | nindent 4 }}
 spec:
-  accessModes: 
+  {{- /*
+    PVC spec.accessModes is immutable after creation, so an upgrade must never
+    render an access mode that differs from the one the claim was created with --
+    the API server rejects the patch and the whole release fails (BWCE-12017).
+    Reuse the live claim's access modes whenever one already exists; the value
+    below therefore applies to fresh installs only. lookup yields nothing during
+    helm template / --dry-run, which falls back to the value.
+  */}}
+  {{- $existing := lookup "v1" "PersistentVolumeClaim" .Release.Namespace .Values.certs.pvcName }}
+  accessModes:
+  {{- if and $existing $existing.spec $existing.spec.accessModes }}
+    {{- toYaml $existing.spec.accessModes | nindent 4 }}
+  {{- else }}
     - {{ .Values.certs.pvcAccessMode }}
+  {{- end }}
   storageClassName: {{ .Values.global.cp.resources.storage.storageClassName }}
   resources:
     requests:

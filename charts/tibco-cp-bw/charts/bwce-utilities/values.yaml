@@ -29,7 +29,7 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          tag: 5.1.2
+          tag: 5.1.5
           pullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -50,13 +50,13 @@ image:
   name: infra-container-image-extractor
   registry: ""
   repo: ""
-  tag: 222-distroless
+  tag: 259-distroless
   pullPolicy: IfNotPresent
 
 debug:
   image:
     name: common-distroless-base-debian-debug
-    tag: 13.6
+    tag: 13.7
 
 nameOverride: ""
 
@@ -443,13 +443,13 @@ bwPluginsJobD:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-sqs:
     tags:
-      - tag: 6.6.0.v5.1-tci-2.0
+      - tag: 6.6.1.v6.1-tci-2.0
         metadata:
-          displayVersion: "6.6.0"
+          displayVersion: "6.6.1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-amazon-sqs-and-sns"
-          releaseDate: "August 2023"
-          supportedBWVersions: "6.7.0 - 6.12.0"
-          supportedBWCEVersions: "2.6.0 - 2.10.x"
+          releaseDate: "August 2026"
+          supportedBWVersions: "6.10.0 - 6.13.0"
+          supportedBWCEVersions: "2.9.0 - 2.10.0"
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-cassandra:
     tags:
@@ -759,11 +759,11 @@ bwPluginsJobG:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-hadoop:
     tags:
-      - tag: 6.6.1.v3.0.1-tci-2.0
+      - tag: 6.6.1.v17.1-tci-2.0
         metadata:
-          displayVersion: "6.6.1"
+          displayVersion: "6.6.1 HF1"
           docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-big-data"
-          releaseDate: "November 2021"
+          releaseDate: "September 2026"
           supportedBWVersions: "6.5.0 - 6.12.0"
           supportedBWCEVersions: "2.4.0 - 2.9.0"
           endOfSupportDate: "EoS not Announced"
@@ -789,14 +789,24 @@ bwPluginsJobG:
           endOfSupportDate: "EoS not Announced"
   tci-bw-plugin-rag:
     tags:
-      - tag: 6.0.1.v8.1-tci-2.0
+      - tag: 6.0.2.v15.2-tci-2.0
         metadata:
-          displayVersion: "6.0.1"
+          displayVersion: "6.0.2"
           docLink: "https://docs.tibco.com/products/tibco-businessworks-plug-in-for-ai"
-          releaseDate: "June 2026"
+          releaseDate: "September 2026"
           supportedBWVersions: "6.11.0 - 6.12.0"
-          supportedBWCEVersions: "2.10.0 - 2.10.x"
+          supportedBWCEVersions: "2.10.0"
           endOfSupportDate: ""
+  tci-bw-plugin-edi:
+    tags:
+      - tag: 6.3.2.v13-tci-2.0
+        metadata:
+          displayVersion: "6.3.2"
+          docLink: "https://docs.tibco.com/products/tibco-activematrix-businessworks-plug-in-for-edi"
+          releaseDate: "October 2026"
+          supportedBWVersions: "6.11.0 - 6.12.0"
+          supportedBWCEVersions: "2.9.1 - 2.9.2"
+          endOfSupportDate: "EoS not Announced"
 
 volumes:
   plugins:
