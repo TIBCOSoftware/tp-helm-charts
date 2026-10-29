@@ -1,6 +1,259 @@
-{{ if eq .Values.global.cp.resources.ingress.ingressController "nginx" -}}
+{{ if eq (include "tp-mcp-gateway.canonicalIngressController" .Values.global.cp.resources.ingress.ingressController) "nginx" -}}
 {{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
 {{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
+{{- $ppRe := regexQuoteMeta $pp -}}
+{{- $wk := include "tp-mcp-gateway.wellKnownPrefix" . -}}
+{{- $wkRe := regexQuoteMeta $wk -}}
+{{- /*
+PCP-25406: the allowlist is ON by default; `false` is an explicit operator opt-out.
+
+This deliberately does NOT use `.Values.publicApi.nginxAllowlistEnabled | default true`.
+Go templates treat `false` as empty, so `default true` would rewrite an operator's explicit
+`false` back to `true` and silently delete the opt-out. `hasKey` is what distinguishes
+"not set" (take the secure default) from "set to false" (honour it).
+
+The absent-key case is REAL, not defensive padding: `helm upgrade --reuse-values` replaces the
+incoming chart's defaults wholesale with the old release's coalesced values (helm
+pkg/action/upgrade.go, `chart.Values = oldVals`). Upgrading an install whose chart predates
+PCP-25379 (<=1.21.0-alpha.38, incl. released 1.21.1) therefore renders this template with the
+key absent — and that is precisely the installed base this ticket is trying to close, so the
+fallback has to be `true`. See values.yaml for the full upgrade matrix.
+*/ -}}
+{{- $pub := .Values.publicApi | default dict -}}
+{{- $allowlistEnabled := true -}}
+{{- if hasKey $pub "nginxAllowlistEnabled" -}}
+{{- /* Reject a non-boolean LOUDLY rather than coercing it. Go template truthiness makes both
+       directions of a silent mistake available here, and the dangerous one is silent exposure:
+       `--set-string publicApi.nginxAllowlistEnabled=false` yields the STRING "false", which is
+       TRUE to `if`, so an operator who means OFF gets ON; an empty or 0 value is FALSE, so a
+       blank override silently re-opens /admin on the public edge. Same reasoning, and the same
+       `fail`, as publicApi.wellKnownPrefix in _helpers.tpl (PCP-25553): a key that decides what
+       is publicly routable must never be guessed from a malformed value. */ -}}
+{{- if not (kindIs "bool" $pub.nginxAllowlistEnabled) -}}
+{{- fail (printf "publicApi.nginxAllowlistEnabled must be a YAML boolean (true/false), but got %q of kind %q. This key decides whether /admin and the gateway REST surface are exposed on the PUBLIC ingress, so the chart refuses to guess: the string \"false\" is TRUE to Helm's `if` (--set-string would silently enable it), and an empty value is FALSE (silently re-opening the admin surface). Use --set publicApi.nginxAllowlistEnabled=false, or a real boolean in a values file." (toString $pub.nginxAllowlistEnabled) (kindOf $pub.nginxAllowlistEnabled)) -}}
+{{- end -}}
+{{- $allowlistEnabled = $pub.nginxAllowlistEnabled -}}
+{{- end -}}
+{{- if $allowlistEnabled }}
+# PCP-25406: allowlist, now the DEFAULT (opt out with publicApi.nginxAllowlistEnabled: false)
+# — see templates/ingress-traefik.yaml's header comment for the full rationale. This branch
+# carries one side effect the operator must be able to opt out of, which is why the knob stays:
+#
+# `nginx.ingress.kubernetes.io/use-regex: "true"` is NOT scoped to this Ingress object — per
+# ingress-nginx's own docs, once ANY Ingress on a host sets use-regex (or rewrite-target), EVERY
+# Ingress sharing that host gets its Prefix paths silently turned into case-insensitive regex
+# matching too, in the same nginx server{} block. If another capability service shares
+# global.cp.resources.ingress.fqdn with this gateway, this branch can change ITS routing, not
+# just this gateway's.
+#
+# ⭐ MEASURED on a live community ingress-nginx Data Plane (ins-syan-a90nginx, 2026-10-09):
+# NOTHING shares the gateway's host. Every nginx-class Ingress on that box was enumerated by
+# host: the gateway's own `mcp-hub-<dp>.<domain>` carried exactly one Ingress, its own. The
+# capability services each got a DISTINCT derived host (flogo./apm./elastic./keycloak./kibana./
+# mail./agent-cp-only.), so the host-wide side effect has nothing to act on — which is what
+# makes ON the right default.
+# ⚠️ Read the TEMPLATES and you will conclude the opposite, and a previous revision of this
+# comment did: seven charts here (bwprovisioner, flogoprovisioner, bw5provisioner, sbprovisioner,
+# dp-bw-adapter, tibco-developer-hub, o11y-service) all write
+# `host: {{ "{{ .Values.global.cp.resources.ingress.fqdn }}" }}` verbatim, which reads as
+# guaranteed co-tenancy. It is not: the provisioner supplies a DIFFERENT value of that key per
+# capability release, so the shared thing is the key, not the host. Only runtime answers this.
+# The one host that WAS shared on that box (flogo., by the provisioner and a deployed app) had
+# both parties already setting use-regex, which is the other half of why this is low-risk.
+# ⇒ The opt-out remains for an operator who DELIBERATELY co-hosts another service on the
+# gateway's FQDN and whose paths contain regex metacharacters or rely on case-sensitivity.
+# See values.yaml at the key, and dev/plan/PCP-25406-upgrade-proof-plan.md for the measurement.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    nginx.ingress.kubernetes.io/proxy-body-size: "200m"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- with .Values.global.cp.resources.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ $svcName }}-public-nginx
+  labels:
+    {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  rules:
+  # PCP-25406: QUOTED. Unquoted, a leading `*` is a YAML ALIAS indicator, so a wildcard public
+  # FQDN (`*.example.com`) does not merely render oddly -- the document fails to parse, and a
+  # parse error in one template aborts the WHOLE release render, not just this object.
+  # Measured: "yaml: did not find expected alphabetic or numeric character".
+  # The fqdn charset validated by tp-mcp-gateway.assertPublicEdgeIdentifiers (_helpers.tpl,
+  # PCP-25403) EXPLICITLY ALLOWS an optional `*.` prefix, so the validator and this template
+  # disagreed: a value the chart accepts as legal could not be rendered. Quoting is the
+  # COMPLEMENT of that guard, not a duplicate -- the guard constrains the charset, this makes the
+  # allowed charset actually renderable. Same fix PCP-25402 applied to ingress-haproxy-public.yaml.
+  # Both branches need it: a wildcard FQDN must work for an operator who has opted OUT too.
+  - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-25406: NO leading `^`. The Kubernetes API server validates ImplementationSpecific
+        # paths too — pkg/apis/networking/validation: `case PathTypeImplementationSpecific:` runs
+        # `if len(path.Path) > 0 { if !strings.HasPrefix(path.Path, "/") { "must be an absolute
+        # path" } }` — so a path starting with `^` is REJECTED and the whole Ingress with it.
+        # The `^` is also redundant: ingress-nginx anchors the start itself, emitting
+        # `location ~* "^<path>"` (buildLocation). The trailing `$` is NOT redundant and stays —
+        # nothing appends it. This rule carried a leading `^` from PCP-25379; it was only ever
+        # reachable behind the opt-in flag, so flipping the default is what would have shipped it.
+        # PCP-25406: the id segment is `[^/%]+`, excluding `%` as well as `/`. PCP-25403 measured
+        # on a real traefik box that `[^/]+` admits percent-encoded traversal —
+        # `<pp>/servers/..%2F..%2Fadmin` is ROUTED to the app there (the app 404s it today, so it
+        # is an edge-allowlist bypass rather than a proven handler reach).
+        # ⚠️ That bypass does NOT reproduce on ingress-nginx, and the reason is worth recording so
+        # nobody "re-fixes" it here: nginx matches on a NORMALIZED URI. Per nginx's own docs for
+        # the location directive — "The matching is performed against a normalized URI, after
+        # decoding the text encoded in the %XX form, resolving references to relative path
+        # components . and .., and possible compression of two or more adjacent slashes" — so
+        # `..%2F..%2Fadmin` is decoded and collapsed to `/admin` BEFORE location selection, and
+        # then matches no rule here. (Decoding and dot-resolution are unconditional; only the
+        # slash compression depends on merge_slashes, which is on by default.)
+        # ⇒ On this controller `%` can never reach the regex from an encoded sequence, so this is
+        # DEFENCE IN DEPTH, not a fix for a live bypass: it keeps the three ingress lanes'
+        # regexes identical and auditable, and it holds if the matching stage ever changes.
+        # (Traefik, by contrast, does NOT decode before matching, which is why PCP-25403's lane
+        # was genuinely reachable and this one was not — same regex, different matcher.)
+        #
+        # Excluding `%` cannot reject a legitimate id, verified at source by PCP-25403 rather
+        # than assumed here: a server id goes through SecurityValidator.validate_uuid
+        # (tp-mcp-gateway common/validators.py:812-822), which parses with `uuid.UUID(value)` and
+        # yields 32 lowercase hex characters, and GatewayCreate (schemas.py:3253) exposes no `id`
+        # field at all, so a gateway id is always `uuid.uuid4().hex`. Neither can contain `%`.
+        path: {{ $ppRe }}/servers/[^/%]+/(mcp|sse|message)/?$
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path.
+        #
+        # PCP-25406: expressed as an ANCHORED, ESCAPED regex under ImplementationSpecific rather
+        # than as `pathType: Prefix`, for two independent reasons:
+        #
+        # 1. REACH is the reason (see 2). ⚠️ It is NOT admission — an earlier revision of this
+        #    comment claimed ingress-nginx's `strict-validate-path-type` (whose validator
+        #    `(?i)^/[[:alnum:]\_\-/]*$` rejects a DOT) made `.well-known` illegal as a Prefix
+        #    path. MEASURED FALSE on a live community ingress-nginx box (ins-syan-a90nginx,
+        #    controller v1.14.1, admission webhook registered and active, no
+        #    strict-validate-path-type key in its ConfigMap, i.e. the shipped default):
+        #    `kubectl apply --dry-run=server` ACCEPTS a `pathType: Prefix` path of
+        #    `/.well-known/oauth-protected-resource/<pp>`, and that very object is deployed and
+        #    serving on that box today. The default must therefore be false on 1.14.x, or the
+        #    check does not apply here. Retained as a note rather than deleted because the
+        #    option is real and documented: if an operator turns it on, this
+        #    ImplementationSpecific form is the one that keeps working.
+        # 2. REACH. Under this branch's `use-regex: "true"` a Prefix path on the host is compiled
+        #    as a case-insensitive regex. It is START-anchored — ingress-nginx emits
+        #    `location ~* "^<path>"` — but NOT end-anchored, and its `.` characters become
+        #    WILDCARDS. So the Prefix form admitted lookalikes such as
+        #    `/Xwell-known/oauth-protected-resourceANYTHING`. Those have no handler and 404 at the
+        #    gateway, so it was a cosmetic widening rather than an exposure — but escaping the
+        #    dots and adding the trailing `$` removes it for free here.
+        #    ⚠️ An earlier revision of this comment called the Prefix form "unanchored". That was
+        #    wrong — only the END is unanchored — and the distinction matters, because a genuinely
+        #    unanchored match would admit a hostile prefix like `/admin/...` ahead of the
+        #    allowlisted segment. It never did.
+        #
+        # `(/.*)?$` reproduces Prefix's element-wise semantics: the path itself, or any SUB-path,
+        # and NOT a longer sibling segment (`/.well-known/oauth-protected-resourceX` must not
+        # match). Both halves are regexQuoteMeta-escaped, so the literal dots stay literal.
+        path: {{ $wkRe }}{{ $ppRe }}(/.*)?$
+        pathType: ImplementationSpecific
+      {{- if $pp }}
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-25553: the SAME discovery document at the path-first shape the gateway
+        # actually advertises in `WWW-Authenticate: resource_metadata` —
+        # `<APP_ROOT_PATH>/.well-known/oauth-protected-resource/servers/<id>/mcp`, where
+        # APP_ROOT_PATH is this chart's $pp. The rule above is the RFC 9728 §3.1-derived
+        # shape, which the allowlist had but the gateway never advertises; before the
+        # allowlist the blanket `{{ "{{ $pp }}" }}/` route carried the advertised one, and nothing
+        # replaced it.
+        #
+        # Reach: it does NOT open /admin, bare /servers, /tools, /gateways, /resources or
+        # /prompts — none of those contain the `.well-known/oauth-protected-resource` segment
+        # this rule is built from.
+        #
+        # PCP-25406: now an ANCHORED, ESCAPED ImplementationSpecific regex, same as the rule
+        # above and for the same two reasons — `strict-validate-path-type` (default TRUE on
+        # ingress-nginx v1.12.x) rejects a DOT in a Prefix path, and this branch's host-wide
+        # `use-regex` had made the Prefix form an unanchored regex that also admitted lookalikes
+        # such as `/x{{ "{{ $pp }}" }}/Xwell-known/OAUTH-PROTECTED-RESOURCE/...`. The previous
+        # revision of this comment said closing that widening "needs anchored, escaped
+        # ImplementationSpecific regexes for BOTH discovery shapes; tracked, not done here" —
+        # that is what this change does, so both shapes are now closed.
+        #
+        # The value is `publicApi.wellKnownPrefix`, read through the validating helper so an
+        # overridden value cannot turn this trailing position into an arbitrary public route
+        # (PCP-25553 — see tp-mcp-gateway.wellKnownPrefix in _helpers.tpl for why that matters
+        # here specifically and not in the rule above).
+        # Guarded on $pp: with an empty prefix this is byte-identical to the rule above.
+        path: {{ $ppRe }}{{ $wkRe }}(/.*)?$
+        pathType: ImplementationSpecific
+      {{- end }}
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-25406: the inbound-OAuth return leg, for upstream MCP servers that require OAuth.
+        # Without this the gateway hands a client a redirect target it cannot reach, so the flow
+        # dies at the edge rather than at the gateway. Measured by PCP-25403 on a Gateway-API box
+        # (a90gwapi, traefik): with the shipped default the redirect target is unreachable; with
+        # these two paths it reaches the real handler, and /admin and /oauth/status stay closed.
+        # ⚠️ That is a ROUTING proof, not a full authorization_code round trip.
+        #
+        # Exactly TWO paths, both END-ANCHORED, which is what keeps the rest of /oauth/* shut —
+        # /oauth/status, /oauth/register and anything else under the prefix have no rule.
+        # `$` anchors the end of nginx's `$uri`, which EXCLUDES the query string, so the real
+        # callback `?code=…&state=…` still matches. (ingress-nginx supplies the leading `^`; see
+        # the header comment — that start-anchoring is a dependency of these two rules, not an
+        # assumption about them.)
+        path: {{ $ppRe }}/oauth/callback$
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # The authorize leg. `[^/]+` is the GATEWAY id: the gateway advertises
+        # `<APP_ROOT_PATH>/oauth/authorize/<gw_id>` to clients (tp-mcp-gateway
+        # tool_service.py:2042-2046). It cannot span a `/`, so this admits exactly one id
+        # segment and cannot walk into another route. Shapes confirmed against PCP-25403's
+        # measured traefik rules: `Path <pp>/oauth/callback` and
+        # `PathRegexp ^<pp>/oauth/authorize/[^/%]+/?$`.
+        # `[^/%]+`, excluding `%` for the same reason as the servers rule above (PCP-25403's
+        # percent-encoded traversal finding) — see that rule's comment for why it is defence in
+        # depth on nginx specifically rather than a fix for a reachable bypass.
+        path: {{ $ppRe }}/oauth/authorize/[^/%]+/?$
+        pathType: ImplementationSpecific
+{{- else }}
+# PCP-25406: OPT-OUT branch — reached only when publicApi.nginxAllowlistEnabled is explicitly
+# set to `false` (the default is now `true`; see the `{{ "{{ if }}" }}` branch above). It forwards the
+# whole `{{ "{{ $pp }}" }}/` prefix publicly, INCLUDING /admin and the REST surface. That is the
+# pre-PCP-25406 behaviour, kept as an escape hatch for the one case the allowlist cannot serve:
+# a deployment with customised hosts where another Ingress shares this gateway's FQDN and would
+# be affected by the host-wide use-regex semantics documented above. Do not select it for any
+# other reason — see values.yaml's comment at the key, and dev/plan/PCP-25379-grounding.md.
+#
+# ⚠️ One more install lands here without anyone choosing it: `helm upgrade --reuse-values` from a
+# chart that already recorded `nginxAllowlistEnabled: false` (1.21.0-alpha.39+ / 1.22.0-alpha.19+)
+# carries that recorded value forward, and the chart cannot distinguish it from a deliberate
+# opt-out. Those installs need `--reset-then-reuse-values` or an explicit `--set` to adopt the
+# new default; the upgrade matrix in values.yaml spells this out.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -16,7 +269,17 @@ metadata:
 spec:
   ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
   rules:
-  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
+  # PCP-25406: QUOTED. Unquoted, a leading `*` is a YAML ALIAS indicator, so a wildcard public
+  # FQDN (`*.example.com`) does not merely render oddly -- the document fails to parse, and a
+  # parse error in one template aborts the WHOLE release render, not just this object.
+  # Measured: "yaml: did not find expected alphabetic or numeric character".
+  # The fqdn charset validated by tp-mcp-gateway.assertPublicEdgeIdentifiers (_helpers.tpl,
+  # PCP-25403) EXPLICITLY ALLOWS an optional `*.` prefix, so the validator and this template
+  # disagreed: a value the chart accepts as legal could not be rendered. Quoting is the
+  # COMPLEMENT of that guard, not a duplicate -- the guard constrains the charset, this makes the
+  # allowed charset actually renderable. Same fix PCP-25402 applied to ingress-haproxy-public.yaml.
+  # Both branches need it: a wildcard FQDN must work for an operator who has opted OUT too.
+  - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
     http:
       paths:
       - backend:
@@ -33,7 +296,8 @@ spec:
             port:
               number: 80
         # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
-        path: {{ .Values.publicApi.wellKnownPrefix }}{{ $pp }}
+        path: {{ include "tp-mcp-gateway.wellKnownPrefix" . }}{{ $pp }}
         pathType: Prefix
       {{- end }}
+{{- end }}
 {{- end }}

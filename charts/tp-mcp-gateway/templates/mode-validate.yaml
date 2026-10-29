@@ -12,6 +12,23 @@
   Separately, lite mode uses SQLite (per-pod FileLock, single-writer), so
   lite.replicas > 1 is unsafe.
 
+  [PCP-24264] added two more rows to that single-writer constraint, because the
+  runtime now MUTATES the SQLite volume (stale-dotlock reap, offline WAL header
+  flip) on the strength of GATEWAY_REPLICAS=="1", which lite-deployment.yaml
+  derives from lite.replicas:
+    - lite.replicas must round-trip through `int`. `int` reads anything it cannot
+      parse as 0, so a value Helm kept as a STRING ("1.0") slips past the >1 test
+      AND lands in the pod as GATEWAY_REPLICAS="0".
+    - The SELECTED HTTP server's worker count must round-trip through `int` AND
+      must not exceed 1. lite.replicas counts PODS; the server forks workers
+      INSIDE the pod, and two of them are two writers the proof cannot see.
+      HTTP_SERVER chooses which key is checked: GUNICORN_WORKERS (default "1")
+      or, for granian, GRANIAN_WORKERS (default "auto" = CPU cores, max 16).
+      Guarding only gunicorn left the whole constraint bypassable by one env var.
+      The round-trip is the load-bearing half: `auto` is mcp-stack's own
+      documented default, and `int "auto"` is 0 — so without it the >1 test
+      passes while up to sixteen writers share one SQLite file.
+
   Lives in its OWN template (NOT wrapped by a mode `if`) so the both-false case
   still fires when neither mode renders anything. Emits NO manifest — each `fail`
   aborts `helm template`/install with an actionable message. It is evaluated
@@ -29,6 +46,95 @@
 {{- if and (not $lite) (not $full) }}
 {{- fail "tp-mcp-gateway: neither lite.enabled nor mcp-stack.enabled is true — enable exactly ONE gateway mode (set lite.enabled=true for lite/SQLite, OR mcp-stack.enabled=true for full/PostgreSQL)." }}
 {{- end }}
-{{- if and $lite (gt (int .Values.lite.replicas) 1) }}
-{{- fail (printf "tp-mcp-gateway: lite mode uses SQLite (single-writer, per-pod FileLock) — lite.replicas must not exceed 1 (got %v). Set lite.replicas=1, or use full mode (mcp-stack.enabled=true) for horizontal scaling." .Values.lite.replicas) }}
+{{- /* [PCP-24264] lite.replicas must ROUND-TRIP through `int`, checked BEFORE the >1 test.
+       `int` yields 0 for anything it cannot parse, and 0 is not > 1, so a garbage value slips
+       past the guard below AND reaches the pod: lite-deployment.yaml derives GATEWAY_REPLICAS
+       from this same field, and the runtime reads GATEWAY_REPLICAS=="1" as the single-writer
+       PROOF that authorises the stale-dotlock reaper and the offline WAL header flip — both of
+       which write to the customer's database file. "0" half-disables the fix silently; "<nil>"
+       crashed the pod outright before that line was normalised.
+       The realistic input is `--set lite.replicas=1.0`: Helm's strvals only parses BASE-10
+       INTEGERS, so "1.0" arrives as a STRING, `int` makes it 0, and both this guard and the
+       runtime proof read something the operator never wrote. Fail the render instead.
+       Skipped when the value is absent/blank — that is the legitimate "let the cluster default
+       it to 1" spelling, and lite-deployment.yaml normalises it to exactly that. */}}
+{{- /* GATED ON nil/blank, NOT ON TRUTHINESS (PCP-24264 review round 5). `and $lite .Values...`
+       skipped the integer check for every FALSEY value, and `false` is one: Helm kept it as a
+       bool, `int false` is 0 so the `> 1` test passed too, and the render emitted a literal
+       `replicas: false` -- not a valid Deployment spec at all -- alongside GATEWAY_REPLICAS="0".
+       A NEGATIVE integer had the mirror problem: it round-trips through `int` cleanly and is not
+       `> 1`, so `-1` rendered `replicas: -1` and GATEWAY_REPLICAS="-1". Both measured.
+       So: absent/blank is the only defaulted case; everything else must round-trip AND be >= 0.
+       The explicit `0` escape hatch is retained deliberately -- it renders "0", the runtime reads
+       that as "not the single writer" and DISARMS the reaper and the header flip, which is the
+       safe direction for a value whose only job is to authorise writing to a customer's
+       database. */}}
+{{- if $lite }}
+{{- $rawReplicas := .Values.lite.replicas }}
+{{- if not (or (kindIs "invalid" $rawReplicas) (eq (toString $rawReplicas) "")) }}
+{{- if ne (printf "%v" $rawReplicas) (printf "%d" (int $rawReplicas)) }}
+{{- fail (printf "tp-mcp-gateway: lite.replicas must be an integer (got %v). Helm keeps a non-integer --set value as a STRING (and `false` as a BOOL), which `int` silently reads as 0 — that would both slip past the replica guard and render GATEWAY_REPLICAS=\"0\", disabling the PCP-24264 stale-dotlock reaper and WAL conversion on a volume that may need them, while emitting an invalid `replicas:` field. Set lite.replicas=1 (or omit it)." $rawReplicas) }}
+{{- end }}
+{{- if lt (int $rawReplicas) 0 }}
+{{- fail (printf "tp-mcp-gateway: lite.replicas must not be negative (got %v). A negative value round-trips through `int` and is not > 1, so it passes both other guards — and then renders an invalid Deployment `replicas:` field and a GATEWAY_REPLICAS the runtime cannot read as a single-writer proof. Set lite.replicas=1 (or omit it), or 0 to scale the gateway down." $rawReplicas) }}
+{{- end }}
+{{- if gt (int $rawReplicas) 1 }}
+{{- fail (printf "tp-mcp-gateway: lite mode uses SQLite (single-writer, per-pod FileLock) — lite.replicas must not exceed 1 (got %v). Set lite.replicas=1, or use full mode (mcp-stack.enabled=true) for horizontal scaling." $rawReplicas) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /* [PCP-24264] The same single-writer constraint, one level down: GUNICORN_WORKERS.
+       lite.replicas counts PODS; the runtime's proof (GATEWAY_REPLICAS) therefore proves at most
+       one POD, and gunicorn forks N worker PROCESSES inside it. Two workers on one SQLite file
+       are two writers, and the reaper that removes a `<db>.lock` DIRECTORY cannot tell a stale
+       lock from one the sibling worker is holding right now.
+       This is defence-in-depth rather than a live defect: the lite image preloads the app, the
+       shipped default is "1", and no first-party profile raises it. It is guarded because it is
+       the one remaining way to get two writers with a CLEAN render — GATEWAY_REPLICAS is forced
+       from lite.replicas and cannot be overridden, while GUNICORN_WORKERS is an ordinary,
+       operator-settable lite.config key.
+       Merges the SAME two layers lite-deployment.yaml merges (lite.config, then the shared
+       global.tpMcpGateway.config over it) — reading lite.config alone would let the global path
+       walk straight past the guard. deepCopy because mergeOverwrite mutates its first argument.
+       NOT auto-corrected: forcing GATEWAY_REPLICAS = max(replicas, workers) would DISABLE the
+       whole PCP-24264 conversion (the runtime only accepts the literal "1"), i.e. a bump to two
+       workers on an SMB PVC would silently re-arm the very CrashLoop this ticket fixes. Refuse
+       the render, do not paper over it.
+
+       THE INTEGER ROUND-TRIP BELOW IS NOT PEDANTRY, and an earlier version of this comment had
+       it exactly backwards: it claimed `int` yielding 0 on a non-numeric value meant a garbage
+       worker count "falls through to today's behaviour rather than a false RED". It does not.
+       `"auto"` is not garbage — mcp-stack's own values.schema.json DOCUMENTS it as the default
+       for this key, meaning "2*CPU+1, capped at 16". `int "auto"` is 0, which is not > 1, so the
+       guard passed while the pod ran up to SIXTEEN gunicorn workers on one SQLite file, every
+       one of them a writer, underneath a GATEWAY_REPLICAS="1" that tells the runtime it is the
+       only one. That is the precise state the reaper and the offline header flip must never act
+       in. So the value must ROUND-TRIP through `int` before the > 1 test — same shape, and for
+       the same reason, as the lite.replicas guard above. */}}
+{{- /* THE GUARD FOLLOWS THE SELECTED SERVER, not just gunicorn (PCP-24264 review round 2).
+       Guarding GUNICORN_WORKERS alone left the whole constraint bypassable by one key: this image
+       also ships GRANIAN, selected with HTTP_SERVER=granian, and mcp-stack's own values.yaml:314
+       gives GRANIAN_WORKERS the default "auto" = "CPU cores, max 16". lite.config is a free-form
+       map, so both keys reach the pod. Setting HTTP_SERVER=granian therefore rendered clean and
+       ran up to sixteen writer processes on one /data/mcp.db while GATEWAY_REPLICAS="1" still
+       told the runtime it was alone — the identical hole the gunicorn guard exists to close, one
+       env var to the left. So resolve WHICH server is selected, then apply the one-writer rule to
+       THAT server's worker key. */}}
+{{- if $lite }}
+{{- $cfg := mergeOverwrite (deepCopy (.Values.lite.config | default dict)) (dig "tpMcpGateway" "config" dict (.Values.global | default dict)) }}
+{{- $server := lower (trim (toString (dig "HTTP_SERVER" "gunicorn" $cfg))) }}
+{{- $workerKey := "GUNICORN_WORKERS" }}
+{{- $workerDefault := "1" }}
+{{- if eq $server "granian" }}
+{{- $workerKey = "GRANIAN_WORKERS" }}
+{{- $workerDefault = "auto" }}
+{{- end }}
+{{- $rawWorkers := dig $workerKey $workerDefault $cfg }}
+{{- if ne (printf "%v" $rawWorkers) (printf "%d" (int $rawWorkers)) }}
+{{- fail (printf "tp-mcp-gateway: lite mode uses SQLite (single-writer) — %s must be an integer (got %v) with HTTP_SERVER=%q. `auto` is mcp-stack's own documented default for this key (gunicorn: 2*CPU+1 capped at 16; granian: CPU cores, max 16); Helm's `int` reads it as 0, which would slip past the >1 guard while the pod runs up to sixteen worker processes on one /data/mcp.db. GATEWAY_REPLICAS counts PODS and would still claim a single writer, which is what the PCP-24264 stale-dotlock reaper and offline WAL header flip gate on. Set %s=\"1\" for lite, or use full mode (mcp-stack.enabled=true) for concurrency." $workerKey $rawWorkers $server $workerKey) }}
+{{- end }}
+{{- $workers := int $rawWorkers }}
+{{- if gt $workers 1 }}
+{{- fail (printf "tp-mcp-gateway: lite mode uses SQLite (single-writer) — %s must not exceed 1 (got %v) with HTTP_SERVER=%q. GATEWAY_REPLICAS is the single-writer proof the PCP-24264 stale-dotlock reaper and offline WAL header flip gate on, and it counts PODS, not worker PROCESSES: a second worker is a second writer on the same /data/mcp.db, and the reaper cannot distinguish its live lock from a stale one. Use full mode (mcp-stack.enabled=true) for concurrency." $workerKey $workers $server) }}
+{{- end }}
 {{- end }}

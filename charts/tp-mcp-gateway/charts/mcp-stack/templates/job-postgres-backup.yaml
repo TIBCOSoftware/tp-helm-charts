@@ -1,4 +1,3 @@
-{{- $targetVersion := .Values.postgres.upgrade.targetVersion | toString -}}
 {{- /* LOCAL TIBCO MOD (PCP-23125 + PCP-23089): re-apply on upstream mcp-stack re-vendor.
        Container-registry indirection, same composition as deployment-postgres.yaml: the
        effective repository <registry>/<repository>/<bare-name> is built from
@@ -13,7 +12,44 @@
 {{- /* LOCAL TIBCO MOD (PCP-23215) — re-apply on upstream mcp-stack re-vendor.
        ONE name for "does this Job actually render", shared with the `if` that emits it below and
        with the digest look-up, so the two can never drift apart. */ -}}
-{{- $rendersBackupJob := and .Values.postgres.upgrade.enabled (eq $targetVersion "18") (not .Values.postgres.upgrade.backupCompleted) (not .Values.postgres.external.enabled) -}}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+       The condition MOVED into "mcp-stack.postgres.backupWindowOpen" (_helpers.tpl) and is no
+       longer spelled out here. It was previously duplicated by hand at five sites — this Job, both
+       hook NetworkPolicies, and both deployment-postgres fail-fasts — and they had ALREADY drifted,
+       with THIS gate the loose one. The postgres hook NP required postgres.enabled and this gate did
+       not, and the NP was the one that was RIGHT: the database manifest renders under
+       $rendersDeployment, which is `postgres.enabled AND (not external.enabled)`
+       (deployment-postgres.yaml:50) and says nothing about upgrade.enabled. So
+       `postgres.enabled=false` + `upgrade.enabled=true` emitted THIS Job with no PostgreSQL pod
+       anywhere — measured on origin/main — leaving it blocked on pg_isready against a database that
+       is never created, until Helm timed out the pre-upgrade hook. The helper unifies on the NP's
+       stricter condition, so that combination now renders no Job at all.
+       The helper also adds the new, default-FALSE general window
+       `postgres.backup.preUpgrade.enabled`, which is what relaxes this Job off the
+       `targetVersion == "18"` pin (PCP-23832 AC2) without turning a pg_dump loose inside the
+       pre-upgrade hook of every routine chart bump.
+       The file's `$targetVersion` local went with it: this Job's ONLY other reading of a major is
+       `postgres.image.tag` (the CURRENT major it dumps), never the TARGET, so once the gate moved
+       the variable had no remaining reader and a dead local that still LOOKS load-bearing is how
+       the next edit reintroduces the drift. Read the target major from the helper, not from here. */ -}}
+{{- $rendersBackupJob := include "mcp-stack.postgres.backupWindowOpen" . -}}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+       Retention window in days for the postgres-backups bucket. ABSENT and EXPLICIT ZERO are
+       deliberately different answers, which is why this is not `| default 7`:
+         * ABSENT  -> 7, the documented default. `helm upgrade --reuse-values` replays the previous
+           release's COALESCED values, so an operator who turns the backup on with
+           `--set …preUpgrade.enabled=true` against an older release supplies `enabled` and NOTHING
+           else. Falling back to 0 there would silently give them recurring dumps with NO sweep —
+           the unbounded-PVC path this key exists to close — while values.yaml documents 7.
+         * EXPLICIT 0 -> 0, the "I manage retention myself" escape hatch, which must survive.
+       `default` cannot express that split: sprig's `default` treats 0 as empty, so `| default 7`
+       would rewrite an explicit 0 into 7 and take the escape hatch away. `kindIs "invalid"` is the
+       nil test used elsewhere in this chart (mcp-stack.postgres.assertImageKeys) and distinguishes
+       "key not set" from "key set to zero". */ -}}
+{{- $keepDays := 7 -}}
+{{- if not (kindIs "invalid" ((.Values.postgres.backup).preUpgrade).keepDays) -}}
+{{- $keepDays = ((.Values.postgres.backup).preUpgrade).keepDays | int -}}
+{{- end -}}
 {{- $pgRepo := "" -}}
 {{- /* Declared here and only ASSIGNED inside the gate — a `:=` inside an if-block is invisible
        outside it (same idiom as $pgRepo). "" is the un-pinned default and renders tag-only. */ -}}
@@ -211,7 +247,29 @@ spec:
 
               # Create bucket if it doesn't exist
               "$MC" --config-dir /tmp/.mc mb minio/postgres-backups --ignore-existing
-
+{{- if gt $keepDays 0 }}
+              # RETENTION (PCP-23832). Before this ticket the dump was a ONCE-EVER event on the
+              # pg17 -> pg18 path, so an unbounded bucket cost one object. postgres.backup.
+              # preUpgrade.enabled makes it PER-UPGRADE, and nothing here ever deleted anything:
+              # BACKUP_FILE is timestamped per run and uploaded to a flat prefix, and the restore
+              # step reads only the newest key. Left unbounded, the bundled MinIO PVC grows by one
+              # full database dump on every `helm upgrade`, forever -- and when it fills, the `cp`
+              # below fails, `set -e` kills this Job, and the pre-upgrade hook FAILS THE UPGRADE.
+              # That is the same outcome the opt-in default exists to avoid, reached slowly.
+              #
+              # Pruned BEFORE the upload, deliberately: the point is to leave room for the dump
+              # that is about to be written. The dump itself is already complete on local disk at
+              # this line (pg_dump ran above, under `set -e`), so pruning first cannot trade a
+              # real backup for a hypothetical one.
+              #
+              # NON-FATAL by design -- `|| echo` rather than letting `set -e` act. A retention
+              # sweep that fails (a transient MinIO error, a permissions change) must not be the
+              # thing that fails a customer's upgrade: the BACKUP is this Job's contract, and
+              # retention is housekeeping. It is reported loudly instead of silently swallowed.
+              echo "Pruning dumps older than {{ $keepDays }}d from minio/postgres-backups ..."
+              "$MC" --config-dir /tmp/.mc rm --recursive --force --older-than {{ $keepDays }}d minio/postgres-backups/ \
+                || echo "WARNING: retention sweep failed; continuing with the backup (the bucket may be growing unbounded -- check postgres.backup.preUpgrade.keepDays and the MinIO PVC)"
+{{- end }}
               # Upload the backup file to MinIO. Deliberately AFTER pg_dump has exited 0 (a
               # non-zero pg_dump kills the script under `set -e` and nothing is published):
               # the dump lands locally first and only a COMPLETE dump is ever uploaded, so the

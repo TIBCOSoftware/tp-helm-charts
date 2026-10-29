@@ -366,7 +366,7 @@ Detect o11yv3 resource mapping
 Resolve collector storage type from o11yv3 config
 */}}
 {{- define "collector.storage.type" -}}
-  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) -}}
+  {{- if and (eq (include "isO11yv3" .) "true") (.Values.global.cp.resources.o11yv3.tracesServer.config.exporter.enabled) -}}
     {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.exporter.kind | lower -}}
     {{- if eq $st "localstore" -}}
       {{- $st = "memory" -}}
@@ -381,7 +381,7 @@ Resolve collector storage type from o11yv3 config
 Resolve query storage type from o11yv3 config
 */}}
 {{- define "query.storage.type" -}}
-  {{- if and (include "isO11yv3" .) (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) -}}
+  {{- if and (eq (include "isO11yv3" .) "true") (.Values.global.cp.resources.o11yv3.tracesServer.config.proxy.enabled) -}}
     {{- $st := .Values.global.cp.resources.o11yv3.tracesServer.config.proxy.kind | lower -}}
     {{- if eq $st "localstore" -}}
       {{- $st = "memory" -}}
@@ -397,7 +397,7 @@ Elasticsearch environment variables for ES credential injection into Jaeger v2 c
 Always set the env vars (with empty defaults) so ${env:...} references in userconfig don't cause startup failures.
 */}}
 {{- define "jaeger.es.env" -}}
-{{- if include "isO11yv3" . -}}
+{{- if eq (include "isO11yv3" .) "true" -}}
 {{- $ts := .Values.global.cp.resources.o11yv3.tracesServer -}}
 {{- $endpoint := "" -}}
 {{- $username := "" -}}

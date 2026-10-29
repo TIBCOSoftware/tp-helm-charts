@@ -1,0 +1,125 @@
+# =====================================================================
+# CP-PLATFORM profile — the gateway installed INSIDE the Control Plane (PCP-24484)
+# =====================================================================
+#
+# ⚠️ READ THIS FIRST — this file and `values-cp.yaml` are one word apart and
+# describe DIFFERENT CLUSTERS. In this chart "CP profile" was already taken:
+#
+#   values-cp.yaml          the CP ORCHESTRATOR installs the gateway ONTO a Data
+#                           Plane (PCP-20668). Runs in the DP. Keeps haproxy +
+#                           discovery ON to render the CP->DP path.
+#   values-cp-platform.yaml (this file) the CP install creates the gateway in the
+#                           CP's OWN cluster — the "platform gateway". Runs in the
+#                           CP. No DP, no CP->DP path, no ingress.
+#
+# So "CP" in values-cp.yaml means "installed BY the CP", and "cp-platform" here
+# means "installed IN the CP". Do not merge, rename or cross-reference them
+# because the names look adjacent.
+#
+# Pass it AFTER the base values:
+#     helm install <rel> tp-mcp-gateway -f values-cp-platform.yaml [dynamic --set...]
+#
+# ⚠️ THE NORMAL PATH DOES NOT USE THIS FILE. For the platform gateway the chart is
+# installed as a SUBCHART of `tibco-cp-mcp-hub` (Chart.yaml dependency, gated on
+# `platformGateway.enabled`), and Helm cannot feed a `-f` profile to a subchart —
+# the same settings are carried literally in that parent's `tp-mcp-gateway:` block.
+# This file is the standalone twin: the SRE manual path (e.g. an image-tag bump),
+# local debugging, and self-documentation of what the placement actually is.
+# ⛔ The two copies must agree. That is asserted mechanically, not by care:
+# dev/mcp-hub-render-tests/platform-gateway-assert.sh compares this file against the
+# parent's block. If you change one, the guard tells you about the other.
+#
+# It does NOT (and cannot) carry the DYNAMIC per-install dial-home leaves — those
+# vary per CP and stay on the command line (or, on the normal path, come from the
+# parent chart):
+#     - dialHome.hub.url                       (the Hub endpoint this agent dials)
+#           In-cluster form, per the Hub repo's own deploy-gateway.sh guard:
+#               http://<hub-svc>.<hub-ns>.svc:<port>/api/mcp-hub/dialhome/ws
+#           http://, NOT wss://: v1 is in-cluster only (no inbound route, see below) and
+#           the Hub Service is plaintext — the agent upgrades to a WebSocket over it.
+#           ⛔ The port is not optional. The Hub Service publishes 3000 and nothing on 80,
+#           so a portless authority silently resolves to :80 and never reaches the Hub.
+#           Measured on a real CP 2026-09-22: tp-cp-mcp-hub-webserver.cp1-ns.svc:3000.
+#     - dialHome.hub.bootstrapTokenSecret.name (the pre-created Secret)
+#     - dialHome.image.tag                     (pinned by release-alpha)
+#     - global.cp.containerRegistry.url / .repository   (see the REGISTRY note below)
+#     - global.imagePullSecrets                (the pull Secret — REQUIRED on a CP)
+#           ⛔ Not optional and not cosmetic. This chart emits imagePullSecrets only when
+#           `dataplaneId` is set (Data Plane) or `global.imagePullSecrets` is non-empty. A
+#           CONTROL PLANE sets NEITHER, so without it the gateway pod renders with no pull
+#           secret and every container lands in ImagePullBackOff — while the Hub pod in the
+#           same release pulls the same registry fine, via a helper this chart has no
+#           equivalent of. Measured on a real CP: PCP-24484 Phase 3, 2026-09-23.
+#           Same class as the registry note below — DP-shaped value, CP-shaped source — and
+#           the reason that note now has a sibling instead of standing alone.
+# Rendering this file ALONE therefore fails on purpose, with the actionable message
+# from templates/dialhome-validate.yaml naming whichever leaf is missing. That is
+# the designed behaviour: a platform gateway that came up WITHOUT dial-home would be
+# a gateway inside the CP that the Hub has no way to reach, and nothing would say so.
+
+# -- lite mode ON (single pod, SQLite); full mcp-stack OFF.
+lite:
+  enabled: true
+  # ⛔ DELIBERATELY NOT COPIED FROM values-standalone.yaml.
+  # That profile — the nearest neighbour, and the one a reader will reach for —
+  # re-opens the whole auth posture:
+  #     ALLOW_UNAUTHENTICATED_ADMIN: "true"   AUTH_REQUIRED: "false"
+  #     MCP_REQUIRE_AUTH: "false"             ALLOWED_ORIGINS: '["*"]'
+  # It can afford that because its real protection is network trust on a customer's
+  # own cluster. THIS gateway sits inside the Control Plane, where "anything that can
+  # reach it in-cluster can use it" is a materially different statement.
+  # The lite defaults (values.yaml:1744-1746) are already the secure ones —
+  # MCP_REQUIRE_AUTH=true, AUTH_REQUIRED=true, ALLOW_UNAUTHENTICATED_ADMIN=false —
+  # so this profile INHERITS them by saying nothing. Recorded as a decision rather
+  # than an omission, because an omission is exactly what it looks like.
+
+mcp-stack:
+  enabled: false
+
+# -- No Data Plane → the orchestrator-only ingress paths are OFF, same as standalone.
+# With no dataplaneId the haproxy / discovery templates would otherwise render the
+# dp-<id>.platform.local placeholder route, i.e. a broken CP->DP vhost.
+haproxy:
+  enabled: false
+
+discovery:
+  enabled: false
+
+# -- tp-mcp-gateway-proxy sidecar ON. NOT optional and NOT stylistic: dial-home's auth
+# model depends on the loopback/proxy-trust the sidecar provides (HOST=127.0.0.1 +
+# X-Authenticated-User), and templates/dialhome-validate.yaml FAILS the render without
+# it. The ticket's own profile list omits it and reads complete.
+tibcoProxy:
+  enabled: true
+  trustCPNetwork: true
+
+# -- dial-home ON. This is what makes the placement what it is: the gateway has no
+# inbound route in v1, so the Hub reaches it only over the agent's outbound WSS.
+dialHome:
+  enabled: true
+
+# =====================================================================
+# ⛔ REGISTRY — the one input this profile cannot supply, and why
+# =====================================================================
+# This chart composes every image as
+#     <global.cp.containerRegistry.url>/<global.cp.containerRegistry.repository>/<bare name>
+# and reads `global.cp.*` EXCLUSIVELY, by design and with no global.tibco arm
+# (templates/_helpers.tpl:262-266 and :289-294, pinned by
+#  dev/mcp-gateway-render-tests/container-registry-assert.sh [3]/[4]).
+#
+# That is correct for every other placement — the gateway is Data-Plane-installed and
+# a DP genuinely receives `global.cp`. The CONTROL PLANE does not: it injects
+# `global.tibco.containerRegistry.*` instead, and no cp1-ns release receives
+# `global.cp` at all (measured 2026-08-04, recorded at
+#  charts/tibco-cp-mcp-hub/values.yaml:6-12).
+#
+# So on a CP the two namespaces simply do not intersect, and with neither supplied the
+# images render as "/tibco-platform-docker-prod/tp-mcp-gateway:<tag>" — a LEADING SLASH
+# and an empty registry host, which renders and lints clean and then fails at pull.
+#
+# ⛔ Do NOT "just add a default" here, and do not add a global.tibco arm to the helper.
+# A default would point at a namespace nobody on the CP fills, which is the same
+# silent-wrong-registry failure with one more place to look. The real fix is for the CP
+# install to inject global.cp.containerRegistry.* alongside global.tibco.* — tracked
+# separately, outside this chart. Until it lands, the parent chart FAILS THE RENDER with
+# an actionable message rather than shipping an unpullable image reference.

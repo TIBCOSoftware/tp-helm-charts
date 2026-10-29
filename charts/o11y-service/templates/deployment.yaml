@@ -74,6 +74,11 @@ spec:
               value: {{ .Values.global.cp.subscriptionId }}
             - name: CP_DOMAIN
               value: {{ include "o11y-service.cp.domain" . }}
+            # TPSEC-121: allow the /v1/testconnection SSRF guard to reach internal
+            # (loopback/RFC1918) ES/OpenSearch/Prometheus services in the DP.
+            # Cloud-metadata (IMDS) and link-local addresses stay blocked regardless.
+            - name: TEST_CONNECTION_ALLOW_INTERNAL_ENDPOINTS
+              value: {{ .Values.testConnection.allowInternalEndpoints | quote }}
 {{- if and (.Values.global.cp.resources.resourcemapping) (eq .Values.global.cp.resources.resourcemapping.O11Y "o11yv3") }}
             - name: O11y
               value: "o11yV3"

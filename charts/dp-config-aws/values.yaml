@@ -22,7 +22,7 @@ httpIngress:
   backend:
     serviceName: dp-config-aws-ingress-nginx-controller  # serviceName dp-config-aws-traefik for traefik, dp-config-aws-kong-proxy for kong
     servicePort: 80    # port 443 for traefik , 80 for kong
-  # more AWS annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/ingress/annotations/
+  # more AWS annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v3.5/guide/ingress/annotations/
   annotations:
     alb.ingress.kubernetes.io/group.name: ""  # abc.<host-domain>
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
@@ -30,11 +30,11 @@ httpIngress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/success-codes: 200-499
     alb.ingress.kubernetes.io/target-type: ip
-    external-dns.alpha.kubernetes.io/hostname: ""  # *.abc.<host-domain>
+    external-dns.kubernetes.io/hostname: ""  # *.abc.<host-domain>
 
 # this service object is used for NLB user case. Ideally, we will use annotation to create NLB
 service:
-  # list of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.5/guide/service/annotations/
+  # list of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v3.5/guide/ingress/annotations/
   enabled: false
   name: dp-config-aws-service
   type: LoadBalancer
@@ -94,7 +94,8 @@ traefik:
   hub:  # for hub
     enabled: false
   service:  # for external-dns
-    type: ClusterIP
+    spec:
+      type: ClusterIP
   ingressClass:
     name: traefik
   ingressRoute:  # for dashboard

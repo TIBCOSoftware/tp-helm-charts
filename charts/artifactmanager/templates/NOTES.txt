@@ -5,3 +5,38 @@
 */}}
 
 TIBCO Platform Integration Application: Artifact Manager chart serves the capabilities for commom functionalties for different Application types.
+
+{{/*
+  Storage validation.
+
+  A PersistentVolumeClaim can only ever be grown - Kubernetes has no support
+  for shrinking one, on any storage class. Catch an invalid size here, with a
+  message naming the problem, rather than letting it fail later against the
+  API server and leave the release in a failed state.
+*/}}
+{{- define "artifactmanager.storage.toGi" -}}
+{{- $s := . | toString -}}
+{{- $n := regexFind "^[0-9]+" $s | float64 -}}
+{{- $u := regexFind "(Mi|Gi|Ti)$" $s -}}
+{{- if eq $u "Mi" }}{{- divf $n 1024.0 -}}
+{{- else if eq $u "Ti" }}{{- mulf $n 1024.0 -}}
+{{- else }}{{- $n -}}{{- end -}}
+{{- end -}}
+
+{{- $pvc := .Values.volumes.artifactmanager.persistentVolumeClaim -}}
+{{- $size := $pvc.resources.requests.storage | toString -}}
+{{- $min := $pvc.minStorage | default "1Gi" | toString -}}
+
+{{- if not (regexMatch "^[0-9]+(Mi|Gi|Ti)$" $size) }}
+{{ fail (printf "[ERROR] volumes.artifactmanager.persistentVolumeClaim.resources.requests.storage is %q, which is not a valid size. Use a whole number followed by Mi, Gi or Ti, for example 20Gi." $size) }}
+{{- end }}
+
+{{- if not (regexMatch "^[0-9]+(Mi|Gi|Ti)$" $min) }}
+{{ fail (printf "[ERROR] volumes.artifactmanager.persistentVolumeClaim.minStorage is %q, which is not a valid size. Use a whole number followed by Mi, Gi or Ti, for example 20Gi." $min) }}
+{{- end }}
+
+{{- $sizeGi := include "artifactmanager.storage.toGi" $size | float64 -}}
+{{- $minGi := include "artifactmanager.storage.toGi" $min | float64 -}}
+{{- if lt $sizeGi $minGi }}
+{{ fail (printf "[ERROR] Storage was set to %s, which is smaller than the current size of %s. Artifact Manager storage can only be increased - Kubernetes cannot shrink a PersistentVolumeClaim. Set a value of %s or larger, or reprovision the capability to reduce it." $size $min $min) }}
+{{- end }}

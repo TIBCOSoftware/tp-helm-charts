@@ -1,38 +1,172 @@
-{{ if eq .Values.global.cp.resources.ingress.ingressController "traefik" -}}
+{{ if eq (include "tp-mcp-gateway.canonicalIngressController" .Values.global.cp.resources.ingress.ingressController) "traefik" -}}
 {{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
 {{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+{{- $ppRe := regexQuoteMeta $pp -}}
+{{- $wk := include "tp-mcp-gateway.wellKnownPrefix" . -}}
+{{- $fqdn := .Values.global.cp.resources.ingress.fqdn -}}
+# PCP-25379: the public ingress is an ALLOWLIST, not a blanket prefix passthrough.
+# The previous `{{ "{{ $pp }}" }}/` Prefix rule on a plain Ingress routed the gateway's
+# ENTIRE ContextForge REST surface (/admin, /servers, /tools, /gateways, /resources,
+# /prompts and their writes) to the public internet — safe only because the gateway's
+# own AUTH_REQUIRED/ALLOW_UNAUTHENTICATED_ADMIN posture was assumed to gate it, which
+# full mode does not (see the chart CHANGELOG/values.yaml comments). Closing that at
+# the application layer needs a gateway-side bootstrap fix first (tracked separately —
+# PCP-25390/1.23); until then, this closes the SAME exposure at the network edge by
+# routing only the three paths an external MCP client actually needs
+# (tp-mcp-gateway/mcpgateway/main.py: `/servers/{id}/mcp`, `/servers/{id}/sse`,
+# `/servers/{id}/message` — the streamable-HTTP and legacy-SSE transports), plus the
+# RFC 9728 .well-known discovery document. Everything else, including a bare
+# `/servers` (the REST list) and all of /admin/tools/gateways, now 404s at the edge.
+#
+# PCP-25553: the discovery document has to be reachable at BOTH shapes, and the
+# original allowlist only had one of them. RFC 9728 §3.1 derives the metadata URL
+# well-known-FIRST (`/.well-known/oauth-protected-resource<pp>/servers/<id>/mcp`) —
+# that is the `{{ "{{ $wk }}{{ $pp }}" }}` rule below, carried over from PCP-19809. But the
+# gateway does not advertise that shape: `_build_resource_metadata_url`
+# (tp-mcp-gateway/mcpgateway/transports/streamablehttp_transport.py) returns
+# `<scheme>://<host><APP_ROOT_PATH>/.well-known/oauth-protected-resource/servers/<id>/mcp`,
+# i.e. path-FIRST, with APP_ROOT_PATH = this chart's $pp. That URL is what a client
+# is handed verbatim in `WWW-Authenticate: Bearer resource_metadata="…"`, so it only
+# has to be ROUTABLE — and before this file became an allowlist the blanket
+# `{{ "{{ $pp }}" }}/` Prefix route carried it. The allowlist dropped that route and nothing
+# replaced it, so public PRM discovery 404'd (UC18.2, measured on alpha.80) while the
+# same path through the gateway Service returned 200. Hence the third alternative:
+# `{{ "{{ $pp }}{{ $wk }}" }}`. The gateway serves both shapes
+# (mcpgateway/routers/well_known.py strips a leading app_root_path), so keep both rules.
+# This does NOT widen the allowlist beyond discovery. Traefik's PathPrefix is a literal
+# prefix match anchored at the start of the path, and the prefix contains the whole
+# `.well-known/oauth-protected-resource` literal, so it cannot reach /admin, bare
+# /servers, /tools, /gateways, /resources or /prompts. (It has no path-ELEMENT boundary,
+# so a lookalike like `<pp>/.well-known/oauth-protected-resourceX` also matches; that has
+# no handler and 404s at the gateway. The nginx branch is looser still — see its own
+# comment — because use-regex makes Prefix paths unanchored case-insensitive regexes.)
+# When $pp is empty the two shapes are the same string, so the third alternative is
+# guarded out rather than rendered as a duplicate.
+#
+# ⚠️ $wk is read through the VALIDATING helper, not straight off .Values. In THIS rule the
+# operator-settable half is the TRAILING segment, concatenated onto $pp — exactly where the
+# gateway's own routes live — so `wellKnownPrefix: /` would render `<pp>/` (the blanket
+# route PCP-25379 deleted) and `/admin` would render `<pp>/admin`. The well-known-first
+# rule is accidentally immune because the same value leads there instead. See
+# tp-mcp-gateway.wellKnownPrefix in _helpers.tpl; the render now fails rather than
+# publishing a route nobody intended.
+#
+# EXTERNAL EXPOSURE IS CLOSED FOR: traefik (this file, live-verified on a real cluster)
+# and nginx (templates/ingress-nginx.yaml, render-verified, not live-tested). Gateway API
+# is closed ONLY on controllers confirmed to support a regex path match (ISTIO,
+# NGINX_GATEWAY_FABRIC — templates/gateway-public.yaml); GKE Gateway and haProxy
+# (templates/ingress-haproxy-public.yaml) are NOT closed by this PR — see
+# dev/plan/PCP-25379-grounding.md for the operator mitigation for each. Do not describe
+# this PR as closing the exposure unqualified; it does not, for every controller.
+#
+# This is an `IngressRoute` (traefik.io/v1alpha1), not a plain `networking.k8s.io/v1
+# Ingress` + the Traefik-v2-style `traefik.ingress.kubernetes.io/router.rule`
+# annotation override: that annotation is REJECTED outright by this chart's target
+# Traefik v3 ("Failed to parse annotations: field not found, node: rule", confirmed
+# live) — v3's Kubernetes-Ingress provider dropped it. Plain Ingress path matching
+# (Prefix/Exact) also has no wildcard for a path SEGMENT in the middle
+# (`/servers/<any-id>/mcp`), which only Traefik's own rule language (PathRegexp) can
+# express — so the IngressRoute CRD is required either way on v3. $pp is
+# operator-settable free text (publicApi.pathPrefix) — regexQuoteMeta escapes it for the
+# regex match only, so a literal "." or backtick in a prefix can't widen or break it.
+#
+# KNOWN LIMITATION: `global.cp.resources.ingress.annotations` still passes through onto
+# this object unchanged, but IngressRoute does not honour the plain-Ingress
+# `traefik.ingress.kubernetes.io/router.*` annotations (middlewares, entrypoints, tls) —
+# an operator-supplied middleware (headers, IP allowlist, rate limit) that relied on one
+# of those is silently dropped by this change. Not fixed in this PR; map
+# router.middlewares into spec.routes[].middlewares by hand if you had one configured.
+#
+# PCP-26787: ENTRYPOINTS. 1.22.0-alpha.16 - alpha.37 hard-pinned `entryPoints: [websecure]` here, which
+# matches nothing where a load balancer terminates TLS and forwards 443 to Traefik's `web` entrypoint
+# (dp-config-aws: NLB + ACM certificate): every virtual-server endpoint and the OAuth callback then
+# answered Traefik's own 404 while the gateway showed ONLINE in the Hub. The plain Ingress this object
+# replaced had no entrypoint restriction, and neither has this route now: it binds every default
+# entrypoint of the controller unless publicApi.traefikEntryPoints lists some. The allowlist is the
+# `match` below, which belongs to the route, so it holds on every entrypoint the route is bound to.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
 metadata:
-  annotations:
-    {{- with .Values.global.cp.resources.ingress.annotations }}
-      {{- toYaml . | nindent 4 }}
-    {{- end }}
   name: {{ $svcName }}-public-traefik
   labels:
     {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+  {{- with .Values.global.cp.resources.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
-  rules:
-  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
-    http:
-      paths:
-      - backend:
-          service:
-            name: {{ $svcName }}
-            port:
-              number: 80
-        path: {{ if $pp }}{{ $pp }}/{{ else }}/{{ end }}
-        pathType: Prefix
-      {{- if $pp }}
-      - backend:
-          service:
-            name: {{ $svcName }}
-            port:
-              number: 80
-        # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
-        path: {{ .Values.publicApi.wellKnownPrefix }}{{ $pp }}
-        pathType: Prefix
-      {{- end }}
+  {{- with .Values.global.cp.resources.ingress.ingressClassName }}
+  {{- /* PCP-25403: quoted. Operator-settable and was interpolated bare, so a multi-line value
+         escaped the scalar — the same class as the gateway-public.yaml injection. */}}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  {{- /*
+  PCP-26787: NO entryPoints pin by default. 1.22.0-alpha.16 - alpha.37 hard-coded `websecure` here. That
+  matches nothing on a Data Plane whose load balancer terminates TLS and forwards 443 to Traefik's `web`
+  entrypoint (dp-config-aws: the NLB, ACM certificate, port 443 -> targetPort web), so every virtual-server
+  endpoint and the OAuth callback answered Traefik's own 404 while the gateway showed ONLINE in the Hub.
+  The plain Ingress this object replaced had no entrypoint restriction, i.e. it matched every default
+  entrypoint, and so does an IngressRoute that omits the field (the CRD: "Default: all."). Omitting is also
+  the only spelling that cannot name an entrypoint the controller does not have (Traefik drops a route that
+  does) and that keeps the operator's own asDefault choice. Hence: no key, unless
+  publicApi.traefikEntryPoints is a non-empty list, and then EXACTLY that list.
+
+  The PCP-25379 allowlist is the `match` below. It belongs to the route, not to an entrypoint, so it holds
+  on every entrypoint the route is bound to: a pin can narrow WHERE the route listens, never WHAT it
+  routes. Do not give one entrypoint a route or an object of its own; that one would not carry the allowlist.
+
+  Absent, null, [] and "" all mean unset, so a release recorded before this key existed (`helm upgrade
+  --reuse-values` replays ITS values, not this chart's defaults) takes the fix. ANYTHING else that is not
+  a list of names fails the render by name rather than publishing a route nobody asked for. That is
+  decided on the value's KIND before it is tested for emptiness, because `with` skips every falsy value:
+  `false`, `0` and `{}` would otherwise read as unset and silently widen a route the operator meant to
+  narrow.
+  Guard: dev/mcp-gateway-render-tests/traefik-entrypoints-assert.sh.
+  */}}
+  {{- $eps := .Values.publicApi.traefikEntryPoints }}
+  {{- if kindIs "string" $eps }}
+  {{- if ne $eps "" }}
+  {{- fail (printf "publicApi.traefikEntryPoints must be a list of Traefik entrypoint names, e.g. [\"web\", \"websecure\"] - got the string %q. Leave it empty to bind the public route to every default entrypoint (PCP-26787)." $eps) }}
+  {{- end }}
+  {{- else if not (or (kindIs "invalid" $eps) (kindIs "slice" $eps)) }}
+  {{- fail (printf "publicApi.traefikEntryPoints must be a list of Traefik entrypoint names, e.g. [\"web\", \"websecure\"] - got [%v] (kind %s). Leave it empty to bind the public route to every default entrypoint (PCP-26787)." $eps (kindOf $eps)) }}
+  {{- end }}
+  {{- with $eps }}
+  entryPoints:
+    {{- range . }}
+    {{- if not (kindIs "string" .) }}
+    {{- fail (printf "publicApi.traefikEntryPoints entries must be strings, got [%v] (kind %s) (PCP-26787)." . (kindOf .)) }}
+    {{- else if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]*$" .) }}
+    {{- fail (printf "publicApi.traefikEntryPoints entries must be Traefik entrypoint names - letters, digits, '.', '_' and '-', starting with a letter or digit - got [%v] (PCP-26787)." .) }}
+    {{- end }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  routes:
+    - kind: Rule
+      match: >-
+        {{- /*
+        PCP-25403 adds the two OAuth paths. The rest of this rule is unchanged from PCP-25379.
+        This allowlist has shipped ON BY DEFAULT since published chart 1.21.0-alpha.39, and it has
+        been blocking `<pp>/oauth/callback` ever since — while the SAME chart sets
+        OAUTH_REDIRECT_URI to that exact public URL (oauth-configmap.yaml:50,
+        lite-deployment.yaml:286). So this is a fix to a live default, not a new widening.
+        MEASURED on ins-syan-a90gwapi running published 1.22.0-alpha.25: the callback returned
+        traefik's own 404 (no `server` header — it never reached the app) and reached uvicorn once
+        these two were added, with /admin, /rpc, `<pp>/` and /oauth/status all still closed.
+        Both are safe to publish: /oauth/callback is the RFC 6749 redirect endpoint, unauthenticated
+        by design and protected by `state`; /oauth/authorize/<id> 401s a caller with neither a
+        session nor a nonce. See templates/gateway-public.yaml for the same two paths on the
+        Gateway API tiers, and dev/plan/PCP-25403-plan.md for the measurement.
+        Path() not PathPrefix() for the callback: nothing legitimate lives under it.
+        */}}
+        {{- /*
+        PCP-25403: the id wildcard is `[^/%]+`, not `[^/]+` — see templates/gateway-public.yaml for
+        the measurement and for why neither a server id nor a gateway id can contain `%`.
+        */}}
+        Host(`{{ $fqdn }}`) && (PathRegexp(`^{{ $ppRe }}/servers/[^/%]+/(mcp|sse|message)/?$`) || Path(`{{ $pp }}/oauth/callback`) || PathRegexp(`^{{ $ppRe }}/oauth/authorize/[^/%]+/?$`) || PathPrefix(`{{ $wk }}{{ $pp }}`){{ if $pp }} || PathPrefix(`{{ $pp }}{{ $wk }}`){{ end }})
+      services:
+        - name: {{ $svcName }}
+          port: 80
 
 {{- end }}

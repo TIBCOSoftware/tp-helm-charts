@@ -158,7 +158,11 @@ global:
         tracesServer:
           config:
             exporter:
-              enabled: true
+              # Off by default: the endpoint/username below are placeholders, so
+              # "not configured" must not mean "deploy against somevalue". The
+              # provisioner supplies true, plus real endpoints, once o11y
+              # resources are applied.
+              enabled: false
               kind: elasticSearch
               elasticSearch:
                 endpoint: somevalue
@@ -168,7 +172,8 @@ global:
                 username: somevalue
               localStore: {}
             proxy:
-              enabled: true
+              # Off by default, for the same reason as exporter above.
+              enabled: false
               kind: elasticSearch
               elasticSearch:
                 endpoint: somevalue

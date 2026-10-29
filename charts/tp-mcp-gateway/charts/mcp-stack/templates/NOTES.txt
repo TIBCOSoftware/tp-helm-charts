@@ -270,6 +270,28 @@
   {{- if .Values.redis.auth.enabled }}
   - Auth         : Enabled (password from Secret)
       (kubectl  = `kubectl -n {{ $ns }} get secret {{ include "mcp-stack.redisSecretName" . }} -o jsonpath="{.data.{{ .Values.redis.auth.passwordKey | default "REDIS_PASSWORD" }}}" | base64 -d`)
+  {{- /* PCP-25210: warn when the live Secret still carries the old hardcoded default.
+         Only meaningful against a real cluster -- under `helm template`/dry-run `lookup`
+         is empty, so this is silent there, same caveat as the Secret template itself. */}}
+  {{- if eq (include "mcp-stack.bundledRedisEnabled" .) "true" }}
+  {{- $redisPwKey := .Values.redis.auth.passwordKey | default "REDIS_PASSWORD" }}
+  {{- $redisCurrentPw := "" }}
+  {{- with (lookup "v1" "Secret" $ns (include "mcp-stack.redisSecretName" .)) }}
+    {{- if (index .data $redisPwKey) }}
+      {{- $redisCurrentPw = index .data $redisPwKey | b64dec }}
+    {{- end }}
+  {{- end }}
+  {{- if eq $redisCurrentPw "change-me-redis" }}
+  ⚠️  **SECURITY: this install is still running the known default Redis password**
+      (pre-dates PCP-25210). This chart will not auto-rotate a password already in use --
+      rotate it yourself:
+        kubectl -n {{ $ns }} delete secret {{ include "mcp-stack.redisSecretName" . }}
+        helm upgrade {{ .Release.Name }} <chart> -n {{ $ns }}   # mints + persists a fresh one
+      Redis restarts on this (single-pod, Recreate strategy); expect a brief cache
+      interruption, and the gateway pods need a restart too so they pick up the new
+      value: `kubectl -n {{ $ns }} rollout restart deployment {{ $gatewaySvc }}`
+  {{- end }}
+  {{- end }}
   {{- else }}
   - Auth         : Disabled
   {{- end }}

@@ -1,6 +1,218 @@
-{{ if eq .Values.global.cp.resources.ingress.ingressController "haProxy" -}}
+{{ if eq (include "tp-mcp-gateway.canonicalIngressController" .Values.global.cp.resources.ingress.ingressController) "haProxy" -}}
 {{- $svcName := include "tp-mcp-gateway.serviceName" . -}}
 {{- $pp := include "tp-mcp-gateway.pathPrefix" . -}}
+{{- /* $wk is resolved INSIDE the allowlist branch, not here. The helper it comes from is a
+       VALIDATING one (PCP-25553) that fails the render on a bad value, and on origin/main it is
+       only ever reached from inside `{{ "{{ if $pp }}" }}`. Hoisting it to the top would make an
+       invalid wellKnownPrefix fail the render even with the escape hatch OFF and an empty
+       pathPrefix — a configuration that renders fine today — which would make the hatch something
+       other than a true restore. Inside the allowlist branch the guard is exactly what PCP-25553
+       intended: that is where the value gets concatenated into a public route. */ -}}
+{{- $wk := "" -}}
+{{- /* Default ON. An ABSENT/nil key must read as ON, not OFF: a `helm upgrade --reuse-values` of a
+       release created before this key existed can carry the publicApi map forward without it, and
+       the secure default is the one that has to survive that path. Anything OTHER than a boolean
+       or the strings "true"/"false" fails the render rather than being guessed at — an operator
+       who types `False` or `off` is reaching for the escape hatch, and silently leaving the policy
+       ON would look to them like the hatch does not work. */ -}}
+{{- $allow := true -}}
+{{- $allowRaw := .Values.publicApi.haproxyAllowlistEnabled -}}
+{{- if not (kindIs "invalid" $allowRaw) -}}
+{{-   if kindIs "bool" $allowRaw -}}
+{{-     $allow = $allowRaw -}}
+{{-   else if eq (lower (toString $allowRaw)) "true" -}}
+{{-     $allow = true -}}
+{{-   else if eq (lower (toString $allowRaw)) "false" -}}
+{{-     $allow = false -}}
+{{-   else -}}
+{{-     fail (printf "publicApi.haproxyAllowlistEnabled must be a boolean (or the string \"true\"/\"false\") - got %q. It gates the haProxy public-Ingress allowlist (PCP-25402); to turn the allowlist OFF and restore the previous blanket route, set it to false." (toString $allowRaw)) -}}
+{{-   end -}}
+{{- end -}}
+{{- $deny := "" -}}
+{{- $denyTraversal := "" -}}
+{{- /* The operator's own annotations are merged onto this object in BOTH branches, and
+       haproxy.org/request-set-header is set in both too — so this collision check belongs OUTSIDE
+       the allowlist branch. The controller strips the `haproxy.org/`, `haproxy.com/` and
+       `ingress.kubernetes.io/` prefixes and keys the result by the BARE name, so an operator entry
+       under ANY of the three is the SAME annotation as the chart's: two of them collapse into one
+       map entry and which value survives is Go map iteration order, which can differ between
+       reconciliations. Losing the forwarded-header annotation that way is a routing bug; losing the
+       deny that way is a security hole. Refuse to render instead, and name the escape hatch. */ -}}
+{{- $opAnnAll := .Values.global.cp.resources.ingress.annotations | default dict -}}
+{{- range $pfx := list "haproxy.org/" "haproxy.com/" "ingress.kubernetes.io/" -}}
+{{-   $k := printf "%srequest-set-header" $pfx -}}
+{{-   if hasKey $opAnnAll $k -}}
+{{-     fail (printf "global.cp.resources.ingress.annotations sets %q, which collides with an annotation this chart sets on the haProxy public Ingress. The controller folds haproxy.org/, haproxy.com/ and ingress.kubernetes.io/ into ONE annotation keyed by the bare name, so your value and the chart's would collapse into a single entry and the survivor would depend on map iteration order. Drop that annotation; the chart needs this one to forward X-Forwarded-Host/Port/Proto to the gateway." $k) -}}
+{{-   end -}}
+{{- end -}}
+{{- if $allow -}}
+{{- /* ---------------------------------------------------------------------------------------
+     PCP-25402 (follow-up to PCP-25379): the public haProxy route is an ALLOWLIST, so the gateway's
+     admin console and REST surface are not reachable from the public edge by default. Only the
+     three external MCP client transports and the RFC 9728 discovery document are — the same
+     contract templates/ingress-traefik.yaml, templates/gateway-public.yaml and
+     templates/ingress-nginx.yaml already ship — the whole public-edge family, once PCP-25406 and
+     PCP-25403 land their own halves of this wave.
+     Opt out with publicApi.haproxyAllowlistEnabled=false.
+
+     WHY THIS IS NOT THE SAME SHAPE AS THE TRAEFIK/NGINX ALLOWLISTS. Those put the allowlist in
+     the ROUTING rule. This controller cannot: haproxytech/kubernetes-ingress does not evaluate a
+     regex `path` under `pathType: ImplementationSpecific` — the value goes into a path map and
+     never matches a real request (github.com/haproxytech/kubernetes-ingress#636). And plain Prefix
+     matching cannot constrain the tail of `/servers/<id>/mcp`, so a prefix-only allowlist would
+     still publish `<pp>/servers/<id>` — the per-server REST object and its mutating verbs.
+
+     So the allowlist moves OFF the routing rule and INTO the backend, where HAProxy's own
+     `path_reg`/`path_beg` ACLs work normally. The path rules below are unchanged Prefix matches,
+     which this controller does handle correctly; nothing here depends on it evaluating a regex.
+
+     WHY THIS IS NOT `haproxy.org/route-acl`, which the ticket proposed. route-acl is available on
+     a SERVICE only, and this Service is also the backend of the private CP->DP route
+     (templates/haproxy-ingress.yaml and templates/private-route.yaml), which legitimately needs
+     the whole surface — the Hub's admin/sync calls go through it. A Service-scoped allowlist would
+     break the Hub. route-acl additionally changes path precedence on an Ingress with more than one
+     path, and this object has two. `backend-config-snippet` and `standalone-backend` are both
+     available at INGRESS scope, so the policy stays on this object.
+
+     `standalone-backend` IS LOAD-BEARING — it is not decoration, and the deny must not ship
+     without it. A backend name derives from (namespace, service, port name), NOT from the Ingress,
+     so every Ingress on this Service shares one backend. Before controller v3.2.13 a shared
+     backend's definition is "rebuilt from scratch … out of the annotations of the ingress being
+     processed" and "replaces the previous one wholesale", so last-processed wins and this snippet
+     could clobber the private route's own path-rewrite, or be clobbered by it; from v3.2.13 "the
+     first ingress to constitute a backend own[s] it", so if the private route is constituted first
+     this snippet is ignored outright and the allowlist silently does not apply. The upstream commit
+     that made that change names `standalone-backend` as the remedy. With it set, the backend name
+     folds in the Ingress name, so this object necessarily owns its own backend and neither rule can
+     reach it — and nothing else can route INTO that backend either.
+     Floor: `standalone-backend` has existed at Ingress scope since controller v1.11.0 (2024-03-08)
+     and `backend-config-snippet` at Ingress scope since at least v1.8.0 — both present in 3.2.3
+     (the BYO dp-config-a* pin), 3.2.12 and 3.2.15 (the TP-bundled DP haproxy), so there is no
+     version in the field where one exists without the other.
+
+     WHY `unless`, NOT A HOST-SCOPED `if`. An earlier revision guarded the deny with the public
+     Host, to keep it off the private route even in a shared backend. That is the wrong failure
+     direction for a security control: the deny would then fire ONLY for the configured host, so any
+     request that reached this backend under some other Host would get NO path restriction at all —
+     the rule silently does nothing, which is exactly the failure that passes every test checking
+     that blocked paths are blocked under the expected host. `standalone-backend` already guarantees
+     nothing but this Ingress routes here, so the host guard bought no isolation and only added a
+     bypass surface. `unless <allowed>` denies everything not on the allowlist regardless of Host:
+     it fails CLOSED. It also means the fqdn is no longer interpolated into raw config at all.
+
+     `backend-config-snippet` is raw config and the controller does NO validation of it — "There is
+     no data validation done by Ingress Controller. If input is incorrect, HAProxy will fail to
+     apply new configuration", its own annotation reference. So publicApi.pathPrefix, the one
+     operator-settable value still interpolated below, is BOTH charset-validated (a newline or a
+     quote would otherwise break out of the ACL line into arbitrary directives — demonstrated in
+     the render test) AND regex-escaped (so a literal `.` cannot widen the match). Same reasoning
+     as the PCP-25553 guard on publicApi.wellKnownPrefix.
+     ⚠️ Do NOT read that quote as "a bad snippet fails loudly". What the controller does with a
+     snippet HAProxy rejects — abort the whole configuration, or drop just this snippet and carry
+     on serving — is being confirmed against the controller source and is NOT settled here. If it
+     drops the snippet, the failure is silent and the edge quietly reverts to whatever the ROUTING
+     rules allow. That is precisely why the routing rules below were narrowed as a second layer
+     rather than left at full width: the design must not depend on which of the two it is.
+
+     ⚠️ The ACLs below see the POST-rewrite path: `haproxy.org/path-rewrite` generates a FRONTEND
+     `http-request replace-path`, while this snippet runs in the BACKEND. This chart sets no
+     path-rewrite on the public route, and an operator-supplied one is rejected below along with the
+     other annotations that would change what this rule means.
+     --------------------------------------------------------------------------------------- */ -}}
+{{- /* The two annotations only THIS branch sets. `request-set-header` is guarded further up,
+       outside the branch, because the escape-hatch render sets it too. Same collapse mechanic. */ -}}
+{{- $opAnn := .Values.global.cp.resources.ingress.annotations | default dict -}}
+{{- $wk = include "tp-mcp-gateway.wellKnownPrefix" . -}}
+{{- range $pfx := list "haproxy.org/" "haproxy.com/" "ingress.kubernetes.io/" -}}
+{{-   range $bare := list "backend-config-snippet" "standalone-backend" -}}
+{{-     $key := printf "%s%s" $pfx $bare -}}
+{{-     if hasKey $opAnn $key -}}
+{{-       fail (printf "global.cp.resources.ingress.annotations sets %q, which collides with an annotation this chart sets on the haProxy public Ingress (PCP-25402). The controller folds haproxy.org/, haproxy.com/ and ingress.kubernetes.io/ into ONE annotation keyed by the bare name, so your value and the chart's would collapse into a single entry and the survivor would depend on map iteration order - the allowlist could silently stop being applied. Either drop that annotation, or set publicApi.haproxyAllowlistEnabled=false to restore the previous blanket route and keep full control of the annotation yourself." $key) -}}
+{{-     end -}}
+{{-   end -}}
+{{- /* path-rewrite is NOT set by this chart on this object, so it is not a collision - it is
+          worse. It generates a FRONTEND `http-request replace-path`, which runs BEFORE this
+          backend snippet, so the ACLs below would be matching a path the operator has already
+          rewritten and the allowlist would mean something other than what it reads. */ -}}
+{{-   $pr := printf "%spath-rewrite" $pfx -}}
+{{-   if hasKey $opAnn $pr -}}
+{{-     fail (printf "global.cp.resources.ingress.annotations sets %q on the haProxy public Ingress. That generates a frontend http-request replace-path, which rewrites the path BEFORE the backend allowlist this chart adds (PCP-25402) evaluates it - so the allowlist would be matching the rewritten path, not the one the client sent, and would no longer mean what it says. Either drop that annotation, or set publicApi.haproxyAllowlistEnabled=false and take responsibility for the public path surface yourself." $pr) -}}
+{{-   end -}}
+{{- end -}}
+{{- /* Excluded on purpose from the allowed set: whitespace and newline (would end the directive),
+       `#` (starts a comment), `$` (HAProxy expands environment variables in config), `\` `'` `"`
+       (escaping/quoting), `{` `}` (the inline-ACL delimiters) and `%` (log-format expansion
+       elsewhere in the grammar). Everything else that is legal in a URI path segment is allowed,
+       so a working prefix such as /team@prod still renders. */ -}}
+{{- if not (regexMatch "^(/[A-Za-z0-9._~!()*+,;=:@&-]+)*$" $pp) -}}
+{{-   fail (printf "publicApi.pathPrefix renders %q, which contains a character this chart will not put into raw HAProxy configuration. It is interpolated into haproxy.org/backend-config-snippet for the haProxy public allowlist (PCP-25402), where whitespace, # $ \\ ' \" { } %% or a newline could change the meaning of the generated config. Use only characters legal in a URI path segment, or set publicApi.haproxyAllowlistEnabled=false to keep the previous blanket route." $pp) -}}
+{{- end -}}
+{{- $ppRe := regexQuoteMeta $pp -}}
+{{- $wkRe := regexQuoteMeta $wk -}}
+{{- /* RULE 1 — reject traversal and encoded separators BEFORE the allowlist is consulted.
+       HAProxy's `path` fetch is the RAW request-target: it does not percent-decode and does not
+       remove dot-segments (that is what the opt-in `http-request normalize-uri` exists for). So
+       without this line the allowlist below admits a superset of what it appears to allow, and the
+       SAME regex text is weaker here than in templates/ingress-traefik.yaml, where Traefik matches
+       Go's already-decoded req.URL.Path. Concretely, all of these are admitted by the allowlist
+       alone and are rejected by this line:
+         <pp>/servers/..%2F..%2Fadmin/mcp        the <id> wildcard swallows an encoded slash
+         <pp>/servers/%2e%2e%2fadmin/sse         same, percent-encoded dot-segments
+         <pp>/.well-known/oauth-protected-resource/../../admin   plain dot-segments, no encoding
+       It rejects a dot-SEGMENT, not every `..`: a path element that is exactly two dots, with each
+       dot written literally or as %2e, bounded by a separator (literal or encoded) or by the ends
+       of the path. Written that way on purpose — a blanket `path_sub ..` would also reject a
+       legitimate server id containing two dots (`/servers/team..prod/mcp`), and a blanket
+       `path_sub %2e` would reject `/servers/team%2Eprod/mcp`, an id with an encoded dot in it.
+       Neither of those is a traversal and neither should lose its public endpoint on upgrade.
+       The second ACL rejects encoded SEPARATORS, which are never legitimate inside a path element:
+       %2f and %5c (some upstreams treat a backslash as a separator), plus the %25-forms, because
+       one decoding hop upstream turns those into the others. */ -}}
+{{- /* The `--` before the pattern is REQUIRED, and this was found by running `haproxy -c` against
+       the generated config on a real controller (3.2.15 / HAProxy 3.2.23), not by reading. A
+       pattern that starts with `(` trips a parser heuristic:
+         [WARNING] config : parsing acl '' : matching 'path_reg' for pattern '(^|/|%2[fF])...'
+         is likely a mistake and probably not what you want. Maybe you need to remove the
+         extraneous space before '('. If you are really sure this is not an error, please insert
+         '--' between the match and the pattern to make this warning message disappear.
+       It still parses — but it would make every reload of the operator's HAProxy log a warning
+       about OUR rule, which is the kind of noise that gets a snippet deleted by someone
+       debugging something else. `--` is the documented way to say "this really is the pattern".
+       Rule 2's alternatives all start with `^`, so they do not trip it. */ -}}
+{{- $denyTraversal = "http-request deny deny_status 404 if { path_reg -- (^|/|%2[fF])(\\.|%2[eE])(\\.|%2[eE])(/|%2[fF]|$) } || { path_sub %2f %2F %5c %5C %252f %252F %255c %255C %252e %252E }" -}}
+{{- /* RULE 2 — the allowlist itself: the same contract the traefik route ships. The three MCP
+       client transports, plus the two RFC 9728 discovery shapes (PCP-19809 well-known-first,
+       PCP-25553 path-first). The discovery shapes are matched with an ANCHORED path_reg carrying an
+       explicit `(/|$)` boundary rather than `path_beg`: a bare prefix match has no path-element
+       boundary, so `<pp>/.well-known/oauth-protected-resourceEVIL` would match it. With an empty
+       $pp the two discovery shapes are the same string, so only one alternative is emitted. */ -}}
+{{- $wkAcl := printf "{ path_reg ^%s%s(/|$) }" $wkRe $ppRe -}}
+{{- if $pp -}}
+{{-   $wkAcl = printf "{ path_reg ^%s%s(/|$) } || { path_reg ^%s%s(/|$) }" $wkRe $ppRe $ppRe $wkRe -}}
+{{- end -}}
+{{- /* RULE 2, the OAuth half — EXACTLY two paths, no more. The allowlist denied the gateway's own
+       OAuth surface while still publishing the RFC 9728 document that advertises it, which is the
+       worst diagnostic shape: the client gets a valid document and then a 404. The pm accepted a
+       routing proof (measured by the PCP-25403 lane on a Gateway-API box) for precisely these two:
+         <pp>/oauth/callback          the redirect target, matched EXACTLY - no subtree
+         <pp>/oauth/authorize/<id>    one id segment only, nothing deeper
+       Everything else under /oauth stays closed; `/oauth/status` is the negative the render test
+       pins. The <id> wildcard is `[^/]+` as elsewhere, and RULE 1 above still runs first, so it
+       cannot swallow an encoded separator or a dot-segment. */ -}}
+{{- $oauthAcl := printf "{ path_reg ^%s/oauth/callback$ } || { path_reg ^%s/oauth/authorize/[^/%%]+/?$ }" $ppRe $ppRe -}}
+{{- /* The id wildcards are `[^/%]+`, not `[^/]+`. Excluding `%` is a real control here, not style:
+       HAProxy matches the raw request-target, so without it the wildcard swallows a percent-encoded
+       separator and `<pp>/servers/..%2F..%2Fadmin/mcp` satisfies the allowlist. RULE 1 above already
+       rejects that specific shape, so this is the second of two independent reasons — the same
+       defence-in-depth the routing layer gives the snippet. Measured on a real Gateway-API box by
+       the PCP-25403 lane: the request DOES reach the application; it 404s there only because the
+       app does not resolve the escape either, which is not a control we own.
+       Safe because an id can never contain `%`: a server id goes through
+       SecurityValidator.validate_uuid (tp-mcp-gateway common/validators.py), which parses with
+       uuid.UUID() and returns 32 lowercase hex, and a gateway id is always uuid4().hex — GatewayCreate
+       has no id field at all. Verified at source by the PCP-25403 lane before any lane changed it. */ -}}
+{{- $deny = printf "http-request deny deny_status 404 unless { path_reg ^%s/servers/[^/%%]+/(mcp|sse|message)/?$ } || %s || %s" $ppRe $wkAcl $oauthAcl -}}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,18 +221,118 @@ metadata:
       X-Forwarded-Host %[req.hdr(host)]
       X-Forwarded-Port 443
       X-Forwarded-Proto https
+    {{- if $allow }}
+    haproxy.org/standalone-backend: "true"
+    haproxy.org/backend-config-snippet: |
+      {{ $denyTraversal }}
+      {{ $deny }}
+    {{- else }}
+    {{- /* An operator who turns the allowlist off is publishing an unauthenticated admin console.
+           The rendered `#` comment explaining that does NOT survive into the API object, so there
+           would be no way to answer "which Data Planes in this fleet have it open?" from the
+           cluster. The annotation and the label below are that answer:
+             kubectl get ingress -A -l platform.tibco.com/public-edge-allowlist=disabled   */}}
+    platform.tibco.com/public-edge-warning: "PCP-25402: publicApi.haproxyAllowlistEnabled is false, so /admin and the REST surface are published on the public edge"
+    {{- end }}
     {{- with .Values.global.cp.resources.ingress.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   name: {{ $svcName }}-public-haproxy
   labels:
     {{- include "tp-mcp-gateway.labels" . | nindent 4 }}
+    platform.tibco.com/public-edge-allowlist: {{ if $allow }}"enabled"{{ else }}"disabled"{{ end }}
 spec:
-  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName }}
+  {{- /* QUOTED, and that is load-bearing. Measured, not reasoned: rendering with
+         `ingressClassName: "haproxy\n  rules:\n  - host: INJECTEDPATHRULE"` put a second
+         `- host: INJECTEDPATHRULE` rule into the rendered object, in BOTH the allowlist and the
+         escape-hatch branch — an operator-settable value injecting a routing rule. Same shape as
+         the finding the PCP-25403 lane hit in #11208, different field.
+         With `| quote` the same payload renders as an escaped `\n` INSIDE the class-name scalar —
+         a nonsense class name that matches no IngressClass, and no second rule. Inert, not a route.
+         `fqdn` on the next line is quoted for the SAME reason plus one more. A later probe, with a
+         payload indented for `  - host: <value>` rather than dedented, DID inject through it — a
+         second host rule, and with a fuller payload an entire extra route, both valid YAML. My
+         first sweep had scored it safe because a badly-indented payload produced a YAML parse
+         error, which is the template failing to survive the input rather than rejecting it.
+         The second reason is a PRE-EXISTING bug quoting also fixes: an unquoted leading `*` is a
+         YAML alias, so a wildcard public FQDN (`*.example.com`) — legal in Kubernetes — did not
+         render at all. Folded in here on the pm's ruling.
+         ⚠️ Quoting is NOT the injection guard. The guard is the shared render-time validator
+         PCP-25403 adds in #11208, which merges first; this lane takes its hard assertion then.
+         NOTE on this comment's own terminator: it must NOT carry a trailing dash. The chomping
+         form swallows the newline after the comment and pulls `ingressClassName:` up onto the
+         `spec:` line, which fails to parse. (And do not spell the terminator out in prose either:
+         the sequence ends the comment wherever it appears.) */}}
+  ingressClassName: {{ .Values.global.cp.resources.ingress.ingressClassName | quote }}
   rules:
-  - host: {{ .Values.global.cp.resources.ingress.fqdn }}
+  - host: {{ .Values.global.cp.resources.ingress.fqdn | quote }}
     http:
       paths:
+      {{- if $allow }}
+      {{- /* NARROWED ROUTING — the second layer, and the one that survives the snippet being lost.
+             The snippet is the only thing that can express the `/servers/<id>/{mcp,sse,message}`
+             tail, so it stays the primary control. But it is carried by an annotation, and there
+             are three ways a controller can end up not applying it — too old to know the
+             annotation, started with config snippets disabled, or the snippet dropped after a
+             parse error — none of which fail loudly. If the routing rule stayed at the full
+             `{{ "{{ $pp }}" }}/` width, every one of those would silently republish /admin.
+             So route only what the allowlist can ever admit: `{{ "{{ $pp }}" }}/servers` plus the
+             two discovery shapes. Plain Prefix matches, which this controller handles correctly.
+             Losing the snippet then leaves only `{{ "{{ $pp }}" }}/servers` and `/servers/<id>`
+             reachable instead of the whole surface — /admin, /tools, /gateways, /resources,
+             /prompts and /version are not routed AT ALL, by either layer.
+             This is NOT a substitute for the snippet: Prefix cannot constrain the tail, so bare
+             `/servers` and `/servers/<id>` still need the deny. Both layers are required. */}}
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        path: {{ $pp }}/servers
+        pathType: Prefix
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-25402: the OAuth redirect target. Exact, not Prefix — nothing below it is public.
+        path: {{ $pp }}/oauth/callback
+        pathType: Exact
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-25402: <pp>/oauth/authorize/<id>. The routing layer can only express the subtree;
+        # the snippet narrows it to exactly one id segment, so `/oauth/authorize` bare and anything
+        # deeper are routed here but denied in the backend. Second layer narrower than the first is
+        # the intended relationship, not an oversight.
+        path: {{ $pp }}/oauth/authorize
+        pathType: Prefix
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
+        path: {{ $wk }}{{ $pp }}
+        pathType: Prefix
+      {{- if $pp }}
+      - backend:
+          service:
+            name: {{ $svcName }}
+            port:
+              number: 80
+        # PCP-25553: the path-first discovery shape the gateway actually advertises. Identical to
+        # the rule above when $pp is empty, so it is guarded rather than emitted twice.
+        path: {{ $pp }}{{ $wk }}
+        pathType: Prefix
+      {{- end }}
+      {{- else }}
+      {{- /* Escape hatch: the blanket Prefix matches this chart shipped through 1.22.0-alpha.24,
+             byte-identical, which is what makes it a true restore rather than a third behaviour.
+             The only differences on the object are the audit label and annotation above, which
+             record that the choice was made and carry no behaviour. */}}
       - backend:
           service:
             name: {{ $svcName }}
@@ -35,7 +347,8 @@ spec:
             port:
               number: 80
         # PCP-19809: root-anchored RFC 9728 discovery — no rewrite, full literal path
-        path: {{ .Values.publicApi.wellKnownPrefix }}{{ $pp }}
+        path: {{ include "tp-mcp-gateway.wellKnownPrefix" . }}{{ $pp }}
         pathType: Prefix
+      {{- end }}
       {{- end }}
 {{- end }}

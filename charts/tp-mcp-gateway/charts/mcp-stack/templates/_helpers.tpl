@@ -452,6 +452,49 @@ fi
 {{- end }}
 
 {{- /* --------------------------------------------------------------------
+     Helper: mcp-stack.redisAuthEffectivePassword
+     LOCAL TIBCO MOD (PCP-25210). The effective bundled-Redis auth password,
+     factored out so templates/secret-redis.yaml (the Secret itself) and the
+     checksum/redis-secret annotation on deployment-redis.yaml /
+     deployment-mcpgateway.yaml compute it IDENTICALLY -- so a password change
+     rolls both Deployments in the same helm upgrade, rather than one of them
+     restarting on its own, unboundedly later, with a stale value.
+
+     Precedence: an explicit .Values.redis.auth.password always wins; else
+     reuse whatever is already in the live Secret (lookup); else mint a fresh
+     randAlphaNum 32.
+
+     Each `include` call re-executes this template. Under a live helm
+     install/upgrade, `lookup` converges every caller on the SAME existing
+     Secret value, so all call sites agree byte-for-byte. Under `helm
+     template`/dry-run (no cluster, no existingSecret) lookup is empty on
+     every call, so each call mints independently -- the checksum still
+     changes release-to-release (still forcing a restart on the next sync),
+     it just will not equal another call site's value in that same render.
+     Same "needs a live cluster or existingSecret for a stable value" caveat
+     as every other lookup-based secret in this chart.
+     -------------------------------------------------------------------- */}}
+{{- define "mcp-stack.redisAuthEffectivePassword" -}}
+{{- $secretName := include "mcp-stack.redisSecretName" . | trim -}}
+{{- $pwKey := .Values.redis.auth.passwordKey | default "REDIS_PASSWORD" -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName -}}
+{{- $prevPw := "" -}}
+{{- if and $existing $existing.data (index $existing.data $pwKey) -}}
+{{- $prevPw = index $existing.data $pwKey | b64dec -}}
+{{- end -}}
+{{- $effectivePw := .Values.redis.auth.password -}}
+{{- if not $effectivePw }}{{- $effectivePw = $prevPw }}{{- end -}}
+{{- /* PCP-25210 review (fcastill): only mint when THIS chart owns the Secret. With
+       existingSecret set, the operator owns it -- a lookup miss under a client-side render
+       must NOT mint, or the checksum below mints fresh every sync and both Deployments
+       restart on every GitOps reconciliation, exactly what existingSecret is documented to
+       avoid. An unresolved lookup then yields a stable empty checksum instead; a live
+       upgrade still sees lookup find the operator's real value. */}}
+{{- if and (not $effectivePw) (not .Values.redis.auth.existingSecret) }}{{- $effectivePw = randAlphaNum 32 }}{{- end -}}
+{{- $effectivePw -}}
+{{- end }}
+
+{{- /* --------------------------------------------------------------------
      Helper: mcp-stack.redisTlsSecretName
 
      LOCAL TIBCO MOD (PCP-20275): single source of truth for the bundled
@@ -1071,6 +1114,135 @@ failureThreshold:    {{ $p.failureThreshold    | default 3 }}
 {{- fail (printf "mcp-stack: postgres.image.digest is not supported — this SINGULAR key cannot serve the bundled database; use the per-major map postgres.image.digests instead and unset this one (found %q). ONE digest cannot serve this image block: it renders at :17 on the three postgres-restore-* init containers, which must run PostgreSQL 17 binaries against the pre-upgrade data directory, and at :18 on the main container and the postgres-migration-check Job. A runtime handed a tag AND a digest resolves by the DIGEST and ignores the tag, so a single value would run one major's binaries under the other major's tag at every site it was not meant for. Move it into the map (keys are unquoted; the map is all-or-nothing, so every major this render builds must be present): --set mcp-stack.postgres.image.digests.17=sha256:<64 hex> --set mcp-stack.postgres.image.digests.18=sha256:<64 hex> --set mcp-stack.postgres.image.digest=. redis.image.digest — one container, one tag — is a singular key and is unaffected. If you did not set this by hand, `helm upgrade --reuse-values` replays it from an older release: re-set it empty, or upgrade without --reuse-values." $digest) -}}
 {{- end -}}
 {{- end -}}
+
+{{/* --------------------------------------------------------------------
+     Helper: mcp-stack.postgres.backupWindowOpen
+
+     ONE name for "the pre-upgrade pg_dump Job actually renders". FIVE
+     sites have to agree about that and, before PCP-23832, each spelled
+     the condition out by hand:
+
+       * job-postgres-backup.yaml:16          ($rendersBackupJob)
+       * networkpolicy-postgres-upgrade.yaml  (the postgres hook NP)
+       * networkpolicy-postgres-upgrade.yaml  (the minio hook NP)
+       * deployment-postgres.yaml             (the minio.enabled fail-fast)
+       * deployment-postgres.yaml             (the allowUpgradeJobs fail-fast)
+
+     They had already drifted, and the drift was in the JOB's favour. The
+     postgres hook NP required `.Values.postgres.enabled` and the Job's own
+     gate did not — and the NP was the one that was RIGHT. The database
+     Deployment renders under `$rendersDeployment`, which is
+     `postgres.enabled AND (not external.enabled)` and says nothing about
+     `upgrade.enabled` (deployment-postgres.yaml:50). So on
+     `postgres.enabled=false` + `upgrade.enabled=true` + external off —
+     measured on origin/main — the backup Job rendered while NO PostgreSQL
+     pod existed at all: the Job blocks on `pg_isready` against a database
+     that is never deployed, and the pre-upgrade hook HANGS until Helm's
+     timeout. Unifying on the NP's stricter condition is therefore the fix,
+     and it CLOSES the window in that combination rather than opening it.
+     The drift cannot come back without editing this define.
+
+     EMITS "true" OR NOTHING — never the string "false". Every non-empty
+     string is truthy in Helm, so a "false" here would silently make all
+     five consumers unconditionally open. Consume it as
+     `if (include "mcp-stack.postgres.backupWindowOpen" .)`.
+
+     The window is open when ALL of:
+       * the database is NOT external. An external PostgreSQL is not this
+         chart's to dump: the chart neither owns its lifecycle nor is
+         guaranteed the credentials, the network path or the disk to write
+         a dump anywhere useful. This is the explicit decision PCP-23832
+         AC2 asked for, and because `postgres.external.enabled=true` is the
+         SHIPPED PARENT DEFAULT for full mode it is the common case, not a
+         corner — so it is also stated out loud in the
+         -postgres-upgrade-status ConfigMap rather than left as silence;
+       * a bundled PostgreSQL is actually deployed by this release —
+         `postgres.enabled`, which together with the external check above
+         is character for character `$rendersDeployment`
+         (deployment-postgres.yaml:50), the gate the database manifest
+         itself renders under. Without it the Job waits on a `pg_isready`
+         against a database that does not exist: an upgrade hook that hangs
+         by construction. Keep these two in step with `$rendersDeployment`
+         — NOT with the wider `or postgres.enabled postgres.upgrade.enabled`
+         that appears a few lines below it in the same file, which scopes
+         the IMAGE-reference locals and is a different question;
+       * AND one of the two windows is open:
+           - the ONE-SHOT PG17 -> PG18 engine-major window (unchanged, and
+             still self-disarming via `backupCompleted`); or
+           - the GENERAL window, new in PCP-23832:
+             `postgres.backup.preUpgrade.enabled`.
+
+     THE GENERAL WINDOW DEFAULTS TO FALSE, deliberately. PCP-23832 AC2 asks
+     for the backup to be "made general" by relaxing the `targetVersion ==
+     "18"` pin; it does NOT follow that every Data Plane should start
+     running a `pg_dump` on every `helm upgrade`. Defaulting it true would
+     put an unbounded dump of a customer database into the pre-upgrade hook
+     path of every routine chart bump — where a slow dump is not a slow
+     backup but a STALLED UPGRADE — and would do so on Data Planes whose
+     MinIO sizing nobody has reviewed. Opt-in keeps the decision with the
+     operator who knows the database, and keeps the default render (and
+     every incumbent assertion fixture) byte-identical.
+
+     `((.Values.postgres.backup).preUpgrade).enabled` is parenthesised for
+     nil-safety on purpose: `helm upgrade --reuse-values` replays the
+     PREVIOUS release's coalesced values, which for any release cut before
+     this key existed carry no `postgres.backup` map at all. Written as a
+     plain dotted path that render dies with "nil pointer evaluating
+     interface {}.preUpgrade" — turning a new opt-in key into a hard abort
+     of the entire gateway render on every upgrade from an older chart.
+
+     >>> LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack
+         re-vendor. <<<
+     Pinned from the other side by
+     dev/mcp-gateway-render-tests/postgres-backup-gate-coherence-assert.sh.
+     -------------------------------------------------------------------- */}}
+{{- define "mcp-stack.postgres.backupWindowOpen" -}}
+{{- if not .Values.postgres.external.enabled -}}
+{{- if .Values.postgres.enabled -}}
+{{- $engineMajorWindow := and .Values.postgres.upgrade.enabled (eq (.Values.postgres.upgrade.targetVersion | toString) "18") (not .Values.postgres.upgrade.backupCompleted) -}}
+{{- $generalWindow := ((.Values.postgres.backup).preUpgrade).enabled -}}
+{{- if or $engineMajorWindow $generalWindow -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/* --------------------------------------------------------------------
+     Helper: mcp-stack.postgres.backupSkipReason
+
+     The other half of PCP-23832 AC2, and — on the shipped full-mode
+     default, where `postgres.external.enabled=true` — the ONLY half an
+     operator will ever observe. Returns a one-line, human-readable reason
+     why no pre-upgrade dump was taken, or NOTHING when the window is open.
+
+     This exists because "the backup Job did not render" and "a backup was
+     taken" are indistinguishable from outside the cluster: both look like
+     an upgrade that completed with no `-postgres-backup` pod in sight. The
+     honest statement of what this ticket ships is "the pre-upgrade backup
+     can now be turned on for ordinary upgrades, and the chart now SAYS
+     when it is off" — not "Data Planes now get backups". Surfaced via
+     configmap-postgres-upgrade-status.yaml.
+
+     Ordered most-specific first; the branches are mutually exclusive by
+     construction but the ordering is what makes the message specific
+     rather than merely true.
+
+     >>> LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack
+         re-vendor. <<<
+     -------------------------------------------------------------------- */}}
+{{- define "mcp-stack.postgres.backupSkipReason" -}}
+{{- if include "mcp-stack.postgres.backupWindowOpen" . -}}
+{{- else if .Values.postgres.external.enabled -}}
+postgres.external.enabled=true - this chart does not manage the external PostgreSQL and takes NO dump of it. Back the database up with your own tooling before upgrading; a Helm rollback will not restore it.
+{{- else if not .Values.postgres.enabled -}}
+postgres.enabled=false - this release deploys no bundled PostgreSQL (the database manifest renders under postgres.enabled AND NOT postgres.external.enabled), so there is nothing for the chart to dump. Note that postgres.upgrade.enabled=true does NOT by itself deploy a database: before PCP-23832 that combination emitted a backup Job which then blocked on pg_isready against a database that was never created, hanging the pre-upgrade hook until Helm timed out.
+{{- else if and .Values.postgres.upgrade.enabled (eq (.Values.postgres.upgrade.targetVersion | toString) "18") .Values.postgres.upgrade.backupCompleted -}}
+postgres.upgrade.backupCompleted=true - the PG17->18 dump was already taken and the pre-upgrade Job has self-disarmed. This is phase 2 of the documented two-step upgrade, not a skipped backup.
+{{- else -}}
+postgres.backup.preUpgrade.enabled=false - a pre-upgrade dump is taken only for the one-shot PG17->18 engine-major upgrade unless this key is set. Set postgres.backup.preUpgrade.enabled=true to dump the bundled database into MinIO before every chart upgrade.
+{{- end -}}
+{{- end }}
 
 {{/*
 PCP-23986 — resolve ONE tp-mcp-gateway-proxy listen port from

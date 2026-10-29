@@ -1,0 +1,25 @@
+{{- /*
+PCP-25403 — validation-only template. Emits NOTHING; it exists so that the public-edge identifier
+guards run WHATEVER public edge the operator selected, including the two owned by sibling tickets.
+Same idiom as ports-validation.yaml: a template that renders to whitespace produces no manifest,
+but a `fail` inside it still aborts the render.
+
+Why it cannot live in the templates it protects. `global.cp.resources.ingress.fqdn` and
+`.ingressClassName` are consumed by ingress-traefik.yaml, ingress-nginx.yaml AND
+ingress-haproxy-public.yaml, and each of those renders only for its own `ingressController` value —
+so no one of them can host a check for all three. Putting the guard here also means the two
+templates owned by PCP-25406 (nginx) and PCP-25402 (haProxy) need no edit at all, which is the
+point: three concurrent PRs, one shared value, no cross-PR conflict.
+
+What it guards, and why validation rather than quoting: both values are operator-settable and were
+interpolated bare, so a multi-line value ESCAPES its YAML scalar in all three templates. Quoting
+would not be enough — in ingress-traefik.yaml the fqdn lands inside a backtick-delimited Traefik
+rule expression, where YAML quoting does nothing. See the helper in _helpers.tpl for the
+measurement, the charsets, and the reason a helm PARSE ERROR is not evidence of a guard.
+
+PCP-26618 adds the controller guard here for the same reason: an ingressController value that no
+public template handles renders NOTHING, so the only place that can notice is one that runs for every
+value. See tp-mcp-gateway.assertPublicEdgeController.
+*/ -}}
+{{- include "tp-mcp-gateway.assertPublicEdgeIdentifiers" . -}}
+{{- include "tp-mcp-gateway.assertPublicEdgeController" . -}}

@@ -20,21 +20,420 @@ type: application
 # ⚠️ Re-check the published tags immediately before merge — resolve them from the git-refs
 # API, not from local tags, which go stale even after `fetch --tags`.
 #
-# THIRD claim, and this one was not visible in the published tags at all: .15 was free by
-# tags but OPEN PR #10674 (PCP-24253) cuts .15 too — and touches the same two render-test
-# scripts. Whoever merged second would have silently no-published under skip_existing.
-# Taking .16 rather than asking that branch to move: a LATER number is unilaterally safe (it
-# cannot collide backwards), it needs no cross-PR coordination, and a skipped number costs
-# nothing — this file already records two. If #10674 lands first, .15 is theirs and this
-# stays correct; if it never lands, .15 is simply unused.
-# So the check before merge is "highest published tag AND every open PR that touches this
-# file", not the tags alone.
-version: 1.21.1
-appVersion: "1.21.0"
+# THIRD claim, and this one was not visible in the published tags at all: a number can be free
+# by tags and still be held by an OPEN PR, whose branch has published nothing yet. Whoever
+# merges second silently no-publishes under skip_existing. The rule that follows from it, and
+# the one this file exists to teach: take a LATER number rather than negotiating for one — it
+# cannot collide backwards, needs no cross-PR coordination, and a skipped number costs nothing
+# (this file already records several). So the check before merge is "highest published tag,
+# main, AND every open PR that touches this file" — three inputs, not one.
+#
+# PCP-24253: .17. #10665 landed first, so its .16 is now main's and this branch takes the next
+# free number — the same "a later number is unilaterally safe" rule, applied from the other
+# side. Worth reading the paragraph above as advice that WORKED: this branch had held .13,
+# then .15, then .16, chasing a moving line each time, and only stopped once it followed that
+# rule instead of trying to reserve a number.
+# ⚠️ .17 is NOT a pin-only re-cut. It replaces the CodeSafetyLinter rule set in values.yaml —
+# blocked_patterns 2 -> 6, warn_patterns 3 -> 9 — with the gateway plugin's shipped defaults.
+# The plugin REPLACES its Python defaults with whatever this chart provides rather than
+# merging them, so this is a security-policy change on a control pinned at mode: enforce, not
+# a packaging bump. Anyone reading this block to decide what the number carries needs that.
+# PCP-24482: injects GATEWAY_CHART_VERSION / GATEWAY_VERSION into the dialhome-agent, so the
+# Hub can tell an operator whether a dial-home gateway is behind. Template-only — no new
+# values, no image move.
+#
+# ⚠️ FROM HERE ON, THIS LINE IS ALSO A PAYLOAD. GATEWAY_CHART_VERSION renders from
+# `.Chart.Version`, which is exactly why it is trustworthy (it cannot drift from what was
+# actually installed) and exactly why a wrong number stops being a packaging detail: it becomes
+# a wrong "Upgrade available" verdict on a customer's gateway.
+#
+# ⚠️ WHY THIS STAYS ON THE 1.21 ALPHA LINE, given that newer tags exist. Enumerating
+# `tp-mcp-gateway-1.2*` UNSCOPED (all refs — a query scoped to `…-1.21.0-alpha` cannot see
+# either of these by construction) returns two things above this number:
+#   * `tp-mcp-gateway-1.21.0`        — the shipped GA, which `.23` sorts semver-BELOW;
+#   * `tp-mcp-gateway-1.22.0-alpha.1` — cut by release-alpha on 2026-09-21.
+#
+# Both are real, and neither makes 1.22 the right number HERE. `main` is not where alphas land:
+# they publish from the automation branch and `main` lags both lanes by design, with promotion
+# to `main` a separate, deliberate merge (docs/cicd/release-alpha.md § Chart bases differ). So
+# this file is supposed to trail, and moving it to the 1.22 line inside a feature PR would be
+# performing that promotion by side effect.
+#
+# ⚠️ It would also have bought a FALSE GREEN, which is the part worth recording. Setting
+# `1.22.0-alpha.2` flips CHECK 6 from RED to GREEN — not because anything improved, but because
+# the check asks "was this pin already published on THIS line?" and the ten `main-860e786` pins
+# were never published on 1.22. They are nonetheless ELEVEN DAYS OLDER than the `main-13435fa`
+# that the 1.22 line actually shipped (2026-09-10 vs 2026-09-21), so the green would have
+# concealed a backwards pin instead of the honest red that the 1.21 line has been passed by its
+# GA. A red that states a true fact beats a green that depends on which line you ask about.
+#
+# `.23` from the three inputs against the 1.21 line: highest published there
+# (`tp-mcp-gateway-1.21.0-alpha.22`), `main` (`1.21.0-alpha.22`), and every open PR — none
+# claims a gateway version (#10440 bumps the HUB chart). Re-check from the git-refs API before
+# merge, and enumerate UNSCOPED so the line question stays visible.
+#
+# PCP-24354: `.25`, and this is the three-input rule doing exactly what the block above says it
+# is for. Measured 2026-09-22 against the 1.21 line: highest published is now
+# `tp-mcp-gateway-1.21.0-alpha.23` (so `main`'s .23 is TAKEN, not free — the tag appeared after
+# this file last read it), `main` reads `1.21.0-alpha.23`, and the open-PR sweep found #10901
+# ([PCP-24484] platform gateway, chart half) already claiming **.24** while having published
+# nothing — the precise third-input case this block was written to catch. Taking .25 rather
+# than negotiating for .24: a later number cannot collide backwards and needs no cross-PR
+# coordination. `tp-mcp-gateway-1.22.0-alpha.1` exists (cut by release-alpha 2026-09-21) and is
+# still NOT the right line here, for the reason recorded above — `main` trails both lanes by
+# design, and moving it would perform the promotion by side effect.
+# ⚠️ .25 is NOT a pin-only re-cut. It adds `MCP_INBOUND_OAUTH_REQUIRE_PERMISSION_PLUGIN` to
+# values.yaml, explicitly set to its existing code default "false" — so the rendered behaviour
+# is UNCHANGED and this is not a policy change. The point is that the key was absent entirely,
+# which left an operator with no way to opt out of the composed no-authorization state without
+# a values edit they had no reason to know existed. Anyone reading this block to decide what
+# the number carries needs that: it buys a visible knob and a comment, not a new default.
+#
+# ⚠️ CORRECTION TO THE "PERMANENTLY RED CHECK 6" BLOCK ABOVE, measured 2026-09-22 (PCP-24484).
+# The "honest RED" it describes is NO LONGER THE STATE, and anyone reasoning from it today will
+# reason from a fact that expired. CHECK 6 asks whether our pin matches the pin shipped by the
+# most RECENTLY CREATED tag on this line (`--sort=creatordate`, last element -- not the highest
+# version). The red it records came from `tp-mcp-gateway-1.21.0` (the GA, created 2026-09-16)
+# having passed the line. But `tp-mcp-gateway-1.21.0-alpha.23` was created 2026-09-22, i.e.
+# AFTER the GA, and ships exactly `main-860e786` -- so CHECK 6 reports GREEN, in CI and locally.
+#
+# ⛔ Two traps from how that was found, both forms this file already warns about elsewhere:
+#   * the flip was NOT caused by the change that straddled it. It happened between two CI runs
+#     (#10879's step 9 failed, #10901's passed) because a TAG WAS PUBLISHED IN BETWEEN.
+#     Attributing it to whichever PR happens to sit across that boundary would be wrong.
+#   * it read RED locally and GREEN in CI for the SAME commit, because the local checkout was
+#     missing alpha.23. A guard whose verdict depends on your tag set will disagree with CI and
+#     look like a code difference. `git fetch 'refs/tags/tp-mcp-gateway-*'` before trusting it.
+#
+# (This branch previously cut `.24` here with its own three-input note; PCP-24354 has since taken
+# `.25` on main, which supersedes it. The correction above is independent of that number.)
+#
+# PCP-24484 (2026-09-23): `.26`. Taking main's `.25` at the rebase was correct for the VALUE but
+# left this chart unbumped while this branch still TOUCHES it -- Chart.yaml, values.yaml,
+# values-cp-platform.yaml and templates/dialhome-validate.yaml -- and `ct lint` requires a bump
+# for any touched chart however small the change. CI caught it:
+#     ✖︎ tp-mcp-gateway (version: "1.21.0-alpha.25") > chart version not ok. Needs a version bump!
+# ⚠️ The lint failure is the VISIBLE half. The silent half is worse and is the one this file
+# keeps recording: `.25` is PUBLISHED, so under chart-releaser's `skip_existing` a merge without
+# a bump would publish NOTHING AT ALL, succeed, and leave the tree diverged from its own tag.
+# Three inputs, enumerated over the whole `tp-mcp-gateway-` prefix (102 tags), not narrowed:
+#   * highest PUBLISHED alpha on the 1.21 line = `.25`. Control on the query itself -- `.25`
+#     returns 1 ref while `.24` and `.26` return 0 -- so a zero here means "free", not "the
+#     lookup failed", which is the distinction a bare count cannot make.
+#   * main = `1.21.0-alpha.25`.
+#   * open PRs touching this chart's version: #10924 (`.23`) and #10440 (`.5`), both below;
+#     #10186 is on the retired 1.20 line.
+# ⇒ `.26` is the first free number past all three. Moving it obliges the other two sites to move
+# in lockstep (dev/check-mcp-version-sync.sh CHECK 1 and 1b), which is the point of those checks.
+#
+# PCP-24484 (2026-09-24): `.26` -> `.28`, resolving a conflict with main. main took `.27` while
+# this branch sat open, so `.26` was BELOW main -- the same shape the note above records, firing a
+# second time, which is the argument for re-measuring at the merge window rather than defending a
+# number through review. Three inputs re-enumerated over the whole `tp-mcp-gateway-` prefix today:
+#   * highest PUBLISHED alpha on the 1.21 line = `.27`;
+#   * main = `1.21.0-alpha.27`;
+#   * open PRs touching this chart's version: #10927 (`.25`, draft) and #10440 (`.5`); #10186 is
+#     on the retired 1.20 line.
+# ⇒ `.28` is the first free number past all three.
+#
+# ⛔ THE INSTRUMENT FOR THE THIRD INPUT IS UNSOUND -- new, and it weakens every "open PRs claim X"
+#   line in this file. "List the open PRs and read their files" SILENTLY DROPS PRs: a 346-PR sweep
+#   via the GraphQL `pullRequests.files` connection AND a second pass via `gh pr list --json files`
+#   BOTH omitted #10959, which demonstrably touches charts/tibco-cp-mcp-hub/Chart.yaml and claims
+#   `.20` there -- proven by reading `gh pr diff 10959`, which returns the diff rather than the
+#   cached file list. Two independent instruments, same blind spot, and neither reports an error.
+#   ⇒ This input is a LOWER BOUND, not a census: a PR that never appears cannot be ranked past.
+#     Confirm a specific PR with `gh pr diff <n>`; treat the enumeration as a hint, and the number
+#     as provisional until merge.
+#
+# PCP-24264 SECOND RESYNC (2026-09-28): `.31` -> `.32`. PCP-23832 (#10987) merged while this PR
+# sat approved, taking main's gateway chart to `.31` and stranding the `.29` below. Re-enumerated
+# rather than incremented, with the same control this file insists on (a zero must mean "free",
+# not "the lookup broke"):
+#   * highest PUBLISHED alpha on the 1.21 line = `.28` — unchanged. `.29`, `.30`, `.31` are
+#     CLAIMED on main but NOT tagged, so published and main sit three apart; a number taken from
+#     the published list alone would land underneath main;
+#   * main = `1.21.0-alpha.31`;
+#   * open PRs claiming a 1.21 gateway number: none. #10927 is draft on the umbrella's 1.22 line,
+#     #10186 is the automation standing PR on the retired 1.20 line. Both read with `gh pr diff`.
+# ⇒ `.32`. The umbrella moved `.28` -> `.29` in the same commit: different prefix, different
+#   census, so the two lines move by different amounts — as the note below already records.
+#   `mcp-hub-recipes/values.yaml` (CHECK 1) and the umbrella's dependency pin (CHECK 1b) both
+#   carry `.32` in this same commit; they are not allowed to lag by even one commit.
+#
+# PCP-24264 (2026-09-25): `.28` -> `.29`. Three inputs re-measured today, with the control the
+# note above demands (a zero must mean "free", not "the lookup broke"):
+#   * highest PUBLISHED alpha on the 1.21 line = `.28`. Control: `.28` returns 1 ref, `.29` and
+#     `.30` return 0 — so the query is live and the zeros are real.
+#   * main = `1.21.0-alpha.28`.
+#   * open PRs touching THIS chart's version: only #10186, which is on the retired 1.20 line.
+#     Read with `gh pr diff` per the warning above, not from a cached file list.
+# ⇒ `.29` is the first free number past all three.
+# The umbrella moved `.21` -> `.23`, NOT `.22`: #10977 (wip/PCP-24485-platform-gateway-config)
+# already claims `tibco-cp-mcp-hub-1.22.0-alpha.22`. That PR does not touch THIS chart, so it
+# does not constrain `.29` — the two numbers are measured against two different prefixes, which
+# is why they move by different amounts.
+#
+# PCP-23832 (2026-09-27): `.31`. Three inputs, re-enumerated over the whole `tp-mcp-gateway-`
+# prefix via the git-refs matching-refs API (not local tags, which go stale):
+#   * highest PUBLISHED alpha on the 1.21 line = `.28`. Control on the query itself — `.28` returns
+#     1 ref while `.29`, `.30` and `.31` each return 0 — so a zero here means "free", not "the
+#     lookup failed". That control is not optional on this box: the first enumeration returned
+#     EMPTY because the grep expected `"ref": "` and the API emits compact `"ref":"`, which is a
+#     failure that reads exactly like "no tags exist".
+#   * main = `1.21.0-alpha.28`;
+#   * open PRs: none found claiming a 1.21 gateway number — and per the ⛔ block above that input
+#     is a LOWER BOUND, not a census.
+# ⇒ Taking `.31` rather than `.29`, deliberately. Roughly ten sibling sessions are bumping this
+# same chart right now, and this file's own hard-won rule is that a LATER number is unilaterally
+# safe (it cannot collide backwards, needs no cross-PR coordination) while a skipped number costs
+# nothing. Re-checked immediately before push.
+# ⚠️ `.31` is NOT a pin-only re-cut. It carries a template + values change in the vendored
+# mcp-stack sub-chart: a new default-FALSE `postgres.backup.preUpgrade.enabled`, one shared
+# backup-window helper feeding five previously hand-duplicated gates (one of which had drifted and
+# could hang a pg17→18 upgrade), and a skip notice on the -postgres-upgrade-status ConfigMap. The
+# DEFAULT render is unchanged — no new object, no changed value — so this buys a knob and a
+# notice, not a new default.
+# PCP-25126: .34, values-only. Overrides mcp-stack.monitoring.cadvisor.enabled -> false so the
+# privileged cadvisor (hostPath /) is opt-in. The default render is unchanged (it was already
+# behind monitoring.enabled=false). .33 is skipped: open PR #11019 claims it.
+# PCP-24390: .36, values-only (RateLimiterPlugin.config.by_user 60/m -> 300/m). `ct lint`
+# requires a version delta on any chart-content PR; re-checked against gh-pages and open
+# PRs right before bumping (latest published tag was .35, nothing else claims .36).
+#
+# PCP-25210: .37, fixes the bundled-Redis hardcoded default password (mcp-stack's own
+# Chart.yaml carries the detail). Three inputs re-checked immediately before this push via
+# the git-refs API (not local tags): highest published on the 1.21 line = `.36`; main = `.36`
+# (unmoved since this branch forked); no open PR found touching this chart's version. `.37`
+# is the first free number past all three.
+# PCP-25281/PCP-25280/PCP-25282: .38, fixes three gateway/chart plugins.config drifts
+# (RateLimiterPlugin backend, mode-conditional; WebhookNotification default_template raw
+# guard; Summarizer tool_allowlist globs) plus the three render-assertion updates covering
+# them. Re-checked immediately before this push: highest published tag on the 1.21 line =
+# `.37`; origin/main (fc948f199, newer than this branch's fork point) still carries `.37`;
+# no open PR found touching this chart's version. `.38` is the first free number past all
+# three.
+#
+# PCP-25379: .39, values-free — closes the full-mode admin/REST exposure at the public
+# Ingress (templates/ingress-traefik.yaml: plain Ingress -> Traefik v3 IngressRoute,
+# allowlisting only the external MCP client paths). The application-layer auth-flag fix
+# (AUTH_REQUIRED et al.) originally paired with this is DEFERRED to 1.23
+# (wip/PCP-25379-1.23-auth-fix) — see dev/plan/PCP-25379-grounding.md §12; this chart content
+# is the Ingress change only. Merged onto origin/main after .38 (PCP-25281/25280/25282)
+# landed; re-checked immediately before this merge via the git-refs API: highest published
+# on the 1.21 line = `.38`; main = `.38`; no open PR found claiming `.39` (#11109/#11057
+# claim ticket-suffixed numbers on the 1.22 line, #10186 is the 1.20 line — none contend
+# this chart's 1.21 sequence). `.39` is still the first free number past all three.
+#
+# PCP-25488: `.40`. Re-checked 2026-10-06 against the fresh worktree base (origin/main),
+# unscoped over the whole `tp-mcp-gateway-` prefix: highest published alpha on the 1.21 line
+# is `.39` (the suffixed `.4-PCP-23784` / `.6-PCP-23774` tags are feature-branch side cuts, not
+# part of this sequence); main itself already reads `.39`, matching the highest publish exactly;
+# the open-PR sweep found none claiming `.40` or higher on this chart. `.40` is the first free
+# number past all three.
+# ⚠️ `.40` is NOT a pin-only re-cut. It adds `global.tpMcpGateway.config.MCPGATEWAY_POOL_RPC_FORWARD_TIMEOUT`
+# to values.yaml, defaulted to `"180"` (the code default is 30s) — a real behaviour change: a
+# multi-replica production gateway now waits up to 180s, not 30s, for a cross-worker forward to a
+# session's owning worker before failing a federated elicitation. Renders on every profile
+# (production/affinity-ON, affinity-OFF, lite) through the existing shared-config path and is
+# overridable through the same key — see the values.yaml comment at the key for the full rationale.
+# PCP-25546: .40 -> 1.22.0-alpha.21 (onto the 1.22 line; .20 is reserved for the lane's .85 cut).
+# PCP-25553: .21 -> .22 — the public-ingress PRM templates land on main (CHECK 1b: the umbrella
+# dependency pin and mcp-hub-recipes helmChartVersion move in this same commit).
+# main-fix: .22 -> .24. Moves the four gateway image pins main-860e786 -> releases-1.22-f2daa20.
+# .23 was taken by the 1.22 candidate mid-flight; a later number cannot collide backwards.
+# PCP-25403: .24 -> .27 -> .31. The .27 history is kept below because the lesson in it is the one
+# this header exists to teach, and it has now been paid for twice.
+#
+# ⚠️ THIS WAS FIRST CUT AS .28 AND THAT COLLIDED WITH #11206, which had claimed .28 in writing and
+# had deliberately left .26 and .27 for the two lanes merging ahead of it. Recorded because the
+# mistake is the one this header exists to prevent and it still got made: the rule names THREE
+# inputs — highest published tag, main, AND every open PR that touches this file — and the third
+# was applied as a COUNT ("two sibling PRs exist, so leave headroom") instead of as a VALUE. Nobody
+# read what those PRs actually declared. Had they been read, .28 was visibly taken.
+# ⛔ And nothing would have caught it: under chart-releaser's skip_existing whichever lane merges
+# SECOND publishes nothing, while its umbrella still pins .28 — so a Data Plane installs a version
+# that looks right and carries the OTHER lane's content. `ct lint --check-version-increment` passes
+# (.28 > main's .24 for both lanes) and `dev/check-mcp-version-sync.sh` CHECK 1/1b passes (it
+# compares the three in-repo pins to EACH OTHER, never to the published tag set or to another PR).
+# ⇒ Read the sibling PRs' Chart.yaml, do not just confirm the PRs exist.
+#
+# ⚠️ Still a PLACEHOLDER to be RE-CHECKED at merge, not a reservation: resolve the highest published
+# tag from the git-refs API (local tags go stale even after `fetch --tags`) AND re-read every open
+# PR touching this file, then re-bump if .27 has been taken by then. A skipped number costs nothing;
+# a reused one publishes nothing.
+# PCP-25635 (on main, merged while this PR was open): .24 -> .29, appVersion "1.21.0" -> "1.22.0".
+# For CP-provisioned instances this appVersion only feeds the app.kubernetes.io/version label (and
+# Helm's release metadata); the capability version the CP stores comes from the recipe. The
+# "v 1.21.0" on the Data Plane capability card came from mcp-hub-recipes' appVersion (the recipe
+# capabilityVersion), which moved to 1.22.0 in the same change. Both must equal this chart
+# version's x.y.z core, enforced by dev/check-mcp-version-sync.sh CHECK 1c. That appVersion is
+# KEPT verbatim here — it is 25635's whole point and nothing in this PR touches it.
+#
+# PCP-25403: .27 -> .31, re-cut on the merge with main.
+# ⚠️ AND THIS IS THE SECOND TIME THIS PR HAS HAD TO RE-CUT, which is the point of keeping the
+# history above rather than tidying it away. The first re-cut (.28 -> .27) was my own error: I
+# applied the "every open PR that touches this file" rule as a COUNT instead of as a VALUE. The
+# second (.27 -> .31) was nobody's error — PCP-25635 simply merged first and took .29, and 25635's
+# own comment shows it did the check correctly, naming .26/.27/.28 as claimed. ⇒ The rule the two
+# together actually teach: a version in an open PR is a PLACEHOLDER with a shelf life, not a
+# reservation. Re-read all three inputs at EVERY merge attempt, not once when the branch is cut.
+# Inputs re-checked at this merge: highest PUBLISHED tag = .29 (git fetch --tags); main = .29;
+# open PRs #11207 = .26 and #11206 = .28, BOTH now below main and so both must re-cut too.
+# .31 is free past all of them, and leaves .30 for PCP-25406 which merges immediately before this
+# one. If that order changes, this re-cuts again.
+# ⚠️ What .31 CARRIES is a behaviour change, not a packaging bump: the public Gateway API
+# HTTPRoute no longer routes the whole `<publicApi.pathPrefix>/` prefix on controllers outside
+# ISTIO / NGINX_GATEWAY_FABRIC. See templates/gateway-public.yaml's header comment and
+# dev/plan/PCP-25403-plan.md, and read the release-note paragraph before shipping it to a
+# customer who may be reaching the gateway's admin console over the public edge.
+#
+# PCP-25402: .31 -> .32, the haProxy lane, cut after #11208 (PCP-25403) merged at .31.
+# ⚠️ THIS LANE RE-CUT TWICE TOO, for the same reason and with the same lesson, so the two notes
+# above are not one PR being unlucky — they are the rule failing twice in a row. This branch
+# reserved `.28` and left `.26`/`.27` clear for the siblings; PCP-25635 then took `.29` to clear
+# all three and PUBLISHED it, which put every reservation below the floor at once. A reservation
+# written in a comment is not a lock: the floor is the highest PUBLISHED tag, and a publish above
+# a reservation voids it silently, for every lane holding one, in a single merge.
+# Inputs re-checked at this merge: highest published tag and main both at `.31` after #11208;
+# `.30` belongs to PCP-25406 (#11207), which merges after this one. `.32` is free past all three.
+# ⚠️ What `.32` CARRIES is a behaviour change, not a packaging bump: the haProxy public Ingress
+# serves only the documented MCP paths plus the two approved OAuth paths, enforced in BOTH the
+# routing rules and a backend `http-request deny`. An existing haProxy install stops serving
+# /admin and the REST surface on the public edge after this upgrade. It also quotes `host:`, which
+# makes a wildcard public FQDN render where it previously produced no object at all. See
+# templates/ingress-haproxy-public.yaml and dev/plan/PCP-25402-plan.md.
+#
+# PCP-25406: .32 -> .33, the nginx lane, re-cut on the merge with main after BOTH siblings landed.
+# This PR originally cut .26; .26 is now far below the floor. The two notes above describe the
+# same rule failing twice, and this is the third instance of it, so the rule is restated as the
+# thing that actually held: a version written in an open PR is a PLACEHOLDER WITH A SHELF LIFE.
+# `.30` was left clear for this lane in #11208's comment and `.30` is NOT what this takes --
+# reading that reservation instead of re-measuring would have reused a number below main.
+# Inputs re-checked at THIS merge, all three, as values and not as counts:
+#   highest PUBLISHED tag  = .31 (gh-pages index; .32 is on main but NOT yet published, so the
+#                            published set alone would have under-reported the floor by one)
+#   main                   = .32
+#   open PRs touching this file = none claiming a 1.22.0-alpha.3x. #11198 is PoC-only/DO-NOT-MERGE
+#                            and touches other charts; #11057 carries the suffixed side-cut
+#                            `1.22.0-alpha.21-PCP-25082`, which is not in this sequence.
+# `.33` is free past all three.
+#
+# ⚠️ appVersion is "1.22.0" and is NOT touched here: PCP-25635 moved it from "1.21.0" and that is
+# its whole point. This branch predates 25635 and still carried "1.21.0", so the merge deliberately
+# takes main's value -- keeping the branch's would have been a silent revert of another ticket,
+# caught by dev/check-mcp-version-sync.sh CHECK 1c (chart appVersion and the recipe's
+# capabilityVersion must both equal this version's x.y.z core).
+#
+# ⚠️ What `.33` CARRIES is a behaviour change, not a packaging bump:
+#   - publicApi.nginxAllowlistEnabled flips false -> true, so an nginx-fronted public Ingress
+#     serves only the documented MCP client paths, the RFC 9728 discovery doc and the two approved
+#     OAuth paths -- not the whole `<publicApi.pathPrefix>/` prefix. /admin and the REST surface
+#     stop being served on the public edge. Opt out with nginxAllowlistEnabled: false.
+#   - `host:` is now quoted, in BOTH branches, so a wildcard public FQDN (`*.example.com`) renders.
+#     Unquoted, a leading `*` is a YAML ALIAS indicator and the template failed to parse, which
+#     aborts the WHOLE release render -- not just this object. Measured, see dev/plan.
+# See values.yaml at the key for the upgrade matrix and the host-wide use-regex caveat, and read
+# the release-note paragraph before shipping to a customer reaching /admin over the public edge.
+# PCP-24759: .32 -> .35. Pins the 1.22 release images (releases-1.22-c998f26, tag-only on main) that
+# shipped as tp-mcp-gateway-1.22.0-alpha.34. .33 and .34 are published; .35 is the next free number.
+# PCP-26062 (2026-10-15): .35 -> .36, pinning the published CCRB candidate image
+# releases-1.22-000f704 (tag-only on main, same convention as PCP-24759 above; digest
+# sha256:805fac63...8304f is the published image's content pin, recorded as acceptance
+# evidence in the PR rather than a chart default -- see image-digest-assert.sh (A)).
+# OWNER DECISION (2026-10-15), superseding the above: .36 -> .37. The 1.22 charts ship
+# main's own content (this chart's PCP-25406/25403/25402 ingress hardening included),
+# not a re-pin to the already-published cbac50ff52 artifact -- .36 was never published
+# under this plan, so .37 is main's own next free number, same image by tag.
+# PCP-25657: 1.22.0-alpha.37 -> 1.22.0, the GA CUT of the gateway chart. releases/1.22 ONLY.
+# A bare GA semver cannot exist on main: tag_ok() in dev/check-mcp-version-sync.sh rejects a bare
+# x.y.z on lane=main, while CHECK 4 then demands the pins equal it -- mutually unsatisfiable. This
+# is the 1.21 shape (#10759, 17bd894156): a GA gateway under an ALPHA umbrella. The umbrella stays
+# alpha by decision (Durgesh, 2026-10-21): only this chart goes non-alpha, now.
+# Moves in this SAME commit, because guards couple them: all ten gateway-image tag pins
+# "releases-1.22-000f704" -> "1.22.0" (8 in this file's values.yaml, 1 in tibco-cp-mcp-hub/values.yaml,
+# 1 in mcp-hub-recipes/values.yaml); MCP_HUB_WEBSERVER_IMAGE_TAG "releases-1.22-0fb767a-adf287e" ->
+# "1.22.0", the ELEVENTH pin, which sits OUTSIDE SITES[] and so is guarded by nothing; the recipe's
+# mcpGateway.helmChartVersion (CHECK 1); and the umbrella's exact tp-mcp-gateway dependency pin
+# (CHECK 1b). TAG-ONLY: every digest stays "" -- digests are populated on the alpha lane only, by
+# release-alpha.sh, and a hand-cut GA has no equivalent pinner.
+# Inputs re-checked immediately before push: highest PUBLISHED gateway tag is .37 (git-refs API,
+# unscoped prefix `tp-mcp-gateway-1.22`); a bare `tp-mcp-gateway-1.22.0` is not tagged (404) and not
+# in the gh-pages index; no open PR claims it (383 open PRs swept).
+# ⚠️ CHECK 4 compares the pin STRING to this version and never touches a registry, so a green CI
+# proves nothing about whether `:1.22.0` exists. The five tags are minted by tp-mcp-hub's
+# release-promote-images.yml BEFORE this merges; merging first publishes a chart that is green and
+# ImagePullBackOff at install.
+# ⚠️ FREEZE releases/1.22 for this chart after the merge. release-alpha.sh has no GA-awareness: its
+# gateway self-heal re-pins every site to <lane>-<sha> whenever they differ, so a dispatch against
+# this branch silently reverts everything above. Do not dispatch it here.
+# appVersion "1.22.0" is NOT touched: it already equals this version's x.y.z core (CHECK 1c).
+# 1.22.0 IMAGE SPRINT (PCP-24326): 1.22.0 -> 1.22.1, a patch of the GA chart. releases/1.22 ONLY. The owner chose a
+# 1.22.1 chart over deleting and republishing 1.22.0 (2026-10-22): the published tp-mcp-gateway-1.22.0 tag, its index
+# entry and the :1.22.0 images are NOT touched. 1.22.1 carries: the public OpenShift Routes for ingressController
+# openshiftRouter (PCP-26618, a BEHAVIOUR CHANGE: the value is matched case-insensitively and an unknown controller now
+# fails the render by name), the private OpenShift Route's targetPort naming its Service port (PCP-26712), and rebuilt
+# first-party images: all ten gateway-image pins "1.22.0" -> "1.22.1" (8 in this file's values.yaml, 1 in
+# tibco-cp-mcp-hub/values.yaml, 1 in mcp-hub-recipes/values.yaml), TAG-ONLY, every digest stays "".
+# appVersion "1.22.0" -> "1.22.1" in the SAME commit (CHECK 1c, and the recipe's appVersion too): a patch chart left
+# advertising capabilityVersion 1.22.0 would rewrite the 1.22.0 catalog directory in place, and existing 1.22.0
+# instances would never be offered the upgrade.
+# ⚠️ CHECK 4 compares the pin STRING to this version and never touches a registry, so a green CI proves nothing about
+# whether `:1.22.1` exists. The tags are minted by tp-mcp-hub's release-promote-images.yml BEFORE this merges.
+# ⚠️ The FREEZE on releases/1.22 for this chart stands (see the 1.22.0 entry above): never dispatch release-alpha here.
+# 1.22.2 SPIN (PCP-24326): 1.22.1 -> 1.22.2. Owner ruling (2026-10-22): 1.22.1 is NOT handed off, so no chart named 1.22.1 was ever
+# published; the chart follows the rebuilt images to 1.22.2. CHECK 1c needs both appVersions on the chart's core, and CHECK 4
+# would also accept 1.22.2 images under a 1.22.1 chart (it compares the major.minor line only), but the capabilityVersion the
+# Control Plane shows is the recipe appVersion, so that would read 1.22.1 over 1.22.2 images. The 1.22.1 entry above is the
+# history of the internal, proven candidate: everything it lists ships in 1.22.2. All first-party image pins "1.22.1" ->
+# "1.22.2" (8 in this file's values.yaml, 1 in tibco-cp-mcp-hub/values.yaml, 1 in mcp-hub-recipes/values.yaml), TAG-ONLY,
+# every digest stays "".
+# ⚠️ CHECK 4 still compares the pin STRING and never touches a registry: the :1.22.2 tags are minted by tp-mcp-hub's
+# release-promote-images.yml BEFORE this merges. Re-check that tp-mcp-gateway-1.22.2 is not already a tag before the merge.
+# PCP-26950 (the content of main #11459, merged as 4a06b71cf3, picked as its own commit in this push): a FULL gateway is published only on the
+# private path on the OpenShift public Route and on Gateway API TIER 2 (those two edges cannot express the exact per-server path): it no longer
+# renders `<pathPrefix>/servers` there, and publicApi.gatewayApiAllowlistEnabled=false is refused for a FULL gateway on TIER 2. LITE, Gateway API
+# TIER 1 and the Ingress edges are unchanged. ⚠️ A behaviour change: a FULL gateway behind the OpenShift router or a TIER 2 controller has no
+# public MCP endpoint any more; it stays reachable on the private path (the gateway README says so).
+# 1.22.3 BASE SYNC (PCP-25657, 2026-10-26): 1.22.2 -> 1.22.3, a CHART-ONLY patch. The only content change is common-fluentbit
+# 5.1.3 -> 5.1.5 (this chart's values.yaml and mcp-stack's), the pin tibco-cp-base carries on releases/1.22, taken together
+# with the hub's other base pins (cpScripts 9870, distroless 13.7) on the owner's instruction to match base. No first-party
+# image is rebuilt: all eight image pins STAY "1.22.2", and CHECK 4 accepts that because it compares the major.minor line only
+# (ga_pin_ok, the 1.21.0 -> 1.21.1 shape). The chart still has to move, because ct lint requires an increment for any chart
+# whose files changed, and CHECK 8 ties the recipes' fluentbitTag to this chart's fluentbit tag byte for byte.
+# ⚠️ CONSEQUENCE, DECIDED, not accidental: CHECK 1c needs BOTH appVersions on this chart's x.y.z core, and the recipes' appVersion is
+# the capabilityVersion the Control Plane shows. So the CP will now read 1.22.3 over 1.22.2 images -- exactly the mismatch the
+# 1.22.2 SPIN entry above reasoned its way out of. The alternative (leave the gateway's fluentbit on 5.1.3) avoided it and was
+# offered; the owner chose the full match. Existing 1.22.2 instances are offered the upgrade; the 1.22.0 and 1.22.2 catalog
+# directories are not retired.
+# Inputs re-checked immediately before push: highest PUBLISHED tp-mcp-gateway GA tag is 1.22.2 (1.22.1 was never published);
+# `tp-mcp-gateway-1.22.3` returns 404 on the exact ref; no open PR claims it (all 402 open PRs swept).
+# 1.22 RESPIN candidate 1 (PCP-27433, carrier PCP-27265, 2026-10-27): 1.22.3 -> 1.22.4-alpha.1, a CCRB CANDIDATE alpha, not a GA cut.
+# Content: the ten first-party pins move to releases-1.22-0aa6010 BY DIGEST (#613 PCP-27071 trunk fix, #616 PCP-27431 the 1.22
+# blocker: per-gateway PLUGINS_OPERATOR_OWNED_ENFORCED, #617 PCP-27185). No template or plugins.config change. appVersion is the
+# x.y.z core 1.22.4 (CHECK 1c), so the recipe advertises capabilityVersion 1.22.4 and existing 1.22.x instances are offered the
+# upgrade. The GA version, promotion, air-gap and bundles are the release owner's, not this PR's.
+# Inputs re-checked immediately before push: highest PUBLISHED tp-mcp-gateway on this line is 1.22.3; no 1.22.4* tag exists.
+# 1.22 RESPIN candidate 2 (PCP-27433, carrier PCP-27265, 2026-10-28): 1.22.4-alpha.1 -> 1.22.4-alpha.2, a CCRB CANDIDATE alpha, not a GA cut.
+# Content: the ten first-party pins move to releases-1.22-f4a4dc0 BY DIGEST = candidate 1 plus tp-mcp-gateway #621: the PCP-27431
+# follow-up (floor record fixes, the single-team start-up line becomes a WARNING), msgpack 1.2.3 (PCP-27071) and go-jose/v4
+# 4.1.6 in the proxy (PCP-27466). No template or plugins.config change. appVersion stays 1.22.4 (CHECK 1c). The GA version,
+# promotion, air-gap and bundles are the release owner's, not this PR's.
+# Inputs re-checked immediately before push: highest PUBLISHED tp-mcp-gateway on this line is 1.22.4-alpha.1; no 1.22.4-alpha.2 tag exists.
+# 1.22.4 GA (PCP-25657, 2026-10-28): 1.22.4-alpha.2 -> 1.22.4, the CLEAN GA chart of 1.22 respin candidate 2 (PCP-27433). The content
+# is candidate 2's, unchanged: only the pins' tag text moves, from releases-1.22-f4a4dc0 to the customer-facing tag 1.22.4, minted by
+# tibco/tp-mcp-hub release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving aliases in -dev only). Every digest stays and
+# now names the SAME image under both tags; all five promoted tags were re-resolved in the registry (gateway e995b0a8, discovery
+# 61999ded, proxy 9c4ee0b3, dialhome ea867437, hub 502400dd). CHECK 4 applies from here (a clean GA version): the pins must equal 1.22.4.
+# appVersion stays 1.22.4. Inputs re-checked before push: no tp-mcp-gateway-1.22.4 tag or index entry exists; highest published is 1.22.4-alpha.2.
+version: 1.22.4
+appVersion: "1.22.4"
 
 dependencies:
   - name: mcp-stack
-    version: "1.0.0-RC-37"
+    # Moves with charts/mcp-stack/Chart.yaml (PCP-25210: RC-38 -> RC-39). These two are the only
+    # two occurrences of the mcp-stack version in the repo and must never be bumped apart.
+    version: "1.0.0-RC-39"
     repository: "file://charts/mcp-stack"
     condition: mcp-stack.enabled
 

@@ -4091,6 +4091,31 @@
     "postgres": {
       "type": "object",
       "properties": {
+        "backup": {
+          "type": "object",
+          "properties": {
+            "preUpgrade": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "PCP-23832: take a pg_dump of the BUNDLED database into the bundled MinIO as a pre-upgrade hook Job on every chart upgrade, not only on the one-shot PG17->18 engine-major upgrade. Requires minio.enabled=true. Does nothing when postgres.external.enabled=true (the chart does not manage an external database); the -postgres-upgrade-status ConfigMap reports that skip explicitly. Default false: a pre-upgrade hook blocks the upgrade, so a slow or failing dump is a stalled or failed upgrade.",
+                  "default": false
+                },
+                "keepDays": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "PCP-23832: retention in days for dumps in the bundled MinIO 'postgres-backups' bucket, swept immediately BEFORE each upload. 0 disables the sweep and keeps every dump FOREVER - a legitimate choice, but then retention is yours to manage (e.g. a MinIO lifecycle rule), because the dumps are CUMULATIVE: the filename is timestamped per run, the prefix is flat, and the restore step reads only the newest key. Left unbounded with preUpgrade.enabled=true the MinIO PVC grows by one full database dump per helm upgrade until it fills, at which point the upload fails and the pre-upgrade hook FAILS THE UPGRADE. Size the MinIO PVC for (dump size x upgrades within keepDays). The sweep is non-fatal: a failed sweep logs a warning and the backup still proceeds.",
+                  "default": 7
+                }
+              },
+              "additionalProperties": false,
+              "description": "Pre-upgrade backup configuration"
+            }
+          },
+          "additionalProperties": false,
+          "description": "PostgreSQL backup configuration"
+        },
         "credentials": {
           "type": "object",
           "properties": {
@@ -4447,8 +4472,8 @@
             },
             "password": {
               "type": "string",
-              "description": "Redis password used when existingSecret is not set",
-              "default": "change-me-redis"
+              "description": "Redis password used when existingSecret is not set. Leave blank (default) to auto-generate: the chart mints a random password on first install and reuses the live Secret's value on every upgrade. Set explicitly only to pin your own password.",
+              "default": ""
             },
             "passwordKey": {
               "type": "string",

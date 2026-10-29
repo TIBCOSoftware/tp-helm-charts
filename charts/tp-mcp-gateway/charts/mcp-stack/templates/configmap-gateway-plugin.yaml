@@ -7,6 +7,28 @@ metadata:
     {{- include "mcp-stack.labels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 data:
+  {{- /* PCP-25281: real Redis is reachable here iff the bundled server is on (redis.enabled,
+     true by default in full mode) or an external one was injected/set (redis.external.enabled).
+     Only then does the RateLimiterPlugin binding get a real backend -- otherwise (both off,
+     an atypical full-mode install) it gets the same explicit memory backend lite always uses,
+     not a silent redis attempt against nothing. The redis fragment is multi-line
+     (.Values.rateLimiterRedisBlock -- this subchart's OWN values, see mcp-stack: in the
+     parent's values.yaml for why it lives there rather than as a literal here); `indent 6`
+     fixes every one of ITS lines to the column the placeholder sits at in THIS STRING (6 --
+     the block-scalar's own 4-space common-indent is already stripped by the time this is a
+     Go string, so it is NOT the 10 the placeholder appears to sit at in the values.yaml
+     SOURCE text), and `trimPrefix` drops that indent back off of only the FIRST line, which
+     already inherits the placeholder's own leading spaces from the surrounding text -- only
+     lines 2+ need it baked in literally. Verify with `helm template` + a column count if you
+     touch either number; a mismatch renders YAML that LOOKS fine in a diff but fails to parse
+     (PCP-25281: measured once, a 4-space-too-deep continuation line broke the SECOND, in-pod
+     YAML parse of this ConfigMap's own data, not the first `helm template` parse of it). */}}
+  {{- /* Declared ONCE outside the if/else: a `:=` inside each branch would scope the variable
+     to that branch alone and it would be undefined below -- `=` re-assigns the outer one. */}}
+  {{- $rateLimiterBackend := "backend: \"memory\"" }}
+  {{- if or .Values.redis.enabled .Values.redis.external.enabled }}
+  {{- $rateLimiterBackend = .Values.rateLimiterRedisBlock | trim | indent 6 | trimPrefix "      " }}
+  {{- end }}
   config.yaml: |
-    {{- .Values.mcpContextForge.pluginConfig.plugins | nindent 4 }}
+    {{- .Values.mcpContextForge.pluginConfig.plugins | replace "RATE_LIMITER_BACKEND_BLOCK_PLACEHOLDER" $rateLimiterBackend | nindent 4 }}
 {{- end }}

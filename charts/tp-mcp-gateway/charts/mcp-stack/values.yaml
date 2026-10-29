@@ -33,7 +33,10 @@ global:
           # lockstep with this one.
           repository: common-fluentbit
           # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
-          tag: "5.1.2"
+          # PCP-25657: 5.1.2 -> 5.1.3, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22).
+          # PCP-25657: 5.1.3 -> 5.1.5, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22,
+          # 1.22.0-alpha.137). common-fluentbit:5.1.5 verified present in -dev (sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4).
+          tag: "5.1.5"
           pullPolicy: IfNotPresent
         # DP log-collector endpoint (well-known service in the capability namespace).
         otel:
@@ -1341,10 +1344,69 @@ postgres:
       failureThreshold: 8
 
   # ─── PostgreSQL Upgrade Configuration ───
+  # This block is the ONE-SHOT PG17 -> PG18 ENGINE-MAJOR state machine and nothing else.
+  # `targetVersion` and `backupCompleted` are its state, and `backupCompleted` is what makes it
+  # self-disarming: the pre-upgrade dump Job stops rendering once the dump has been taken. Do not
+  # reach for this block to ask for a routine backup — that is postgres.backup below.
   upgrade:
     enabled: false              # Set to true to enable the upgrade process
     targetVersion: "18"         # Target PostgreSQL version (e.g., "18")
     backupCompleted: false      # Set to true after successful backup (to prevent re-running backup job)
+
+  # ─── PostgreSQL Backup Configuration (PCP-23832) ───
+  # >>> LOCAL TIBCO MODIFICATION (PCP-23832) — re-apply on upstream re-vendor. <<<
+  backup:
+    preUpgrade:
+      # Take a `pg_dump` of the BUNDLED database into the bundled MinIO as a `helm.sh/hook:
+      # pre-upgrade` Job on EVERY chart upgrade, not only on the one-shot PG17 -> PG18 engine-major
+      # upgrade above. This is the key that relaxes job-postgres-backup.yaml off its
+      # `targetVersion == "18"` pin, so a 1.20 <-> 1.21 chart upgrade can have a restore point.
+      #
+      # DEFAULT FALSE, DELIBERATELY — do not "fix" this to true without reading the rest of this
+      # note. A pre-upgrade HOOK is not a background job: Helm blocks on it, so a dump that is slow
+      # (a large customer database, a throttled PVC) is not a slow backup, it is a STALLED UPGRADE,
+      # and a dump that fails is a FAILED upgrade. Turning it on per Data Plane is a decision that
+      # needs the size of that database and the sizing of its MinIO PVC, neither of which the chart
+      # knows. Keeping the default false also leaves the default render byte-identical.
+      #
+      # REQUIRES minio.enabled=true — the dump is published to the bundled object store, and
+      # deployment-postgres.yaml fails the render at once rather than letting the Job discover it.
+      #
+      # DOES NOTHING FOR AN EXTERNAL DATABASE, and this is the explicit decision PCP-23832 AC2
+      # asked for rather than an oversight. With postgres.external.enabled=true — which is the
+      # SHIPPED PARENT DEFAULT for full mode — the chart neither owns the database's lifecycle nor
+      # is guaranteed the credentials, the network path or the disk to write a useful dump, so it
+      # takes none. Because silence there is indistinguishable from a backup that ran, the
+      # <release>-mcp-stack-postgres-upgrade-status ConfigMap now carries `preUpgradeBackup:
+      # "skipped"` and a `preUpgradeBackupReason` saying so in words. Back an external PostgreSQL
+      # up with your own tooling before upgrading; `helm rollback` will not restore it.
+      enabled: false
+
+      # Retention, in days, for the dumps in the bundled MinIO's `postgres-backups` bucket.
+      # Swept immediately BEFORE each upload. `0` disables the sweep and keeps every dump forever.
+      #
+      # THIS KEY EXISTS BECAUSE `enabled: true` MAKES THE DUMP RECURRING. On the pg17 -> pg18 path
+      # the dump was a once-ever event, so an unbounded bucket cost exactly one object and nobody
+      # needed retention. Per-upgrade, nothing prunes: the dump filename is timestamped per run and
+      # uploaded to a flat prefix, and the restore step reads only the NEWEST key — so every older
+      # dump is dead weight the object store keeps forever. The bundled MinIO PVC then grows by one
+      # full database dump per `helm upgrade` until it fills, at which point the upload fails,
+      # `set -e` kills the backup Job, and the pre-upgrade hook FAILS THE UPGRADE — the same
+      # outcome the opt-in default above exists to avoid, reached by a slower route.
+      #
+      # 7 days is chosen to span a normal upgrade cadence, so the previous release's dump is still
+      # present while a new one is taken. RAISE IT if your upgrades are further apart than a week
+      # and you want more than one restore point; SIZE THE MinIO PVC for
+      # (dump size x upgrades within keepDays), not for a single dump.
+      #
+      # Setting `0` is a legitimate choice — but it means retention is YOURS to manage (a MinIO
+      # lifecycle/ILM rule on the bucket, or an external sweep). The chart will not prune, and the
+      # PVC-full failure above becomes a question of when, not whether.
+      #
+      # The sweep is NON-FATAL: if `mc rm` fails, the Job logs a warning and still takes and
+      # uploads the backup. Retention is housekeeping; the backup is the contract, and a failed
+      # sweep must never be the thing that fails a customer's upgrade.
+      keepDays: 7
 
 ########################################################################
 # PGBOUNCER - Connection Pooler for PostgreSQL
@@ -1492,10 +1554,18 @@ redis:
   # ─── Authentication ───
   auth:
     enabled: true
-    # Use an existing secret for Redis password (optional)
+    # Use an existing secret for Redis password (optional; REQUIRED for a `helm template`/
+    # dry-run GitOps render, where the chart cannot `lookup` an existing password -- see
+    # templates/secret-redis.yaml, same caveat as serverTls.existingSecret below).
     existingSecret: ""
     passwordKey: "REDIS_PASSWORD"
-    password: "change-me-redis"      # CHANGE ME in production!
+    # PCP-25210: left blank deliberately -- a hardcoded literal here would ship a known
+    # default password to every install that doesn't override it. Blank means "auto":
+    # templates/secret-redis.yaml mints a random password on first install and reuses
+    # whatever is already in the live Secret on every upgrade (never regenerates, never
+    # silently rotates a password already in use). Set this explicitly only to pin your
+    # own password.
+    password: ""
 
   # ─── Client TLS (PCP-20216 / TT-22) ───
   # Opt-in: make the gateway's Redis CLIENT connection use TLS (rediss:// + REDIS_SSL=true).
@@ -1755,7 +1825,9 @@ minio:
   # in-place way back because the finalize hook has already removed pgdata-pg17-bak.
   # minio.enabled=false ON ITS OWN hits the fail-fast in deployment-postgres.yaml
   # ("postgres.upgrade.enabled=true requires minio.enabled=true"), which aborts every subsequent
-  # helm operation at render time. The two that work:
+  # helm operation at render time. (PCP-23832: that same fail-fast now also fires for
+  # postgres.backup.preUpgrade.enabled=true, so end state (B) below additionally requires that key
+  # to be false — it publishes its dump to this same object store.) The two that work:
   #   (A) Leave postgres.upgrade.enabled / targetVersion / backupCompleted AND minio.enabled in
   #       place permanently. Steady-state restarts do no work outside the pod — the check step
   #       sees the completion marker and every later step exits immediately — but the database

@@ -4,7 +4,7 @@
 # in the license file that is distributed with this file.
 #
 
-{{ if .Values.global.cp.svcPod.enabled -}}
+{{ if eq (include "opentelemetry-collector.deployEnabled" .) "true" -}}
 {{ if eq .Values.mode "deployment" }}
 apiVersion: {{ .Values.apiVersion }}
 kind: Deployment
@@ -21,7 +21,7 @@ metadata:
   {{- end }}
 spec:
 {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount | default 1 }}
+  replicas: {{ .Values.replicaCount }}
 {{- end }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:

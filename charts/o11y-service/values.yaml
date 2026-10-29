@@ -275,7 +275,7 @@ global:
               enabled: true
               kind: prometheus
               prometheus:
-                endpoint: system
+                endpoint: somevalue
                 username: somevalue
           secret:
             exporter:
@@ -293,6 +293,12 @@ global:
               prometheus:
                 headers: {}
                 password: somevalue
+            # PCP-24369: HawkConsole metric-scrape client credential, set per data plane by
+            # cp-orchestrator from v3_data_planes.dp_config (top-level --ct-metric-auth-token,
+            # base64("<user>:<password>")). Rendered into the o11y-hawk-metric-auth Secret on
+            # control-tower data planes; empty renders nothing.
+            hawkconsole:
+              metricAuthToken: ""
         tracesServer:
           config:
             exporter:
@@ -533,7 +539,7 @@ global:
       namespace: dp-integration-default
     image:
       registry: 664529841144.dkr.ecr.us-west-2.amazonaws.com
-      tag: 6118
+      tag: 7296
     job:
       image:
         tag: 9474
@@ -666,6 +672,14 @@ extraInitContainers: []
 
 image:
   pullPolicy: IfNotPresent
+
+# TPSEC-121: SSRF guard on /v1/testconnection. In a data plane the ES/OpenSearch/
+# Prometheus query services are internal cluster services (private IPs), so the
+# guard must be allowed to reach loopback/RFC1918 addresses. Cloud-metadata (IMDS)
+# and link-local addresses stay blocked regardless of this setting. Set to false
+# to block internal endpoints (strictest).
+testConnection:
+  allowInternalEndpoints: true
 
 ingress:
   # -- Enables configuration of ingress to expose o11y-service. Requires ingress support in the Kubernetes cluster.

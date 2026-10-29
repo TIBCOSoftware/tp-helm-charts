@@ -4,6 +4,20 @@
   in the license file that is distributed with this file.
 */}}
 
+{{/* Resolve the URL scheme for the on-prem provisioner-agent: https when connect.tls is true, http otherwise. */}}
+{{- define "tp-tibtunnel.helpers.scheme" -}}
+{{- ternary "https" "http" .Values.connect.tls -}}
+{{- end -}}
+
+{{/* Resolve the on-prem provisioner-agent port. If connect.onPremPort is set, use it as-is; otherwise default by TLS: 443 when connect.tls is true, 80 when false. */}}
+{{- define "tp-tibtunnel.helpers.onPremPort" -}}
+{{- if .Values.connect.onPremPort -}}
+{{- .Values.connect.onPremPort -}}
+{{- else -}}
+{{- ternary "443" "80" .Values.connect.tls -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Generate tibtunnel configure command using values params. Ex: tp-tibtunnel configure --tibcoDataPlaneId abcd -a accessKey --config-dir /opt/config/tibtunnel */}}
 {{- define "tp-tibtunnel.helpers.command.configure" -}}
 {{- $profile := printf "%s%s" (ternary "--profile " "" (ne .Values.configure.profile "")) .Values.configure.profile  -}}
@@ -23,5 +37,6 @@ tp-tibtunnel configure {{ $profile }} {{ $dataPlaneId }} --config-dir {{.Values.
 {{- $logFile := printf "%s%s" (ternary "--log-file " "" (ne .Values.connect.logFile "")) .Values.connect.logFile }}
 {{- $networkCheckUrl := printf "%s%s" (ternary "--network-check-url " "" (ne .Values.connect.networkCheckUrl "")) .Values.connect.networkCheckUrl }}
 {{- $infiniteRetries := ternary "--infinite-retries" "" .Values.connect.infiniteRetries -}}
-tp-tibtunnel connect {{ $debug }} --config-dir {{.Values.configDir}} --log-format json {{ $payload }} {{ $dataChunkSize }} {{ $dataAckMode }} {{ $remoteDebug }}  {{ $logFile }} {{ $profile }} {{ $networkCheckUrl }} {{ $infiniteRetries }} -s {{ tpl .Values.connect.onPremHost .}}:{{.Values.connect.onPremPort}} {{ .Values.connect.url }}
+{{- $tls := ternary "--tls" "" .Values.connect.tls -}}
+tp-tibtunnel connect {{ $debug }} --config-dir {{.Values.configDir}} --log-format json {{ $payload }} {{ $dataChunkSize }} {{ $dataAckMode }} {{ $remoteDebug }}  {{ $logFile }} {{ $profile }} {{ $networkCheckUrl }} {{ $infiniteRetries }} {{ $tls }} -s {{ tpl .Values.connect.onPremHost .}}:{{ include "tp-tibtunnel.helpers.onPremPort" . }} {{ .Values.connect.url }}
 {{- end -}}

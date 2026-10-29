@@ -50,8 +50,151 @@ Egress posture (outbound-only — PCP-20287/B4):
   Stock NetworkPolicy can't match egress by hostname — supply the IP (or use an
   FQDN-CNI / egress gateway). See values.yaml for the in-cluster targets to allow.
 {{- end }}
+{{- /* PCP-24264 / AC5: storage-posture advisory for the lite SQLite volume. Copy ONLY —
+       PCP-21443 (surfacing the posture through the DP) is blocked on an endpoint that does
+       not exist yet, so this is the honest interim: print the three facts an operator would
+       otherwise have to dig for, and one command that reads the truth OFF THE CLUSTER
+       instead of guessing it from the class name. The render-time counterpart (full mode +
+       in-cluster Postgres) is templates/storage-posture-validate.yaml. DATABASE_URL is
+       resolved through the same layering lite-deployment.yaml uses (lite.config, then the
+       shared global.tpMcpGateway.config over it) so this cannot quietly print a different
+       value from the one the container actually gets; deepCopy because mergeOverwrite
+       mutates its first argument. */}}
+{{- $liteCfg := mergeOverwrite (deepCopy (.Values.lite.config | default dict)) (dig "tpMcpGateway" "config" dict (.Values.global | default dict)) }}
+{{- $sc := include "tp-mcp-gateway.storageClassName" (dict "local" .Values.lite.storage.className "ctx" $) }}
+{{- $kind := toString (dig "tpMcpGateway" "storage" "classKind" "" (.Values.global | default dict)) }}
+{{- /* The "-" sentinel makes the helper emit the two-char literal `""` (storageClassName: "" =
+       no dynamic provisioning, bind a pre-provisioned PV). That string is TRUTHY, so it has to
+       be discriminated BEFORE any plain `if $sc`, or the advisory prints a class name that does
+       not exist and — the load-bearing half — hands the operator `kubectl get sc ""`, which can
+       never return anything. Computed once here so the two sites below cannot drift. */}}
+{{- $scNone := eq $sc "\"\"" }}
+
+Storage posture (PCP-24264):
+{{- /* PCP-24264 review: REDACT any userinfo before printing. The shipped lite default is a bare
+       file path, but DATABASE_URL is operator-settable through BOTH lite.config and the shared
+       global map, and this line goes to `helm install` output, to `helm get notes`, and to every
+       CI log that captures either. A URL carrying inline credentials would be echoed in full.
+       Anchored on `://`, and the class is `[^/]*` -- NOT `[^@/]*`. Excluding `@` made the match
+       stop at the FIRST one, so a password containing an unencoded `@` (`//u:p@ss@host/db`) had
+       only `//u:p@` replaced and leaked the `ss` tail in clear. `[^/]*` is greedy to the LAST
+       `@` before the first `/`, which is exactly RFC 3986's userinfo boundary, so the whole
+       credential goes. Still cannot cross a path separator, so a path or query containing `@`
+       is left alone.
+
+       TWO passes, because a credential reaches this line by two different routes and the first
+       pass only closes one of them. Userinfo (`//user:pass@host`) is the obvious one; the second
+       is a QUERY PARAMETER — `?password=…`, which is how libpq, ODBC and several drivers accept
+       a secret, and which has no `@` for the first pattern to anchor on. Case-insensitive, and
+       bounded by `[^&]*` so it redacts one parameter rather than the rest of the string. The
+       allow-listed names are only the credential-bearing ones, so this ticket's own
+       `?uri=true&vfs=unix-dotfile` is left intact — a redactor that ate the VFS marker would
+       hide the very fact this advisory exists to show.
+
+       `sslpassword` and `sslkey` are listed SEPARATELY and FIRST, which looks redundant next to
+       `password` but is not: the alternation is anchored on `[?&]`, so `[?&]password=` cannot
+       match `?sslpassword=` — the parameter name has to match from its first character. libpq
+       accepts `sslpassword`, so without its own entry that secret printed in clear (review round
+       10, @adhanshe-tibco). They are ordered ahead of the shorter names because Go's regexp is
+       leftmost-FIRST, not leftmost-longest, so a shorter alternative that could match at the same
+       offset would win; the `[?&]` anchor already makes that unreachable here, and the ordering
+       keeps it unreachable if the anchor is ever loosened.
+
+       NOT fixed, deliberately: a `/` inside the userinfo (`//u:p/w@h/db`) still defeats the first
+       pass. Per RFC 3986 the authority ends at the FIRST `/`, so in that string the userinfo is
+       absent and `u:p` is the host:port — the bytes a wider pattern would "redact" are a HOST, not
+       a credential. Widening `[^/]*` to `[^?#]*` would also redact `@` appearing in an ordinary
+       path. Redacting a hostname to protect an out-of-spec URL is a worse trade than leaving it. */}}
+  Database URL : {{ regexReplaceAll "(?i)([?&](?:sslpassword|sslkey|password|passwd|pwd|secret|token|api[-_]?key)=)[^&]*" (regexReplaceAll "://[^/]*@" (dig "DATABASE_URL" "(unset — the image default applies)" $liteCfg | toString) "://<redacted>@") "${1}<redacted>" }}
+  Data PVC     : {{ .Release.Name }}-mcp-gateway-data ({{ .Values.lite.storage.size }})
+  StorageClass : {{ if $scNone }}"" (no dynamic provisioning — this PVC binds a pre-provisioned PV){{ else if $sc }}{{ $sc }}{{ else }}(unset — the cluster DEFAULT class provisions this PVC){{ end }}
+  Declared     : {{ if $kind }}{{ $kind }}{{ else }}(undeclared — global.tpMcpGateway.storage.classKind){{ end }}
+
+  A lite gateway keeps ALL of its state in ONE SQLite file on that PVC. Read what the class
+  really is off the cluster — never infer it from the name (TIBCO's own share-backed class is
+  named `azure-files-sc`, and block-backed names mention "file" too):
+{{- if $scNone }}
+    kubectl describe pv $(kubectl get pvc {{ .Release.Name }}-mcp-gateway-data -o jsonpath='{.spec.volumeName}')
+  (there is no StorageClass object to read in this configuration — the volume source and the
+  mountOptions live on the pre-provisioned PV, which is what that command prints. `describe` and
+  not a `-o jsonpath` on `.spec.csi.driver`: a pre-provisioned PV may use an IN-TREE source —
+  `nfs`, `azureFile`, `cephfs`, `glusterfs` — instead of `csi`, and against those a csi-driver
+  jsonpath prints an empty string. That reads as "inconclusive" for precisely the share-backed
+  volumes this advisory exists to catch, which is the one direction it must not fail in.
+  `describe` names whichever source the PV actually has.)
+{{- else }}
+    kubectl get sc {{ if $sc }}{{ $sc }}{{ else }}<class>{{ end }} -o jsonpath='{.provisioner}{"\n"}{.mountOptions}'
+{{- end }}
+  A provisioner of file.csi.azure.com — or any other SMB/CIFS/NFS provisioner — means the
+  volume is share-backed and CANNOT host a WAL SQLite database: the share refuses SQLite's
+  SHARED→EXCLUSIVE byte-range lock upgrade (fcntl F_SETLK → EACCES) and the pod CrashLoops
+  on "database is locked". The gateway detects that at startup and converts the volume to the
+  unix-dotfile VFS + rollback journal by itself (DB_SQLITE_NETWORK_FS=auto; set it to "off" to
+  roll back with no image change), logging ONE warning naming the fstype, the probe verdicts
+  and the VFS it chose. Nothing to do by hand.
+
+  Two PLATFORM answers are strictly better where you control storage, because neither gives up
+  the read concurrency the dotfile VFS costs:
+    • a block-backed class      --set lite.storage.className=<block-class>
+    • `nobrl` in that class's mountOptions (measured: the default VFS AND WAL both work again)
+  Both apply to NEWLY provisioned volumes only — a PV records spec.mountOptions when it is
+  created, so neither is retroactive to a PVC that already exists.
 {{- else }}
 Mode: full (mcp-stack: PostgreSQL + Redis).
+{{- /* PCP-24264: the storage-posture block above is lite-only, which left FULL-mode operators
+       told nothing about the volumes this chart still provisions for them. On the SHIPPED full
+       default (postgres.external.enabled=true) there is no PostgreSQL PVC, but the bundled Redis
+       one is created and inherits the same global class — so name it and its resolved class here
+       rather than leaving it as an unstated gap. Redis is deliberately NOT covered by
+       templates/storage-posture-validate.yaml: it takes no POSIX byte-range locks, so it has none
+       of the SHARED->EXCLUSIVE upgrade failure that breaks SQLite and PostgreSQL on a share.
+       Gated on the same two conditions redis-pvc.yaml itself uses (bundled redis + persistence),
+       expressed with dig so a standalone render without the subchart cannot panic. */}}
+{{- $msRedis := index .Values "mcp-stack" | default dict }}
+{{- if and (dig "redis" "enabled" false $msRedis) (not (dig "redis" "external" "enabled" false $msRedis)) (dig "redis" "persistence" "enabled" false $msRedis) }}
+{{- $rsc := include "tp-mcp-gateway.storageClassName" (dict "local" (dig "redis" "persistence" "storageClassName" "" $msRedis) "ctx" $) }}
+  Redis PVC    : {{ .Release.Name }}-mcp-stack-redis-pvc on StorageClass {{ if eq $rsc "\"\"" }}"" (no dynamic provisioning){{ else if $rsc }}{{ $rsc }}{{ else }}(the cluster DEFAULT){{ end }}
+                 (Redis takes no byte-range locks, so a shared/SMB class is not the PCP-24264
+                 hazard here that it is for SQLite and PostgreSQL.)
+{{- end }}
+{{- /* PCP-25210: warn when the live bundled-redis Secret still carries the OLD hardcoded
+       default. This chart is installed here as a SUBCHART, so mcp-stack's own
+       templates/NOTES.txt (which carries the identical check for a standalone mcp-stack
+       install) is never shown by `helm install`/`upgrade` on THIS (parent) chart -- only the
+       root chart's NOTES.txt is printed. The real CP deploy path installs this chart, not
+       mcp-stack directly, so the warning has to live here too or no operator ever sees it.
+       Hardcoded release-scoped name/dig access, same reasoning as $msRedis above: a
+       standalone render without the subchart must not panic, and resource names here are
+       always release-scoped (PCP-20591), never derived from the subchart's own helpers. */}}
+{{- if and (dig "redis" "enabled" false $msRedis) (not (dig "redis" "external" "enabled" false $msRedis)) (dig "redis" "auth" "enabled" false $msRedis) }}
+{{- $redisSecretName := printf "%s-mcp-stack-redis-secret" .Release.Name }}
+{{- $redisPwKey := dig "redis" "auth" "passwordKey" "REDIS_PASSWORD" $msRedis }}
+{{- $redisCurrentPw := "" }}
+{{- with (lookup "v1" "Secret" .Release.Namespace $redisSecretName) }}
+  {{- if (index .data $redisPwKey) }}
+    {{- $redisCurrentPw = index .data $redisPwKey | b64dec }}
+  {{- end }}
+{{- end }}
+{{- if eq $redisCurrentPw "change-me-redis" }}
+
+⚠  SECURITY (PCP-25210): this install is still running the known default Redis password.
+   This chart will not auto-rotate a password already in use -- rotate it yourself:
+     kubectl -n {{ .Release.Namespace }} delete secret {{ $redisSecretName }}
+     helm upgrade {{ .Release.Name }} <chart> -n {{ .Release.Namespace }}   # mints + persists a fresh one
+   Redis restarts on this (single-pod, Recreate strategy); expect a brief cache
+   interruption, and the gateway pods need a restart too so they pick up the new value:
+     kubectl -n {{ .Release.Namespace }} rollout restart deployment {{ .Release.Name }}-mcp-stack-mcpgateway
+{{- else if not $redisCurrentPw }}
+{{- if not (dig "redis" "auth" "existingSecret" "" $msRedis) }}
+
+⚠  no existing password found (first install, or a client-side render such as ArgoCD/Flux
+   that cannot look one up): a new Redis password is generated on every render. Expected and
+   harmless on a one-time live install; if this is a GitOps tool re-rendering on every sync,
+   set redis.auth.existingSecret to stop it minting (and restarting Redis + the gateway)
+   every time.
+{{- end }}
+{{- end }}
+{{- end }}
 {{- /* PCP-21192: warn when external PG is enabled but no credential resolves. Mirrors the
        mcp-stack.externalPg.* coalesce (DBCONFIG -> explicit) and AND-s in existingSecret so it
        does NOT misfire when a cred IS supplied. nil-safe via dig/get on subchart + global.

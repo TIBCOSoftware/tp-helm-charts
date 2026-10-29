@@ -8,7 +8,132 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Security
+
+#### **Bundled Redis no longer ships a hardcoded default password** ([PCP-25210])
+
+`redis.auth.password` defaulted to the literal `"change-me-redis"`, so any full-mode install
+that did not override it ran the bundled in-cluster Redis with a publicly-known credential
+(CWE-798/1392). `templates/secret-redis.yaml` now mints a random 32-character password on
+first install and reuses whatever is already in the live Secret on every subsequent
+`helm upgrade` (via `lookup`, mirroring `secret-redis-tls.yaml`'s PCP-20275 pattern) — it
+never regenerates, and never silently rotates a password already in use, including a
+previously-stored `change-me-redis`. An install still on that literal is flagged in NOTES.txt
+with the manual rotation command; this chart does not auto-rotate a password already in use,
+since Redis (single `Recreate` pod) and the gateway (rolling multi-replica Deployment) cannot
+be proven to pick up a new value in the same instant. `redis.auth.existingSecret` remains the
+documented escape hatch for a `helm template`/GitOps dry-render, which cannot `lookup` an
+existing Secret.
+
+Both `deployment-redis.yaml` and `deployment-mcpgateway.yaml` now carry a `checksum/redis-secret`
+pod-template annotation (`mcp-stack.redisAuthEffectivePassword` in `_helpers.tpl`), so the two
+Deployments always roll together whenever the password changes — they can no longer end up on
+two different passwords after one restarts independently of the other. NOTES.txt also warns
+when no existing password was found at all (fresh install or a `lookup`-blind client-side
+render) and `redis.auth.existingSecret` is unset: under GitOps auto-sync this combination means
+a new password, and a restart of both Deployments, on every sync — see the README for the
+full consequence and the `existingSecret` mitigation.
+
+**Scope**: CP-orchestrated Data Planes install this chart in lite mode
+(`values-cp.yaml` / the Hub's recipe both force `mcp-stack.enabled: false`) and never render
+the bundled Redis at all. This affects only a standalone full-mode install of the published
+chart.
+
+### Added
+
+#### **`postgres.backup.preUpgrade.enabled` — a pre-upgrade `pg_dump` on ordinary chart upgrades, opt-in** ([PCP-23832])
+
+The `pg_dump` pre-upgrade Job already existed, but `job-postgres-backup.yaml` gated it on
+`targetVersion == "18"`, so it only ever ran as phase 1 of the one-shot PG17 → PG18 **engine-major**
+upgrade and **never fired on an ordinary chart upgrade** such as 1.20 ↔ 1.21. New key:
+
+```yaml
+postgres:
+  backup:
+    preUpgrade:
+      enabled: false   # default
+```
+
+Setting it true opens the backup window on **every** `helm upgrade`, giving that upgrade a restore
+point. It requires `minio.enabled=true` (the dump is published to the bundled object store) and the
+same `networkPolicies.*.allowUpgradeJobs` permissions the engine-major path needs; both are enforced
+by the existing `deployment-postgres.yaml` fail-fasts, which now cover this window too.
+
+**`postgres.backup.preUpgrade.keepDays` (default `7`) bounds the bucket.** Making the dump recurring
+makes retention a new problem: the dump filename is timestamped per run, the prefix is flat, and the
+restore step reads only the **newest** key — so every older dump is dead weight the object store
+keeps forever. Left unbounded, the bundled MinIO PVC grows by one full database dump on every
+`helm upgrade` until it fills, at which point the upload fails, `set -e` kills the Job and **the
+pre-upgrade hook fails the upgrade** — the same outcome the opt-in default exists to avoid, reached
+by a slower route. The sweep runs immediately **before** the upload (so it makes room for the dump
+about to be written) and is **non-fatal**: a failed sweep warns and the backup still proceeds,
+because the backup is the Job's contract and retention is housekeeping. Set `keepDays: 0` to disable
+it and manage retention yourself (e.g. a MinIO lifecycle rule) — the chart will then prune nothing.
+Size the MinIO PVC for *(dump size × upgrades within `keepDays`)*, not for a single dump.
+
+**It defaults to FALSE deliberately, and that is a decision rather than caution.** A `pre-upgrade`
+hook is not a background job — Helm blocks on it — so a dump that is slow (a large customer
+database, a throttled PVC) is not a slow backup but a **stalled upgrade**, and a dump that fails is a
+**failed upgrade**. Enabling it per Data Plane needs the size of that database and the sizing of its
+MinIO PVC, neither of which the chart knows. Keeping the default false also leaves the default render
+byte-identical.
+
+#### **The status ConfigMap now states when NO backup was taken, and why** ([PCP-23832])
+
+`<release>-mcp-stack-postgres-upgrade-status` gains `preUpgradeBackup: "taken" | "skipped"` and, when
+skipped, a `preUpgradeBackupReason` in plain words. Both are derived from the same helper the backup
+Job gates on, so the ConfigMap cannot claim a dump that did not render.
+
+This is the half of the change most operators will actually observe. "The backup Job did not render"
+and "a backup was taken" are indistinguishable from outside the cluster — both look like an upgrade
+that completed with no `-postgres-backup` pod — and the most common skip is the **shipped full-mode
+default**: with `postgres.external.enabled=true` the chart takes **no** dump, because it neither owns
+that database's lifecycle nor is guaranteed the credentials, network path or disk to write a useful
+one. That is the explicit `postgres.external.enabled` decision PCP-23832 asked for. **Back an external
+PostgreSQL up with your own tooling before upgrading; `helm rollback` will not restore it.**
+
+The ConfigMap's gate was widened to match (it now also renders for the new window, and no longer
+excludes external PostgreSQL — excluding it hid the notice from exactly the operators who needed it).
+Both triggering conditions are false by default, so **no ConfigMap appears on a default install** and
+the default render is unchanged.
+
 ### Fixed
+
+#### **One backup window, five agreeing gates — the drift that could HANG a pg17 → pg18 upgrade** ([PCP-23832])
+
+Five templates had to agree about "does the pre-upgrade backup Job render?", and each spelled the
+condition out by hand: the Job itself, both hook NetworkPolicies, and both `deployment-postgres.yaml`
+fail-fasts. **They had already drifted, and the Job's gate was the loose one.** The postgres hook
+NetworkPolicy required `.Values.postgres.enabled` and the Job's gate did not — and the NetworkPolicy
+was right. The database manifest renders under `$rendersDeployment`, which is `postgres.enabled AND
+(not postgres.external.enabled)` (`deployment-postgres.yaml:50`) and says nothing about
+`upgrade.enabled`. So on `postgres.enabled=false` + `postgres.upgrade.enabled=true` the backup Job
+rendered **with no PostgreSQL pod in the release at all** (measured on `origin/main`: backup Job = 1,
+postgres Deployment = 0). It then blocks on `pg_isready` against a database that is never created,
+and **the pre-upgrade hook hangs until Helm's timeout**.
+
+The fix unifies on the NetworkPolicy's stricter condition, so that combination now renders **no backup
+Job at all** rather than being granted ingress to a database that does not exist.
+
+The condition now lives once, in `mcp-stack.postgres.backupWindowOpen` (`_helpers.tpl`), and all five
+sites derive from it. The two fail-fasts were **broadened** by it and deliberately **not narrowed**:
+reducing them to the backup window alone would stop demanding MinIO in phase 2 (which needs it to
+read the dump back) and stop demanding `allowUpgradeJobs`, which also gates the upgrade-job ingress
+rules on the **persistent** policies that the post-upgrade `-postgres-migration-check` Job depends on
+— reintroducing PCP-22375's failure one phase later.
+
+Pinned by `dev/mcp-gateway-render-tests/postgres-backup-gate-coherence-assert.sh`, a 10-case render
+matrix plus 5 fail-fast cases which asserts the five sites agree on every row. Verified as a real
+guard, not a vacuous one: it is **RED against `origin/main`** (the drift case reports
+`backup Job=1, want 0`) and green here.
+
+#### **The render-time `lastUpdated` clock removed from the status ConfigMap** ([PCP-23832])
+
+`now` is evaluated at render time, so this one key changed on every `helm upgrade` and every
+`helm template`. It made the ConfigMap dirty on every reconcile of every Data Plane, churned
+diff-based drift detection against a value carrying no information about the release, and made two
+renders of the same chart at the same values byte-different. The release's own metadata already
+records when it was deployed.
 
 #### **PostgreSQL 17 → 18 upgrade is air-gap installable — no `apt-get`, no `dl.min.io`, no Docker Hub** ([PCP-23127])
 

@@ -21,7 +21,20 @@ type: application
 # * appVersion   - upstream application version; shown in UIs but not
 #                  used for upgrade logic.
 # --------------------------------------------------------------------
-version: 1.0.0-RC-37
+# PCP-23832: RC-38. Template + values change (the pre-upgrade backup window helper,
+# postgres.backup.preUpgrade, the status-ConfigMap skip notice). Bumped per the "bump on *any*
+# chart change" rule above; the parent's `dependencies:` pin moves in the same commit or
+# `helm dependency build` resolves nothing. Safe for the base-parity legs of
+# redis-external-assert.sh [5] / redis-tls-assert.sh [8]: their norm() already collapses
+# `helm.sh/chart: mcp-stack-<ver>` (redis-external-assert.sh:645), so the label churn is absorbed.
+#
+# PCP-25210: RC-39. templates/secret-redis.yaml no longer renders the hardcoded
+# `redis.auth.password` literal -- mints a random password on first install and reuses the
+# live Secret's value via `lookup` on every upgrade (mirrors secret-redis-tls.yaml,
+# PCP-20275). Not independently tag-published (consumed only via the parent's file://
+# dependency), so no skip_existing collision risk here; bumped per the same "any chart
+# change" rule. The parent's dependencies: pin moves in the same commit (below).
+version: 1.0.0-RC-39
 appVersion: "1.0.0-RC-4"
 
 # Optional but useful metadata

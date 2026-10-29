@@ -56,6 +56,8 @@ data:
 {{- $promMetricsRec := "'[otlp]'" -}}
 {{- $promMetricsProc := "'[filter/devnull]'" -}}
 {{- $promMetricsExp := "'[debug]'" -}}
+{{- $extMetricsRec := "'[nop]'" -}}
+{{- $extMetricsExp := "'[nop]'" -}}
 {{- $traceRec := "'[otlp]'" -}}
 {{- $traceProc := "'[filter/devnull-traces]'" -}}
 {{- $traceExp := "'[debug]'" }}
@@ -253,22 +255,37 @@ data:
          crash-looped the collector ("at least one endpoint must be specified"). */ -}}
   {{- $push := dig "push" "enabled" false .Values.global.cp.resources.o11yv3.metricsServer.config.exporter -}}
   {{- if eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.kind "prometheus" }}
-    {{- if and (.Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled) (eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint "system") }}
+    {{- if and (eq .Values.global.cp.resources.o11yv3.metricsServer.config.exporter.prometheus.endpoint "somevalue") (eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint "somevalue")}}
     {{- if $push }}
     {{- /* PCP-23522: CP-System delivery via disk-buffered OTLP push instead of the :4320 pull. */ -}}
     {{- $appMetricsExp = "'[otlphttp/cp-metrics]'" -}}
     {{- $promMetricsExp = "'[otlphttp/cp-metrics]'" -}}
+    {{- $extMetricsExp = "'[nop]'" -}}
     {{- else }}
     {{- $appMetricsExp = "'[prometheus/ext]'" -}}
     {{- $promMetricsExp = "'[prometheus/ext]'" -}}
+    {{- $extMetricsExp = "'[nop]'" -}}
+    {{- end }}
+    {{- else if and (.Values.global.cp.resources.o11yv3.metricsServer.config.proxy.enabled) (eq .Values.global.cp.resources.o11yv3.metricsServer.config.proxy.prometheus.endpoint "system") }}
+    {{- if $push }}
+    {{- /* PCP-23522: CP-System delivery via disk-buffered OTLP push instead of the :4320 pull. */ -}}
+    {{- $appMetricsExp = "'[otlphttp/cp-metrics]'" -}}
+    {{- $promMetricsExp = "'[otlphttp/cp-metrics]'" -}}
+    {{- $extMetricsExp = "'[prometheus/ext]'" -}}
+    {{- else }}
+    {{- $appMetricsExp = "'[prometheus/ext]'" -}}
+    {{- $promMetricsExp = "'[prometheus/ext]'" -}}
+    {{- $extMetricsExp = "'[prometheus/ext]'" -}}
     {{- end }}
     {{- else }}
     {{- if $push }}
     {{- $appMetricsExp = "'[prometheus/user, otlphttp/cp-metrics]'" -}}
     {{- $promMetricsExp = "'[prometheus/user, otlphttp/cp-metrics]'" -}}
+    {{- $extMetricsExp = "'[prometheus/ext]'" -}}
     {{- else }}
     {{- $appMetricsExp = "'[prometheus/user, prometheus/ext]'" -}}
     {{- $promMetricsExp = "'[prometheus/user, prometheus/ext]'" -}}
+    {{- $extMetricsExp = "'[prometheus/ext]'" -}}
     {{- end }}
     {{- end }}
   {{- end }}
@@ -322,12 +339,12 @@ data:
   {{- end }}
   {{- if .Values.global.cp.enableClusterScopedPerm }}
   {{- $promMetricsRec = "'[prometheus/receive]'" -}}
-  {{- $appMetricsProc = "'[k8sattributes/general, memory_limiter, batch]'" -}}
-  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa, transform/msg, memory_limiter, batch]'" -}}
+  {{- $appMetricsProc = "'[k8sattributes/general, transform/msg, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa, transform/msg, groupbyattrs, transform/ns, memory_limiter, batch]'" -}}
   {{- else}}
   {{- $promMetricsRec = "'[prometheus/receive-ns]'" -}}
-  {{- $appMetricsProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
-  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- $appMetricsProc = "'[k8sattributes/general-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, groupbyattrs, transform/ns, memory_limiter, batch]'" -}}
   {{- end }}
   {{- /* PCP-24428: these push-parity processors now apply to EVERY kind that pushes to CP
          (prometheus system/BYO + BYO otlp/kafka), not just prometheus. Every push path lands on the
@@ -484,18 +501,20 @@ data:
   metrics_prom_rec: {{ $promMetricsRec }}
   metrics_prom_proc: {{ $promMetricsProc }}
   metrics_prom_exp: {{ $promMetricsExp }}
+  metrics_ext_rec: {{ $extMetricsRec }}
+  metrics_ext_exp: {{ $extMetricsExp }}
 ##pipeline:traces
   traces_receiver: {{ $traceRec }}
   traces_processor: {{ $traceProc }}
   traces_exporter: {{ $traceExp }}
 {{- else if not .Values.global.cp.resources.resourcemapping }}
   {{- $promMetricsRec := "'[prometheus/receive]'" -}}
-  {{- $appMetricsProc := "'[k8sattributes/general, memory_limiter, batch]'" -}}
-  {{- $promMetricsProc := "'[transform/metrics, k8sattributes/pa, transform/msg, memory_limiter, batch]'" -}}
+  {{- $appMetricsProc := "'[k8sattributes/general, transform/msg, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc := "'[transform/metrics, k8sattributes/pa, transform/msg, groupbyattrs, transform/ns, memory_limiter, batch]'" -}}
   {{- if not .Values.global.cp.enableClusterScopedPerm }}
   {{- $promMetricsRec = "'[prometheus/receive-ns]'" -}}
-  {{- $appMetricsProc = "'[k8sattributes/general-ns, memory_limiter, batch]'" -}}
-  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- $appMetricsProc = "'[k8sattributes/general-ns, transform/msg, memory_limiter, batch]'" -}}
+  {{- $promMetricsProc = "'[transform/metrics, k8sattributes/pa-ns, transform/msg, groupbyattrs, transform/ns, memory_limiter, batch]'" -}}
   {{- end }}
   metrics_appengines_rec: '[otlp]'
   metrics_appengines_proc: {{ $appMetricsProc }}

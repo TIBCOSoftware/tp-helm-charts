@@ -13,10 +13,10 @@
 {{- fail "dialHome.enabled=true requires tibcoProxy.enabled=true — the proxy provides the loopback/proxy-trust (HOST=127.0.0.1 + X-Authenticated-User) the dial-home auth model depends on; without it local auth silently fails (design §4/§7.2)." }}
 {{- end }}
 {{- if not .Values.dialHome.hub.url }}
-{{- fail "dialHome.enabled=true requires a non-empty dialHome.hub.url (the Hub external WSS endpoint the agent dials)." }}
+{{- fail "dialHome.enabled=true requires a non-empty dialHome.hub.url — the WSS endpoint THIS agent dials. Standalone: the Hub's external address (GET /config -> features.dialHome.hubUrl). In-CP platform gateway (PCP-24484): the Hub's in-cluster address, which is correct there; what must never be in-cluster is the value the Hub PUBLISHES at /config, since customers copy that into their own --set." }}
 {{- end }}
 {{- if not .Values.dialHome.hub.bootstrapTokenSecret.name }}
-{{- fail "dialHome.enabled=true requires dialHome.hub.bootstrapTokenSecret.name — a PRE-CREATED existingSecret holding the bootstrap token (kubectl create secret generic <name> --from-file=token=<file>); never raw --set / chart-generated." }}
+{{- fail "dialHome.enabled=true requires dialHome.hub.bootstrapTokenSecret.name — a PRE-CREATED existingSecret holding the bootstrap token (kubectl create secret generic <name> --from-file=token=<file>), never raw --set.\n\nOn chart-generating it (PCP-24484 corrected this from an absolute to a conditional rule): generating the token in a chart is INERT unless something writes the matching hash onto that gateway's row. In the standalone flow nothing does — the mint API is the sole writer — so it simply never authenticates. The in-CP placement HAS such a writer (the Hub's boot reconciler) and generates it there deliberately. Even then three things must all hold: the agent gets the full <gatewayId>.<secret> with gatewayId equal to the upserted row's primary key; the hash is written through UTM (the column is encrypted at rest); and the row is stamped with the Hub pod's region (the auth lookup is region-scoped, so this one passes in a single-region deployment and only fails where regions share a database). All three fail identically, and they fail looking like a bad token while the token is correct — on the Hub side the lookup IS the authentication." }}
 {{- end }}
 {{- if not .Values.dialHome.hub.bootstrapTokenSecret.key }}
 {{- fail "dialHome.enabled=true requires dialHome.hub.bootstrapTokenSecret.key (the key within the existingSecret; default 'token')." }}

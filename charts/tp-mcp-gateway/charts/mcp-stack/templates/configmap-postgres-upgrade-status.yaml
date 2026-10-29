@@ -1,4 +1,33 @@
-{{- if and .Values.postgres.upgrade.enabled (not .Values.postgres.external.enabled) }}
+{{- /* LOCAL TIBCO MOD (PCP-23832) — re-apply on upstream mcp-stack re-vendor.
+
+     TWO changes here, and the second is the one PCP-23832 AC2 actually ships.
+
+     (1) THE GATE. Was `upgrade.enabled AND (not external.enabled)`. It now also opens for the new
+         general window (`postgres.backup.preUpgrade.enabled`) and NO LONGER excludes external
+         PostgreSQL. Excluding external was precisely backwards: `postgres.external.enabled=true`
+         is the SHIPPED PARENT DEFAULT for full mode, so the operator most likely to believe the
+         chart took a backup was the one guaranteed never to be told otherwise. Both conditions
+         are still false by default, so the DEFAULT RENDER IS UNCHANGED and no ConfigMap appears
+         on an ordinary install — which is what keeps the base-parity legs of
+         redis-external-assert.sh [5] / redis-tls-assert.sh [8] green. Do not "simplify" this into
+         an unconditional template: that adds an object to every default render and turns both
+         parity legs red.
+
+     (2) THE SKIP NOTICE. `preUpgradeBackup` + `preUpgradeBackupReason` state, in plain words,
+         whether a dump was taken and — when it was not — why. "The backup Job did not render" and
+         "a backup was taken" are otherwise indistinguishable from outside the cluster: both look
+         like an upgrade that completed with no -postgres-backup pod. The honest description of
+         this ticket's shipped behaviour is "the pre-upgrade backup can now be enabled for ordinary
+         upgrades, and the chart now SAYS when it is off" — NOT "Data Planes now get backups".
+
+     ALSO REMOVED: the `lastUpdated:` key, which rendered the `now` builtin. `now` is evaluated at
+     render time, so this one key
+     changed on EVERY `helm upgrade` and `helm template` — it made the ConfigMap dirty on every
+     reconcile of every Data Plane, churned any diff-based drift detection against a value that
+     carries no information about the release, and made two renders of the same chart at the same
+     values byte-DIFFERENT (which is what a base-parity assertion measures). The release's own
+     metadata already records when it was deployed. */ -}}
+{{- if or .Values.postgres.upgrade.enabled ((.Values.postgres.backup).preUpgrade).enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,5 +38,19 @@ metadata:
 data:
   backupCompleted: {{ .Values.postgres.upgrade.backupCompleted | quote }}
   targetVersion: {{ .Values.postgres.upgrade.targetVersion | quote }}
-  lastUpdated: {{ now | quote }}
+  {{- /* Derived from the SAME helper the backup Job gates on, so this ConfigMap cannot claim a
+         dump that did not render (or deny one that did). Quoted: `taken`/`skipped` are strings,
+         and an unquoted bare word in a ConfigMap `data:` map is a render error waiting for the
+         first value that YAML would coerce.
+         This comment closes WITHOUT a right-trim marker, on purpose. Right-trimming here eats the
+         newline that ends the PREVIOUS key as well as this line's indent, splicing two `data:`
+         entries onto one line ("targetVersion: \"18\"preUpgradeBackup: ...") and failing the
+         render with a YAML parse error several lines away from the cause.
+         Do not write the trim markers out literally anywhere inside a template comment either:
+         the lexer closes the comment at the first close sequence it sees, whatever the
+         surrounding prose meant, and the remaining text leaks into the rendered YAML. */}}
+  preUpgradeBackup: {{ if include "mcp-stack.postgres.backupWindowOpen" . }}"taken"{{ else }}"skipped"{{ end }}
+  {{- with include "mcp-stack.postgres.backupSkipReason" . }}
+  preUpgradeBackupReason: {{ . | quote }}
+  {{- end }}
 {{- end }}
