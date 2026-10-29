@@ -48,42 +48,9 @@ data:
     [FILTER]
       Name              parser
       Match             cp.*
-      key_name          log
-      parser            x-log-level
-      Reserve_Data      On
-      Preserve_Key      On
-    [FILTER]
-      Name              parser
-      Match             cp.*
-      key_name          log
-      parser            x-app-id
-      Reserve_Data      On
-      Preserve_Key      On
-    [FILTER]
-      Name              parser
-      Match             cp.*
-      key_name          log
-      parser            x-user-id
-      Reserve_Data      On
-      Preserve_Key      On
-    [FILTER]
-      Name              parser
-      Match             cp.*
-      key_name          log
-      parser            tsc-go-logger
-      Reserve_Data      On
-      Preserve_Key      On
-    [FILTER]
-      Name              modify
-      Match             cp.*
-      Rename            log tscparseroriginal
-    [FILTER]
-      Name              nest
-      Match             cp.*
-      Operation         nest
-      Wildcard          tscparser*
-      Nest_under        log
-      Remove_prefix     tscparser
+      Key_Name          log
+      Parser            json_decode
+      Reserve_Data      True
 
   output.conf: |
     [OUTPUT]
@@ -103,44 +70,13 @@ data:
 
   parsers.conf: |
     [PARSER]
-      Name              x-log-level
+      Name              json_decode
       Format            regex
-      Regex             ^*\[*x-log-level=(?:[\\" ]*)(?<tscparserxLogLevel>[^ "\\\]]*).*$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              x-app-id
-      Format            regex
-      Regex             ^*\[*x-app-id=(?:[\\" ]*)(?<tscparserxAppId>[^ "\\\]]*).*$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              x-user-id
-      Format            regex
-      Regex             ^*\[*x-user-id=(?:[\\" ]*)(?<tscparserxUserId>[^ "\\\]]*).*$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              webserver-x-user-id
-      Format            regex
-      Regex             ^*\[*x-user-id:(?:[\\" ]*)(?<tscparserxUserId>[^ "\\\]]*).*$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              tsc-go-logger
-      Format            regex
-      Regex             ^*\] (?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) (?<tscparserlogger>[^ ]*) - (?<tscparsermessage>.*)$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              tsc-java-logger
-      Format            regex
-      Regex             ^*\] (?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) (?<tscparserlogger>[^ ]*) (?<tscparsermessage>.*)$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              tsc-node-logger
-      Format            regex
-      Regex             ^*(?<time>[\d]*-[\d]*-[\d]*T[\d]*:[\d]*:[\d]*.[\d]*Z) \[.*\] (?<tscparserlogger>[^ ]*) (?<tscparsermessage>.*)$
-      Skip_Empty_Values False
-    [PARSER]
-      Name              tag_parser
-      Format            regex
-      Regex             (?<namespace_name>[^\.]+)\.(?<pod_name>[^\.]+)\.(?<pod_id>[^\.]+)\.(?<container_name>[^\.]+)
+      Regex             ^(?<log>.*)$
+      Time_Key          time
+      Time_Format       %Y-%m-%dT%H:%M:%S.%L
+      Time_Keep         On
+      Decode_Field_As   json log
   update_record.lua: |
     -- Function to append all fields under key "msg"
     function update_record(tag, timestamp, record)

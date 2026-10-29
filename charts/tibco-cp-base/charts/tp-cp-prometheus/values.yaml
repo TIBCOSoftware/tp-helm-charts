@@ -8,8 +8,6 @@ global:
   enableLogging: true
   cp:
     enableResourceConstraints: true
-  hawk:
-    metricAuthTokenSecret: "YlhSMWMyVnlPbEZRZFdZMkl6SWtRUT09"
   tibco:
     containerRegistry:
       url: ""
@@ -227,7 +225,7 @@ server:
   ## Prometheus server container image
   ##
   image:
-    tag: "v3.5.4"
+    tag: "v3.13.5"
     pullPolicy: IfNotPresent
 
   ## Prometheus server command
@@ -1353,9 +1351,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1376,9 +1371,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1389,9 +1381,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1402,9 +1391,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1415,9 +1401,6 @@ extraManifests:
             scrape_interval: 60s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true

@@ -529,3 +529,16 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+  - path: /pengine/v3/enforce-permissions
+    internalPath: /v3/enforce-permissions
+    port: 7892
+    protocol: http
+    proxies:
+    - listener: virtual
+      config: secure
+      fqdn: ${TSC_DNS_DOMAIN}
+      methods:
+      - POST
+      allowClientCache: false
+      allowXFrameOptions: false
+      enableRedirects: false
