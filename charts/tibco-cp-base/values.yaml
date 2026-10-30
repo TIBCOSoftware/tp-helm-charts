@@ -24,6 +24,20 @@ global:
     # Default value is false. Possible values are true, false
     createNetworkPolicy: false
 
+    # PCP-19871 / PCP-23723: create a Service named tp-cp-monitoring-service that forwards
+    # 7831 -> the orchestrator's management server on 8833.
+    #
+    # monitoring-service was merged into the orchestrator, but the hawk querynode still has the
+    # old address baked into tibco-cp-hawk's _consts.tpl. This alias means hawk needs no change,
+    # so we do not have to fork and pin another team's chart on every release.
+    #
+    # Set false if you enable the monitoring-service rollback net
+    # (tp-cp-core-finops -> monitoring-service.enabled), which creates a Service with this same
+    # name — the two would collide, and with the real service running the alias is redundant.
+    #
+    # TRANSITIONAL: remove once hawk repoints upstream to tp-cp-orchestrator:8833.
+    monitoringServiceCompatAlias: true
+
     # Enable or disable hybrid connectivity
     hybridConnectivity:
       enabled: true
@@ -122,15 +136,15 @@ global:
     # Common images
     commonImages:
       distrolessDebug:
-        tag: 13.6
+        tag: 13.7
       cpScripts:
-        tag: "9802"
+        tag: "9870"
       fluentbit:
-        tag: 5.1.2
+        tag: 5.1.5
     # Capability IDs stripped from every dp-type's mandatoryInfraCapabilityLists.
     # Validated against the allowlist in tp-cp-core/templates/configmaps.yaml.
-    # Ships with [MFTADAPTER] so MFT is off by default; set to [] to enable all.
-    disabledInfraCapabilities: [MFTADAPTER]
+    # set to [] to enable all.
+    disabledInfraCapabilities: []
 
   external:
     db_host: ""
@@ -272,7 +286,7 @@ hybrid-proxy:
   #   hostnames:
   #     - "hybrid-proxy.example.com"
   #   annotations:
-  #     external-dns.alpha.kubernetes.io/hostname: "hybrid-proxy.example.com"
+  #     external-dns.kubernetes.io/hostname: "hybrid-proxy.example.com"
 
 # Default values for router-operator
 router-operator:
@@ -325,7 +339,7 @@ router-operator:
   #   hostnames:
   #     - "router.example.com"
   #   annotations:
-  #     external-dns.alpha.kubernetes.io/hostname: "router.example.com"
+  #     external-dns.kubernetes.io/hostname: "router.example.com"
 
 # Default values for resource-set-operator
 resource-set-operator:

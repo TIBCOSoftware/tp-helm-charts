@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: {{ include "hybrid-proxy.consts.deploymentName" . }}
   minReplicas: {{ .Values.replicaCount | default 1 }}
-  maxReplicas: {{ add 3 (.Values.replicaCount | default 1) }}
+  maxReplicas: {{ .Values.hpa.maxReplicas | default (add 3 (.Values.replicaCount | default 1)) }}
   metrics:
     - type: Resource
       resource:

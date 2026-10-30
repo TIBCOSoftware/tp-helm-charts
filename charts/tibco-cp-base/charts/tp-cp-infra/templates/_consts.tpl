@@ -46,8 +46,5 @@
 {{- end }}
 {{- end }}
 
-{{/* Name of alerts-service service. */}}
-{{- define "alerts-service.consts.svcName" }}alerts-service{{ end -}}
-
 {{/* Name of compute-service service. */}}
 {{- define "compute-service.consts.svcName" }}compute-services{{ end -}}

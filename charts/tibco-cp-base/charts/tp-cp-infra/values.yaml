@@ -8,11 +8,11 @@ logLevel: "info"
 
 dpMetadata:
   dpConfigureNamespaceChartName: "dp-configure-namespace"
-  dpConfigureNamespaceChartVersion: "1.21.4"
-  dpConfigureNamespaceAppVersion: "1.21.0"
+  dpConfigureNamespaceChartVersion: "1.22.3"
+  dpConfigureNamespaceAppVersion: "1.22.0"
   dpCoreInfrastructureChartName: "dp-core-infrastructure"
-  dpCoreInfrastructureChartVersion: "1.21.4"
-  dpCoreInfrastructureAppVersion: "1.21.0"
+  dpCoreInfrastructureChartVersion: "1.22.5"
+  dpCoreInfrastructureAppVersion: "1.22.0"
 
   components:
     services:
@@ -42,15 +42,8 @@ topologySpreadConstraints:
 resources:
   infra-compute-services:
     requests:
-      cpu: 200m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 1024Mi
-  infra-alerts-services:
-    requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 300m
+      memory: 512Mi
     limits:
       cpu: 500m
       memory: 1024Mi
@@ -59,16 +52,13 @@ resources:
 hpa:
   cpu: 70
   mem: 70
+  maxReplicas: ~  # null = use replicaCount+3; set an integer to override
 
 # images
 image:
   infra-compute-services:
     name: infra-compute-services
-    tag: 932-distroless
-    pullPolicy: IfNotPresent
-  infra-alerts-services:
-    name: infra-alerts-service
-    tag: 346-distroless
+    tag: 1089-distroless
     pullPolicy: IfNotPresent
 
 # no of replicas
