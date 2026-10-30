@@ -1,0 +1,192 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mft-recipes.appName" . }}-mft-adapter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mft-recipes.labels" . | nindent 4 }}
+data:
+  version.json: |
+    {
+      "capabilityVersion": "1.0.0",
+      "minCPVersion": "1.22.0",
+      "maxCPVersion": "",
+      "releaseDate": {{ .Values.capabilities.mftadapter.releaseDate | quote }},
+      "releaseNotes": {{ .Values.capabilities.mftadapter.releaseNotes | quote }},
+      "minVersionRequiredForUpgrade": "1.0.0",
+      "minDPVersion": {
+        "dp-core-infrastructure": "1.22.0",
+        "dp-configure-namespace": "1.22.0"
+      }
+    }
+  package.json: |
+    {
+      "package": {
+        "services": [
+          {
+            "name": "dp-mft-adapter",
+            "description": "MFT Adapter Service",
+            "monitoringPriority": "essential"
+          }
+        ],
+        "dependsOn": [],
+        "provisioningRoles": [
+          "DEV_OPS"
+        ],
+        "allowMultipleInstances": false,
+        "capabilityResourceDependencies": [
+          {
+            "type": "Ingress Controller",
+            "required": true,
+            "resourceId": "INGRESS",
+            "resourceType": "PLATFORM",
+            "otherResourceIds": ["GATEWAYAPI"]
+          },
+          {
+            "type": "GatewayAPI Controller",
+            "required": true,
+            "resourceId": "GATEWAYAPI",
+            "resourceType": "PLATFORM",
+            "otherResourceIds": ["INGRESS"]
+          }
+        ]
+      }
+    }
+  recipe.yaml: |
+    recipe:
+      helmCharts:
+        - name: dp-mft-adapter
+          namespace: ${NAMESPACE}
+          version: {{ .Values.capabilities.mftadapter.dpMftAdapter.version | quote }}
+          repository:
+            chartMuseum:
+              host: ${HELM_REPO}
+          values:
+            - content: |
+                global:
+                  mftadapter:
+                    image:
+                      tag: {{ .Values.capabilities.mftadapter.dpMftAdapter.tag | quote }}
+          flags:
+            install: true
+            createNamespace: false
+            dependencyUpdate: true
+  customization.yaml: |
+    values:
+      - content: |
+          dp-mft-adapter:
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "0.5"
+                memory: 512Mi
+            tls:
+              # true = trust any MFT server certificate (development only; keep false in production).
+              allowInsecure: false
+              # Name of a Secret in this namespace holding the CA certificates that signed your MFT servers' certificates.
+              caCertSecret: ""
+            outbound:
+              # Extra address ranges the adapter must never call, comma-separated CIDRs (e.g. your cluster's pod and service ranges).
+              deniedCidrs: ""
+            global:
+              cp:
+                logging:
+                  fluentbit:
+                    resources:
+                      requests:
+                        cpu: 10m
+                        memory: 15Mi
+                      limits:
+                        cpu: 50m
+                        memory: 30Mi
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mft-recipes.appName" . }}-mft-adapter-{{ randAlphaNum 4 | lower }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mft-recipes.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "mft-recipes.labels" . | nindent 8 }}
+    spec:
+    {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+    {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: mftadapter
+        image: {{ include "mft-recipes.image.registry" .}}{{"/"}}{{ include "mft-recipes.image.repository" .}}{{"/"}}{{ .Values.image.name }}:{{ .Values.image.tag}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .Values.securityContext }}
+        securityContext:
+        {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+        {{- toYaml .Values.scripts.resources | nindent 10 }}
+        {{- end }}
+        env:
+        - name: CAPABILITY_NAME
+          value: "mftadapter"
+        - name: RECIPE_MOUNT_LOCATION
+          value: "/opt/tibco/recipe"
+        - name: RECIPE_TARGET_LOCATION
+          value: "/private/tsc/config/capabilities/infra"
+        - name: RECIPE_RELEASE_VERSION
+          value: "1.0.0"
+        - name: SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS
+          value: ""
+        - name: OVERWRITE_RECIPE
+          value: {{ .Values.capabilities.mftadapter.overwriteRecipe | quote }}
+        - name: IS_LATEST
+          value: {{ .Values.capabilities.mftadapter.isLatest | quote }}
+        volumeMounts:
+        - name: {{ include "mft-recipes.appName" .  }}-mft-adapter-volume
+          mountPath: /opt/tibco/recipe
+        - name: scripts-config-volume
+          mountPath: /opt/tibco/scripts
+        - name: store-vol
+          mountPath: /private/tsc/config
+          subPath: tsc/config
+        - name: tmp-vol
+          mountPath: /tmp
+        command: ["sh"]
+        args: ["-c", "/opt/tibco/scripts/run.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "mft-recipes.appName" . }}-mft-adapter-volume
+          configMap:
+            name: {{ include "mft-recipes.appName" . }}-mft-adapter
+        - name: scripts-config-volume
+          configMap:
+            name: {{ include "mft-recipes.appName" . }}-script
+            defaultMode: 0777
+        - name: store-vol
+          persistentVolumeClaim:
+            claimName: {{ include "mft-recipes.pvc-name" . }}
+        - emptyDir: {}
+          name: tmp-vol
+{{- if (include "mft-recipes.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "mft-recipes.container-registry.secret" . }}
+{{- end }}
