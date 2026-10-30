@@ -4,7 +4,7 @@ name: Cleanup Alpha Chart Versions
 # Manual trigger only — restricted to users in CLEANUP_ALLOWED_USERS.
 #
 # Three modes (controlled by input combination):
-#   inventory_only=true  → list all alpha versions across all 5 charts, no changes
+#   inventory_only=true  → list all alpha versions across all 7 charts, no changes
 #   dry_run=true         → show what would be deleted for the given scope, no changes
 #   dry_run=false        → delete releases, tags, and gh-pages index.yaml entries
 #
@@ -49,6 +49,10 @@ on:
         default: false
       chart_tibco_cp_mcp_hub:
         description: 'Clean up → tibco-cp-mcp-hub'
+        type: boolean
+        default: false
+      chart_tibco_cp_mft:
+        description: 'Clean up → tibco-cp-mft'
         type: boolean
         default: false
       dry_run:
@@ -197,6 +201,7 @@ jobs:
           [[ "${{ inputs.chart_tibco_cp_devhub }}"                 == "true" ]] && SELECTED="$SELECTED tibco-cp-devhub"
           [[ "${{ inputs.chart_tibco_cp_addon_eventprocessing }}"  == "true" ]] && SELECTED="$SELECTED tibco-cp-addon-eventprocessing"
           [[ "${{ inputs.chart_tibco_cp_mcp_hub }}"                == "true" ]] && SELECTED="$SELECTED tibco-cp-mcp-hub"
+          [[ "${{ inputs.chart_tibco_cp_mft }}"                    == "true" ]] && SELECTED="$SELECTED tibco-cp-mft"
           SELECTED="${SELECTED# }"
 
           if [[ -z "$SELECTED" ]]; then
@@ -240,20 +245,20 @@ jobs:
           echo "  $(wc -l < /tmp/index.yaml) lines in index.yaml"
 
       # ── 2a. Full inventory scan ───────────────────────────────────────────
-      # Scans all 5 charts regardless of chart selection or version input.
+      # Scans all 7 charts regardless of chart selection or version input.
       # Produces a structured markdown table written to the job summary.
       # Uses yq to extract versions from index.yaml per chart.
       # No changes are made.
       - name: Full inventory scan
         if: inputs.inventory_only == true
         run: |
-          ALL_CHARTS="tibco-cp-base tibco-cp-bw tibco-cp-flogo tibco-cp-devhub tibco-cp-addon-eventprocessing"
+          ALL_CHARTS="tibco-cp-base tibco-cp-bw tibco-cp-flogo tibco-cp-devhub tibco-cp-addon-eventprocessing tibco-cp-mcp-hub tibco-cp-mft"
           GRAND_TOTAL=0
 
           {
             echo "## Alpha Version Inventory"
             echo ""
-            echo "_All 5 charts · tags, releases, and index.yaml · No version filter applied_"
+            echo "_All 7 charts · tags, releases, and index.yaml · No version filter applied_"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
