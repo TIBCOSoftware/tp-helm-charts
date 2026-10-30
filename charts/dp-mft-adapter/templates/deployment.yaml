@@ -1,0 +1,204 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mftadapter.fullname" . }}
+  labels:
+    {{- include "mftadapter.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mftadapter.selectorLabels" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "mftadapter.selectorLabels" . | nindent 8 }}
+        networking.platform.tibco.com/kubernetes-api: enable
+        networking.platform.tibco.com/mftInfra: enable
+    spec:
+      {{- if .Values.global.cp.containerRegistry.secret }}
+      imagePullSecrets:
+      - name: {{ .Values.global.cp.containerRegistry.secret }}
+      {{- end }}
+      {{- if .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.cp.resources.serviceaccount.serviceAccountName }}
+      {{- end }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "mftadapter.image.registry" . }}/{{ include "mftadapter.image.repository" . }}/tp-mft-adapter:{{ .Values.global.mftadapter.image.tag | default .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: server
+          {{- if .Values.securityContext.mftadapter }}
+          securityContext:
+            {{- toYaml .Values.securityContext.mftadapter | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet:
+              scheme: HTTP
+              path: /v1/liveness
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /v1/liveness
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /v1/readiness
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: DATAPLANE_ID
+              value: {{ .Values.global.cp.dataplaneId | quote }}
+            - name: INSTANCE_ID
+              value: {{ .Values.global.cp.instanceId | quote }}
+            - name: SERVER_PORT
+              value: "{{ .Values.service.port }}"
+            - name: SERVER_LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: CHART_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: BUILD_NUMBER
+              value: {{ .Values.global.mftadapter.image.tag | default .Chart.AppVersion | quote }}
+            - name: CP_DOMAIN
+              value: {{ include "mftadapter.cp.domain" . }}
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MFT_ADAPTER_TLS_ALLOW_INSECURE
+              value: {{ .Values.tls.allowInsecure | quote }}
+            {{- if .Values.tls.caCertSecret }}
+            - name: MFT_ADAPTER_TLS_CA_CERT_DIR
+              value: /etc/mft/ca-certs
+            {{- end }}
+            {{- if .Values.outbound.deniedCidrs }}
+            - name: MFT_ADAPTER_DENIED_CIDRS
+              value: {{ .Values.outbound.deniedCidrs | quote }}
+            {{- end }}
+            - name: OTLP_METRICS_ENABLED
+              value: {{ .Values.otlp.enabled | quote }}
+            - name: OTLP_METRICS_URL
+              value: {{ include "mftadapter.otlp.metricsUrl" . }}
+            - name: OTLP_METRICS_STEP
+              value: {{ .Values.otlp.step | quote }}
+            - name: MFT_REGISTRY_ENABLED
+              value: {{ .Values.registry.enabled | quote }}
+            - name: MFT_REGISTRY_URL
+              value: {{ .Values.registry.url | quote }}
+            - name: MFT_REGISTRY_REFRESH_MS
+              value: {{ .Values.registry.refreshMs | quote }}
+            - name: MFT_POLLER_ENABLED
+              value: {{ .Values.poller.enabled | quote }}
+            - name: MFT_POLLER_INTERVAL_MS
+              value: {{ .Values.poller.intervalMs | quote }}
+            {{- if .Values.global.cp.logging.fluentbit.enabled }}
+            - name: LOGGING_FILE_NAME
+              value: /tmp/logs/share/mftadapter.log
+            {{- end }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: tmp-workspace
+              mountPath: /tmp
+            {{- if .Values.global.cp.logging.fluentbit.enabled }}
+            - name: logs-share
+              mountPath: /tmp/logs/share
+            {{- end }}
+            {{- if .Values.tls.caCertSecret }}
+            - name: custom-ca-certs
+              mountPath: /etc/mft/ca-certs
+              readOnly: true
+            {{- end }}
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
+        - name: fluent-bit
+          image: {{ include "mftadapter.image.registry" . }}/{{ include "mftadapter.image.repository" . }}/common-fluentbit:{{ .Values.global.cp.logging.fluentbit.image.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.global.cp.logging.fluentbit.securityContext }}
+          securityContext:
+            {{- toYaml .Values.global.cp.logging.fluentbit.securityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.cp.logging.fluentbit.probes.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.cp.enableResourceConstraints }}
+          {{- with .Values.global.cp.logging.fluentbit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: CONTAINER_NAME
+              value: {{ .Chart.Name }}
+          volumeMounts:
+            - name: logs-share
+              mountPath: /var/log/pods
+            - name: fluent-bit-config
+              mountPath: /fluent-bit/etc/
+        {{- end }}
+      volumes:
+        - name: tmp-workspace
+          emptyDir: {}
+        {{- if .Values.global.cp.logging.fluentbit.enabled }}
+        - name: logs-share
+          emptyDir: {}
+        - name: fluent-bit-config
+          configMap:
+            name: {{ include "mftadapter.fullname" . }}-fluentbit-config
+        {{- end }}
+        {{- if .Values.tls.caCertSecret }}
+        - name: custom-ca-certs
+          secret:
+            secretName: {{ .Values.tls.caCertSecret }}
+        {{- end }}

@@ -1,0 +1,187 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+# Internal-only ingress (reached via the DP proxy, not publicly exposed). The route prefix is
+# configurable via global.cp.routeResources.pathPrefix; one variant renders per selected controller.
+{{ if .Values.ingress.enabled -}}
+{{- $dot := . }}
+{{- $fullName := include "mftadapter.fullname" . -}}
+
+{{- /* haProxy default (bundled ingress) */ -}}
+{{- if and (or (empty .Values.global.cp.routeResources.ingress.ingressController) (eq .Values.global.cp.routeResources.ingress.ingressController "haProxy")) (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.className }}-{{ $fullName }}
+  labels:
+    app.kubernetes.io/component: load-balancer
+    {{- include "mftadapter.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-namespace: {{ .Values.global.cp.resources.serviceaccount.namespace }}
+    meta.helm.sh/release-name: {{ $fullName }}
+    ingress.kubernetes.io/path-rewrite: /tibco/agent/integration/mft/(.*) /\1
+    {{- with .Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: tibco-dp-{{ .Values.global.cp.dataplaneId }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ tpl $.Values.global.cp.dpUrl.host $dot }}
+      http:
+        paths:
+          - path: /tibco/agent/integration/mft/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $.Values.service.port }}
+{{- end }}
+
+{{- /* nginx */ -}}
+{{- if and (eq .Values.global.cp.routeResources.ingress.ingressController "nginx") (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "mftadapter.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/mft
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/mft/(.*)
+        backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}
+
+{{- /* traefik */ -}}
+{{- if and (eq .Values.global.cp.routeResources.ingress.ingressController "traefik") (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullName }}-private-strip-prefix
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "mftadapter.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.global.cp.routeResources.pathPrefix }}/integration/mft/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "mftadapter.labels" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-private-strip-prefix@kubernetescrd
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.cp.routeResources.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.global.cp.routeResources.ingress.fqdn }}
+    http:
+      paths:
+      - pathType: Prefix
+        path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/mft/
+        backend:
+          service:
+            name: {{ $fullName }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}
+
+{{- /* openshiftRouter */ -}}
+{{- if and (eq .Values.global.cp.routeResources.ingress.ingressController "openshiftRouter") (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "mftadapter.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    {{- with .Values.global.cp.routeResources.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.cp.routeResources.ingress.fqdn }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/mft/
+  to:
+    kind: Service
+    name: {{ $fullName }}
+    weight: 100
+  port:
+    targetPort: {{ .Values.service.port }}
+  wildcardPolicy: None
+{{- end }}
+
+{{- /* gatewayapi */ -}}
+{{- if not (empty .Values.global.cp.routeResources.gatewayapi.gatewayAPIControllerName) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "mftadapter.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.global.cp.routeResources.gatewayapi.gatewayName }}
+    namespace: {{ .Values.global.cp.routeResources.gatewayapi.gatewayNamespace }}
+    {{- with .Values.global.cp.routeResources.gatewayapi.gatewaySectionName }}
+    sectionName: {{ . }}
+    {{- end }}
+  hostnames:
+  - {{ .Values.global.cp.routeResources.gatewayapi.gatewayHostOrDomainName | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ .Values.global.cp.routeResources.pathPrefix }}/integration/mft/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: {{ $fullName }}
+      port: {{ .Values.service.port }}
+{{- end }}
+{{- end }}

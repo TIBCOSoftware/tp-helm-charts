@@ -1,0 +1,189 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Default values for dp-mft-adapter.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  # imagePullPolicy is applied to the fluent-bit sidecar image.
+  imagePullPolicy: IfNotPresent
+  # tp-mft-adapter image build to deploy; blank falls back to .Chart.AppVersion.
+  mftadapter:
+    image:
+      tag: "149"
+  cp:
+    dataplaneId: dp-dp1
+    instanceId: defaultinstid
+    dpUrl:
+      host: "dp-{{ $.Values.global.cp.dataplaneId }}.platform.local"
+      port: 443
+    routeResources:
+      pathPrefix: /tibco/agent   # configurable routing prefix; the /integration/... tail is hardcoded in the templates
+      ingress:
+        ingressController: ""    # "" | "haProxy" (default) | "nginx" | "traefik" | "openshiftRouter"
+        ingressClassName: ""     # required when ingressController is non-empty and not "haProxy"
+        fqdn: ""                 # required when ingressController is set
+        annotations: {}          # user-supplied annotations merged on top of controller defaults
+      gatewayapi:
+        gatewayAPIControllerName: ""
+        gatewayName: ""
+        gatewayNamespace: ""
+        gatewayHostOrDomainName: ""
+        gatewaySectionName: ""
+    containerRegistry:
+      secret: ""
+      url: ""
+      repository: "tibco-platform-docker-prod"
+    enableResourceConstraints: true
+    resources:
+      serviceaccount:
+        namespace: ""
+        serviceAccountName: ""
+    logging:
+      # fluentbit sidecar ships the adapter log to the DP collector; when disabled it logs to stdout.
+      fluentbit:
+        apps:
+          enabled: true
+        enabled: true
+        image:
+          tag: 5.1.5
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+          limits:
+            cpu: 50m
+            memory: 30Mi
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/uptime
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+
+replicaCount: 1
+
+image:
+  # Container image pull policy (the tag is set via global.mftadapter.image.tag).
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+
+# Root log level for the Spring Boot adapter (mapped to SERVER_LOG_LEVEL).
+logLevel: INFO
+
+# Insecure TLS toward on-prem MFT (trust-all + skip hostname verification); keep false in production.
+tls:
+  allowInsecure: false
+  # Optional Secret with CA certs to trust for on-prem MFT TLS; empty = default public CAs only.
+  caCertSecret: ""
+
+# Outbound calls to on-prem MFT. Loopback, link-local/cloud metadata and cluster-internal names are
+# always refused; deniedCidrs adds ranges (comma-separated CIDRs, e.g. the cluster pod/service ranges).
+outbound:
+  deniedCidrs: ""
+
+# OTLP metrics push to the DP user-app metrics collector (:4318).
+otlp:
+  enabled: true
+  step: 30s
+
+# On-prem instance registry pulled from the CP; blank url is built in-app from CP_DOMAIN + DATAPLANE_ID.
+registry:
+  enabled: true
+  url: ""
+  refreshMs: "3600000"
+
+# Per-instance poller: heartbeat + windowed statistics rolled up to OTLP gauges.
+poller:
+  enabled: true
+  intervalMs: "60000"
+
+podAnnotations: {}
+
+# Pod runs unprivileged (uid/gid/fsGroup 1000) with the runtime-default seccomp profile.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  mftadapter:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+service:
+  type: ClusterIP
+  port: 7815
+  targetPort: 7815
+
+# Internal-only ingress (reached via the DP proxy; not publicly exposed).
+ingress:
+  enabled: true
+  className: haproxy
+  annotations: {}
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "0.5"
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+probes:
+  startup:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 30
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 5
+    timeoutSeconds: 5
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 3
+    timeoutSeconds: 5
+
+# -- Additional environment variables appended to the adapter container.
+extraEnvVars: []
+#  - name: NAME
+#    value: value
