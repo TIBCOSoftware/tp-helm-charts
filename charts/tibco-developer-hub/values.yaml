@@ -57,7 +57,7 @@ global:
       fluentbit:
         image:
           name: common-fluentbit
-          tag: 5.1.2
+          tag: 5.1.5
         enabled: true
         resources:
           requests:
@@ -162,7 +162,7 @@ backstage:
     # -- Backstage image name
     name: dx-tibco-hub
     # -- Backstage image tag (immutable tags are recommended)
-    tag: "1712"
+    tag: "1825"
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -362,7 +362,7 @@ postgresql:
   enabled: false
   image:
     name: dx-postgresql
-    tag: 18.7
+    tag: 18.8
     version: 18
   commonLabels: '{{- include "tibcohub.platform.commonLabels" . -}}'
   serviceAccount:
@@ -493,7 +493,7 @@ metrics:
 
 fluentbit:
   image:
-    tag: 5.1.2
+    tag: 5.1.5
     pullPolicy: Always
   securityContext:
     runAsNonRoot: false
@@ -610,6 +610,6 @@ securityContext:
 kubectl:
   image:
     name: dx-kubectl
-    tag: 1.21.1
+    tag: 1.22.1
 
 backstageVersion: 1.51.0
