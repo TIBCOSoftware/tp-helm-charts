@@ -80,7 +80,7 @@ cp:
   pullSecret: ""
   pullPolicy: Always
   imageName: "msg-cp-ui-contrib"
-  imageTag: "1.21.0-9"
+  imageTag: "1.22.0-13"
   enableResourceConstraints: true
     {{ if hasKey .Values.cp "enableSecurityContext" }}
   enableSecurityContext: {{ .Values.cp.enableSecurityContext }}
