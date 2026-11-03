@@ -257,25 +257,19 @@ process_files() {
     # Validate input file using helper
     validate_file "${CONTROL_PLANE_FILE}" "Control plane values file" || exit 1
     
-    # ========================================================================
-    # TODO: Implement version-specific transformation logic here
-    # ========================================================================
-    
-    # Example: Start with current values as base
     cp "${CONTROL_PLANE_FILE}" "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Example: Apply version-specific transformations using yq
-    # yq eval '.some.new.config = "value"' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    # yq eval 'del(.deprecated.section)' -i "${CONTROL_PLANE_OUTPUT_FILE}"
-    
-    # Example: Merge new configurations
-    # if [[ -f "${TEMP_DIR}/new-config.yaml" ]]; then
-    #     yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-    #         "${CONTROL_PLANE_OUTPUT_FILE}" \
-    #         "${TEMP_DIR}/new-config.yaml" > "${CONTROL_PLANE_OUTPUT_FILE}.tmp"
-    #     mv "${CONTROL_PLANE_OUTPUT_FILE}.tmp" "${CONTROL_PLANE_OUTPUT_FILE}"
-    # fi
-    
+
+    # tp-cp-o11y: capabilities.o11y.{default,withResources} were flattened in 1.22.0.
+    # Replace the old sections with capabilities.o11y.overwriteRecipe (keeps default's value).
+    if [[ $(yq eval '."tp-cp-o11y".capabilities.o11y | (has("default") or has("withResources"))' "${CONTROL_PLANE_OUTPUT_FILE}") == "true" ]]; then
+        yq eval -i '
+          ."tp-cp-o11y".capabilities.o11y.overwriteRecipe = ((."tp-cp-o11y".capabilities.o11y.default.overwriteRecipe // "false") | tostring) |
+          del(."tp-cp-o11y".capabilities.o11y.default) |
+          del(."tp-cp-o11y".capabilities.o11y.withResources)
+        ' "${CONTROL_PLANE_OUTPUT_FILE}"
+        print_info "  [+] Migrated tp-cp-o11y.capabilities.o11y.{default,withResources} -> capabilities.o11y.overwriteRecipe"
+    fi
+
     print_success "Processing completed successfully"
     
     # Summary
