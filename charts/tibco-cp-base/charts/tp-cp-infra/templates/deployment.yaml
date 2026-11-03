@@ -65,6 +65,14 @@ spec:
             mountPath: /tmp/logs
           - name: tibco-charts-dir
             mountPath: /helm/tibcocharts
+          - name: config
+            mountPath: /configuration/alertmanager
+            readOnly: false
+            subPath: alertmanager/config
+          - name: config
+            mountPath: /configuration/prometheus
+            readOnly: false
+            subPath: alerts/prometheus/rules
         ports:
         - containerPort: 9979
           name: compute-service
@@ -188,64 +196,8 @@ spec:
                 key: customerGroup
                 name: {{ include "tp-cp-infra.consts.appName" .}}-jfrog
         {{- end }}
-      - name: infra-alerts-services
-        image: {{ include "tp-cp-infra.image.registry" . }}/{{ include "tp-cp-infra.image.repository" . }}/{{ index .Values.image "infra-alerts-services" "name" }}:{{ index .Values.image "infra-alerts-services" "tag" }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if .Values.securityContext }}
-        securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
-        {{- end }}  
-        {{- if .Values.global.tibco.enableResourceConstraints }}
-        {{- with (index .Values.resources "infra-alerts-services") }}
-        resources:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-        {{- end }}
-        volumeMounts:
-          - name : logs
-            mountPath: /tmp/logs
-          - name: config
-            mountPath: /configuration/alertmanager
-            readOnly: false
-            subPath: alertmanager/config
-          - name: config
-            mountPath: /configuration/prometheus
-            readOnly: false
-            subPath: alerts/prometheus/rules
-        ports:
-        - containerPort: 9980
-          name: alert-service
-        startupProbe:
-          httpGet:
-            scheme: HTTP
-            path: /version
-            port: 9980
-          initialDelaySeconds: 0
-          periodSeconds: 5
-          timeoutSeconds: 5
-          successThreshold: 1
-          failureThreshold: 5
-        readinessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /version
-            port: 9980
-          failureThreshold: 1
-          successThreshold: 1
-          timeoutSeconds: 5
-          initialDelaySeconds: 1
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /version
-            port: 9980
-          failureThreshold: 1
-          successThreshold: 1
-          timeoutSeconds: 5
-          initialDelaySeconds: 1
-          periodSeconds: 10
-        env:
+          - name: COMPUTE_SERVICE_HTTP_PORT
+            value: "9979"
           - name: ALERT_MANAGER_RELOAD_URL
             value: http://tp-cp-alertmanager.{{ .Release.Namespace }}.svc.cluster.local:9093/-/reload
           - name: PROMETHEUS_RELOAD_URL
@@ -254,9 +206,7 @@ spec:
             value: /configuration/alertmanager
           - name: PROMETHEUS_RULES_CONFIG_FILE_PATH
             value: /configuration/prometheus/rules_
-          - name:  ALERTS_SERVICE_HTTP_PORT
-            value: "9980"
-          - name:  CP_BACKEND_SERVICE_HOST
+          - name: CP_BACKEND_SERVICE_HOST
             value: http://tp-cp-orchestrator.{{ .Release.Namespace }}.svc.cluster.local:8833
           - name: POD_NAMESPACE
             value: {{ .Release.Namespace }}
@@ -264,8 +214,6 @@ spec:
             value: "{{ .Values.global.tibco.adminHostPrefix | default "admin" }}.{{ .Values.global.external.dnsDomain }}"
           - name: CP_IDM_SERVICE_HOST
             value: "http://tp-identity-management.{{ .Release.Namespace }}.svc.cluster.local:7831"
-          - name: LOG_LEVEL
-            value: {{ .Values.logLevel }}
 {{- if .Values.global.tibco.logging.fluentbit.enabled }}
       - name: fluentbit
         image: {{ include "tp-cp-infra.image.registry" .}}{{"/"}}{{ include "tp-cp-infra.image.repository" .}}{{"/common-fluentbit"}}:{{ .Values.global.tibco.commonImages.fluentbit.tag }}

@@ -97,9 +97,10 @@ mcpHub:
 # CP MCP Server
 cpmcpserver:
   enabled: false
+  readOnlyMode: false
   image:
     name: infra-cp-mcp-server
-    tag: "1070-distroless"
+    tag: "1122-distroless"
   logLevel: "INFO"
   resources:
     requests:
@@ -113,7 +114,7 @@ mcpAggregator:
     name: infra-cp-mcp-aggregator
     # Move this by ancestry, not by build number: a branch build forks from wherever its
     # branch was cut, so a higher number can be missing commits a lower one already has.
-    tag: "207-distroless"
+    tag: "219-distroless"
   logLevel: "INFO"
   # Scopes tools/list_changed to the affected session. With this false, one tenant onboarding
   # a data plane notifies every other tenant's connected session.

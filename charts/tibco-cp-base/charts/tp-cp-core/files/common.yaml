@@ -5,7 +5,7 @@
 global:
   allInternalTenantsDnsDomains: ${TSC_ADMIN_DNS_DOMAIN}, ${TSC_DNS_DOMAIN}
   INTERNAL_NGINXAGENT_ELB_DNS: "10.245.1.2"
-  mandatoryInfraCapabilityLists: "{'k8s':['MONITORINGAGENT', 'CPPROXY', 'O11Y'],'control-tower':['MONITORINGAGENT', 'CPPROXY', 'O11Y', 'HAWKCONSOLE', 'BWADAPTER', 'MFTADAPTER']}"
+  mandatoryInfraCapabilityLists: "{'k8s':['MONITORINGAGENT', 'CPPROXY', 'O11Y'],'control-tower':['MONITORINGAGENT', 'CPPROXY', 'O11Y']}"
   
 ########################################  IDM common vars  #############################################
 identity-management:
@@ -30,6 +30,10 @@ orchestrator:
   psqlMaxOpenConnections: "30"
   psqlMaxIdleConnections: "7"
   enableArn: "true"
+  # PCP-21101 (orch-mon merge): tunables for the in-process monitoring code, externalized from
+  # hardcoded constants. Defaults match the previous compiled-in values.
+  appRegistrationBatchSize: "50"
+  cpAgentHttpTimeout: "30"
 
 ####################################     CP WEB server env variables      ##############################################
 web-server:
@@ -40,6 +44,12 @@ web-server:
   # which would break the first-party <script src="/cp/root-config-content/..."> tags.
   # Self-hosted installs render PENDO_ENABLED=false, so the agent never loads there
   # and these hosts are never contacted.
+  # PCP-24712: img-src needs data.pendo.io for the agent's 1x1 beacon GIFs; connect-src
+  # already allowed it, but an <img> load is a different directive. frame-src: the blocked
+  # host is a child of the CP's own global.external.dnsDomain, but this file is read with
+  # .Files.Get | fromYaml and never through tpl, so it cannot reference .Values -- hence
+  # literal TLD families. Prod is *.cloud.tibco.com, not *.platform.cloud.tibco.com (the
+  # prod label is "platform-my"). TODO(PCP-24712): narrow to *.<dnsDomain> via csp.js.
   customContentSecurityPolicyHeader: ""
   # Optional Report-Only twin used during pilot rollout.
   # Leave empty (or omit) once you are ready to enforce. 
@@ -49,8 +59,21 @@ web-server:
 
 user-subscriptions:
   appNameMaxLength: "63"
-  psqlMaxOpenConnections: "200"
-  psqlMaxIdleConnections: "50"
+  # PCP-19871 (orch-mon merge): 200 -> 300 open, 50 -> 75 idle.
+  #
+  # user-subscriptions absorbs most of the decommissioned monitoring-service's 150/35. After
+  # PCP-21101 the orchestrator's monitoring code reaches the database through UTM rather than its
+  # own pool, so every monitoring read and write — agent payloads, capability and service rows,
+  # both monitoring pages — arrives here as HTTP and is served from THIS pool. The orchestrator's
+  # own 30/7 is deliberately unchanged: it gained HTTP clients, not database connections.
+  #
+  # The remainder of monitoring's budget went to cp-cronjobs, which does its share as direct SQL
+  # (see tp-cp-cronjobs.consts.psqlMaxOpenConnections). Total after the merge is 375 against 410
+  # before it, so the merge removes a service without raising the fleet's connection ceiling.
+  #
+  # Per POD, not per service: the HPA runs minReplicas=replicaCount and maxReplicas=replicaCount+2.
+  psqlMaxOpenConnections: "300"
+  psqlMaxIdleConnections: "75"
   psqlConnectionMaxLifeTime: "300"
 
 ####################################      CP cronjobs env variables     #################################################
@@ -58,6 +81,8 @@ cronjobs:
   psqlConnectionMaxLifeTime: "300"
   timeToScheduleJobsAt: "0 00 04 * * *"
   scheduleFrequencyForProvisionInfraCapabilitiesJob: "@every 1m"
+  infraCapabilityProvisionTimeoutSeconds: "300"
+  mvRefreshTimeoutSeconds: "60"
 
 ##############################################################################################
 

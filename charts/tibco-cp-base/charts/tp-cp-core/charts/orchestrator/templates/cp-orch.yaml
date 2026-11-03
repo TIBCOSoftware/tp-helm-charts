@@ -34,10 +34,62 @@ spec:
     port: 10833
     protocol: TCP
     targetPort: 10833
+  # PCP-21101 (orch-mon merge): TP_CP_MONITORING_HOST was repointed from
+  # tp-cp-monitoring-service to tp-cp-orchestrator, but the BW6 web-server app still has
+  # the old monitoring-service port 7831 hardcoded in its image and is passed no port env.
+  # Without this alias its call to tp-cp-orchestrator:7831/api/v1/dpstatus/... hits no
+  # listener, hangs, and wedges the app before it binds its own listeners.
+  # Aliases onto the management server (8833), which already serves those routes and is
+  # already exposed above, so this grants no new access.
+  # TRANSITIONAL: remove once the BW6 web-server moves to 8833 (or takes a port env).
+  - name: monitoring-compat
+    port: 7831
+    protocol: TCP
+    targetPort: 8833
   selector:
     {{- include "tp-cp-orchestrator.shared.labels.selector" . | nindent 4 }}
 
 ---
+{{- if .Values.global.tibco.monitoringServiceCompatAlias }}
+# PCP-19871 / PCP-23723: name alias so callers that still address the deleted
+# tp-cp-monitoring-service keep working without forking each of their charts.
+#
+# The alias above solves the BW6 web-server, which had only the PORT hardcoded — its host was
+# already repointed by env. The hawk querynode is different: it has the whole ADDRESS baked into
+# tibco-cp-hawk's _consts.tpl as tp-cp-monitoring-service.<ns>.svc.cluster.local:7831. Fixing that
+# there meant forking another team's chart and pinning a version (we carried 1.20.7 for exactly
+# one changed line), which has to be redone on every hawk release and leaves us permanently
+# behind — main is already on 1.21.6.
+#
+# So alias the NAME instead. tp-cp-monitoring-service:7831 resolves here and forwards to the
+# orchestrator's management server on 8833, which already serves those routes. hawk needs no
+# change at all, and so does anything else still using the old address.
+#
+# Guarded because the monitoring-service rollback net (tp-cp-core-finops, disabled by default)
+# creates a Service with this exact name. Enabling both would collide and fail the install — and
+# if that chart IS enabled the real service is back, so the alias is not wanted anyway. That value
+# lives in a sibling subchart and is not visible from here, hence the separate global.
+#
+# TRANSITIONAL: delete once tibco-cp-hawk repoints _consts.tpl to tp-cp-orchestrator:8833
+# upstream, the same way PCP-22674 tracks the BW6 web-server.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tp-cp-monitoring-service
+  namespace: {{ include "tp-cp-orchestrator.consts.namespace" . }}
+  labels:
+    {{- include "tp-cp-orchestrator.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+  - name: monitoring-compat
+    port: 7831
+    protocol: TCP
+    targetPort: 8833
+  selector:
+    {{- include "tp-cp-orchestrator.shared.labels.selector" . | nindent 4 }}
+
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -267,11 +319,30 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.dpNameMaxLength
+        # PCP-21101 (orch-mon merge): tunables for the in-process monitoring code. Defaults in
+        # tp-cp-core/files/common.yaml match the values previously hardcoded in the Go source.
+        - name: APP_REGISTRATION_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.appRegistrationBatchSize
+        - name: CPAGENT_HTTP_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.cpAgentHttpTimeout
         - name: TP_CP_MONITORING_HOST
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_MONITORING_HOST
+        # PCP-20154 (orch-mon merge): finops Prometheus host for the in-process monitoring code.
+        # FINOPS_PROMETHEUS_PORT is left to the code default (9090).
+        - name: FINOPS_PROMETHEUS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: FINOPS_PROMETHEUS_HOST
         - name: TP_CP_PERMISSIONS_ENGINE_HOST
           valueFrom:
             configMapKeyRef:
@@ -283,6 +354,15 @@ spec:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_ORCH_HOST
         - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+        # PCP-21101 (orch-mon merge): user-subscriptions host for the in-process monitoring
+        # cpAgent UTM calls. The merged monitoring code reads CP_USER_SUBSCRIPTIONS_HOST
+        # (distinct from TP_CP_USER_SUB_HOST) and appends port 8832 by default. Without it
+        # the calls go to http://:8832/... and fail (PCP-20155 integration finding).
+        - name: CP_USER_SUBSCRIPTIONS_HOST
           valueFrom:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
@@ -358,6 +438,40 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CONTROL_PLANE_NAMESPACE
+        # PCP-21753 (orch-mon merge): hawk querynode + BW/BE webserver endpoints for the
+        # in-process monitoring code (moved here from the decommissioned monitoring-service
+        # StatefulSet). Querynode host comes from the core dns configmap (TP_CP_QUERYNODE_HOST);
+        # the BW5/BW6/BE webserver hosts live only in the finops dns configmap
+        # (tp-cp-finops-dnsdomains, always co-installed). Ports are static, matching the code
+        # defaults in environment/monitoring_environment.go.
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_PORT
+          value: "9681"
+        - name: CP_BW6_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: tp-cp-finops-dnsdomains
+              key: TP_CP_BW6_WEBSERVER_HOST
+        - name: CP_BW6_WEBSERVER_SERVICE_PORT
+          value: "3000"
+        - name: CP_BW5_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: tp-cp-finops-dnsdomains
+              key: TP_CP_BW5_WEBSERVER_HOST
+        - name: CP_BW5_WEBSERVER_SERVICE_PORT
+          value: "3001"
+        - name: CP_BE_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: tp-cp-finops-dnsdomains
+              key: TP_CP_BE_WEBSERVER_HOST
+        - name: CP_BE_WEBSERVER_SERVICE_PORT
+          value: "7654"
         - name: DATAPLANE_CHECK_STATUS_TIMEOUT_IN_SECONDS
           valueFrom:
             configMapKeyRef:
@@ -762,6 +876,38 @@ spec:
       allowClientCache: false
       allowXFrameOptions: false
       enableRedirects: false
+# PCP-20154 (orch-mon merge): finops monitoring DP-facing routes, served by the orchestrator
+# published API server (10833). Folded in from the standalone monitoring-service TibcoRoute.
+  - path: /finops/monitoring-service/public/v1/dpstatus
+    internalPath: /public/v1/dpstatus
+    port: 10833
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_DNS_DOMAIN}
+        methods:
+          - POST
+  - path: /finops/monitoring-service/public/v1/getnamespaces
+    internalPath: /public/v1/getnamespaces
+    port: 10833
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_DNS_DOMAIN}
+        methods:
+          - GET
+  - path: /finops/monitoring-service/public/v1/apps
+    internalPath: /public/v1/apps
+    port: 10833
+    protocol: http
+    proxies:
+      - listener: virtual
+        config: secure
+        fqdn: ${TSC_DNS_DOMAIN}
+        methods:
+          - PUT
   - path: /platform-console/api/v1/init
     internalPath: /v1/tibco-subscriptions
     port: 8833
