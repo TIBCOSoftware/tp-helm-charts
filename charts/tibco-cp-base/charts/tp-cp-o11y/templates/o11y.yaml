@@ -1524,6 +1524,11 @@ data:
                       - context: resource
                         statements:
                         - set(attributes["k8s.namespace.name"], attributes["app_namespace"]) where attributes["k8s.namespace.name"] != nil and attributes["app_namespace"] != nil and attributes["app_namespace"] != attributes["k8s.namespace.name"]
+                        # Per-DP identity on the resource: Prometheus builds target_info from the resource,
+                        # and service-role scrapes have no pod for k8sattributes to tag, so DPs with the same
+                        # namespace name would share one target_info series. Same key as the datapoint, so the
+                        # :4319/:4320 rtc exporters dedupe it.
+                        - set(attributes["dataplane_id"], "${DATAPLANE-ID}") where attributes["dataplane_id"] == nil
                     groupbyattrs:
                       keys:
                       - app_namespace
