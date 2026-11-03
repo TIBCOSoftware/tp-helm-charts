@@ -1338,7 +1338,12 @@ extraManifests:
         global:
           scrape_interval: 35s
           evaluation_interval: 35s
-          # Alertmanager configuration
+        # DPs push OTLP metrics here; accept samples that arrive up to 15m late instead of failing the
+        # whole request. Set here: this file (prom-server-conf) is the one Prometheus loads, server.tsdb is not.
+        storage:
+          tsdb:
+            out_of_order_time_window: 15m
+        # Alertmanager configuration
         alerting:
           alertmanagers:
             - static_configs:
