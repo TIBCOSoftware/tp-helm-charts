@@ -8588,6 +8588,74 @@ entries:
       app.helm.sh/name: tibco-cp-base
     apiVersion: v2
     appVersion: 1.22.0
+    created: "2026-11-03T11:17:41.621884371Z"
+    dependencies:
+    - name: tp-cp-infra
+      repository: ""
+      version: 1.22.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.22.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.22.*
+    - name: router-operator
+      repository: ""
+      version: 1.22.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: ' 0.156.*'
+    - name: tp-cp-configuration
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-core
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-core-finops
+      repository: ""
+      version: 1.22.*
+    - condition: tp-cp-o11y.enabled
+      name: tp-cp-o11y
+      repository: ""
+      version: 1.22.*
+    - condition: tp-cp-integration-common.enabled
+      name: tp-cp-integration-common
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-cli
+      repository: ""
+      version: 1.17.*
+    - name: tp-cp-alertmanager
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-prometheus
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-auditsafe
+      repository: ""
+      version: 1.21.*
+    - name: tp-dp-proxy
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Platform base chart
+    digest: 28b597af6c4528025095edda7227d8f3aec4f17862d8a1cb897bbde004530e43
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: tibco-cp-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.22.0-alpha.141/tibco-cp-base-1.22.0-alpha.141.tgz
+    version: 1.22.0-alpha.141
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tibco-cp-base
+    apiVersion: v2
+    appVersion: 1.22.0
     created: "2026-10-29T12:28:59.29742277Z"
     dependencies:
     - name: tp-cp-infra
@@ -9394,6 +9462,58 @@ entries:
     version: 1.22.0-alpha.29
   - apiVersion: v2
     appVersion: 1.22.0
+    created: "2026-11-03T11:17:41.855257081Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: b9c7e421607e555f5ed995115aa5834b3c3ac6d8ceeff338d5f439da00c08fdf
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.29/tibco-cp-bw-1.22.0-alpha.29.tgz
+    version: 1.22.0-alpha.29
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-30T06:26:53.496971644Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 9fe4df7450cb9144849c9cc53c2d76f7fb2d62936f268685e4c18ee921d09f62
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
+    version: 1.22.0-alpha.28
+  - apiVersion: v2
+    appVersion: 1.22.0
     created: "2026-10-29T10:47:34.248708179Z"
     dependencies:
     - condition: bw-recipes.enabled
@@ -9414,58 +9534,6 @@ entries:
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
     digest: 2b7ffc9c37a7d6b51b8cfc84d58fd7ab5d16fe81389d9ae901d1e58c0ff1a688
-    name: tibco-cp-bw
-    urls:
-    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
-    version: 1.22.0-alpha.28
-  - apiVersion: v2
-    appVersion: 1.22.0
-    created: "2026-10-29T12:28:59.471564946Z"
-    dependencies:
-    - condition: bw-recipes.enabled
-      name: bw-recipes
-      repository: ""
-      version: 1.22.*
-    - condition: bw-webserver.enabled
-      name: bw-webserver
-      repository: ""
-      version: 1.22.*
-    - condition: bwce-utilities.enabled
-      name: bwce-utilities
-      repository: ""
-      version: 1.22.*
-    - condition: bw5ce-utilities.enabled
-      name: bw5ce-utilities
-      repository: ""
-      version: 1.22.*
-    description: TIBCO Controlplane chart for BW Capability
-    digest: e320781e723430391e5bf9cc42782a65da8f81806d7dedc8dc527ad583c1defe
-    name: tibco-cp-bw
-    urls:
-    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
-    version: 1.22.0-alpha.28
-  - apiVersion: v2
-    appVersion: 1.22.0
-    created: "2026-10-29T10:46:27.197192436Z"
-    dependencies:
-    - condition: bw-recipes.enabled
-      name: bw-recipes
-      repository: ""
-      version: 1.22.*
-    - condition: bw-webserver.enabled
-      name: bw-webserver
-      repository: ""
-      version: 1.22.*
-    - condition: bwce-utilities.enabled
-      name: bwce-utilities
-      repository: ""
-      version: 1.22.*
-    - condition: bw5ce-utilities.enabled
-      name: bw5ce-utilities
-      repository: ""
-      version: 1.22.*
-    description: TIBCO Controlplane chart for BW Capability
-    digest: bf4c7cacf71e5b65a3c4bcafd19a80caa4418a90e05a265f343e4994f1041708
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -9550,7 +9618,7 @@ entries:
     version: 1.22.0-alpha.28
   - apiVersion: v2
     appVersion: 1.22.0
-    created: "2026-10-30T06:26:53.496971644Z"
+    created: "2026-10-29T12:28:59.471564946Z"
     dependencies:
     - condition: bw-recipes.enabled
       name: bw-recipes
@@ -9569,7 +9637,33 @@ entries:
       repository: ""
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
-    digest: 9fe4df7450cb9144849c9cc53c2d76f7fb2d62936f268685e4c18ee921d09f62
+    digest: e320781e723430391e5bf9cc42782a65da8f81806d7dedc8dc527ad583c1defe
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
+    version: 1.22.0-alpha.28
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T10:46:27.197192436Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: bf4c7cacf71e5b65a3c4bcafd19a80caa4418a90e05a265f343e4994f1041708
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -18502,4 +18596,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-11-03T08:12:07.195515139Z"
+generated: "2026-11-03T11:17:41.856524826Z"
