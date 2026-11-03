@@ -19,6 +19,7 @@ File: `scripts/1.22.0/upgrade.sh`
   - Perform Helm upgrade to `tibco-cp-base` chart version 1.22.0
 - Enforces safe prechecks before extracting values or performing upgrades (including early, mode-specific dependency validation)
 - Produces versioned output values file for the control plane chart
+- Migrates the `tp-cp-o11y` o11y capability settings to the 1.22.0 layout (see [Version-Specific Changes](#version-specific-changes))
 - Verifies the upgrade and reports chart/app version and pod readiness
 - **Note**: No bootstrap cleanup needed - single chart deployment only
 
@@ -108,9 +109,34 @@ If any check fails, the script prints a clear error and exits.
 
 ## Version-Specific Changes
 
-No version-specific transformations have been defined yet for 1.22.0.
+### tp-cp-o11y: o11y capability settings flattened
 
-Update the `process_files()` function in `upgrade.sh` once the deprecated fields or new configurations for 1.22.0 are confirmed.
+In 1.22.0, `tp-cp-o11y.capabilities.o11y.default` and `tp-cp-o11y.capabilities.o11y.withResources` were merged into `tp-cp-o11y.capabilities.o11y`.
+
+If the 1.21.0 values contain either old section, the script:
+- Sets `tp-cp-o11y.capabilities.o11y.overwriteRecipe` from the old `default.overwriteRecipe` (`"false"` if not set)
+- Removes `tp-cp-o11y.capabilities.o11y.default` and `tp-cp-o11y.capabilities.o11y.withResources`
+
+Other keys inside the old sections (chart versions, `isLatest`, release notes) are dropped so the 1.22.0 chart defaults apply. All other values are left unchanged.
+
+**Before (1.21.0):**
+```yaml
+tp-cp-o11y:
+  capabilities:
+    o11y:
+      default:
+        overwriteRecipe: "false"
+      withResources:
+        overwriteRecipe: "false"
+```
+
+**After (1.22.0):**
+```yaml
+tp-cp-o11y:
+  capabilities:
+    o11y:
+      overwriteRecipe: "false"
+```
 
 ---
 
