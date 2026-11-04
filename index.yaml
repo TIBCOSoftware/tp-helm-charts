@@ -8588,6 +8588,74 @@ entries:
       app.helm.sh/name: tibco-cp-base
     apiVersion: v2
     appVersion: 1.22.0
+    created: "2026-11-04T12:02:55.417482058Z"
+    dependencies:
+    - name: tp-cp-infra
+      repository: ""
+      version: 1.22.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: hybrid-proxy
+      repository: ""
+      version: 1.22.*
+    - condition: global.tibco.hybridConnectivity.enabled
+      name: resource-set-operator
+      repository: ""
+      version: 1.22.*
+    - name: router-operator
+      repository: ""
+      version: 1.22.*
+    - condition: otel-collector.enabled
+      name: otel-collector
+      repository: ""
+      version: ' 0.156.*'
+    - name: tp-cp-configuration
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-core
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-core-finops
+      repository: ""
+      version: 1.22.*
+    - condition: tp-cp-o11y.enabled
+      name: tp-cp-o11y
+      repository: ""
+      version: 1.22.*
+    - condition: tp-cp-integration-common.enabled
+      name: tp-cp-integration-common
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-cli
+      repository: ""
+      version: 1.17.*
+    - name: tp-cp-alertmanager
+      repository: ""
+      version: 1.19.*
+    - name: tp-cp-prometheus
+      repository: ""
+      version: 1.22.*
+    - name: tp-cp-auditsafe
+      repository: ""
+      version: 1.21.*
+    - name: tp-dp-proxy
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Platform base chart
+    digest: 6e783da3b71f29d925978adddde5e7d116c8b2bd5453b42b095f07a5f3be94dc
+    keywords:
+    - tibco-platform
+    - platform
+    - base
+    name: tibco-cp-base
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-base-1.22.0-alpha.144/tibco-cp-base-1.22.0-alpha.144.tgz
+    version: 1.22.0-alpha.144
+  - annotations:
+      app.helm.sh/component: control-plane
+      app.helm.sh/name: tibco-cp-base
+    apiVersion: v2
+    appVersion: 1.22.0
     created: "2026-11-04T05:38:56.905797822Z"
     dependencies:
     - name: tp-cp-infra
@@ -9530,6 +9598,32 @@ entries:
     version: 1.22.0-alpha.30
   - apiVersion: v2
     appVersion: 1.22.0
+    created: "2026-11-04T12:02:55.578813868Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 669afdd741ab1307334aae7435cb6277a7dae536b536793b3bdf7a2075ef090d
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.30/tibco-cp-bw-1.22.0-alpha.30.tgz
+    version: 1.22.0-alpha.30
+  - apiVersion: v2
+    appVersion: 1.22.0
     created: "2026-11-03T08:04:31.225233862Z"
     dependencies:
     - condition: bw-recipes.enabled
@@ -9634,6 +9728,32 @@ entries:
     version: 1.22.0-alpha.29
   - apiVersion: v2
     appVersion: 1.22.0
+    created: "2026-10-30T06:26:53.496971644Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 9fe4df7450cb9144849c9cc53c2d76f7fb2d62936f268685e4c18ee921d09f62
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
+    version: 1.22.0-alpha.28
+  - apiVersion: v2
+    appVersion: 1.22.0
     created: "2026-10-29T10:47:34.248708179Z"
     dependencies:
     - condition: bw-recipes.enabled
@@ -9654,58 +9774,6 @@ entries:
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
     digest: 2b7ffc9c37a7d6b51b8cfc84d58fd7ab5d16fe81389d9ae901d1e58c0ff1a688
-    name: tibco-cp-bw
-    urls:
-    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
-    version: 1.22.0-alpha.28
-  - apiVersion: v2
-    appVersion: 1.22.0
-    created: "2026-10-29T10:46:27.197192436Z"
-    dependencies:
-    - condition: bw-recipes.enabled
-      name: bw-recipes
-      repository: ""
-      version: 1.22.*
-    - condition: bw-webserver.enabled
-      name: bw-webserver
-      repository: ""
-      version: 1.22.*
-    - condition: bwce-utilities.enabled
-      name: bwce-utilities
-      repository: ""
-      version: 1.22.*
-    - condition: bw5ce-utilities.enabled
-      name: bw5ce-utilities
-      repository: ""
-      version: 1.22.*
-    description: TIBCO Controlplane chart for BW Capability
-    digest: bf4c7cacf71e5b65a3c4bcafd19a80caa4418a90e05a265f343e4994f1041708
-    name: tibco-cp-bw
-    urls:
-    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
-    version: 1.22.0-alpha.28
-  - apiVersion: v2
-    appVersion: 1.22.0
-    created: "2026-10-29T17:30:48.131556162Z"
-    dependencies:
-    - condition: bw-recipes.enabled
-      name: bw-recipes
-      repository: ""
-      version: 1.22.*
-    - condition: bw-webserver.enabled
-      name: bw-webserver
-      repository: ""
-      version: 1.22.*
-    - condition: bwce-utilities.enabled
-      name: bwce-utilities
-      repository: ""
-      version: 1.22.*
-    - condition: bw5ce-utilities.enabled
-      name: bw5ce-utilities
-      repository: ""
-      version: 1.22.*
-    description: TIBCO Controlplane chart for BW Capability
-    digest: 25b9a57b394f09cf7d7e2081367733012c5f6138c1c8ac26515f2f4b184d003c
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -9738,7 +9806,7 @@ entries:
     version: 1.22.0-alpha.28
   - apiVersion: v2
     appVersion: 1.22.0
-    created: "2026-10-30T06:26:53.496971644Z"
+    created: "2026-10-29T10:46:27.197192436Z"
     dependencies:
     - condition: bw-recipes.enabled
       name: bw-recipes
@@ -9757,7 +9825,7 @@ entries:
       repository: ""
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
-    digest: 9fe4df7450cb9144849c9cc53c2d76f7fb2d62936f268685e4c18ee921d09f62
+    digest: bf4c7cacf71e5b65a3c4bcafd19a80caa4418a90e05a265f343e4994f1041708
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -9810,6 +9878,32 @@ entries:
       version: 1.22.*
     description: TIBCO Controlplane chart for BW Capability
     digest: 574435cd299ee33b7b9e13c0c300826771d47c88d0d517a05770ef2f054e95e7
+    name: tibco-cp-bw
+    urls:
+    - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
+    version: 1.22.0-alpha.28
+  - apiVersion: v2
+    appVersion: 1.22.0
+    created: "2026-10-29T17:30:48.131556162Z"
+    dependencies:
+    - condition: bw-recipes.enabled
+      name: bw-recipes
+      repository: ""
+      version: 1.22.*
+    - condition: bw-webserver.enabled
+      name: bw-webserver
+      repository: ""
+      version: 1.22.*
+    - condition: bwce-utilities.enabled
+      name: bwce-utilities
+      repository: ""
+      version: 1.22.*
+    - condition: bw5ce-utilities.enabled
+      name: bw5ce-utilities
+      repository: ""
+      version: 1.22.*
+    description: TIBCO Controlplane chart for BW Capability
+    digest: 25b9a57b394f09cf7d7e2081367733012c5f6138c1c8ac26515f2f4b184d003c
     name: tibco-cp-bw
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tibco-cp-bw-1.22.0-alpha.28/tibco-cp-bw-1.22.0-alpha.28.tgz
@@ -18742,4 +18836,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/tp-helm-charts/releases/download/tp-mcp-gateway-1.20.0/tp-mcp-gateway-1.20.0.tgz
     version: 1.20.0
-generated: "2026-11-04T06:05:11.933101673Z"
+generated: "2026-11-04T12:02:55.580219855Z"
