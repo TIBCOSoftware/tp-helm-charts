@@ -39,16 +39,6 @@ data:
       Skip_Long_Lines   On
       Refresh_Interval  10
 
-    [INPUT]
-      Name              tail
-      Tag               infra-alerts-services
-      Path              /var/log/pods/alerts-service.log
-      Multiline.parser  docker, cri
-      DB                /var/log/db/flb_infra_alerts.db
-      Mem_Buf_Limit     5MB
-      Skip_Long_Lines   On
-      Refresh_Interval  10
-
   filter.conf: |
     [FILTER]
       Name              record_modifier

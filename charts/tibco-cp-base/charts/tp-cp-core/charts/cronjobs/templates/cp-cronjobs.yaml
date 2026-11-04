@@ -169,6 +169,15 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: TP_CP_ORCH_HOST
+        # PCP-24541: cp-cronjobs now owns the messaging-health Prometheus query and serves the
+        # result to every orchestrator replica, so it needs the same Prometheus the orchestrator
+        # used to query directly. Same configmap key as cp-orch.yaml, so the two cannot drift.
+        # FINOPS_PROMETHEUS_PORT is left to the code default (9090), matching the orchestrator.
+        - name: FINOPS_PROMETHEUS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: FINOPS_PROMETHEUS_HOST
         - name: TP_CP_EMAIL_SERVICE_HOST
           valueFrom:
             configMapKeyRef:
@@ -192,6 +201,16 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.scheduleFrequencyForProvisionInfraCapabilitiesJob
+        - name: INFRA_CAPABILITY_PROVISION_TIMEOUT_SECONDS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.infraCapabilityProvisionTimeoutSeconds
+        - name: MV_REFRESH_TIMEOUT_SECONDS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-env-configmap" . }}
+              key: {{ .Chart.Name }}.mvRefreshTimeoutSeconds
         - name: TSC_SCHEDULER_AWS_REGION
           valueFrom:
             configMapKeyRef:
@@ -208,6 +227,34 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
               key: REGION
+        # PCP-19871 (orch-mon merge): the resource-status refresh moved out of the orchestrator
+        # into this service, so cp-cronjobs now talks to the hawk querynode and the BW6 webserver
+        # directly. These four are ADDED here, not moved: the orchestrator still reads the same
+        # variables for its homepage-metrics path, so removing them there would break it.
+        #
+        # Sourced exactly as the orchestrator sources them (see cp-orch.yaml) so the two services
+        # can never disagree about an endpoint: the querynode host from the core dns configmap,
+        # the BW6 host from the finops dns configmap (tp-cp-finops-dnsdomains, always
+        # co-installed). Ports are static and match the code defaults in environment.go.
+        #
+        # BW6 is optional. If tp-cp-finops-dnsdomains has no TP_CP_BW6_WEBSERVER_HOST the value
+        # resolves empty and GetBW6WebServerHost returns "", which makes the refresh skip the
+        # agent query rather than red every agent against an unreachable host.
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_QUERYNODE_HOST
+        - name: SYSTEM_INTERNAL_HAWK_QUERY_NODE_PORT
+          value: "9681"
+        - name: CP_BW6_WEBSERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: tp-cp-finops-dnsdomains
+              key: TP_CP_BW6_WEBSERVER_HOST
+              optional: true
+        - name: CP_BW6_WEBSERVER_SERVICE_PORT
+          value: "3000"
         - name: PGHOST
           valueFrom:
             configMapKeyRef:
@@ -241,6 +288,25 @@ spec:
             configMapKeyRef:
               name: {{ include "tp-control-plane-env-configmap" . }}
               key: {{ .Chart.Name }}.psqlConnectionMaxLifeTime
+        # PCP-24541: cp-cronjobs writes the Prometheus-derived monitoring status directly into the
+        # tscutd v3_* tables, so it needs the tscutd credentials. Previously it only ever touched
+        # the database for the CIndex audit job, which is gated to production/staging, so neither
+        # value was injected and both silently fell back to "postgres".
+        #
+        # BOTH are required, and the username is easy to miss: the connect URL is built from
+        # getPostgresUserName() (POSTGRES_USERNAME), NOT from the POSTGRES_UTD_DATABASE_USERNAME
+        # below — that one has its own getter which the URL never calls. Only POSTGRES_UTD_DATABASE_NAME
+        # feeds the URL.
+        #
+        # Same username value, secret and key user-subscriptions uses, so both services
+        # authenticate to tscutdb identically.
+        - name: POSTGRES_USERNAME
+          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tscutd-postgres-credential
+              key: PGPASSWORD
         - name: POSTGRES_DATABASE_DRIVER
           value: postgres
         - name: WRITE_POSTGRES_DATABASE_SSL_MODE
@@ -270,19 +336,34 @@ spec:
           value: {{ .Values.global.tibco.cronjobs.disableIdmNotifyCertificatesExpiryJob  | quote }}
         - name: DISABLE_MV_REFRESH_JOB
           value: {{ .Values.global.tibco.cronjobs.disableMvRefreshJob | quote }}
+        # Monitoring trigger jobs (orch-mon merge phase 2) — disable flags
+        - name: DISABLE_TIB_TUNNEL_REFRESH_JOB
+          value: {{ .Values.global.tibco.cronjobs.disableTibTunnelRefreshJob | quote }}
+        - name: DISABLE_RESOURCE_REFRESH_JOB
+          value: {{ .Values.global.tibco.cronjobs.disableResourceRefreshJob | quote }}
+        - name: DISABLE_HOMEPAGE_METRICS_REFRESH_JOB
+          value: {{ .Values.global.tibco.cronjobs.disableHomepageMetricsRefreshJob | quote }}
+        - name: DISABLE_TRIGGER_METRIC_REFRESH_JOB
+          value: {{ .Values.global.tibco.cronjobs.disableTriggerMetricRefreshJob | quote }}
+        - name: DISABLE_DATAPLANE_STATUS_SYNC_JOB
+          value: {{ .Values.global.tibco.cronjobs.disableDataplaneStatusSyncJob | quote }}
+        # Monitoring trigger jobs (orch-mon merge phase 2) — schedules (cron.v2 6-field, seconds-first)
+        - name: TIBTUNNEL_SCHEDULE
+          value: {{ .Values.global.tibco.cronjobs.schedules.tibTunnelRefresh | quote }}
+        - name: CAPRESOURCES_SCHEDULE
+          value: {{ .Values.global.tibco.cronjobs.schedules.resourceRefresh | quote }}
+        - name: HOMEPAGE_METRICS_SCHEDULE
+          value: {{ .Values.global.tibco.cronjobs.schedules.homepageMetricsRefresh | quote }}
+        - name: FINOPS_METRICS_SCHEDULE
+          value: {{ .Values.global.tibco.cronjobs.schedules.triggerMetricRefresh | quote }}
+        - name: DP_STATUS_SYNC_SCHEDULE
+          value: {{ .Values.global.tibco.cronjobs.schedules.dataplaneStatusSync | quote }}
         - name: ENVIRONMENT_TYPE
           value: {{ (.Values.global.external.environment | lower) }}
         - name: POSTGRES_UTD_DATABASE_NAME
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutdb
         - name: POSTGRES_UTD_DATABASE_USERNAME
           value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
-        - name: POSTGRES_USERNAME
-          value: {{ .Values.global.tibco.controlPlaneInstanceId }}_tscutuser
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: tscutd-postgres-credential
-              key: PGPASSWORD
         - name: IS_SELF_HOSTED_DEPLOYMENT
           value: {{ (.Values.global.tibco.self_hosted_deployment | quote) }}
         - name: ENABLE_HYBRID_CONNECTIVITY
