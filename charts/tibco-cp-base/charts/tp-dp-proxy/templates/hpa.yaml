@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: {{ include "tp-dp-proxy.consts.appName" . }}
   minReplicas: {{ .Values.replicaCount }}
-  maxReplicas: {{ add 3 .Values.replicaCount }}
+  maxReplicas: {{ .Values.hpa.maxReplicas | default (add 3 .Values.replicaCount) }}
   metrics:
     - type: Resource
       resource:
