@@ -6,8 +6,107 @@ apiVersion: v2
 name: mcp-hub-recipes
 description: MCP Hub data plane recipes
 type: application
-version: 1.21.0
-appVersion: "1.21.0"
+# PCP-25210: 1.21.0 -> 1.21.1. values.yaml-only (mcpGateway.helmChartVersion .36 -> .37, CHECK
+# 1, moving in lockstep with the gateway chart's bundled-Redis password fix). Not independently
+# tag-published, so no skip_existing collision risk; bumped per ct lint's "any touched chart"
+# rule. (Correction, PCP-25657: this sentence used to say "consumed only via the parent's file://
+# dependency, pinned by a '1.21.*' range". The range moved to "1.22.*", and the file:// half was
+# never right -- this chart has NO `repository:` key in the umbrella's dependencies, so it is a
+# plain IN-TREE subchart resolved from charts/. Helm says so out loud: "Dependency
+# mcp-hub-recipes did not declare a repository. Assuming it exists in the charts directory." The
+# only genuine file:// dependency in that list is tp-mcp-gateway.)
+# PCP-25386: 1.21.1 -> 1.21.2. values.yaml + templates/mcp-gateway.yaml -- the recipe now also
+# pins the gateway's plugin configuration (mcpGateway.pluginConfig, CHECK 8), the same
+# "pin every site or helm upgrade --reuse-values freezes it" fix CHECK 7 already enforces for
+# image tags. No gateway chart version movement here (that is PCP-25379's #11110, a sibling PR;
+# whichever merges second rebases). Same no-collision-risk reasoning as the PCP-25210 bump above.
+# PCP-25401: 1.21.2 -> 1.21.3. values.yaml + templates/mcp-gateway.yaml -- also pins
+# global.tibco.logging.fluentbit.image.tag (CHECK 8), found sweeping PCP-25386's own fix for
+# the same reuse-values-freezes-it class. Same no-collision-risk reasoning as above.
+# PCP-25546: 1.21.3 -> 1.21.4 (recipe pins the lite relay flag + helmChartVersion move).
+# PCP-25635: 1.21.4 -> 1.21.5 (appVersion 1.21.0 -> 1.22.0, see the note at appVersion below).
+# PCP-25657: 1.21.5 -> 1.22.0 - the 1.22 LINE-OPEN this subchart never got. The umbrella has
+# declared 1.22 since a701073c42 (PCP-24190, #10676) and this chart's appVersion moved to
+# "1.22.0" at PCP-25635, but its `version:` sat on the 1.21 line the whole time. The 1.21
+# line-open (65dc6a970c, PCP-23334, #10426) moved all SEVEN movable fields of this family
+# atomically; the eighth, mcp-hub-webserver's appVersion, deliberately stayed at 1.20.0 and
+# still does. The 1.22 one moved only the umbrella's version+appVersion, because it was a
+# core-cp-scripts pin PR that carried the line move along with it. This closes that gap.
+# The parent's "mcp-hub-recipes" dependency range moves "1.21.*" -> "1.22.*" in this SAME
+# commit: with one moved and not the other, `helm dependency build` exits 1 ("does not satisfy
+# the constraint") and ct lint reds with it -- measured both ways, including the negative control.
+# BARE 1.22.0, not an alpha. The prerelease half is a HARD constraint: Helm does not match a
+# prerelease against a wildcard, so `1.22.0-alpha.N` under `"1.22.*"` resolves to nothing
+# (measured). The patch-count restart is only CONVENTION -- `1.22.5` satisfies `"1.22.*"` just
+# fine, so carrying `.5` across would have worked; x.y.0 is chosen because the patch ordinal is
+# chart-local and never published, so it carries no information across a line. (Do not cite
+# 65dc6a970c as precedent for the restart: it moved this chart 1.20.0 -> 1.21.0, i.e. from patch
+# zero, so a carry-across was never on the table there.)
+# Not independently tag-published - the git-refs API returns ZERO refs matching
+# `mcp-hub-recipes-`, and there is no gh-pages index entry - so skip_existing does not constrain
+# this number. appVersion below does NOT move: it is already "1.22.0", and CHECK 1c binds it to
+# the gateway chart version's x.y.z core, which this commit does not touch.
+version: 1.22.0
+# appVersion below (NOT the `version:` line directly above) is NOT inert metadata. The parent
+# chart says appVersion is metadata only — that is true of the PARENT's own appVersion and false
+# here: this subchart's appVersion renders into THREE places.
+#   1. templates/mcp-gateway.yaml — "capabilityVersion" in the version.json ConfigMap. This is
+#      the MCP Gateway capability version this Control Plane advertises to its Data Planes.
+#   2. templates/mcp-gateway.yaml — the RECIPE_RELEASE_VERSION env on the recipe-extraction Job
+#      container. Load-bearing, not a label: templates/recipe-script.yaml uses it as the catalog
+#      DIRECTORY name under RECIPE_TARGET_LOCATION/CAPABILITY_NAME
+#      (/private/tsc/config/capabilities/platform/mcpgateway/<RECIPE_RELEASE_VERSION>),
+#      then rebuilds versions.json by iterating those directories. So moving this value ADDS a
+#      newly advertised capability version — it does NOT remove the old directory, which keeps
+#      being listed until it is named in SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS (currently
+#      hardcoded empty in mcp-gateway.yaml, i.e. nothing is ever retired automatically).
+#   3. templates/_helpers.tpl — app.kubernetes.io/version in the "mcp-hub-recipes.labels" helper.
+#      The whole label group there is wrapped in {{- if .Chart.AppVersion }}, so blanking this key
+#      does not drop one label, it silently drops FOUR: app.kubernetes.io/version,
+#      app.cloud.tibco.com/created-by, platform.tibco.com/component and
+#      platform.tibco.com/controlplane-instance-id.
+# All three render from the SINGLE .Chart.AppVersion, so they cannot drift -- one edit here moves
+# all three at once.
+#
+# Two siblings did NOT move with it: "minCPVersion" and "minVersionRequiredForUpgrade" in
+# mcp-gateway.yaml's version.json are HARDCODED LITERALS, not template expressions. Moving this
+# appVersion onto the 1.21 line left both behind on the previous line. Re-syncing them is a
+# deliberate decision about which Control Planes may install and upgrade the capability — take
+# it on purpose, not as tidy-up alongside a version bump.
+#
+# To move it later: bump here, then in the SAME change decide explicitly (a) whether the two
+# literals above move with it, and (b) whether the superseded catalog directory is retired via
+# SPACE_SEPARATED_UNSUPPORTED_RECIPE_VERSIONS — otherwise the Data Plane catalog just grows one
+# more advertised version.
+#
+# PCP-25635: 1.21.0 -> 1.22.0. The capabilityVersion rendered from here is what the CP stores
+# in V3_CAPABILITY_INSTANCES.VERSION when a gateway is provisioned or upgraded, and that column
+# is what the Data Plane page shows on the mcp-gateway capability card. The gateway chart had
+# moved to the 1.22 line while this stayed on 1.21.0, so a 1.22 gateway read "v 1.21.0".
+# The two decisions the paragraph above requires, taken explicitly:
+#   (a) minCPVersion / minVersionRequiredForUpgrade stay "1.20.0" -- nothing about the 1.22
+#       recipe needs a newer CP, and a 1.21.0 instance must stay upgradable to 1.22.0.
+#   (b) the 1.21.0 catalog directory is NOT retired -- existing 1.21.0 instances keep a valid
+#       version to sit on until they are upgraded. They keep showing 1.21.0 until then: the
+#       column is written at provision/upgrade time and never read back from the cluster.
+#   (c) values.yaml capabilities.mcpgateway.releaseDate moves with it (it describes this version).
+# dev/check-mcp-version-sync.sh CHECK 1c keeps this equal to the gateway chart version's x.y.z core.
+# 1.22.0 IMAGE SPRINT (PCP-24326): 1.22.0 -> 1.22.1 with the gateway chart (CHECK 1c). The capabilityVersion the CP stores
+# is now 1.22.1. The 1.22.0 catalog directory is NOT retired (decision (b) above), so existing 1.22.0 instances are
+# offered the upgrade and keep a valid version to sit on until they take it. minCPVersion and
+# minVersionRequiredForUpgrade stay "1.20.0" (decision (a)); capabilities.mcpgateway.releaseDate stays, because the
+# release is still 1.22.0 and only the images and the chart are respun.
+# 1.22.2 SPIN (PCP-24326): 1.22.1 -> 1.22.2 with the gateway chart (CHECK 1c). The capabilityVersion the CP stores is now
+# 1.22.2; 1.22.1 was never handed off, so no instance sits on it. The 1.22.0 catalog directory is NOT retired (decision (b)
+# above): existing 1.22.0 instances are offered the upgrade. minCPVersion and minVersionRequiredForUpgrade stay "1.20.0"
+# (decision (a)); capabilities.mcpgateway.releaseDate stays, because the release is still 1.22.0 and only the images and the
+# chart are respun.
+# 1.22.3 BASE SYNC (PCP-25657): 1.22.2 -> 1.22.3 with the gateway chart (CHECK 1c). The capabilityVersion the CP stores is now
+# 1.22.3 over 1.22.2 IMAGES: this is a chart-only patch (common-fluentbit 5.1.5), so no first-party image was rebuilt. Decided,
+# not accidental -- see the 1.22.3 entry in charts/tp-mcp-gateway/Chart.yaml. The 1.22.0 and 1.22.2 catalog directories are NOT
+# retired (decision (b) above); minCPVersion and minVersionRequiredForUpgrade stay "1.20.0" (decision (a)).
+# 1.22 RESPIN candidate 1 (PCP-27433): 1.22.3 -> 1.22.4 with the gateway chart 1.22.4-alpha.1 (CHECK 1c): the capabilityVersion the CP stores.
+appVersion: "1.22.4"
 keywords:
   - tibco-platform
   - control-plane

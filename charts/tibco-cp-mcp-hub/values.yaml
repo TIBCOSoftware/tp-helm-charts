@@ -14,6 +14,34 @@ global:
     containerRegistry:
       secret: ""
   tibco:
+    # =====================================================================
+    # PCP-24484 — the PLATFORM GATEWAY switch. ONE switch, and it lives under
+    # `global` for a reason that is structural, not stylistic.
+    # =====================================================================
+    # Three different places have to agree about whether this feature is on:
+    #   * Chart.yaml's `condition:` on the tp-mcp-gateway dependency;
+    #   * this chart's own templates/platform-gateway-secret.yaml;
+    #   * the mcp-hub-webserver SUBCHART's deployment, which must emit the Hub's
+    #     token env only when the Secret actually exists.
+    # A subchart cannot read a parent value, and a values file cannot compute one,
+    # so a top-level `platformGateway.enabled` could not reach the third — which
+    # would mean either a second switch to keep in sync by hand, or a secretKeyRef
+    # to a Secret that is not there (a Hub pod that will not start). `global` is
+    # the one mechanism every consumer can see, which is what it exists for.
+    #
+    # ⛔ DECLARING IT — including when false — IS LOAD-BEARING. Helm IGNORES a
+    # dependency `condition:` whose value path does not resolve, rather than
+    # treating it as false, so deleting this key does not disable the gateway: it
+    # ENABLES it. Declaring it false disables the gateway; deleting it does not --
+    # Helm still enables the dependency -- but PCP-25111 made this loud rather than
+    # silent: templates/platform-gateway-secret.yaml now refuses with a named,
+    # explained error (`global.tibco.mcpHub.platformGateway.enabled is not set...`)
+    # instead of rendering clean. Every existing CP is still one upgrade away from
+    # enabling a gateway it never asked for; it now gets a clear refusal instead of
+    # a silent install.
+    mcpHub:
+      platformGateway:
+        enabled: false
     idleSessionTimeoutInSeconds: "14400"
     containerRegistry:
       url: ""
@@ -41,25 +69,11 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          # PCP-25107: 5.1.0 -> 5.1.2 to match what the 1.21 GA BOM declares --
-          # artifacts/control-plane/control-plane-1.21.0-images.txt names common-fluentbit:5.1.2.
-          #
-          # NOT a fleet-wide sweep, and the hub is NOT the last straggler: on this branch
-          # tibco-cp-bpm (3 sites), tibco-cp-mft (2) and tibco-cp-ai-agent (2) still pin 5.1.0,
-          # o11y sits on 5.0.6 and oauth2-proxy on 4.0.3. They are separately owned -- do not
-          # "align" them on sight.
-          #
-          # THIS IS THE LOAD-BEARING SITE: in the umbrella render it is the only one of the
-          # three hub fluentbit pins that reaches a rendered pod (mutation-verified -- probing
-          # the two subchart pins produces zero render hits).
-          #
-          # The hub's sidecar probes /api/v1/health rather than /api/v1/uptime, so
-          # charts/mcp-hub-webserver/templates/fluentbit-configmap.yaml must keep
-          # `Health_Check On` -- HTTP_Server alone does not serve that endpoint. A 4.2.3 -> 5.1.0
-          # bump once exposed its absence as a sidecar CrashLoopBackOff. It is present today.
-          # (mft-webserver and tp-dp-infra-mcp-server probe the same path; this is not unique
-          # to the hub, only easy to regress here.)
-          tag: 5.1.2
+          # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
+          # PCP-25657: 5.1.2 -> 5.1.3, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22).
+          # PCP-25657: 5.1.3 -> 5.1.5, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22,
+          # 1.22.0-alpha.137). common-fluentbit:5.1.5 verified present in -dev (sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4).
+          tag: 5.1.5
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -96,10 +110,12 @@ mcp-hub-recipes:
   enabled: true
   mcpGateway:
     image:
-      tag: "1.21.0"
-      # GA (PCP-24504): a hand-cut GA ships TAG-ONLY -- release-alpha.sh pins digests on the
-      # ALPHA lane only, so this empty digest is deliberate, not a missing pin.
-      digest: ""   # PCP-23089 (alpha lane): set by release-alpha alongside tag; empty = tag-only
+      # 1.22 RESPIN candidate 2 (PCP-27433): releases-1.22-f4a4dc0, pinned by the gateway image's own digest (tp-mcp-gateway releases/1.22 @ f4a4dc0, build-image run 40631698428, signed).
+      # 1.22.4 GA (PCP-25657): the candidate-2 image promoted to the customer-facing tag 1.22.4 by tibco/tp-mcp-hub
+      # release-promote-images.yml (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). The digest below is UNCHANGED:
+      # it names the same image under both tags (re-resolved in the registry).
+      tag: "1.22.4"
+      digest: "sha256:e995b0a8ce9a2cbb77d2674f44360a2bc7a34393b1e28d146ccd52e75bf23294"   # PCP-23089: set by release-alpha alongside tag; empty = tag-only
     resources:
       requests:
         cpu: 500m
@@ -110,3 +126,78 @@ mcp-hub-recipes:
 
 mcp-hub-webserver:
   enabled: true
+
+# ===========================================================================
+# PCP-24484 — the PLATFORM GATEWAY: an MCP gateway inside the Control Plane
+# ===========================================================================
+# One per CP, created by this install rather than by a customer running a helm
+# command. It is a dial-home gateway: no inbound route, the Hub reaches it only
+# over the agent's outbound WSS.
+#
+# The SWITCH is global.tibco.mcpHub.platformGateway.enabled (declared at the top of
+# this file, with the reason it has to live under `global`). There is deliberately
+# no second `platformGateway.enabled` here: two switches for one feature is the
+# defect this arrangement exists to avoid.
+#
+# ---------------------------------------------------------------------------
+# The in-CP gateway profile, carried literally because Helm cannot pass a `-f`
+# profile file to a subchart.
+# ⛔ These values are a SECOND COPY of charts/tp-mcp-gateway/values-cp-platform.yaml.
+# Two scopes that must agree and are kept in sync by hand are a defect waiting for
+# whoever edits one of them, so the relation is ASSERTED rather than trusted:
+# dev/mcp-hub-render-tests/platform-gateway-assert.sh compares the two.
+# Read that file for WHY each flag is what it is — in particular why the standalone
+# profile's auth posture is deliberately NOT copied here.
+# ---------------------------------------------------------------------------
+tp-mcp-gateway:
+  lite:
+    enabled: true
+  mcp-stack:
+    enabled: false
+  haproxy:
+    enabled: false
+  discovery:
+    enabled: false
+  tibcoProxy:
+    enabled: true
+    trustCPNetwork: true
+  dialHome:
+    enabled: true
+    hub:
+      # ⛔ The IN-CLUSTER endpoint this CP's own agent dials. It is NOT the same value
+      # as mcp-hub-webserver's `backend.dialHome.hubUrl`, and the two must never be
+      # collapsed: that one is published by the Hub at GET /config and is the value
+      # CUSTOMERS copy into their own `--set`, so it has to stay externally reachable.
+      # Pointing THAT one at a .svc name would put an in-cluster address into a helm
+      # command rendered on somebody else's cluster.
+      #
+      # ✅ A .svc ADDRESS IS CORRECT FOR *THIS* KEY. The paragraph above is about the
+      # published value, not this one, and read quickly it says the opposite — an
+      # operator configuring the in-CP placement (2026-09-29) concluded from it that an
+      # in-cluster address was forbidden here and stopped rather than set it. The agent
+      # this key configures runs INSIDE the Control Plane and dials the Hub in-cluster,
+      # so the Hub's own Service address is what belongs in it.
+      #
+      # Left empty: it depends on the release and namespace, which a values file cannot
+      # compute. Take the path from the running Hub's GET /config ->
+      # features.dialHome.hubUrl (the Hub owns that route) and substitute the in-cluster
+      # host.
+      #
+      # ⚠️ If it is missing you are told by charts/tp-mcp-gateway/templates/
+      # dialhome-validate.yaml — the SUBCHART, not this chart's
+      # templates/platform-gateway-validate.yaml, which this line used to name. The
+      # subchart's guard pre-empts every arm of the umbrella one: measured 2026-09-29,
+      # with this key empty AND the registry, the pull secret and the Hub's dial-home
+      # listener all also missing, the subchart's message is still the one that fires.
+      # So an arm added to the umbrella for this key would be unreachable code. The
+      # subchart's message already carries the in-CP guidance above.
+      url: ""
+      bootstrapTokenSecret:
+        # ⛔ Must equal the Secret that templates/platform-gateway-secret.yaml creates.
+        # A FIXED name (not release-prefixed) precisely so it can be stated literally
+        # here — a values file cannot interpolate .Release.Name. The two are asserted
+        # equal by dev/mcp-hub-render-tests/platform-gateway-assert.sh; a mismatch is
+        # invisible at render time and surfaces on the cluster as "authentication
+        # failed", which is also what three unrelated faults look like.
+        name: "mcp-hub-platform-gateway-bootstrap"
+        key: "token"

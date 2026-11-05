@@ -44,64 +44,303 @@ global:
         name: "core-cp-scripts"
         # PCP-23334: the MCP Hub overlay is RETIRED — this is now a plain platform tag.
         #
-        # WHY 9802 (PCP-25107): it is what the 1.21 GA BOM declares.
-        # artifacts/control-plane/control-plane-1.21.0-images.txt names core-cp-scripts:9802 and
-        # names 9743 nowhere, so the previous pin pulled an image the release does not ship.
-        # That -- NOT agreement with tibco-cp-base -- is the reason this line moves. Do not
-        # re-justify this pin by base parity: PCP-24482 disqualified that invariant in writing
-        # (see the CHECK 5 header in dev/check-mcp-version-sync.sh); the two fields are
-        # independent and both moving is legitimate.
+        # CONTRACT, stated over the artifact the mechanism actually reads: this image's
+        # version-map.yaml MUST hold a key EQUAL to mcp-hub-webserver's appVersion, declaring a
+        # schema version >= what the pinned MCP_HUB_WEBSERVER_IMAGE_TAG requires. "Declare", NOT
+        # "carry" — an image can ship N-up.sql and never apply it.
         #
-        # THE MOVE 9743 -> 9802 IS SCHEMA-INERT, measured by extracting both images rather than
-        # assumed. Both bake an IDENTICAL /opt/tibco/tsc/scripts/postgres/mcp-hub/: sql/ holds
-        # exactly {1-up, 2-up, 2-down}, version-map.yaml "1.20.0" reads `mcphub: 2`, and
-        # metadata.bash CURRENT_VERSION=2. 2-up.sql is byte-identical (sha256 1830d494…). So
-        # resolve_target_schema_version returns 2 either way and the db-setup hook early-returns
-        # on a CP already at 2. 9802 is the RELEASE-lane rebuild of the 1.21 SQL tree.
+        # ⚠️ That is TWO links, and the second one is STILL UNGUARDED. appVersion and
+        # MCP_HUB_WEBSERVER_IMAGE_TAG move on independent axes: release-alpha re-pins the image
+        # tag on every build, while appVersion is a hand-edited chart field (still 1.20.0).
+        # Nothing makes appVersion track what the app image needs — so bumping the image tag to
+        # a build requiring schema 4 without touching appVersion leaves the lookup answering 3
+        # from the unchanged "1.20.0" key, and the migration silently does not run. Satisfying
+        # the contract as a single "image >= tag" statement would NOT catch that.
         #
-        # ⚠️ NEVER pull main's cpScripts pin back onto this branch. main is on 9806, which bakes
-        # sql/ 1..5 and `mcphub: 5` under the SAME "1.20.0" key -- pinning it here would
-        # fast-forward every frozen 1.21 GA CP from schema 2 to 5 on the next upgrade. A pin
-        # whose version-map declares MORE than 2 is the failure mode, not the safe direction.
-        #
-        # NOT the sole deviation, so do not write "sole outlier" here or in a PR body:
-        # charts/tibco-cp-ai-agent/values.yaml also pins a cpScripts tag (9773) that the 1.21 GA
-        # manifest does not declare. It is TESSA-owned and tracked separately.
-        #
-        # charts/tibco-cp-hawk pins its own cp-core-scripts.buildNumber (and
-        # artifacts/hawk/hawk-1.21.0-images.txt declares it) and tracks it independently -- it is
-        # not part of this sync. It happens to read 9802 too at the time of writing; that is
-        # coincidence, not a coupling. Do not "fix" any future difference on sight.
-        #
-        # History: the hub schema used to be carried by a locally-built overlay
-        # ("<base>-<helm-slug>-<sha>", most recently 9640-main-a49275d) because the
-        # platform build did not yet ship it. scripts/database/postgres/mcp-hub/ landed in
-        # tp-helm-charts on 2026-08-03 (PCP-17906, updated 2026-08-05 by PCP-22742), and
-        # core-cp-scripts:9640 was built 2026-08-03T10:37Z — just too early to pick it up.
-        # 9669 was built 2026-08-17T07:21Z and DOES carry it. Verified by extracting both
-        # images: 1-up.sql (947 lines, sha256 d8c8874c…, matching the overlay's own
-        # .provenance sql_dir_sha256), version-map.yaml and mcphub/scripts/metadata.bash
-        # (sha256 e06c36a6…) are byte-identical in 9669 and in 9640-main-a49275d.
-        #
-        # CONTRACT (unchanged): this image MUST carry every table/column the pinned
-        # MCP_HUB_WEBSERVER_IMAGE_TAG (below) queries — they are a single unit and move
-        # together. PCP-19798 is what violating it looks like: a snapshot missing
+        # PCP-19798 is what violating it looks like: a snapshot missing
         # CP_PLUGIN_ASSIGNMENTS + SYNC_HISTORY against an app image that queries them on
         # startup -> Postgres 42P01 undefined_table -> CrashLoopBackOff -> UI down.
         #
-        # Nothing enforces that contract yet. The enforcement is OWNED BY PCP-24857, which holds
-        # the reserved CHECK 5 slot in dev/check-mcp-version-sync.sh. Read that ticket before
-        # writing the check: it records that the two obvious artifacts are BOTH wrong -- not file
-        # presence (an image can carry N-up.sql and never apply it) and not metadata.bash's
-        # CURRENT_VERSION (manageDbSchemaCommand unsets and overwrites it). The decisive artifact
-        # is the image's own version-map.yaml, keyed on THIS SUBCHART'S appVersion with an exact
-        # match. A check built on the obvious reading passes on the broken case.
+        # WHAT IS ENFORCED NOW, and what is not (PCP-24857 built CHECK 5 in
+        # dev/check-mcp-version-sync.sh; be precise about which half it closed):
+        #   ✅ THE FIRST LINK. CHECK 5 opens the pinned image, reads ITS version-map with the
+        #      real resolver, and asserts an exact key equal to appVersion, a resolved schema
+        #      equal to this repo's CURRENT_VERSION, that the image carries the N-up.sql it
+        #      resolves, that every released migration hashes identically inside it, and that
+        #      the rollback-live N-down.sql bytes match. That is the half the repo-side
+        #      invariants in scripts/database/tests/migration-invariants.bats cannot see.
+        #   ❌ THE SECOND LINK IS NOT CLOSED, and cannot be from here: "what schema does the
+        #      pinned MCP_HUB_WEBSERVER_IMAGE_TAG require" is declared NOWHERE the chart can
+        #      read. CHECK 5 asserts the image against THIS REPO's declared schema, which is a
+        #      proxy for it. Moving the webserver image tag to a build that needs a schema this
+        #      repo has not authored yet still passes every check. Declaring that requirement on
+        #      the hub image (a label, or a manifest derived from backend/src/sqlite-schema.ts)
+        #      is what would close it.
+        #   ⚠️ CHECK 5's image tier is NOT ARMED in CI yet — it needs a registry credential in a
+        #      job that runs on every PR in this shared repo, which is a decision for the CI
+        #      owners. Until then it prints a loud SKIP on every run rather than passing.
+        # ⚠️ Do NOT "restore" the check that slot was ORIGINALLY reserved for ("assert this pin
+        # and tibco-cp-base's agree"). That is the wrong invariant — see the next paragraph;
+        # it would fail on the commit that wrote this. The script's header carries the detail.
         #
-        # rerunCurrentUpgrade is NOT needed for this pin move: target resolves to 2, current is
-        # 2, and 2-up.sql is unchanged between 9743 and 9802, so there is nothing to re-apply.
-        # That flag exists for an already-applied N-up.sql that was EDITED afterwards; setting it
-        # here would needlessly replay 2-up.sql against every 1.21 production database.
-        tag: "9802"
+        # ⚠️ THIS PIN MAY OR MAY NOT EQUAL tibco-cp-base's, AND EITHER IS FINE. No number is
+        # repeated here on purpose: base's current pin is in charts/tibco-cp-base/values.yaml,
+        # and restating it would make this a live claim about a RELATIONSHIP that silently
+        # becomes false the moment base moves — which it does. What is durable is that they
+        # NEED NOT AGREE: this pin's only obligation is the CONTRACT above, and whether the
+        # platform default happens to satisfy it is a coincidence that changes without notice.
+        #
+        # Worked example, because it happened inside this PR's own review: mcp-hub was pinned to
+        # a rebuild specifically because base's image predated mcp-hub's schema 3. Base then
+        # advanced to an image that DOES carry it, so the divergence evaporated and this pin was
+        # moved back into step — the reason for diverging expired in under a day. Do not read
+        # agreement as a rule, and do not "heal" a difference on sight: reading mcp-hub's pin
+        # off tibco-cp-base is a known trap that has already caused one bad release.
+        #
+        # The control-plane images manifest is NOT updated by an mcp-hub pin bump: it lists
+        # platform-core images (the Hub's own image is absent from it), so it describes BASE's
+        # pin. Confirmed live — tibco-cp-base#10922 moved base's pin and that manifest together,
+        # in one commit, with no mcp-hub involvement.
+        #
+        # OUT OF SCOPE BY DECISION, not by oversight: charts/tibco-cp-hawk pins its own
+        # cp-core-scripts build number, in the "cp-core-scripts.buildNumber" define in
+        # charts/tibco-cp-hawk/charts/tp-cp-hawk-infra-querynode/templates/_consts.tpl (note it is
+        # a template define, NOT a values.yaml key), and declares it again in
+        # artifacts/hawk/hawk-<line>-images.txt. Read hawk's number there, never from here: an
+        # earlier revision of this comment restated it and ROTTED within five days when hawk moved
+        # its pin without touching this file -- which is exactly the failure this block's own rule
+        # above describes, a pointer cannot go stale but a number can. Hawk tracks its cpScripts
+        # pin independently -- it is not part of this sync and is not queued to be. Do not "fix"
+        # the difference on sight, and do not restate hawk's number here.
+        #
+        # ⚠️ RULE: choose a tag by OPENING the image, never by comparing tag numbers — a build
+        # dated after a SQL merge can still predate it. Twice now: core-cp-scripts:9640 was built
+        # the day the mcp-hub SQL first landed (2026-08-03) and was still too early, 9669 was the
+        # first to carry it; and 9790 (12:23Z) predates 3-up.sql merging (15:42Z) while 9791
+        # (18:31Z) is the first rebuild that carries it. What each image's mcp-hub SQL dir
+        # actually holds, read by opening them:
+        #     9743: 1,2   9790: 1,2   9791: 1,2,3   9796: 1,2,3
+        #     9806: 1,2,3,4,5   9807: 1,2,3,4,5  (identical; see below)
+        #     9809: 1,2,3,4,5,6  <- the pin PCP-25657 replaced
+        #     9826: 1,2,3,4,5,6,7  <- the pin the line-open (#11226) set; superseded by 9848
+        #     9848: 1,2,3,4,5,6,7  <- the pin the GA cut (#11414) set; superseded by 9862
+        #     9862: 1,2,3,4,5,6,7  <- this pin (base chart's, contract-verified)
+        # Those facts stay IN THE REPO because they are what make the chosen tag necessary rather
+        # than arbitrary, and a reader on a release branch, in a chart tarball or on an air-gapped
+        # copy cannot reach a PR. (Presence is necessary, NOT sufficient — see the CONTRACT.)
+        #
+        # HOW A REBUILD IS OBTAINED — no mcp-hub-side workflow does this: dispatch tp-control-plane
+        # "Secure CI" (build.yaml). It checks out tp-helm-charts at the SAME branch name, falling
+        # back to that repo's default branch, so a `master` dispatch bakes in whatever mcp-hub SQL
+        # is on tp-helm-charts main. What comes out is a plain PLATFORM tag — it does NOT
+        # reintroduce the overlay that PCP-23334 retired.
+        #
+        # PCP-24482: 9743 -> 9796, so mcphub schema 3 can reach a CP. 9796 carries 3-up.sql — the
+        # dial-home reported_* + placement columns, plus PCP-24485's
+        # cp_virtual_servers.include_all_tools_from. Until this line moved, those columns existed
+        # in tp-helm-charts and in the SQLite mirror and reached NO postgres CP: the SQL is baked
+        # into the image, not the chart, so a migration is inert until the pin advances.
+        #
+        # This PR first pinned 9791 — a rebuild obtained specifically because no existing image
+        # carried the SQL. tibco-cp-base then advanced to 9796, which carries the SAME schema-3
+        # bytes, so the pin moved there instead: same capability, and the platform default rather
+        # than a one-off. Both were verified by opening them; 9791 is kept in the table above
+        # because it is what proves a rebuild was REQUIRED, which no later tag can show.
+        #
+        # PCP-24759: 9796 -> 9807, so mcphub schemas 4 AND 5 can reach a CP. 4-up.sql is the
+        # gateway (BUSINESS_TYPE, GATEWAY_KIND) discriminator pair; 5-up.sql is RUNTIME_HEALTH +
+        # _OBSERVED_AT + _ERROR + APPLIED_CONFIG_REVISION. Same inertness as the 3-up case above:
+        # they merged here 2026-09-24/25 and reached no postgres CP until this line moved.
+        #
+        # ⚠️ NO PRE-EXISTING IMAGE CARRIED THEM WHEN THIS WORK STARTED, and the dates are the proof
+        # rather than the tag numbers: the last core-cp-scripts build that PUSHED was 2026-09-23,
+        # a day BEFORE 4-up.sql merged. That is the table's own "a build dated after a SQL merge
+        # can still predate it" rule in its simplest form — the newest build that existed predated
+        # both migrations, so "pin a higher number" was not available and a rebuild was required.
+        #
+        # ⭐ WHY 9806 AND NOT 9807, WHICH IS THE POINT WORTH READING. Both carry the identical
+        # payload — verified by opening BOTH: sql 1..5, version-map "1.20.0": mcphub: 5,
+        # metadata.bash CURRENT_VERSION=5. 9806 is the PLATFORM's own build and is what
+        # charts/tibco-cp-base pins; 9807 is a one-off obtained by this lane dispatching
+        # tp-control-plane "Secure CI" (run 36447949356). Same rule as the 9791 -> 9796 move
+        # recorded above: when the platform default carries the same capability, pin THAT, not the
+        # one-off. It also keeps this pin EQUAL to tibco-cp-base, which is not required (see the
+        # MAY-OR-MAY-NOT-EQUAL note above) but does keep release-alpha's base-drift self-heal
+        # dormant on a release cut from a ref that predates the PCP-25065 fix.
+        #
+        # ⚠️ AND THE ONE-OFF WAS AVOIDABLE, recorded because the mistake is easy to repeat.
+        # Timestamps: 9806 was built 15:33:39Z; this lane's first dispatch (15:12Z) died on the
+        # Mend image gate, and the RE-dispatch that produced 9807 went out at 16:01Z — 28 minutes
+        # AFTER 9806 already existed carrying exactly what was needed. Nobody re-checked for a
+        # newer platform build before re-running. Worse, that re-run required ACCEPTING 5 HIGH
+        # CVEs with no upstream fix (CVE-2026-16742 systemd; CVE-2026-76642 / -78408 / -78409 /
+        # -78410 util-linux, all inherited Debian-13 base packages) via the workflow's
+        # accept_vulnerability_risk input. That risk acceptance bought nothing. ⇒ BEFORE
+        # dispatching a core-cp-scripts rebuild, re-read tibco-cp-base's pin and OPEN it; the
+        # platform may have already built what you need.
+        #
+        # ⚠️ Those 5 CVEs still block any core-cp-scripts build (master was green 09-23, red
+        # 09-28) — the platform's to clear, not mcp-hub's. Re-evaluate when Debian ships fixes.
+        #
+        # DOES IT ACTUALLY RUN? Short answer below. The authority is version-map.yaml's header;
+        # this block states only the short form and what was measured, and derives nothing.
+        #
+        # THE AUTHORITY: the header of scripts/database/postgres/mcp-hub/version-map.yaml — in
+        # this repo, and baked into this image. It documents the lookup, the SILENT-SKIP failure
+        # mode ("the 3-up.sql columns NEVER ARRIVE. Nothing fails.") and the ordering rule for
+        # adding a key. Read it before moving this pin or that appVersion.
+        #
+        # Short form, because the two DB modes disagree: on the production path
+        # (manageDbSchema=true, what the Job runs) manageDbSchemaCommand DISCARDS metadata.bash's
+        # CURRENT_VERSION and takes the target from version-map.yaml keyed on mcp-hub-webserver's
+        # OWN appVersion; metadata.bash governs only the standalone self-apply path. Read out of
+        # the 9806 image itself, both, because both paths exist:
+        #     postgres/mcp-hub/version-map.yaml -> "1.20.0": mcphub: 5   (appVersion IS 1.20.0,
+        #                                          and the lookup needs an EXACT key match)
+        #     mcphub/scripts/metadata.bash      -> CURRENT_VERSION=5
+        #
+        # ✅ CLOSED by moving this pin to 9809, which declares mcphub: 6 and carries 1..6-up.
+        # The paragraph above is kept because it is the RECORD of a live gap that existed for a
+        # day: while the pin sat at 9806, 6-up.sql (PCP-24963) reached NO database -- the Job
+        # upgraded to 5 and stopped, and nothing looked wrong. PCP-24963 was CLOSED in that
+        # state. The PCP-24482 shape, repeating, and the reason CHECK 5b/5c exists.
+        #
+        # ⚠️ 9809 WAS NOT BUILT FOR THIS. It came from a push to tp-control-plane's
+        # wip/TESSA-873-ai-agent-6up-sql (run 36616044389, 2026-09-29T19:01Z): that branch has no
+        # counterpart in tp-helm-charts, so Secure CI's same-branch checkout fell back to this
+        # repo's default branch and baked whatever main had -- which by then included 6-up.sql.
+        # ⇒ A rebuild was NOT required, and dispatching one would have been a second redundant
+        # build in two days. The rule that caught it is written in tp-mcp-hub .ai/INSTRUCTIONS.md:
+        # BEFORE dispatching, re-read the platform pins and OPEN the candidate images.
+        #
+        # Verified by opening 9809 (docker create + export + tar), never by its tag number:
+        #     sql/                -> 1-up .. 6-up all present
+        #     version-map.yaml    -> "1.20.0": mcphub: 6   (appVersion IS 1.20.0, exact key)
+        #
+        # No operator flag is needed: `rerunCurrentUpgrade` exists for an already-applied N-up.sql
+        # that was EDITED afterwards (what happened to 2-up.sql), not for a new migration, and it
+        # is read only when the live schema already equals the target — see manageDbSchemaCommand
+        # and upgradeDBSchema (functions, not line numbers: that file is ~2000 lines and
+        # RERUN_CURRENT_UPGRADE is gated in five places).
+        #
+        # PCP-25657: pin moved off 9809, which declares mcphub: 6 and stops at 6-up.sql.
+        # ⛔ THIS IS A BEHAVIOUR CHANGE, NOT A VERSION TIDY. It makes 7-up.sql (PCP-24560,
+        # fc948f19, #11030, merged 2026-10-03) START EXECUTING. Read that before approving.
+        #
+        # THE LIVE DEFECT IT CLOSES. jobs.yaml runs manageDbSchema with CHART_APP_VERSION =
+        # this chart's appVersion = "1.20.0". resolve_target_schema_version reads the IMAGE's
+        # version-map, not this repo's, and exports that as CURRENT_VERSION -- discarding
+        # metadata.bash. At 9809 it resolves 6, the DB is already at 6, so the Job takes the
+        # "already at the required version" early return. 7-up.sql had therefore reached NO
+        # postgres CP since it merged, and nothing reported an error. Same shape as the 9806 gap
+        # recorded above, third occurrence of the PCP-24482 pattern.
+        #
+        # PCP-25657 (GA re-pin): 9826 -> 9848, on the owner's instruction to take the BASE chart's
+        # pins (tibco-cp-base commonImages.cpScripts on releases/1.22 is "9848"). 9826 is what the
+        # line-open (#11226) set and releases/1.22 carried until this change; it is superseded. The
+        # 9809 -> 9826 account above is the reason 7-up.sql runs at all and still holds.
+        #
+        # WHY THIS BUILD, verified by OPENING it (docker create + export + tar), never by its tag
+        # number, per the RULE above:
+        #     sql/             -> 1-up .. 7-up present, plus 2-down .. 7-down
+        #     version-map.yaml -> "1.20.0": mcphub: 7   (appVersion IS 1.20.0, exact key)
+        #     metadata.bash    -> PREVIOUS_VERSION=6 / CURRENT_VERSION=7
+        #     manifest digest  -> sha256:135db85a26a309493e4610147412da508c09f7d2445a0999458cd6107b2afb7c
+        #        (the IMAGE manifest, i.e. `oras resolve <repo>:<tag>` / `docker pull <repo>@<digest>`,
+        #         NOT a layer blob digest. One unwrapped line on purpose: an earlier revision of this
+        #         comment wrapped a digest and lost two hex chars, leaving 62 -- one that silently
+        #         fails validation before any network call. If you reflow this block, do not break it.)
+        # Its postgres/mcp-hub subtree is BYTE-IDENTICAL to this repo's
+        # scripts/database/postgres/mcp-hub/ -- all 15 files, compared with cmp -- so for mcp-hub it
+        # carries exactly what 9826 carried. That equality, not recency, is what the CONTRACT needs.
+        #
+        # ⚠️ It ALSO equals base's pin and is listed in the control-plane 1.22.0 BOM
+        # (artifacts/control-plane/control-plane-1.22.0-images.txt named 9802 and 9848 when this was
+        # written; it names 9802 and 9862 since #11427). That
+        # agreement is real but is NOT the selection rule, and the block above forbids reading it
+        # as one ("do not 'heal' a difference on sight"; PR #10443 was closed unmerged for exactly
+        # that). The binding rule is the CONTRACT: an EXACT version-map key equal to this chart's
+        # appVersion, declaring a schema EQUAL to this repo's CURRENT_VERSION. The other BOM
+        # entry, 9802, declares mcphub: 2 -- disqualified on the contract, not on its number.
+        # So when base's pin next moves, this one does NOT have to follow: OPEN the new image
+        # first, and move only if it still satisfies the contract. A SUPERSET schema (say
+        # mcphub: 8 against CURRENT_VERSION=7) is the failure mode, not a feature.
+        #
+        # WHAT RUNS, and the honest caveats -- both SQL files read in full:
+        #   * 7-up.sql is DATA-ONLY, no DDL. It marks affected gateways SYNC_STATUS='pending',
+        #     then rewrites CP_PLUGIN_ASSIGNMENTS.MODE 'enforce' -> 'transform' for
+        #     RetryWithBackoffPlugin, then sets SCHEMA_VERSION=7. It therefore forces a gateway
+        #     re-sync / config-push wave on every affected DP. Operational behaviour, not a quiet
+        #     column rewrite. Idempotent: both UPDATEs guard on the pre-state, so a re-run matches
+        #     nothing -- but there is no provenance column, so a re-run under RERUN_CURRENT_UPGRADE
+        #     would silently overwrite an operator's deliberate 'enforce'.
+        #   * On a FRESH CP the table is empty, both UPDATEs match zero rows, and only the version
+        #     marker moves. On an UPGRADE it rewrites live rows. Different paths, same end state.
+        #   * 7-down.sql becomes rollback-live and is LOSSY BY CONSTRUCTION -- its own words. It
+        #     sets MODE='enforce' for EVERY 'transform' row of that plugin, including rows an
+        #     operator set deliberately, and gets worse once 'transform' is the create-time
+        #     default. Harmless in practice (the plugin cannot emit a deny in any mode) but it is
+        #     NOT a clean inverse and must not be reviewed as one.
+        # ORDERING, checked by ancestry and satisfied already: the pin must not land AHEAD of the
+        # Hub image carrying PCP-24560's non-gating attach default. 97cfe0dc is an ancestor of
+        # d06441e4, the source sha in MCP_HUB_WEBSERVER_IMAGE_TAG below and the head of
+        # tp-mcp-hub releases/1.22. The reverse order would leave old code writing 'enforce' for
+        # every NEW binding while the migration reported success -- silent drift, nothing flagged.
+        #
+        # 1.22.0 IMAGE SPRINT (PCP-24326): 9848 -> 9862, the pin tibco-cp-base has carried on releases/1.22 since
+        # #11427. That agreement is NOT the selection rule (see above). 9862 was OPENED, never run: `docker pull`, then
+        # `docker create` + `docker cp` of /opt/tibco/tsc/scripts/postgres/mcp-hub, from
+        # csgprdusw2reposaas.jfrog.io/tibco-platform-docker-dev/core-cp-scripts:9862, 2026-10-22:
+        #     sql/             -> 1-up .. 7-up present, plus 2-down .. 7-down
+        #     version-map.yaml -> ONE key, "1.20.0": mcphub: 7   (appVersion IS 1.20.0, exact key)
+        #     metadata.bash    -> PREVIOUS_VERSION=6 / CURRENT_VERSION=7
+        #     image INDEX digest -> sha256:fd358a4f2a15beaaeb74bd983b26001c934cc07c1d13b594fa609d89dda4bfae
+        #        (what the tag resolves to and what `docker pull` prints; its linux/amd64 manifest is sha256:6d4c109a8f560ed33dbe0d5ed620ced3b329911cedfad9874b7b26f7fa4867cd.
+        #         One unwrapped line each on purpose, as for 9848: a wrapped digest loses hex characters.)
+        # Its postgres/mcp-hub subtree is BYTE-IDENTICAL to this repo's scripts/database/postgres/mcp-hub/ (`diff -r`
+        # prints nothing, all 15 files), so for mcp-hub it carries exactly what 9848 carried. Its schema, 7, equals this
+        # repo's CURRENT_VERSION=7, and no 8-up.sql exists, so a superset-schema image is not in play.
+        #
+        # ⚠️ CI DOES NOT VERIFY ANY OF THIS. chart-secret-guards runs the script, but CHECK 5a-5e
+        # print a loud SKIP because vars.MCP_CPSCRIPTS_REGISTRY is unset at repo scope. The armed
+        # local run against the extracted image is the only verification that exists; its GREEN is
+        # in PCP-25657's PR body.
+        # ⚠️ Two SEPARATE freezes, often conflated -- they bite at different times:
+        #   (a) scripts/database/tests/released-migrations.txt pins 7-up.sql's sha256, which freezes
+        #       its bytes IN CI from this commit on (consumers are CI/test only:
+        #       check-mcp-version-sync.sh CHECK 5f, migration-invariants.bats invariant 7,
+        #       chart-secret-guards.yaml). Nothing under scripts/database/postgres/ reads it at run
+        #       time.
+        #   (b) separately, pg-migrate's digest check refuses to boot a self-apply install once a
+        #       database has APPLIED 7-up.sql -- so it is not in force anywhere on day one.
+        # Either way a later correction needs an 8-up.sql, not an edit.
+        # ⚠️ release-alpha.sh's set_yaml refuses a replace only when the old value occurs more than
+        # once ON THE `tag:` LINE ITSELF (`sed -n "${ln}p" | grep -Fo`); repeats ELSEWHERE in the
+        # file are explicitly tolerated -- its own comment says so, contrasting an ambiguous
+        # `tag: "9669" # was 9669` with "a repeat elsewhere in the file". The file-wide form was
+        # replaced by 821816fb (PCP-23238, tp-mcp-hub #1045) in 2026-08, before this pin existed,
+        # so restating the number in prose or on the ladder above is SAFE and that leg was never
+        # broken. (An earlier revision of this comment claimed the opposite and blanked the ladder
+        # row for nothing.)
+        # ⚠️ What IS live: this values.yaml is a set_yaml WRITE target on a cpScripts leg, so a
+        # `components=cpscripts` dispatch can overwrite the bare tag below with an overlay
+        # `<base>-<branch>-<sha>` form. If that happens, re-assert the contract by OPENING the
+        # resulting image -- do not assume the overlay carries the same schema.
+        #
+        # PCP-25657 (base sync, 2026-10-26): 9862 -> 9870, the pin tibco-cp-base carries on releases/1.22 (it moved
+        # off 9862 after the 1.22.2 respin set this to 9862 to match it). Taken on the owner's instruction to match
+        # base, and NOT because they agree: the selection rule is the CONTRACT above. 9870 was OPENED (docker pull,
+        # create, export, tar), never run, against csgprdusw2reposaas.jfrog.io/tibco-platform-docker-dev/core-cp-scripts:9870:
+        #     version-map.yaml -> "1.20.0": mcphub: 7   (appVersion IS 1.20.0, exact key)
+        #     sql/             -> 1-up .. 7-up present, plus 2-down .. 7-down
+        #     metadata.bash    -> PREVIOUS_VERSION=6 / CURRENT_VERSION=7
+        #     manifest digest  -> sha256:b344a7798385be9e310cec361d3f2c87382fbd2cf6a0426715aa8db47f76cdda
+        # Its postgres/mcp-hub subtree is BYTE-IDENTICAL to this repo's scripts/database/postgres/mcp-hub/ on
+        # releases/1.22 (cmp, all 15 files; the same method on 9848 is the control and also gives 0 differing),
+        # so for mcp-hub it carries exactly what 9862 and 9848 carried and 7-up.sql behaves identically. Only the
+        # mcp-hub subtree was extracted: what else differs between the images is NOT MEASURED.
+        # artifacts/control-plane/control-plane-1.22.0-images.txt names this build too.
+        tag: "9870"
         pullPolicy: IfNotPresent
     mcpHub:
       # PCP-19705 — deployment mode. "cp" enables CP-only affordances (the
@@ -123,6 +362,32 @@ global:
       # boundary; reachability is the Ingress (ingress.enabled). Distinct from
       # `mode` (per-feature CP gating, PCP-19811).
       standaloneEntry:
+        enabled: false
+      # PCP-25595 — headless API v1. Lets the public /api/mcp-hub/v1 plane accept the CP
+      # OAuth bearer token (Settings -> Generate OAuth Token) as a credential, so a script
+      # can drive deploy / install / sync / refresh / stats with no browser session and no
+      # `mchub_` API key. Every comparable capability (BWCE, Flogo, Spring Boot, Developer
+      # Hub) already needs only the CP token; this removes the Hub's second requirement.
+      #
+      # DEFAULT OFF, and off means UNCHANGED: with this false, MCPHUB_HEADLESS_API is not
+      # rendered at all, the pod manifest is byte-identical to a release without this
+      # feature, and a CP token on /v1 still gets 401. A customer install sees no new
+      # behaviour and no new contract.
+      #
+      # INTERNAL AND EXPERIMENTAL — not in the release notes, not in the docs, and its
+      # OpenAPI is unpublished. It exists so OUR platform-provisioner recipes and e2e can
+      # move onto the headless path ahead of the supported public API (PCP-25594, 1.23).
+      # Our recipes set it true; leave it false everywhere else.
+      #
+      # It is NOT a blanket grant. With the flag on, a CP-token caller reaches only the
+      # seven declared operations and is authorized by the SAME CP RBAC the console uses,
+      # so a read-only CP user still cannot mutate anything, and tenancy comes from the
+      # token's verified subscription claim.
+      #
+      # ⚠️ Keep this key, its spelling and its default IN STEP with the dev/standalone
+      # sibling chart in tp-mcp-hub (charts/mcp-hub) — MCPHUB_SELF_MCP_URL is what that
+      # drift costs.
+      headlessApi:
         enabled: false
       db:
         # "postgres" or "sqlite". Default postgres — Phase 1+2 backend routes are
@@ -185,12 +450,11 @@ global:
           name: "common-fluentbit"
           registry: ""
           repo: ""
-          # PCP-25107: 5.1.0 -> 5.1.2 (PCP-23642 CVE sweep tail).
-          # SHADOWED in the umbrella render by the parent's
-          # global.tibco.logging.fluentbit.image.tag -- kept in step so a STANDALONE render of
-          # this subchart, and any reviewer reading this block beside the /api/v1/health probe
-          # below, does not see a stale CVE-bearing tag.
-          tag: 5.1.2
+          # PCP-25107: 5.1.0 -> 5.1.2 (CVE-remediated build).
+          # PCP-25657: 5.1.2 -> 5.1.3, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22).
+          # PCP-25657: 5.1.3 -> 5.1.5, the BASE chart's pin (tibco-cp-base commonImages.fluentbit on releases/1.22,
+          # 1.22.0-alpha.137). common-fluentbit:5.1.5 verified present in -dev (sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4).
+          tag: 5.1.5
           pullPolicy: IfNotPresent
         resources:
           requests:
@@ -229,10 +493,29 @@ observability:
     sampleRatio: "0.1"
 
 config:
-  # PCP-22823: override the CP token verifier's JWKS endpoint. Empty = derive it at
-  # runtime from CP_DNS_DOMAIN as https://cp-sub1.$(CP_DNS_DOMAIN)/idm/v1/oauth2/jwks-uri.
-  # Only set this if IdM is fronted somewhere other than a subscription host.
+  # PCP-22823 / PCP-25577: override the CP token verifier's JWKS endpoint.
+  #
+  # Empty = the template derives `http://$(TP_CP_IDM_HOST):7831/v1/oauth2/jwks-uri` — IdM
+  # IN-CLUSTER, pod-to-pod. It used to derive
+  # `https://cp-sub1.$(CP_DNS_DOMAIN)/idm/v1/oauth2/jwks-uri`, which guessed the deployment's
+  # SUBSCRIPTION HOST. `cp-sub1` is our provisioner's default prefix, not a platform
+  # constant, so every CP that names its subscription host differently rejected every CP
+  # token (PCP-25577, reported by a customer). Do not reintroduce a subscription host here.
+  #
+  # Set this ONLY if IdM is fronted somewhere other than the in-cluster service. When you do,
+  # NO Host override is sent unless you also set MCPHUB_TOKEN_JWKS_HOST below.
   MCPHUB_TOKEN_JWKS_URI: ""
+  # The `Host:` header sent on the JWKS fetch. Empty = `mcp-hub.$(CP_DNS_DOMAIN)` when the URI
+  # was derived in-cluster, and NOTHING when MCPHUB_TOKEN_JWKS_URI was set explicitly.
+  #
+  # Why a Host is needed: IdM routes `jwks-uri` by host MAPPING and answers HTTP 400
+  # ATMOSPHERE-8013 for an unmapped Host, so an in-cluster fetch without one fails. Why
+  # `mcp-hub.` is safe: IdM's TSC mapping is the WILDCARD `*.<cp-dns-domain>` (set from
+  # TSC_DNS_DOMAIN in IdM's own chart), so ANY single-label subdomain maps to tenant TSC —
+  # which is exactly why the Hub no longer has to know the real subscription host.
+  # Authority-form only (bare host, optional `:port`; no scheme, path or trailing slash);
+  # it is sent verbatim, not parsed or validated, so a wrong form fails at IdM as a 400/404.
+  MCPHUB_TOKEN_JWKS_HOST: ""
   # PCP-22823 (follow-up): what the verified CP token must claim. Both are REQUIRED in
   # cp mode — the backend refuses to boot without them, so leaving the template defaults
   # in place is the supported configuration. Empty here = use the template's measured
@@ -279,29 +562,74 @@ config:
   # lane had already moved past), just on the webserver axis rather than the gateway one -- and
   # the webserver image is excluded from CHECK 2, so nothing would have caught it.
   #
-  # SAFE AGAINST THE cpScripts CONTRACT ABOVE, measured rather than assumed: across tp-mcp-hub
-  # 2c1e08a..e754b2c, sqlite-schema.ts / pg-migrate.ts / tests/setup.ts are byte-identical and no
-  # sql/ or migration path is touched. The delta DOES add a production query -- a grouped COUNT
-  # over the `gateways` mirror in routes/gateways/routes-registry.ts -- so the test that decides
-  # this is the COLUMNS a query reads, never the files a delta touches: dp_id, subscription_id,
-  # origin, capability_instance_id and the region term are each already read by the older image
-  # against that same table. No new column, so no cpScripts migration FOR THIS IMAGE.
+  # ⛔ RE-MEASURED FOR THIS PIN (PCP-25577). The sentence that stood here described tp-mcp-hub
+  # 4797cdf..b6784d0 -- 23 files, "touches NO schema surface" -- which is not a range this chart
+  # pins any more, so it had become a safety property asserted about the wrong commits.
   #
-  # The pin has since moved anyway, for an unrelated reason -- see the cpScripts block above for
-  # the current value and why it moved. No digits are restated here: this sentence has already
-  # expired twice for naming one. Whatever the pin reads, it carries the hub_origin /
-  # federation_* schema (2-up.sql). The old text here said it was
-  # "deliberately left at 9669" and pointed at #10443 as the re-pin owner; #10443 is closed and
-  # 9669 is long gone, so that read as a live claim about a value this file no longer holds.
-  MCP_HUB_WEBSERVER_IMAGE_TAG: "1.21.0"
-  # GA (PCP-24504): a hand-cut GA ships TAG-ONLY. The tag above is a GA tag with no digest
-  # pinner behind it -- release-alpha.sh writes this pair on the ALPHA lane only -- so the
-  # empty value below is deliberate. Do not add a digest by hand to "tidy" the pair.
-  # PCP-23089 (alpha lane): pinned by release-alpha.sh alongside the tag above, from the SAME build.
+  # MEASURED AGAINST THE ACCEPTED PAIRING, not against the old pin. The baseline is 365204767
+  # (the .84 image, which was accepted against cpScripts 9809), NOT 2c1e08a, which was a stale
+  # pin nobody validated -- re-deriving from it would prove something about a combination that was
+  # never in service.
+  #
+  #   tp-mcp-hub    365204767..d06441e4 : 0 schema-surface files   (control: 44 files total)
+  #   tp-helm-charts e8bd403..0aac43d   : 0 baked-SQL files        (control: 38 files total)
+  #   => cpScripts STAYS 9809. main and the .84 lane both pin it; nothing in either range moves
+  #      the schema the CP-mode Job provisions.
+  #
+  #   HOW: `git diff --name-only` in a full clone, plus the compare API for the charts side with
+  #   its file count checked against the diff. ⚠️ Do NOT measure a wide range with the compare
+  #   API alone: it caps `files` at 300. Asked for 2c1e08a..d06441e4 it returned exactly 300 where
+  #   the real figure is 1388 -- under-counting 4.6x. A round number is the tell.
+  #
+  # FOR CONTEXT, and deliberately NOT the basis of the decision: 2c1e08a..d06441e4 is 204 commits
+  # and 1388 files and DOES touch backend/src/sqlite-schema.ts. That is the SQLite mirror used by
+  # standalone mode; CP mode's schema lives in this repo's
+  # scripts/database/postgres/mcp-hub/mcphub/sql/N-up.sql, which the ranges above show unchanged.
+  #
+  # ⚠️ HONEST LIMIT OF THIS CLAIM: it rests on TRANSITIVITY from the .84 acceptance -- .84 was
+  # accepted against 9809, and nothing schema-bearing moved between .84 and this image -- rather
+  # than on a direct check of what this image needs. Image 9809's own version-map was not opened.
+  # If that transitivity is ever broken (a cpScripts re-pin, or a .84 re-acceptance), re-measure
+  # from the new accepted baseline rather than extending this sentence.
+  #
+  # ⛔ THE DIGEST BELOW STAYS EMPTY ON PURPOSE -- do not "helpfully" pin it here. PCP-23089 makes
+  # release-alpha.sh the thing that pins a digest, from the SAME build as the tag, at release
+  # time; dev/mcp-hub-render-tests/image-digest-assert.sh assertion (A) holds that contract by
+  # rendering with no override and requiring a tag-ONLY reference. Committing a digest on a
+  # branch turns (A) red, and the fix for that red is NOT to edit (A).
+  #
+  # For anyone who wants to verify the tag rather than trust it: this tag's verified INDEX digest
+  # is sha256:edf793971ce4f921d57b31993a22b1a09cfdaa3224d8b14623d9046c679dc1bf, signature checked
+  # by the verify-image-tag workflow, run 37843695395. Recorded as PROSE precisely because the
+  # value must not sit in the key.
+  #
+  # (Whether main should carry digests at all is a real question and a separate change to guard
+  # (A); it belongs to the post-acceptance pin PR, not here.)
+  #
+  # The pin has since moved anyway, for unrelated reasons — see the cpScripts block above for
+  # what it is and what it carries.
+  #
+  # ⚠️ No number is restated here, on purpose. This sentence is a SECOND copy of a claim about
+  # the cpScripts pin and it had already gone stale twice for the same reason — the pin moves and
+  # only that block gets updated. (Once naming 9669, with closed PR #10443 as its owner; once
+  # naming 9743.) The third staleness is what buys the refactor, so: a pointer cannot go stale.
+  # 1.22.0 IMAGE SPRINT (PCP-24326): "1.22.0" -> "1.22.1", the hub image rebuilt from tp-mcp-hub releases/1.22 and
+  # promoted by release-promote-images.yml (a digest-preserving alias; the digest is recorded in the PR, not here).
+  # 1.22.2 SPIN (PCP-24326): "1.22.1" -> "1.22.2", the hub image rebuilt from tp-mcp-hub releases/1.22 and promoted by
+  # release-promote-images.yml (a digest-preserving alias; the digest is recorded in the PR, not here).
+  # 1.22 RESPIN candidate 2 (PCP-27433): "1.22.2" -> releases-1.22-cb7f445-7cf1e35 + its INDEX digest below, from the SAME build
+  # (tp-mcp-hub releases/1.22 @ 7cf1e35, build-image run 40628196800, attestation verified; required-schema 7, unchanged, so
+  # neither this subchart's appVersion nor the cpScripts contract moves). Pinned by digest on the respin manager's ruling, so
+  # CRI-O and containerd resolve the same image. image-digest-assert.sh (A) sets the digest empty itself (PCP-27163), so this
+  # pin does not disarm it. The registry's 1.22.2 tag is not touched.
+  # 1.22.4 GA (PCP-25657): releases-1.22-cb7f445-7cf1e35 -> 1.22.4, promoted by tibco/tp-mcp-hub release-promote-images.yml
+  # (real run 40725807007, dry run 40725670040; digest-preserving alias, -dev). MCP_HUB_WEBSERVER_IMAGE_DIGEST below is UNCHANGED.
+  MCP_HUB_WEBSERVER_IMAGE_TAG: "1.22.4"
+  # PCP-23089: pinned by release-alpha.sh alongside the tag above, from the SAME build.
   # Consumed ONLY by the deployment's image reference (mcp-hub-webserver.image), never by
   # the platform.tibco.com/app-version label or the env var — a Kubernetes label value
   # cannot contain '@' or ':'. Empty means un-pinned: the image renders tag-only.
-  MCP_HUB_WEBSERVER_IMAGE_DIGEST: ""
+  MCP_HUB_WEBSERVER_IMAGE_DIGEST: "sha256:502400dddc28b1966d331801f2fc74d24c545769c72ca143664d6e0c2e3c2df9"
   # AES-256-GCM key for encrypting upstream OAuth client secrets at rest
   # (backend/src/crypto.ts). PCP-20163: NEVER a committed literal — source it from a
   # k8s Secret the platform/installer provisions (like POSTGRES_PASSWORD). REQUIRED in
@@ -320,22 +648,43 @@ config:
     key: "MCPHUB_BOOTSTRAP_API_KEY"
     # PCP-21088: optional comma-separated scopes for the bootstrap key.
     # PCP-22935: defaults to EMPTY (least privilege), matching the in-repo chart
-    # (tp-mcp-hub charts/mcp-hub). Empty means the env var is not emitted at all and
-    # the backend applies its own default, ['key.write'] — a key that can manage API
-    # keys but carries no data-plane scope. A bootstrap key that is forgotten rather
-    # than rotated is then a limited credential, not a permanent admin one.
+    # (tp-mcp-hub charts/mcp-hub — a STANDALONE-only chart; the CP caveat below does not
+    # apply to it). Empty means the env var is not emitted at all and the backend applies
+    # its own default, ['key.write'] — a key that can manage API keys but carries no
+    # data-plane scope. A bootstrap key that is forgotten rather than rotated is then a
+    # limited credential, not a permanent admin one.
+    #
+    # ⚠️ PCP-25457: on a CP install, narrower scopes are FAIL-CLOSED, not merely limited.
+    # This bootstrap key is untenanted (no subscription_id), and tp-mcp-hub's
+    # apiKeySubscriptionScope() denies every tenant-scoped /v1 read for an untenanted,
+    # non-admin key — it never falls back to an all-tenant read
+    # (tp-mcp-hub backend/src/lib/api-key-auth.ts:460-469, origin/main @ 2026-10-06). The
+    # symptom reads as a wrong id, not a permission denial: GET /v1/gateways returns
+    # 200 [] and GET /v1/gateways/<id> 404s, as if the gateway did not exist. The mint
+    # path closes the same loop: a non-admin key also cannot mint a tenant-bound key
+    # ("Only a global (admin) key may set subscriptionId",
+    # tp-mcp-hub backend/src/routes/public-apis-keys.ts:123-125), so no narrower-scope key
+    # can see or provision tenant-scoped resources on CP either way.
+    # ⇒ On a CP install, scopes must include "admin" if the bootstrap key is ever used
+    # against /v1 tenant-scoped resources (gateways, tokens). There is no narrower scope
+    # that works for this.
     #
     # Opt IN explicitly when a first install must mint a real data-plane key: the
     # PCP-21088 mint guard only lets a caller grant scopes it already holds, so a
-    # key.write-only key cannot create a read/write/admin key (403). Set the narrowest
-    # thing that works — e.g. "key.write,read" — and prefer that over "admin".
+    # key.write-only key cannot create a read/write/admin key (403).
+    #   - STANDALONE: set the narrowest thing that works — e.g. "key.write,read" — and
+    #     prefer that over "admin" (no CP tenant binding applies, so this is safe here).
+    #   - CP: narrower scopes are fail-closed (see PCP-25457 above) — use "admin".
     # Rotate or delete the bootstrap key once the real key exists.
     #
     # ⚠️ UPGRADE NOTE: templates/secret.yaml deliberately preserves the bootstrap key
     # VALUE across upgrades, but these scopes are re-read from values on every render.
     # So an install that inherited the OLD "admin" chart default keeps the same key with
-    # NARROWED scope once it takes this chart version. That is the intended hardening; if
-    # such an install genuinely still needs the broader scope, set it explicitly here.
+    # NARROWED scope once it takes this chart version. On STANDALONE that is the intended
+    # hardening. On CP it is not just hardening — it silently fail-closes every
+    # tenant-scoped /v1 read (PCP-25457) — so a CP install that uses this key for
+    # tenant-scoped /v1 calls must set scopes: "admin" explicitly, across or before
+    # this upgrade.
     # (An install that already sets scopes explicitly in its own values is unaffected —
     # only the inherited default changed.)
     scopes: ""
@@ -408,6 +757,34 @@ mcphubwebserver:
 backend:
   port: 3000
   gatewayEgressAllowlist: ""  # PCP-20181: CIDRs permitting private direct-mode gateways (e.g. "10.0.0.0/8,192.168.0.0/16"); empty = public-only. Rendered into MCPHUB_GATEWAY_EGRESS_ALLOWLIST only when set, so CP installs stay byte-identical.
+  # PCP-24663: how long an INTERACTIVE MCP-server route waits for its Data Plane's gateway
+  # lock before giving up instead of holding its request open. Milliseconds; the backend's
+  # own default is 20000. Bounds WAITING, not the work itself.
+  #
+  # The timeout does NOT surface uniformly, so do not read it as "every console write becomes
+  # a retryable 409":
+  #   * server DELETE, oauth-setup, cc-setup -> `409 dp_busy` (retryable; nothing was pushed)
+  #   * an OAUTH-TYPED create/update         -> 2xx, row saved, push skipped, reported via
+  #                                             `oauthSetupError`
+  #   * a NON-OAuth create/update            -> unaffected; it never takes the lock at all
+  #
+  # This was the CP-side blind spot: the backend has read MCPHUB_DP_LOCK_ACQUIRE_TIMEOUT_MS
+  # since PCP-24613 — read per call, precisely so it can be changed from the environment — but
+  # nothing here rendered it and this chart has no extraEnv passthrough. The 20s default was
+  # always in force; what no CP operator could do was OVERRIDE it, so one seeing a dp_busy
+  # storm had no lever. This key is that lever.
+  #
+  # Raise it when something legitimately holds the lock longer than 20s. The platform-gateway
+  # config apply does so BY DESIGN: up to five membership-resolution attempts, each issuing
+  # four paginated gateway inventory reads, plus 2+4+8+16s of backoff between them. A large
+  # Data Plane's config push is the other case — it has no overall deadline of its own.
+  # Lowering it trades waiting for a faster failure — but not a uniformly retryable one: see
+  # the three shapes above. Only delete and the two auth-setup routes answer a retryable 409;
+  # an OAuth create/update still returns 2xx with the row saved and the push skipped.
+  #
+  # Rendered into MCPHUB_DP_LOCK_ACQUIRE_TIMEOUT_MS only when set, so CP installs stay
+  # byte-identical. Full write-up: tp-mcp-hub docs/design/mcp-hub/dp-gateway-lock.md.
+  dpLockAcquireTimeoutMs: ""
   # PCP-20304 DEV-ONLY: relax the direct-gateway transport guard so a gateway can be
   # registered by an http:// / private-host URL (e.g. an in-cluster `*.svc` ContextForge
   # in a standalone dev cluster). Default false → HTTPS + a public host is REQUIRED
@@ -420,6 +797,207 @@ backend:
   # MCPHUB_SHOW_QUICKSTART_BANNER only when true, so the CP default render stays
   # byte-identical. Set true to re-enable the banner.
   showQuickStartBanner: false
+  # PCP-23477 (W10 of epic PCP-21153): the Hub's own MCP server endpoint
+  # (POST /api/mcp-hub/mcp). BOTH keys render UNCONDITIONALLY into the app-container env.
+  # Override from a CP recipe / TibcoResourceSet as `mcp-hub-webserver.backend.mcp.*`.
+  mcp:
+    # TRI-STATE kill switch. Bare key (null, the default) => the backend's posture default
+    # decides (cp mode = mounted); true / false force it. null renders "" — identical to
+    # unset for posture.ts, and no boot warning.
+    # ⚠️ Do NOT add sprig `| default` in the template: it treats false as empty, which makes
+    # `false` unreachable and the kill switch inoperative.
+    # NOTE: this chart has NO values.schema.json. `enabled: 0` renders "0", is ignored by
+    # enabledOverride() and warns (posture.ts:268-274). But `yes`/`no`/`on`/`off` in a VALUES
+    # FILE are YAML-1.1 booleans to helm — they render "true"/"false" and DO take effect.
+    # Under `--set` they render LITERALLY instead ("yes"/"no"/"on"/"off"), which the backend
+    # ignores and warns about. Either way: use a real boolean.
+    enabled:
+    # readonly|full, or unset. UNSET (the default) renders "", which the backend treats exactly
+    # like an absent variable: getMcpToolsMode() resolves `isCpMode() ? 'full' : 'readonly'`
+    # (tp-mcp-hub releases/1.22 backend/src/routes/mcp/posture.ts:156). So a CP keeps TODAY's
+    # behaviour -- the full catalogue, each tool authorized per user against pengine -- and
+    # this chart change alters nothing until an operator sets a value (owner ruling A,
+    # 2026-10-12, PCP-24759). Set "readonly" to restrict a CP to the read-only tools, or
+    # enabled: false to switch the MCP plane off. Same "" default as tp-mcp-hub's own chart
+    # (charts/mcp-hub/tests/cp_test.yaml:113).
+    # PCP-25800: the template REFUSES anything else at render time (helm fails, naming the
+    # valid values). Valid: "readonly", "full", or unset. Unquoted off/no/false in a values file
+    # are YAML booleans and are refused too, instead of silently widening the catalogue to full.
+    toolsMode:
+
+  # ─── PCP-24482: standalone / dial-home gateway (ALL DEFAULT OFF) ───────────────────
+  #
+  # A dial-home gateway is one a customer installs on their OWN cluster with a helm
+  # command the Hub renders; it dials back over an outbound WebSocket, so nothing has to
+  # reach INTO their cluster. The Hub has been able to do this since 1.20 (PCP-20477 /
+  # PCP-20649), but NO CP could ever show the card, because this chart set none of the
+  # env vars that switch it on. That is what this block fixes.
+  #
+  # Every value here is default-off or empty, and each is rendered into the pod's env
+  # ONLY when set (deployment.yaml), so a CP install that does not opt in produces a
+  # BYTE-IDENTICAL render — the var is ABSENT, not present-and-false.
+  #
+  # PCP-24879: for every BOOLEAN below, "set" means `true` — the YAML boolean, or the string
+  # "true" IN ANY CASING. The gates read `eq (lower (toString .)) "true"`, so `false`,
+  # `"false"`, `"no"`, `"0"`, `"on"` and `""` all render NOTHING. Before that they were bare
+  # `if .` truthiness checks, under which every non-empty STRING is true — so turning a flag
+  # off with `--set-string`, or with a values file that quotes it, emitted the var
+  # present-and-false and broke the byte-identical claim two lines up.
+  #
+  # `lower` is there so this chart accepts EXACTLY what the Hub accepts: it reads every one of
+  # these as `(env || '').trim().toLowerCase() === 'true'`. Without it, a quoted `"True"` would
+  # be ON for the Hub but rendered absent by the chart — the chart silently overriding the
+  # operator. The emitted value is always the canonical `"true"` regardless of input casing.
+  #
+  # ⚠️ QUOTING STILL DECIDES the `on`/`yes` family, and it points the way you may not expect:
+  # QUOTED `"on"`/`"yes"` are plain strings and read as OFF, but UNQUOTED `on`/`yes`/`y` are
+  # YAML-1.1 booleans — go-yaml resolves them to `true` before the template ever runs — so an
+  # unquoted `enableLlmGateway: on` turns the flag ON. If you mean off, write `false`.
+  #
+  # This applies to `dialHome.enabled` further down too — it is a BOOLEAN, even though the
+  # other `dialHome.*` keys around it are STRINGS whose emptiness is their off state and which
+  # therefore keep the bare `if .`. It is also the one with the widest blast radius: it gates
+  # the registry-bridge env block as well, so a string-typed off used to emit THREE vars.
+  # `allowInsecureTransport` and `showQuickStartBanner` above are on the same tightened gate.
+  enableStandaloneGateway: false   # -> MCPHUB_ENABLE_STANDALONE_GATEWAY (PCP-22220 master gate)
+  # AI Gateway UI preview flags (tp-mcp-hub docs/plan/ai-gateway-ui-flags-plan.md). UI visibility
+  # only — no runtime behind either yet, so the Hub marks the new choice "not deployable".
+  # Default off → env absent → the MCP Hub UI is unchanged (byte-identical render).
+  enableLlmGateway: false          # -> MCPHUB_ENABLE_LLM_GATEWAY (LLM Gateway type: home tabs + wizard step)
+  enableMcpHighPerformance: false  # -> MCPHUB_ENABLE_MCP_HIGH_PERFORMANCE (MCP edition: Standard / High-performance)
+  # "Connect a running gateway" (register-by-URL) wizard card. Default OFF — not supported for
+  # now, so the wizard offers the managed Data Plane + Manual Helm install only. UI gate only.
+  enableConnectGateway: false      # -> MCPHUB_ENABLE_CONNECT_GATEWAY
+  dialHome:
+    # ⚠️ TURNING THIS ON IS NOT PURELY ADDITIVE — it adds a PRECONDITION that can stop the Hub
+    # pod from starting. `dialHome.enabled=true` makes the backend require a REAL
+    # MCPHUB_SECRET_KEY (backend/src/config.ts checkStartupConfig): the dev fallback key is
+    # refused and startup fails. Not belt-and-braces — `bootstrap_token_hash` is ENCRYPTED AT
+    # REST under that key, so a Hub on the dev fallback would persist credentials nobody can
+    # decrypt afterwards.
+    #
+    # In the DEFAULT case this is already satisfied and no action is needed: templates/secret.yaml
+    # auto-generates a strong key whenever `config.secretKey.existingSecret` is unset. The case to
+    # check is the one where an operator SUPPLIES that Secret — then the key is theirs, and this
+    # flag is what turns a weak one from a silent weakness into a pod that will not start.
+    #
+    # (Stated this way deliberately: the first version of this note told every operator to go
+    # verify their key, which is wrong for the common path. A warning that overstates gets
+    # ignored, and then it is not there for the case that needed it.)
+    enabled: false                 # -> MCPHUB_DIALHOME_ENABLED
+    # External WSS endpoint the customer's agent dials. Empty = the card stays hidden
+    # even with `enabled: true`, because a command without it cannot work.
+    # NOT derived from the CP ingress host: the route table implies
+    # wss://cp-sub1.$(CP_DNS_DOMAIN)/cp/mcp-hub/api/mcp-hub/dialhome/ws, but whether the
+    # `secure` virtual listener passes a WebSocket Upgrade is UNVERIFIED — so this stays
+    # explicit rather than guessing a URL that fails at connect time with no diagnostic.
+    hubUrl: ""                     # -> MCPHUB_DIALHOME_HUB_URL
+    # Where the customer's `helm --repo/--version` fetches the gateway chart. WHICH repo
+    # this names is load-bearing: the PUBLIC mirror is anonymous but carries only
+    # released versions, while the INTERNAL index carries alphas and needs credentials.
+    gatewayChartRepo: ""           # -> MCPHUB_DIALHOME_GATEWAY_CHART_REPO
+    gatewayChartVersion: ""        # -> MCPHUB_DIALHOME_GATEWAY_CHART_VERSION
+    agentImageTag: ""              # -> MCPHUB_DIALHOME_AGENT_IMAGE_TAG
+    # Name of a pre-created image-pull Secret. The gateway images live in an
+    # AUTHENTICATED registry, so in practice a customer needs one unless their nodes
+    # already hold credentials — the rendered command tells them how to create it either
+    # way, and deliberately does NOT refuse to render without it (a cluster with
+    # node-level credentials pulls fine, and fail-closing that would be wrong).
+    agentImagePullSecret: ""       # -> MCPHUB_DIALHOME_AGENT_IMAGE_PULL_SECRET
+    # PCP-23208 — the container registry the GATEWAY chart composes its images from.
+    #
+    # NAMESPACE MISMATCH, and it is the whole reason these two keys exist here. The
+    # gateway chart reads `global.cp.containerRegistry.*` EXCLUSIVELY (its _helpers.tpl
+    # states "There is NO global.tibco arm"), while a Control Plane populates
+    # `global.tibco.containerRegistry.*` — and this chart's own values declare
+    # global.cp.containerRegistry.secret and NOTHING else: no url, no repository.
+    # So on a CP, nothing fills what the gateway chart actually reads, and a rendered
+    # command without these produces an image reference with an empty leading path
+    # segment -> kubelet InvalidImageName, permanent, never retried.
+    #
+    # Left empty here; deployment.yaml defaults them to the CP's OWN
+    # global.tibco.containerRegistry coords, which bridges the two namespaces without
+    # introducing a new global.* key (so a later move to a cp-base subchart, PCP-24479,
+    # stays a path change).
+    #
+    # ⚠️ THE REPOSITORY IS LINE-DEPENDENT, and the gateway chart's own default is wrong for
+    # a dev line. Measured 2026-09-21 with a credential, controls first (a known-present tag
+    # and a known-absent tag, so "absent" could be told apart from "no access"):
+    #   tp-mcp-gateway-1.22.0-alpha.1 pins dialHome.image.tag main-13435fa by digest,
+    #   and that image exists in tibco-platform-docker-DEV and NOT in -prod — as do
+    #   tp-mcp-gateway and tp-mcp-discovery at the same tag. Yet the same chart defaults
+    #   global.cp.containerRegistry.repository to "tibco-platform-docker-prod".
+    # So an alpha chart's default registry namespace does not contain its own pinned images.
+    # The pin is deliberate (the chart's digest matches the dev image's index digest) — it is
+    # the DEFAULT that carries a release-time destination into a dev-line artifact.
+    #
+    # Therefore: on a dev line set `containerRegistryRepository: tibco-platform-docker-dev`.
+    # Deliberately NOT hardcoded here — baking "dev" into a chart that also ships to release
+    # lines is the same mistake pointing the other way.
+    #
+    # Note the asymmetry when you build the pull secret: --docker-server is the HOST, which is
+    # the same for both namespaces, so the credential is not what changes between lines — the
+    # repository path is. A secret that authenticates fine and still cannot find the image is
+    # this mismatch.
+    containerRegistryUrl: ""        # -> MCPHUB_DIALHOME_CONTAINER_REGISTRY_URL
+    containerRegistryRepository: "" # -> MCPHUB_DIALHOME_CONTAINER_REGISTRY_REPOSITORY
+
+  # [PCP-24484] The PLATFORM GATEWAY's bootstrap token, as the Hub sees it.
+  #
+  # The Secret itself is created by the PARENT chart
+  # (tibco-cp-mcp-hub/templates/platform-gateway-secret.yaml) — the gateway subchart
+  # consumes a Secret NAME, so its creator has to sit outside that subchart, and this
+  # chart is a second consumer of the same object.
+  #
+  # ⛔ These two values are a HAND-KEPT COPY of what the parent puts in
+  # `tp-mcp-gateway.dialHome.hub.bootstrapTokenSecret.*`, because Helm gives a subchart
+  # no way to read a parent value. They are asserted equal by
+  # dev/mcp-hub-render-tests/platform-gateway-assert.sh — a drift here is invisible at
+  # render time and shows up on the cluster as "authentication failed", which is also
+  # what three unrelated faults look like.
+  #
+  # The env var carries the FULL token `<gatewayId>.<secret>`; the Hub splits on the
+  # first dot itself. The chart deliberately does NOT hand over a pre-split pair —
+  # two values that must agree is the drift this single value exists to prevent.
+  #
+  # Rendered into the pod ONLY when global.tibco.mcpHub.platformGateway.enabled is
+  # true, so a CP that has not opted in is BYTE-IDENTICAL and the Hub never holds a
+  # secretKeyRef to a Secret that does not exist (which would stop the pod starting).
+  platformGateway:
+    bootstrapSecret:
+      name: "mcp-hub-platform-gateway-bootstrap"  # -> MCPHUB_PLATFORM_GATEWAY_TOKEN (secretKeyRef)
+      key: "token"
+    # PCP-25584 — the CP identity the platform gateway presents. Both EMPTY by default, and
+    # an empty value renders exactly what shipped before, so an existing CP is byte-identical.
+    #
+    # ⛔ SET THESE IF YOUR SUBSCRIPTION HOST IS NOT `cp-sub1`. The defaults compose
+    # `cp-sub1.<CP_DNS_DOMAIN>`, and `cp-sub1` is the MCP Hub provisioner's default
+    # subscription prefix, NOT a platform constant (the instance id is `cp1`, not `cp-sub1`).
+    # On a CP that names it differently the FQDN does not route and the issuer does not match
+    # what the IdP advertises, so the platform gateway is misconfigured. Before this knob
+    # existed there was no supported way to correct it — PCP-25584. 1.23 replaces the guess by
+    # deriving the real host from platform configuration; this is the 1.22 escape hatch.
+    #
+    # Values pass through k8s `$(VAR)` expansion, so `$(CP_DNS_DOMAIN)` is available:
+    #   cpFqdn: "my-sub.$(CP_DNS_DOMAIN)"
+    #   cpOidcIssuer: "https://my-sub.$(CP_DNS_DOMAIN)"
+    #
+    # ⚠️ Kept as TWO values, not one. An IdP is not obliged to live on the CP host, and the
+    # issuer must BYTE-MATCH what the IdP serves at /.well-known/openid-configuration (an
+    # OAuth client compares it) — deriving it as `https://<cpFqdn>` would bake today's
+    # topology into the contract. Set both, or neither.
+    #
+    # Rendered only when `enabled` is true; with the feature off these are never emitted.
+    #
+    # ⚠️ THE SPELLING YOU ACTUALLY TYPE depends on which chart you install. This file is the
+    # mcp-hub-webserver SUBCHART, so from the `tibco-cp-mcp-hub` umbrella every key here takes
+    # the subchart prefix:
+    #     --set mcp-hub-webserver.backend.platformGateway.cpFqdn="my-sub.$(CP_DNS_DOMAIN)"
+    #     --set mcp-hub-webserver.backend.platformGateway.cpOidcIssuer="https://my-sub.$(CP_DNS_DOMAIN)"
+    # Omitting the prefix sets a key nothing reads, and Helm does not warn — it renders the
+    # default and the CP is misconfigured exactly as if you had set nothing.
+    cpFqdn: ""        # authority only, no scheme — e.g. "my-sub.$(CP_DNS_DOMAIN)"
+    cpOidcIssuer: ""  # full origin WITH scheme — e.g. "https://my-sub.$(CP_DNS_DOMAIN)"
 
 # PCP-20194 (TT-20): opt-in pod-scoped INGRESS NetworkPolicy for the Hub webserver
 # (template: templates/networkpolicy.yaml). Default OFF so existing installs are

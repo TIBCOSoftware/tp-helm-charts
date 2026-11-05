@@ -1,0 +1,156 @@
+{{- /*
+  [PCP-24484] Render-time required-value guard for the PLATFORM GATEWAY.
+
+  Emits NO manifest. Each `fail` aborts `helm template` / install with a message that names
+  the exact values path and says why the chart cannot work it out for itself. Modelled on
+  charts/tp-mcp-gateway/templates/dialhome-validate.yaml, which guards the gateway's own
+  dial-home inputs; this one guards the inputs that only exist because the gateway is being
+  installed INSIDE a Control Plane.
+
+  Everything here is skipped when the feature is off, so a CP that has not opted in renders
+  byte-identically and cannot be broken by any of it.
+*/}}
+{{- $pgw := false }}
+{{- if .Values.global }}{{- if .Values.global.tibco }}{{- if .Values.global.tibco.mcpHub }}{{- if .Values.global.tibco.mcpHub.platformGateway }}
+{{- $pgw = .Values.global.tibco.mcpHub.platformGateway.enabled }}
+{{- end }}{{- end }}{{- end }}{{- end }}
+{{- if $pgw }}
+
+{{- /* ------------------------------------------------------------------------------------
+  (1) THE CONTAINER REGISTRY — the one input this chart genuinely cannot derive.
+
+  The gateway subchart composes every image as
+      <global.cp.containerRegistry.url>/<global.cp.containerRegistry.repository>/<bare name>
+  and reads `global.cp.*` EXCLUSIVELY. That is correct for every other placement, because the
+  gateway is Data-Plane-installed and a DP really does receive `global.cp`. A CONTROL PLANE
+  does not: it injects `global.tibco.containerRegistry.*` instead, and no cp1-ns release
+  receives `global.cp` at all (measured 2026-08-04, recorded at values.yaml:6-12).
+
+  So on a CP the two namespaces simply do not intersect. With neither supplied the images
+  render as "/tibco-platform-docker-prod/tp-mcp-gateway:<tag>" -- a LEADING SLASH and an empty
+  registry host -- which renders clean, lints clean, and then fails at pull with an error that
+  points at the registry rather than at this chart.
+
+  ⛔ Why this FAILS instead of mapping global.tibco.* across:
+    * the gateway's two registry helpers are ZERO-LOGIC on purpose, byte-identical to the same
+      block in 13 sibling charts, and carry an explicit "Do not add a branch, a short-circuit
+      or a nil-safe traversal here" plus assertions pinning them
+      (tp-mcp-gateway/templates/_helpers.tpl:262-266 and :289-294,
+       dev/mcp-gateway-render-tests/container-registry-assert.sh [3]/[4]);
+    * a values file cannot compute one value from another, so the mapping cannot live in
+      values.yaml either;
+    * and defaulting global.cp.containerRegistry.* to anything would point the chart at a
+      namespace nobody on the CP fills, which is the same silent-wrong-registry failure with
+      one more place to look.
+
+  The real fix is for the CP install to inject global.cp.containerRegistry.* alongside
+  global.tibco.* -- tracked separately, outside this chart. Until then this turns a silent
+  unpullable image into a loud, actionable render failure.
+------------------------------------------------------------------------------------ */}}
+{{- $cpReg := dict }}
+{{- if .Values.global.cp }}{{- if .Values.global.cp.containerRegistry }}
+{{- $cpReg = .Values.global.cp.containerRegistry }}
+{{- end }}{{- end }}
+{{- $tibcoReg := dict }}
+{{- if .Values.global.tibco }}{{- if .Values.global.tibco.containerRegistry }}
+{{- $tibcoReg = .Values.global.tibco.containerRegistry }}
+{{- end }}{{- end }}
+{{- if not (get $cpReg "url") }}
+{{- fail (printf "global.tibco.mcpHub.platformGateway.enabled=true requires global.cp.containerRegistry.url to be set (currently empty).\n\nWHY THE CHART CANNOT WORK THIS OUT: the tp-mcp-gateway subchart composes its images from global.cp.containerRegistry.* and has NO global.tibco arm -- deliberately, because it is a Data-Plane chart and a DP receives global.cp. This chart runs on the CONTROL PLANE, which populates global.tibco.containerRegistry.* instead (currently %q), and the two namespaces do not intersect. A values file cannot map one onto the other, and defaulting it would point at a namespace nobody on the CP fills.\n\nSET IT at install time to the same registry the CP already uses, e.g.:\n  --set global.cp.containerRegistry.url=%s --set global.cp.containerRegistry.repository=<repo>\n\nWithout it the gateway images render as \"/<repository>/<name>:<tag>\" -- a leading slash and an empty registry host -- which renders and lints clean and then fails at pull." (get $tibcoReg "url") (get $tibcoReg "url" | default "<your-registry>")) }}
+{{- end }}
+{{- if not (get $cpReg "repository") }}
+{{- fail (printf "global.tibco.mcpHub.platformGateway.enabled=true requires global.cp.containerRegistry.repository to be set (currently empty). The CP's own value is global.tibco.containerRegistry.repository=%q. See the url message above for why this chart cannot map one onto the other." (get $tibcoReg "repository")) }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------------------------
+  (1b) THE IMAGE PULL SECRET -- the SAME class as (1), and it was missed the first time.
+
+  Found on a real CP (PCP-24484 Phase 3, 2026-09-23): with (1) satisfied the gateway still
+  could not start -- all four containers ImagePullBackOff, because the pod carried NO
+  imagePullSecrets at all. The Hub pod in the SAME release, pulling the SAME registry, was
+  2/2 Running, which is what proves the registry itself is reachable.
+
+  MECHANISM, charts/tp-mcp-gateway/templates/lite-deployment.yaml:
+      {{`{{- if or .Values.dataplaneId (and .Values.global .Values.global.imagePullSecrets) }}`}}
+  Both arms are DATA-PLANE shaped. A DP sets dataplaneId; a CP sets neither, and
+  global.imagePullSecrets defaults to []. So the block never emits on a Control Plane, while
+  the Hub reaches its own secret through mcp-hub-webserver's container-registry.secret helper
+  -- a resolution the gateway chart has no equivalent of.
+
+  ⛔ WHY THIS BLOCK EXISTS AT ALL, and the part worth reading: (1) above is the SAME defect in
+  a different field, and it was written up as "the registry gap" -- singular. It is a CLASS:
+  the gateway chart reads DP-shaped values, the CP populates a different namespace. The URL
+  was found and guarded; the PULL SECRET was not, and the guard stayed GREEN on a chart whose
+  images cannot be pulled. A guard written for the instance you found does not cover the class
+  it belongs to. This is the second member; assume there are others.
+
+  Asserted rather than defaulted, for (1)'s reason: a CP on a custom registry hands in a
+  PRE-EXISTING Secret whose name this chart cannot guess.
+------------------------------------------------------------------------------------ */}}
+{{- if not (((.Values.global).imagePullSecrets)) }}
+{{- $cpSecret := (((.Values.global).tibco).containerRegistry).secret }}
+{{- $minted := "" }}
+{{- if and (((.Values.global).tibco).containerRegistry).username (((.Values.global).tibco).containerRegistry).password }}{{- $minted = "tibco-container-registry-credentials" }}{{- end }}
+{{- fail (printf "global.tibco.mcpHub.platformGateway.enabled=true requires global.imagePullSecrets to be set (currently empty).\n\nWHY: the tp-mcp-gateway subchart emits imagePullSecrets only when .Values.dataplaneId is set (Data Plane) or global.imagePullSecrets is non-empty. A CONTROL PLANE sets neither, so the gateway pod renders with NO pull secret and every container lands in ImagePullBackOff -- while the Hub pod in the same release pulls the same registry fine, because it resolves its own secret through a helper the gateway chart does not have. Measured on a real CP, PCP-24484 Phase 3.\n\nSET IT at install time to the pull Secret this CP already uses:\n  --set global.imagePullSecrets[0]=%s\n\nThis chart will not guess it: a CP on a custom registry supplies a PRE-EXISTING Secret (global.tibco.containerRegistry.secret, here %q) rather than the CP-minted one." (default "<your-pull-secret>" (default $minted $cpSecret)) $cpSecret) }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------------------------
+  (2) THE BOOTSTRAP SECRET NAME, ASSERTED ACROSS THE THREE PLACES THAT MUST AGREE.
+
+  Helm forces this value to be restated: a subchart cannot read a parent value, and a values
+  file cannot interpolate .Release.Name (which is why the name is fixed rather than
+  release-prefixed). So it appears in
+      tp-mcp-gateway.dialHome.hub.bootstrapTokenSecret.name   (what the AGENT mounts)
+      mcp-hub-webserver.backend.platformGateway.bootstrapSecret.name   (what the HUB reads)
+  and templates/platform-gateway-secret.yaml creates whatever the first one says.
+
+  A PARENT template can see both subcharts' values, so the relation is asserted HERE, at render
+  time, rather than only in CI: a mismatch then stops the install instead of producing a CP
+  where the gateway presents a token the Hub never hashed. That failure would surface as
+  "authentication failed" -- which is also what three unrelated faults look like, so it is
+  precisely the one worth refusing to ship.
+------------------------------------------------------------------------------------ */}}
+{{- $gwSecret := ((index .Values "tp-mcp-gateway").dialHome.hub.bootstrapTokenSecret) }}
+{{- $hubSecret := ((index .Values "mcp-hub-webserver").backend.platformGateway.bootstrapSecret) }}
+{{- if ne $gwSecret.name $hubSecret.name }}
+{{- fail (printf "platform-gateway bootstrap Secret NAME disagrees between the two consumers: the gateway agent mounts %q (tp-mcp-gateway.dialHome.hub.bootstrapTokenSecret.name) while the Hub reads %q (mcp-hub-webserver.backend.platformGateway.bootstrapSecret.name). Helm gives a subchart no way to read a parent value, so these two are a hand-kept pair; they must be set together. On a cluster this mismatch presents as a plain authentication failure with a perfectly valid token." $gwSecret.name $hubSecret.name) }}
+{{- end }}
+{{- if ne $gwSecret.key $hubSecret.key }}
+{{- fail (printf "platform-gateway bootstrap Secret KEY disagrees between the two consumers: the gateway agent reads key %q while the Hub reads key %q. Same hand-kept pair as the name above, same symptom when they drift." $gwSecret.key $hubSecret.key) }}
+{{- end }}
+{{- if not $gwSecret.name }}
+{{- fail "global.tibco.mcpHub.platformGateway.enabled=true requires tp-mcp-gateway.dialHome.hub.bootstrapTokenSecret.name — templates/platform-gateway-secret.yaml creates the Secret under whatever name this value carries, so an empty one would create a Secret called \"\" and leave the agent with nothing to mount." }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------------------------
+  (3) THE HUB MUST BE LISTENING FOR THE GATEWAY THIS FLAG CREATES.  [PCP-24485]
+
+  The platform gateway is a DIAL-HOME gateway by construction: it sits in the CP and opens a
+  WebSocket to the Hub. But the Hub's dial-home listener is a SEPARATE switch,
+  mcp-hub-webserver.backend.dialHome.enabled, and it defaults to FALSE. Nothing connected the
+  two, so `platformGateway.enabled=true` on its own installs a gateway that dials a Hub which
+  is not listening. That is not a degraded mode -- the pairing can never work.
+
+  Why this needs a guard and not a doc line: the symptom is nearly invisible. The install
+  succeeds, every pod reports Running, the gateway simply retries, and the only evidence is one
+  Hub log line -- `platform_gateway.reconciled_but_ws_not_attached` -- which nobody recognises
+  without having been told what it means. MEASURED on ins-syan-pcp24485, 2026-09-25: enabling
+  this flag on an otherwise healthy CP produced exactly that and nothing else, until
+  backend.dialHome.enabled was set by hand.
+
+  Same class as (1) and (2): two values that must agree, asserted at render time in the one
+  scope that can see both subcharts, so the install refuses rather than shipping a CP whose
+  platform gateway can never come online.
+
+  ⚠️ Deliberately REFUSES rather than auto-enabling. Turning dial-home on adds a real
+  precondition -- the backend then requires a strong MCPHUB_SECRET_KEY, because
+  bootstrap_token_hash is encrypted at rest under it -- so flipping it silently could turn a
+  working CP into a pod that will not start. Explaining and stopping is correct; deciding for
+  the operator is not.
+------------------------------------------------------------------------------------ */}}
+{{- $hubDialHome := ((index .Values "mcp-hub-webserver").backend.dialHome) }}
+{{- if ne (lower (toString $hubDialHome.enabled)) "true" }}
+{{- fail "global.tibco.mcpHub.platformGateway.enabled=true requires mcp-hub-webserver.backend.dialHome.enabled=true — the platform gateway reaches the Hub ONLY over dial-home, so with the Hub's listener off it installs, starts, connects to nothing and retries forever. The single symptom is the Hub logging 'platform_gateway.reconciled_but_ws_not_attached'. Set it explicitly: it is not flipped for you, because dial-home also requires a strong MCPHUB_SECRET_KEY (bootstrap_token_hash is encrypted at rest under that key) and enabling it silently could stop the Hub pod from starting." }}
+{{- end }}
+
+{{- end }}

@@ -4,7 +4,23 @@
 #
 apiVersion: v2
 name: mcp-hub-webserver
-version: 1.21.0
+# PCP-25657: 1.21.0 -> 1.22.0 - the 1.22 LINE-OPEN this subchart never got. The 1.21 line-open
+# (65dc6a970c, PCP-23334, #10426) moved all SEVEN movable fields of this family atomically -- the
+# umbrella's version and appVersion, both dependencies[].version ranges, mcp-hub-recipes' version
+# and appVersion, and this chart's version. The EIGHTH, this chart's own appVersion, deliberately
+# stayed at 1.20.0 then and stays there now (see the block below -- do not "complete the set").
+# The 1.22 line-open (a701073c42, PCP-24190, #10676) moved only the umbrella's version+appVersion,
+# because it was a core-cp-scripts pin PR that carried the line move along with it. This closes
+# that gap.
+# The parent's "mcp-hub-webserver" dependency range moves "1.21.*" -> "1.22.*" in this SAME
+# commit; split across commits, `helm dependency build` exits 1 and ct lint reds with it.
+# BARE 1.22.0, not an alpha - Helm does not match prerelease versions against a wildcard
+# constraint. Not independently tag-published (ZERO `mcp-hub-webserver-` refs, no gh-pages index
+# entry), so skip_existing does not constrain this number.
+# /!\ appVersion BELOW DOES NOT MOVE, AND THAT IS WHY THESE TWO ARE ADJACENT. It is the
+#     CHART_APP_VERSION join key into the PINNED core-cp-scripts image's version-map, which has
+#     exactly one key, "1.20.0". Read the whole block under appVersion before touching it.
+version: 1.22.0
 # This value is NOT cosmetic: jobs.yaml passes it as CHART_APP_VERSION to
 # `postgres-helper.bash manageDbSchema`, which looks it up in
 # scripts/database/postgres/mcp-hub/version-map.yaml to resolve the target schema version.
@@ -14,13 +30,25 @@ version: 1.21.0
 # PCP-23334: this appVersion DELIBERATELY STAYS AT 1.20.0 while the chart `version` above moves
 # to the 1.21 line. The two are independent and only this one is load-bearing.
 #
-# It cannot move until a core-cp-scripts image ships an mcp-hub version-map containing a "1.21.0"
-# key. The map the cluster consults is the copy baked into the PINNED core-cp-scripts image (the
+# PCP-25657: AND IT STAYS BEHIND AT THE 1.22 LINE-OPEN TOO, for the same reason and by the same
+# deliberate decision. The chart `version` above is now 1.22.0 and this is still 1.20.0 - a
+# TWO-line gap, not a one-line one. Recorded explicitly, because the paragraph above reads as a
+# one-off about 1.21, and a reader who takes it that way concludes this value is merely OVERDUE
+# rather than PINNED. Recording a deliberate NON-move is this family's own practice.
+#
+# It cannot move until a core-cp-scripts image ships an mcp-hub version-map containing a key
+# EQUAL to whatever this is set to - which, after PCP-25657, would be "1.22.0", NOT the "1.21.0"
+# this paragraph originally named. The map the cluster consults is the copy baked into the
+# PINNED core-cp-scripts image (the
 # db-setup Job mounts no version-map), and validate_target_chart_version requires an EXACT key —
-# not the <= walk resolve_target_schema_version does. Bumping this to 1.21.0 while every
-# published image's map stops at 1.20.0 aborts database setup with
-# "Target chart version '1.21.0' is not defined", and every source-side bats invariant still
-# passes, so CI would not catch it. Caught in review on PR #10426 and reverted there.
+# not the <= walk resolve_target_schema_version does. Bumping this while every published
+# image's map stops at "1.20.0" aborts database setup with
+# "Target chart version '1.22.0' is not defined". Caught in review on PR #10426 and reverted
+# there. (Correction, PCP-25657: the "every source-side bats invariant still passes" clause is
+# no longer true - invariant 4 in migration-invariants.bats, "every manageDbSchema chart's
+# appVersion is an exact key in its version-map", now REDs on a non-key appVersion. Measured:
+# mutating this to "1.22.0" yields `Target chart version '1.22.0' is not defined. Keys present:
+# 1.20.0`. It is an ADVISORY check, not a required one, so it reports but does not block.)
 #
 # To move it later: add the key to scripts/database/postgres/mcp-hub/version-map.yaml, merge,
 # wait for a core-cp-scripts build carrying it, re-pin that image in values.yaml, then bump this.

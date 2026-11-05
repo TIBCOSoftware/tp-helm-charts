@@ -41,9 +41,57 @@ spec:
         platform.tibco.com/workload-type: capability-service
         platform.tibco.com/app-name: mcp-hub
         platform.tibco.com/app-version: {{ .Values.config.MCP_HUB_WEBSERVER_IMAGE_TAG | quote }}
-      {{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      {{- /*
+        [PCP-24484] The `annotations:` KEY IS SHARED, so it cannot stay gated on one feature.
+        It used to read `{{- if ...fluentbit.enabled }} annotations: ... {{- end }}`, which
+        meant any annotation added inside it VANISHED whenever fluentbit was off — and the
+        failure condition would be a completely unrelated switch. A checksum that disappears
+        does not go red: the pod simply stops being restarted when the object it tracks
+        changes, and the only symptom is a stale credential still live in a running pod.
+        So the key is now emitted when EITHER contributor is present, and each annotation
+        carries its own guard.
+
+        Nil-safe walk rather than a direct .Values.global.tibco.mcpHub.platformGateway read:
+        this subchart does not declare `mcpHub` in its own values (the switch is the PARENT's
+        global), so a standalone render of this chart would nil-pointer on the direct form.
+        Same shape as the fluentbit.enabled twin in the gateway chart's _helpers.tpl.
+      */}}
+      {{- $fluentbit := $.Values.global.tibco.logging.fluentbit.enabled }}
+      {{- $platformGateway := false }}
+      {{- if $.Values.global }}{{- if $.Values.global.tibco }}{{- if $.Values.global.tibco.mcpHub }}{{- if $.Values.global.tibco.mcpHub.platformGateway }}
+      {{- $platformGateway = $.Values.global.tibco.mcpHub.platformGateway.enabled }}
+      {{- end }}{{- end }}{{- end }}{{- end }}
+      {{- if or $fluentbit $platformGateway }}
       annotations:
+        {{- if $fluentbit }}
         checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if $platformGateway }}
+        {{- /*
+          Hash the LIVE Secret, not a re-render of the template that creates it.
+
+          The obvious form — `include (print $.Template.BasePath "/platform-gateway-secret.yaml")`
+          — cannot work here and fails in the worst possible way. $.Template.BasePath inside a
+          subchart resolves to THIS subchart's templates dir (measured:
+          "tibco-cp-mcp-hub/charts/mcp-hub-webserver/templates"), so it cannot reach the parent's
+          template at all. Including the parent's file by its registered name DOES render — and
+          that is the trap: a subchart's `$` is the SUBCHART's root, not the chart root, so the
+          parent template resolves against the wrong .Values and produces a DIFFERENT rendering
+          from the Secret actually deployed. Measured: the same file rendered "PARENT-VALUE-MISSING"
+          through the include while the parent's own render of it gave the real value, and passing
+          `$` instead of `.` changed nothing — identical sha both ways. The annotation would be
+          present, stable and meaningless, and Secret rotation would silently not restart the Hub.
+
+          Hashing the deployed object is also what a checksum/* annotation is FOR: it exists for
+          the case where the referenced object changed but the pod spec did not.
+
+          NOTE: `lookup` returns nothing during `helm template` / client dry-run, so a rendered
+          manifest always shows the empty-dict hash. That is expected, and it is also the limit of
+          what any template-level test can prove here — the real behaviour is a cluster check.
+        */}}
+        {{- $pgSecret := lookup "v1" "Secret" $.Release.Namespace $.Values.backend.platformGateway.bootstrapSecret.name }}
+        checksum/platform-gateway-secret: {{ (and $pgSecret $pgSecret.data) | default dict | toYaml | sha256sum }}
+        {{- end }}
       {{- end }}
     spec:
       automountServiceAccountToken: false
@@ -296,20 +344,57 @@ spec:
         # closes security scan finding f002 (a forged `gsbc` selecting another tenant's
         # rows), and "enforced only when configured" would be fail-open.
         #
-        # Derived via k8s $(VAR) expansion from CP_DNS_DOMAIN above — the same mechanism
-        # CP_USER_SUB_URL / CP_ORCHESTRATOR_URL already use in this block — so no
-        # environment has to hand-enter a URL. It lives INSIDE the mode=cp gate because
-        # standalone has no CP IdP, no CP token, and no CP_DNS_DOMAIN to expand.
+        # Derived via k8s $(VAR) expansion from TP_CP_IDM_HOST / CP_DNS_DOMAIN above — the
+        # same mechanism CP_IDM_URL / CP_USER_SUB_URL / CP_ORCHESTRATOR_URL already use in
+        # this block — so no environment has to hand-enter a URL. It lives INSIDE the
+        # mode=cp gate because standalone has no CP IdP and no CP token.
         #
-        # The `cp-sub1.` label is measured, not guessed: on a live CP every subscription
-        # host (cp-sub1 / cp-sub2 / admin) publishes the SAME signing key, so any one of
-        # them serves the whole multi-tenant CP. Override via config.MCPHUB_TOKEN_JWKS_URI
-        # if IdM is ever fronted somewhere else.
+        # ⛔ PCP-25577 — DO NOT PUT A SUBSCRIPTION HOST BACK IN HERE.
+        # This defaulted to `https://cp-sub1.$(CP_DNS_DOMAIN)/idm/v1/oauth2/jwks-uri`, and the
+        # comment that stood here claimed the `cp-sub1.` label was "measured, not guessed".
+        # What was measured is that every subscription host of ONE CP publishes the same
+        # signing key. That does NOT make `cp-sub1` a platform constant — it is OUR
+        # PROVISIONER'S default subscription prefix. A customer whose CP names it anything
+        # else got a URL that does not resolve, and the Hub rejected every CP token.
+        # `admin.` would be no better: `adminHostPrefix` is itself a chart value.
+        #
+        # The fix is to stop needing the host at all — dial IdM IN-CLUSTER and present a Host
+        # that IdM's WILDCARD tenant mapping accepts. From IdM's own chart
+        # (tp-cp-core/identity-management/templates/idm.yaml):
+        #     TSC_HOST_MAPPING = {"host": "$(TSC_DNS_DOMAIN)", "tenantId": "TSC", …}
+        #     TSC_DNS_DOMAIN   = "*.<global.external.dnsDomain>"      ← a WILDCARD
+        # and CP_DNS_DOMAIN (cp-env) renders from that SAME `global.external.dnsDomain`, so
+        # the two are equal by construction, not coincidence. Any single-label subdomain
+        # therefore maps to tenant TSC, and `mcp-hub.` is ours. The CP MCP Aggregator reaches
+        # this same JWKS the same way (AGGREGATOR_JWKS_HOST = mcp-aggregator.<cpDNSDomain>).
+        #
+        # ⚠️ BOTH HALVES ARE REQUIRED — measured from inside the hub-webserver pod on
+        # ins-syan-a84check, and independently by PCP-24033 on another CP:
+        #     /idm/v1/oauth2/jwks-uri + Host → 501  (`/idm` is the INGRESS prefix; pod-to-pod
+        #                                            IdM answers "not implemented API")
+        #     /v1/oauth2/jwks-uri, no Host   → 400  (ATMOSPHERE-8013, unmapped Host)
+        #     /v1/oauth2/jwks-uri + Host     → 200  ← body sha256-IDENTICAL to what the old
+        #                                            cp-sub1 URL returned
+        # Port 7831 is IdM's `server` port (TP_CP_IDM_HOST + 7831 is already used for
+        # CP_IDM_URL above); 9831 is the monitor/ping port only.
         # ⚠️ The key DIFFERS BETWEEN CPs (measured: two live CPs publish keys with distinct
         # RFC-7638 thumbprints), so never pin a `kid` here. An earlier revision of this
         # comment cited "kid 7a91a34a"; that was one instance's key, not a constant.
         - name: MCPHUB_TOKEN_JWKS_URI
-          value: {{ .Values.config.MCPHUB_TOKEN_JWKS_URI | default "https://cp-sub1.$(CP_DNS_DOMAIN)/idm/v1/oauth2/jwks-uri" | quote }}
+          value: {{ .Values.config.MCPHUB_TOKEN_JWKS_URI | default "http://$(TP_CP_IDM_HOST):7831/v1/oauth2/jwks-uri" | quote }}
+        # The `Host:` header for that fetch — authority-form (bare host, optional `:port`; no
+        # scheme, path or trailing slash) per RFC 9110 §7.2, sent VERBATIM by the backend.
+        #
+        # ⚠️ THE HOST DEFAULT TRAVELS WITH THE DERIVED IN-CLUSTER URL, NEVER WITH AN
+        # OPERATOR'S EXPLICIT ONE. `mcp-hub.<domain>` is right for IdM's wildcard mapping and
+        # WRONG for an operator-chosen public endpoint — sending it there would be a 400 we
+        # manufactured. So when config.MCPHUB_TOKEN_JWKS_URI is set, no Host is emitted unless
+        # config.MCPHUB_TOKEN_JWKS_HOST is set too. That is what keeps "the explicit operator
+        # override wins" true rather than half-true.
+        {{- if or .Values.config.MCPHUB_TOKEN_JWKS_HOST (not .Values.config.MCPHUB_TOKEN_JWKS_URI) }}
+        - name: MCPHUB_TOKEN_JWKS_HOST
+          value: {{ .Values.config.MCPHUB_TOKEN_JWKS_HOST | default "mcp-hub.$(CP_DNS_DOMAIN)" | quote }}
+        {{- end }}
         # PCP-22823 (follow-up): WHAT the verified token must claim. A valid signature only
         # proves the CP minted it; these two say which token CLASS and which HOST MAPPING it
         # was minted for. Both are REQUIRED whenever MCP_HUB_MODE=cp — checkStartupConfig()
@@ -469,22 +554,377 @@ spec:
         - name: MCPHUB_GATEWAY_EGRESS_ALLOWLIST
           value: {{ .Values.backend.gatewayEgressAllowlist | quote }}
         {{- end }}
-        {{- if .Values.backend.allowInsecureTransport }}
+        {{- if .Values.backend.dpLockAcquireTimeoutMs }}
+        # PCP-24663: acquisition deadline for the per-Data-Plane gateway lock, in ms (the
+        # backend's own default is 20000). An interactive MCP-server route that does not get
+        # its turn within it gives up rather than holding the request open — an unbounded
+        # queue of waiting handlers is how a request pool gets exhausted. Delete and the two
+        # auth-setup routes surface that as a retryable `409 dp_busy`; an OAuth-typed
+        # create/update instead returns 2xx with `oauthSetupError` (row saved, push skipped),
+        # and a non-OAuth create/update never takes the lock at all.
+        #
+        # The backend has read this since PCP-24613 — per call, so it CAN be changed from the
+        # environment — but nothing here rendered it and this chart carries no extraEnv
+        # passthrough. The 20s default was always in force; what was unreachable on a CP was
+        # OVERRIDING it. This block is that override path.
+        # The dev/standalone chart in tp-mcp-hub (charts/mcp-hub) carries the same block;
+        # keep the two in step — MCPHUB_SELF_MCP_URL shows what that drift costs.
+        #
+        # Rendered only when set so CP installs stay byte-identical. `| quote` because env
+        # values must be strings and a plain `--set ...=45000` arrives as an integer. A
+        # value the backend cannot use (non-numeric, <= 0) falls back to 20000 there, so a
+        # typo degrades rather than failing the install.
+        - name: MCPHUB_DP_LOCK_ACQUIRE_TIMEOUT_MS
+          value: {{ .Values.backend.dpLockAcquireTimeoutMs | quote }}
+        {{- end }}
+        {{- if eq (lower (toString .Values.backend.allowInsecureTransport)) "true" }}
         # PCP-20304 DEV-ONLY: relax the direct-gateway transport guard so an
         # http:// / private-host gateway URL can be registered (e.g. an in-cluster
         # `*.svc` ContextForge in a standalone dev cluster). Rendered ONLY when true,
         # so CP/production installs (default false) stay byte-identical. HTTPS + a
         # public host is the secure default; NEVER enable this in CP/production.
         - name: MCPHUB_ALLOW_INSECURE_TRANSPORT
-          value: {{ .Values.backend.allowInsecureTransport | quote }}
+          value: "true"
         {{- end }}
-        {{- if .Values.backend.showQuickStartBanner }}
+        {{- if eq (lower (toString .Values.backend.showQuickStartBanner)) "true" }}
         # PCP-22388: the empty-state "QuickStart" governance banner is default-OFF in
         # the SPA (features.showQuickStartBanner). Rendered ONLY when true, so CP
         # installs stay byte-identical (absent by default); set true to re-enable it.
         - name: MCPHUB_SHOW_QUICKSTART_BANNER
-          value: {{ .Values.backend.showQuickStartBanner | quote }}
+          value: "true"
         {{- end }}
+        {{- if eq (lower (toString (.Values.global.tibco.mcpHub.headlessApi).enabled)) "true" }}
+        # PCP-25595: headless API v1 — let /api/mcp-hub/v1 accept the CP OAuth bearer token
+        # as a credential. Rendered ONLY when enabled, so a default CP install stays
+        # byte-identical (absent) and a CP token on /v1 keeps getting 401.
+        #
+        # The backend treats only `true` (trimmed, lower-cased) as on, so a typo or a
+        # non-boolean fails closed.
+        #
+        # WHY `eq (lower (toString ...)) "true"` AND NOT A BARE TRUTHINESS TEST — measured,
+        # because the obvious simplification is wrong in the DANGEROUS direction:
+        # `--set x=true` yields a BOOL while `--set-string x=false` yields the STRING "false",
+        # and a bare truthiness test reads that non-empty string as truthy and turns the
+        # feature ON. (An earlier version of this comment justified the form by "--set arrives
+        # as a string", which is the wrong way round and is exactly what would talk the next
+        # reader into the bare form.)
+        #
+        # ⚠️ Do NOT write the bare form out literally in this comment to illustrate it: this is
+        # a `#` YAML comment, not a `{{/* */}}` template comment, so Helm still EXECUTES any
+        # action it contains. Doing exactly that is what broke this template once —
+        # "parse error … unexpected <.> in operand" — and the dev chart's block is immune only
+        # because it happens to use a template comment.
+        #
+        # The deref is nil-safe, matching the sibling gates above: an override that writes
+        # `headlessApi:` with no body would otherwise abort the render instead of defaulting off.
+        #
+        # ⚠️ Keep in step with tp-mcp-hub charts/mcp-hub (the dev/standalone sibling).
+        - name: MCPHUB_HEADLESS_API
+          value: "true"
+        {{- end }}
+        {{- /*
+          PCP-24482 — standalone / dial-home gateway. Until now this chart set NONE of these,
+          which is the entire reason no Control Plane could ever show the dial-home card: the
+          Hub's feature has existed since 1.20 but was unreachable.
+
+          Every var is emitted ONLY when its value is set, so a CP install that does not opt in
+          renders BYTE-IDENTICALLY to before — the var is ABSENT, not present-and-false. That is
+          the bar the three blocks above state in prose and it is the one that matters: a
+          present-but-false var is still a diff.
+
+          PCP-24879 — EVERY BOOLEAN gate in this env list reads `eq (lower (toString .)) "true"`,
+          NOT a bare `if .`. A bare `if` is HELM TRUTHINESS, under which EVERY non-empty string
+          is true — so `--set-string ...enableLlmGateway=false`, or a values file that quotes
+          the flag, rendered the var PRESENT with `value: "false"`. That is the one outcome the
+          paragraph above forbids, reached by turning the feature OFF.
+
+          ⚠️ `lower` IS LOAD-BEARING, NOT TIDINESS — it is the chart agreeing with its only
+          consumer. The Hub resolves each of these as
+          `(process.env.X || '').trim().toLowerCase() === 'true'` (tp-mcp-hub
+          backend/src/config.ts:393, :409, :416, :755), so a quoted "True"/"TRUE" IS on. A
+          case-SENSITIVE gate would have rendered those absent and silently switched the
+          feature off for anyone who had written one — turning a render fix into a behaviour
+          change, and landing hardest on `allowInsecureTransport`, where a dev cluster would
+          start failing gateway registration with nothing in the chart explaining why.
+          With `lower` the chart accepts EXACTLY what the Hub accepts, so this change moves no
+          behaviour at all: it only removes vars that were present-and-off.
+          (The first cut of this ticket got this backwards and asserted the opposite; caught in
+          review by @adhanshe-tibco, who read the four consumers.)
+
+          ⚠️ APPLIED TO ALL SEVEN BOOLEANS IN THIS LIST, NOT JUST THE FOUR THE TICKET NAMED —
+          allowInsecureTransport (:472), showQuickStartBanner (:481), the four flags below, and
+          dialHome.enabled (:531 AND :563). Two reasons, both found in review:
+            - A MIXED block teaches the next reader the wrong rule, and the counter-example
+              would have been allowInsecureTransport — the security-sensitive one.
+            - dialHome.enabled has the LARGEST blast radius of the seven, not the smallest: it
+              gates the registry-bridge block at :563 as well, so `--set-string
+              ...dialHome.enabled=false` emitted THREE vars present-and-false, not one
+              (reproduced at origin/main). It is a BOOLEAN despite living under dialHome.*,
+              whose other keys are strings.
+          The dialHome STRING values (hubUrl, gatewayChartRepo, gatewayChartVersion,
+          agentImageTag, agentImagePullSecret) and gatewayEgressAllowlist (:464) deliberately
+          KEEP the bare `if .`: their emptiness IS the off state, so truthiness is the correct
+          test there. S7 in the guard asserts exactly that split, so neither half can drift.
+
+          WHAT PASSES THE GATE: a YAML boolean `true`, or the string "true" IN ANY CASING —
+          "True", "TRUE", "TrUe". Everything else reads as off: "false", "no", "0", "on", "".
+          Note `on`/`yes` are off only when QUOTED; unquoted they are YAML-1.1 booleans that
+          go-yaml resolves to `true` before the template runs, so an unquoted `on` turns the
+          flag ON. Accepted set == the Hub's accepted set, by construction.
+
+          The emitted value is the LITERAL `"true"`, not `| quote` of the operator's spelling.
+          Past the gate the input can be `true`, `"True"` or `"TRUE"`, and forwarding it
+          verbatim would make the rendered manifest differ by input spelling while meaning the
+          same thing — and would keep the divergence with the Hub-side chart (which emits the
+          literal) that PCP-24879 recorded. Case-insensitive IN, canonical OUT.
+
+          Pinned from every side by dev/mcp-hub-render-tests/dialhome-render-assert.sh:
+          S1 absent by default, S2 emitted when opted in, S5 a string-typed off stays absent,
+          S6 a string-typed "true" still emits, S8 the case variants are ON and render the
+          canonical value, and S7 reconciles THIS FILE against the guard's own gate table — so
+          a boolean added here without a guard entry fails CI instead of shipping uncovered,
+          which is how the two AI-Gateway flags, and then enableConnectGateway, got here.
+        */}}
+        {{- if eq (lower (toString .Values.backend.enableStandaloneGateway)) "true" }}
+        - name: MCPHUB_ENABLE_STANDALONE_GATEWAY
+          value: "true"
+        {{- end }}
+        {{- /* AI Gateway UI preview flags — same emit-only-when-true rule as above. */}}
+        {{- if eq (lower (toString .Values.backend.enableLlmGateway)) "true" }}
+        - name: MCPHUB_ENABLE_LLM_GATEWAY
+          value: "true"
+        {{- end }}
+        {{- if eq (lower (toString .Values.backend.enableMcpHighPerformance)) "true" }}
+        - name: MCPHUB_ENABLE_MCP_HIGH_PERFORMANCE
+          value: "true"
+        {{- end }}
+        {{- if eq (lower (toString .Values.backend.enableConnectGateway)) "true" }}
+        - name: MCPHUB_ENABLE_CONNECT_GATEWAY
+          value: "true"
+        {{- end }}
+        {{- if eq (lower (toString .Values.backend.dialHome.enabled)) "true" }}
+        - name: MCPHUB_DIALHOME_ENABLED
+          value: "true"
+        {{- end }}
+        {{- if .Values.backend.dialHome.hubUrl }}
+        - name: MCPHUB_DIALHOME_HUB_URL
+          value: {{ .Values.backend.dialHome.hubUrl | quote }}
+        {{- end }}
+        {{- if .Values.backend.dialHome.gatewayChartRepo }}
+        - name: MCPHUB_DIALHOME_GATEWAY_CHART_REPO
+          value: {{ .Values.backend.dialHome.gatewayChartRepo | quote }}
+        {{- end }}
+        {{- if .Values.backend.dialHome.gatewayChartVersion }}
+        - name: MCPHUB_DIALHOME_GATEWAY_CHART_VERSION
+          value: {{ .Values.backend.dialHome.gatewayChartVersion | quote }}
+        {{- end }}
+        {{- if .Values.backend.dialHome.agentImageTag }}
+        - name: MCPHUB_DIALHOME_AGENT_IMAGE_TAG
+          value: {{ .Values.backend.dialHome.agentImageTag | quote }}
+        {{- end }}
+        {{- if .Values.backend.dialHome.agentImagePullSecret }}
+        - name: MCPHUB_DIALHOME_AGENT_IMAGE_PULL_SECRET
+          value: {{ .Values.backend.dialHome.agentImagePullSecret | quote }}
+        {{- end }}
+        {{- /*
+          PCP-23208 — the registry the GATEWAY chart composes its images from. It reads
+          `global.cp.containerRegistry.*` exclusively, while a CP populates
+          `global.tibco.containerRegistry.*`; this chart declares global.cp...secret and nothing
+          else. So the CP's own coords are the DEFAULT here — that bridges the two namespaces
+          without adding a global.* key. The emit stays gated on the dial-home flag so a CP that
+          has not opted in is still byte-identical, even though the CP coords are non-empty.
+        */}}
+        {{- if eq (lower (toString .Values.backend.dialHome.enabled)) "true" }}
+        {{- $registryUrl := .Values.backend.dialHome.containerRegistryUrl | default .Values.global.tibco.containerRegistry.url }}
+        {{- if $registryUrl }}
+        - name: MCPHUB_DIALHOME_CONTAINER_REGISTRY_URL
+          value: {{ $registryUrl | quote }}
+        {{- end }}
+        {{- $registryRepo := .Values.backend.dialHome.containerRegistryRepository | default .Values.global.tibco.containerRegistry.repository }}
+        {{- if $registryRepo }}
+        - name: MCPHUB_DIALHOME_CONTAINER_REGISTRY_REPOSITORY
+          value: {{ $registryRepo | quote }}
+        {{- end }}
+        {{- end }}
+        {{- /*
+          [PCP-24484] The PLATFORM GATEWAY's bootstrap token.
+
+          The value is the FULL token `<gatewayId>.<secret>`; the Hub splits on the first dot
+          itself (it already parses this format). The chart deliberately does not hand over a
+          pre-split pair: two values that must agree is exactly the drift this single value
+          exists to prevent, and the drift is invisible until a real cluster answers
+          "authentication failed" with a token that is perfectly correct.
+
+          Its PRESENCE is the Hub-side trigger — no second env flag. Emitted only when the
+          platform gateway is switched on, so a CP that has not opted in renders BYTE-IDENTICAL
+          and, more importantly, never holds a secretKeyRef to a Secret that does not exist
+          (which would stop the pod from starting rather than degrade).
+
+          The Secret is created by the PARENT chart (platform-gateway-secret.yaml) because the
+          gateway subchart consumes a Secret NAME and so its creator must sit outside it.
+        */}}
+        {{- if $platformGateway }}
+        - name: MCPHUB_PLATFORM_GATEWAY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backend.platformGateway.bootstrapSecret.name | quote }}
+              key: {{ .Values.backend.platformGateway.bootstrapSecret.key | quote }}
+        {{- /*
+          PCP-24485 — where the declarative platform-gateway.yaml LIVES. The Hub applies that
+          file to the platform gateway on dial-home connect; this names it. The file is baked
+          into the Hub image (both Dockerfiles carry `COPY backend/resources/ /app/resources/`,
+          WORKDIR /app), so this is a fixed in-image path — no ConfigMap, no volume, nothing to
+          keep in sync.
+
+          ⛔ READ THIS BEFORE "SIMPLIFYING" IT AWAY: it is the apply's MASTER SWITCH. The Hub
+          reads it in config-platform-gateway.ts, which documents `configPath` as
+          "Empty = the feature is OFF". Without this key the gateway installs, the token above
+          resolves, the boot reconciler stands the row up -- and the apply then silently
+          no-ops. Every component correct; the composition dead; nothing reports it.
+
+          ⚠️ The comment on the TOKEN above says "Its PRESENCE is the Hub-side trigger -- no
+          second env flag." That was the intended contract and the Hub does NOT implement it:
+          the Hub switches on the CONFIG PATH, not on the token. So each side believed the
+          other owned the trigger, which is why the gap survived review on both repos. This
+          key resolves the disagreement in the chart's favour for the PATH (the chart owns
+          image-layout knowledge) while leaving the token exactly as it is. It is not a second
+          BOOLEAN -- it is a constant path, and `$platformGateway` remains the one switch.
+
+          Found by a real install (tp-mcp-hub#1125 on ins-syan-pcp24485), not by a test: the
+          unit tests pass a path in, the image really does contain the file, and no CI job
+          diffs this template against what the backend reads.
+        */}}
+        - name: MCPHUB_PLATFORM_GATEWAY_CONFIG
+          value: "/app/resources/platform-gateway.yaml"
+        {{- /*
+          PCP-24485 — the two values the shipped file leaves as `${CP_FQDN}` / `${CP_OIDC_ISSUER}`.
+
+          The Hub resolves exactly these two by name and still REFUSES any other `${...}`, so the
+          chart is not required to pre-render the document — only to state these two. That is why
+          the path above can point at the baked template rather than at a rendered copy.
+
+          ⛔ BOTH ARE MEASURED ON A LIVE CP (ins-syan-pcp24485, 2026-09-25), not derived:
+          - the host is the one the CP actually routes the MCP paths on — /cp/mcp, /bw/mcp,
+            /flogo/mcp and /o11y/mcp all answer 401 (present, auth-required) rather than 404,
+            which is the `secure`-middleware hop the file's design depends on;
+          - the issuer is what the IdP ITSELF advertises:
+            GET https://<host>/.well-known/openid-configuration -> "issuer": "https://<host>".
+            Guessing it does not work -- the obvious /idm/v1/oauth2/.well-known/... (by analogy
+            with the jwks-uri path below) returns the CP's HTML SPA, i.e. a silent wrong answer.
+            That discovery document's `jwks_uri` was BYTE-IDENTICAL to what MCPHUB_TOKEN_JWKS_URI
+            used to be, which is how we know it is the same identity system and not a second one.
+            (PCP-25577 re-pointed MCPHUB_TOKEN_JWKS_URI at the IN-CLUSTER IdM address, so they are
+            no longer textually equal. They are still the same key set: the in-cluster response was
+            sha256-compared against the public one on a live CP and is byte-identical.)
+
+          ⚠️ `cp-sub1.` IS A HARDCODED PREFIX, NOT A COMPUTABLE RULE. It is NOT the instance id:
+          global.tibco.controlPlaneInstanceId is `cp1` while the host is `cp-sub1`.
+
+          ⛔ THESE TWO ARE NOW THE ONLY PLACE THIS CHART GUESSES A SUBSCRIPTION HOST, AND THE
+          COUPLING THAT USED TO SHIELD THEM IS GONE. This block used to argue that the risk was
+          shared -- "this chart already hardcodes exactly this composition for
+          MCPHUB_TOKEN_JWKS_URI, so these two values and that one break TOGETHER ... the same
+          coupling, not a new one". That is no longer true. PCP-25577 was that break happening to
+          a real customer, and it removed the guess from MCPHUB_TOKEN_JWKS_URI by dialling IdM
+          in-cluster with a wildcard-safe Host. The two values below still carry it ALONE.
+
+          So the known dependency is now: on any CP whose subscription host is not `cp-sub1`,
+          the platform-gateway feature (PCP-24485) is misconfigured -- NOT the token verifier.
+          Unlike the JWKS case there is no in-cluster substitute here: these are an externally
+          routable FQDN and the issuer an OIDC client must match, so fixing it means sourcing the
+          real subscription host from platform config rather than composing a literal. Left as
+          this chart's remaining instance of the PCP-25577 defect class, deliberately recorded
+          rather than silently inherited.
+
+          Kept as TWO values rather than deriving the issuer as https://<fqdn>, even though today
+          they measure out to exactly that: an IdP is not obliged to live on the CP host, and
+          collapsing them would bake today's topology into the contract.
+        */}}
+        {{- /*
+          PCP-25584 — OPERATOR OVERRIDE (1.22/.85). The `cp-sub1.` composition below is still
+          a guess about the deployment's subscription host; 1.23 replaces it by deriving the
+          real host from platform configuration. Until then a CP that names its subscription
+          host anything else had NO supported way out — measured: setting any chart value
+          produced a byte-identical render, because these two lines carried no `.Values`
+          reference at all and no such key existed. These overrides are that way out.
+
+          `| default` keeps the unset render BYTE-IDENTICAL to what shipped, so an existing CP
+          sees no change. Both are plain strings passed through k8s `$(VAR)` expansion, so an
+          override may use `$(CP_DNS_DOMAIN)` too — e.g. cpFqdn: "my-sub.$(CP_DNS_DOMAIN)".
+
+          ⚠️ They are TWO values on purpose. An IdP is not obliged to live on the CP host, and
+          the issuer must byte-match what the IdP advertises at
+          /.well-known/openid-configuration — an OAuth client compares it. Do not collapse
+          them into one by deriving the issuer as https://<fqdn>, even though today they
+          measure out to exactly that.
+        */}}
+        {{- /* ⛔ READ THE KEY values.yaml DOCUMENTS -- `backend.platformGateway.*`, the same prefix
+               the sibling `bootstrapSecret` lines above already use. An earlier revision read
+               `.Values.global.tibco.mcpHub.platformGateway.cpFqdn`, which no values file declares
+               and no documentation mentions, so setting the DOCUMENTED key was a silent no-op and
+               the escape hatch PCP-25584 exists to provide did not work for anyone following the
+               docs. Caught in review by fcastill. MEASURED on the umbrella at e81e5416:
+               `--set mcp-hub-webserver.backend.platformGateway.cpFqdn=X` left the env var at its
+               DEFAULT and X appeared NOWHERE in the output, while the `global.` spelling did
+               change it. (Stated as "X is absent", not "the render is byte-identical": this chart
+               generates random secrets, so two renders of ONE config already differ by ~20 lines
+               and a byte-diff proves nothing either way.)
+               ⚠️ `enabled` genuinely DOES live under `global` -- three consumers must agree about
+               it (see the umbrella values.yaml). These two have exactly ONE consumer: this
+               container. A single-consumer value under `global` buys nothing and cost the
+               mismatch above. */}}
+        - name: MCPHUB_PLATFORM_GATEWAY_CP_FQDN
+          value: {{ .Values.backend.platformGateway.cpFqdn | default "cp-sub1.$(CP_DNS_DOMAIN)" | quote }}
+        - name: MCPHUB_PLATFORM_GATEWAY_CP_OIDC_ISSUER
+          value: {{ .Values.backend.platformGateway.cpOidcIssuer | default "https://cp-sub1.$(CP_DNS_DOMAIN)" | quote }}
+        {{- end }}
+        {{- /*
+          PCP-23477 (W10 of epic PCP-21153): the Hub's OWN MCP server plane
+          (POST /api/mcp-hub/mcp). Byte-identical expression to charts/mcp-hub in
+          tp-mcp-hub — see docs/design/mcp-hub/unified-chart.md §8 for the parity contract.
+          MCPHUB_MCP_ENABLED is TRI-STATE: `| default ""` is FORBIDDEN (sprig default
+          swallows boolean false → kill switch unreachable); plain `| quote` emits a bare
+          YAML null for nil, not ""; toString/printf emit "<nil>" which trips the backend
+          boot warning; `kindIs "bool"` drops a STRING "false" — and THIS chart has no
+          values.schema.json, so a recipe CAN deliver a string. `kindIs "invalid"` is the
+          only guard that survives all five states. "" is byte-for-byte identical to unset
+          in backend/src/routes/mcp/posture.ts, with no spurious boot warning.
+          `| default dict` rescues exactly ONE shape: an EMPTY-STRING `backend.mcp`
+          (`--set-string backend.mcp=`), which renders with it and aborts without it
+          (`can't evaluate field enabled in type string`). It does NOT rescue a non-EMPTY
+          non-map (`--set-string backend.mcp=str` hard-fails either way), and a nulled
+          `backend.mcp:` map is ALREADY nil-safe without it (measured rc=0 either way).
+          Do not justify this line by the null-map case, and do not claim it type-checks.
+          ⚠️ FAIL-OPEN, ACCEPTED AND TRACKED: toolsMode resolves to `full` on CP for ANY
+          value posture.ts does not recognize — a typo (`read-only`), a blank, and the
+          YAML-1.1 booleans `off`/`no`/`false` (which helm loads as boolean false, so
+          sprig `default` turns them into ""). This chart has no values.schema.json to
+          reject them. A `| default "readonly"` here would close it but would break the
+          byte-identical parity with charts/mcp-hub, where "readonly" is wrong for the cp
+          profile. See the open question on the PCP-23477 PR before changing this.
+          Settable from a CP recipe / TibcoResourceSet as
+          `mcp-hub-webserver.backend.mcp.*` — no parent-chart passthrough is required.
+        */}}
+        {{- $mcp := .Values.backend.mcp | default dict }}
+        {{- /* PCP-25800: refuse at render what the 1.22 hub would silently treat as "unset".
+          posture.ts accepts ONLY trim+lowercase "full"|"readonly" for toolsMode (:153-155) and
+          "true"|"false" for enabled (:89-91); anything else falls back to the posture default,
+          which on a CP is the FULL catalogue -- a typo would fail OPEN. A YAML-1.1 off/no/false
+          arrives here as a boolean, so the kind is checked before the value. */}}
+        {{- if not (kindIs "invalid" $mcp.toolsMode) }}
+          {{- if or (not (kindIs "string" $mcp.toolsMode)) (not (has ($mcp.toolsMode | trim | lower) (list "" "readonly" "full"))) }}
+            {{- fail (printf "mcp-hub-webserver: backend.mcp.toolsMode must be \"readonly\" or \"full\" (or unset), got %v (%s). Any other value is ignored by the Hub and falls back to the FULL catalogue on a Control Plane." $mcp.toolsMode (kindOf $mcp.toolsMode)) }}
+          {{- end }}
+        {{- end }}
+        {{- if not (or (kindIs "invalid" $mcp.enabled) (kindIs "bool" $mcp.enabled)) }}
+          {{- if or (not (kindIs "string" $mcp.enabled)) (not (has ($mcp.enabled | trim | lower) (list "" "true" "false"))) }}
+            {{- fail (printf "mcp-hub-webserver: backend.mcp.enabled must be true or false (or unset), got %v (%s). Any other value is ignored by the Hub." $mcp.enabled (kindOf $mcp.enabled)) }}
+          {{- end }}
+        {{- end }}
+        - name: MCPHUB_MCP_ENABLED
+          value: {{ if kindIs "invalid" $mcp.enabled }}""{{ else }}{{ $mcp.enabled | quote }}{{ end }}
+        - name: MCPHUB_MCP_TOOLS_MODE
+          value: {{ $mcp.toolsMode | default "" | quote }}
         volumeMounts:
           - name: data-vol
             mountPath: /app/data

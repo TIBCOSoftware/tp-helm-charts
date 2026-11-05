@@ -171,8 +171,32 @@ tibco-cp-logs. (Renamed from the misleading `o11y-service-host`.)
 {{/* Control plane database configuration configmap name (read by the postgres pre-install Job and PG env vars) */}}
 {{- define "mcp-hub-webserver.consts.db.configuration" }}provider-cp-database-config{{ end -}}
 
-{{/* Control plane database master credentials Secret (read by the postgres pre-install Job to create per-app user/db) */}}
-{{- define "mcp-hub-webserver.consts.db.credentials" }}provider-cp-database-credentials{{ end -}}
+{{/* Control plane database master credentials Secret (read by the postgres pre-install Job to create per-app user/db).
+
+     PCP-25576 — the NAME is the operator's, not ours. tibco-cp-base creates this Secret under
+     `global.external.db_secret_name` (charts/tibco-cp-base/values.yaml), and a self-setup CP may
+     set that to something else. Hardcoding the default meant the pre-install Job below mounted a
+     Secret that does not exist on such a CP: the Job's pod never starts — its container sits in
+     CreateContainerConfigError on the missing secretKeyRef — and because that Job is a
+     `helm.sh/hook: pre-install,pre-upgrade`, helm blocks on it to `--timeout` and the release
+     fails to pending-install, with nothing naming the real cause. Same `knob | default` shape as
+     tibco-cp-ai-agent's `tibco-cp-ai-agent.consts.db.credentials` (that chart's _helpers.tpl);
+     note it defaults to its OWN Secret, `provider-cp-ai-agent-database-credential`, so the two
+     charts share the mechanism, not the name. The `default` keeps the render semantically
+     unchanged on every CP that leaves the knob unset — this is not a behaviour change there.
+
+     `| quote` is deliberate: this value is operator-supplied, and unquoted it is coerced by YAML
+     1.1. A Secret legitimately named `on`, `no` or `12345` is a valid DNS-1123 name but renders
+     as a bare boolean/integer, which the API server then refuses ("cannot unmarshal bool into
+     Go struct field ... of type string"). Quoting also matches this chart's own idiom — the
+     three other value-derived secretKeyRef names in deployment.yaml are all quoted.
+
+     Note the CONFIGMAP above is deliberately NOT given the same treatment: tibco-cp-base exposes
+     no `db_config_name`, so `provider-cp-database-config` is a fixed platform name and making it
+     configurable here would invent a knob nothing honours. */}}
+{{- define "mcp-hub-webserver.consts.db.credentials" -}}
+{{- .Values.global.external.db_secret_name | default "provider-cp-database-credentials" | quote -}}
+{{- end -}}
 
 {{/* Control plane core env ConfigMap. Holds optional per-app tunables such as
      `<chart>.psqlMaxOpenConnections` etc., referenced via configMapKeyRef +
