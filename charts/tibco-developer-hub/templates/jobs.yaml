@@ -229,8 +229,11 @@ spec:
               # Do NOT read it from the Deployment spec: during an upgrade the Deployment already carries the NEW chart's BACKSTAGE_VERSION, which would mask a real version change and skip a needed backup.
               DEVHUB_POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=tibco-developer-hub,app.kubernetes.io/component=backstage -o jsonpath="{.items[0].metadata.name}")
               if [ -z "$DEVHUB_POD_NAME" ]; then echo "ERROR: no running Dev Hub pod found; cannot read the current Backstage version. Aborting the upgrade so a needed backup is never skipped."; exit 1; fi
-              BACKSTAGE_CUR_VERSION=$(kubectl exec -n "$NAMESPACE" -c backstage-backend "$DEVHUB_POD_NAME" -- sh -c 'printenv BACKSTAGE_VERSION || true' 2>/dev/null || true)
+              # A sentinel distinguishes "env var not set" (releases before 1.19 never set BACKSTAGE_VERSION) from "exec failed" (empty output).
+              BACKSTAGE_CUR_VERSION=$(kubectl exec -n "$NAMESPACE" -c backstage-backend "$DEVHUB_POD_NAME" -- sh -c 'printenv BACKSTAGE_VERSION || echo __UNSET__' 2>/dev/null || true)
               if [ -z "$BACKSTAGE_CUR_VERSION" ]; then echo "ERROR: could not read BACKSTAGE_VERSION from the running Dev Hub pod $DEVHUB_POD_NAME. Aborting the upgrade so a needed backup is never skipped."; exit 1; fi
+              # Legacy release without BACKSTAGE_VERSION: it is necessarily older than the target, so treat it as a Backstage version change (forces a backup).
+              if [ "$BACKSTAGE_CUR_VERSION" = "__UNSET__" ]; then echo "BACKSTAGE_VERSION is not set on Dev Hub pod $DEVHUB_POD_NAME (release older than 1.19); treating it as a Backstage upgrade."; BACKSTAGE_CUR_VERSION=""; fi
               # Rollback/downgrade guard: never overwrite newer data with a backup when moving to an older version.
               PG_ROLLBACK=$(awk -v c="$CUR_TAG_POSTGRES" -v t="$TARGET_TAG" 'BEGIN{n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}')
               BS_ROLLBACK=$(awk -v c="$BACKSTAGE_CUR_VERSION" -v t="$TARGET_BACKSTAGE" 'BEGIN{if(c==""){print "no";exit}n=split(c,ca,".");m=split(t,ta,".");k=(n>m?n:m);for(i=1;i<=k;i++){x=ca[i]+0;y=ta[i]+0;if(x>y){print "yes";exit}else if(x<y){print "no";exit}}print "no"}')
@@ -240,7 +243,7 @@ spec:
               NEED_BACKUP=false
               if [ "$CUR_PG_MAJOR" != "$TARGET_PG_MAJOR" ]; then echo "PostgreSQL major version change detected ($CUR_PG_MAJOR -> $TARGET_PG_MAJOR)."; NEED_BACKUP=true; fi
               if [ "$CUR_TAG_POSTGRES" != "$TARGET_TAG" ]; then echo "PostgreSQL image tag change detected ($CUR_TAG_POSTGRES -> $TARGET_TAG)."; NEED_BACKUP=true; fi
-              if [ "$BACKSTAGE_CUR_VERSION" != "$TARGET_BACKSTAGE" ]; then echo "Backstage version change detected ($BACKSTAGE_CUR_VERSION -> $TARGET_BACKSTAGE)."; NEED_BACKUP=true; fi
+              if [ "$BACKSTAGE_CUR_VERSION" != "$TARGET_BACKSTAGE" ]; then echo "Backstage version change detected (${BACKSTAGE_CUR_VERSION:-unknown} -> $TARGET_BACKSTAGE)."; NEED_BACKUP=true; fi
               if [ "$NEED_BACKUP" != "true" ]; then echo "No PostgreSQL/Backstage change requiring a backup. Nothing to do."; exit 0; fi
 {{ if .Values.autoscaling.enabled }}
               # Remove the HPA first so it cannot scale the Deployment back up mid-backup; Helm recreates it after the pre-upgrade hooks complete. Non-fatal if RBAC disallows it.
