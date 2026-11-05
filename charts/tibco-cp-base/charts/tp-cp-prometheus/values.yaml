@@ -8,8 +8,6 @@ global:
   enableLogging: true
   cp:
     enableResourceConstraints: true
-  hawk:
-    metricAuthTokenSecret: "YlhSMWMyVnlPbEZRZFdZMkl6SWtRUT09"
   tibco:
     containerRegistry:
       url: ""
@@ -227,7 +225,7 @@ server:
   ## Prometheus server container image
   ##
   image:
-    tag: "v3.5.4"
+    tag: "v3.13.5"
     pullPolicy: IfNotPresent
 
   ## Prometheus server command
@@ -1340,7 +1338,12 @@ extraManifests:
         global:
           scrape_interval: 35s
           evaluation_interval: 35s
-          # Alertmanager configuration
+        # DPs push OTLP metrics here; accept samples that arrive up to 15m late instead of failing the
+        # whole request. Set here: this file (prom-server-conf) is the one Prometheus loads, server.tsdb is not.
+        storage:
+          tsdb:
+            out_of_order_time_window: 15m
+        # Alertmanager configuration
         alerting:
           alertmanagers:
             - static_configs:
@@ -1353,9 +1356,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1376,9 +1376,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1389,9 +1386,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1402,9 +1396,6 @@ extraManifests:
             scrape_interval: 90s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true
@@ -1415,9 +1406,6 @@ extraManifests:
             scrape_interval: 60s
             scrape_timeout: 30s
             scheme: http
-            basic_auth:
-              username: mtuser
-              password: QPuf6#2$A
             honor_labels: true
             tls_config:
               insecure_skip_verify: true

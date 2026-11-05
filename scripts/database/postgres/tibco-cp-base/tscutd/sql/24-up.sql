@@ -478,7 +478,6 @@ ALTER TABLE V3_ARCHIVED_APPS ADD CONSTRAINT V3_ARCHIVED_APPS_PKEY
 -- composite value would overflow it and change the audit-trail format consumed downstream, so the
 -- audit key is intentionally left as app_id and tracked separately for an audit redesign.
 
-
 -- PCP-24907: Clean up duplicate O11Y (O11YV3) resource instances left by the edit bug.
 --
 -- ============================================================================

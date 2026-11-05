@@ -33,5 +33,5 @@ data:
     receivers:
       - name: 'tp_alerts_service_receiver'
         webhook_configs:
-          - url: 'http://alerts-service.{{ include "alertmanager.namespace" . }}.svc.cluster.local:80/v1/alerts'
+          - url: 'http://compute-services.{{ include "alertmanager.namespace" . }}.svc.cluster.local:80/v1/alerts'
             send_resolved: false

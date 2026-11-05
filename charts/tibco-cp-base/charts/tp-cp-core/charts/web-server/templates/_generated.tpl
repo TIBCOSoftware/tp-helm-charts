@@ -4,5 +4,5 @@
   in the license file that is distributed with this file.
 */}}
 
-{{- define "web-server.generated.buildNumber" }}12603{{end -}}
-{{- define "web-server.generated.buildTimestamp" }}09-14-26_02.50.00_PM{{end -}}
+{{- define "web-server.generated.buildNumber" }}13722{{end -}}
+{{- define "web-server.generated.buildTimestamp" }}11-04-26_01.22.25_AM{{end -}}
