@@ -1,0 +1,191 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+# CP MFT webserver Deployment (image tp-mft-webserver); proxies on-prem MFT REST through the DP adapter.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mft-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mft-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "mft-webserver.shared.labels.selector" . | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "mft-webserver.shared.labels.standard" . | nindent 8 }}
+{{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/fluentbit-configmap.yaml") . | sha256sum }}
+{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "mft-webserver.service-account-name" . }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "mft-webserver.shared.labels.standard" . | nindent 12 }}
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            {{- include "mft-webserver.shared.labels.standard" . | nindent 12 }}
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: {{ include "mft-webserver.consts.appName" . }}
+        image: {{ include "mft-webserver.image.registry" . }}{{"/"}}{{ include "mft-webserver.image.repository" . }}{{"/"}}tp-mft-webserver:{{ .Values.config.MFT_WEBSERVER_IMAGE_TAG }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+        {{- if .Values.global.tibco.enableResourceConstraints }}
+        resources:
+          {{- toYaml .Values.mftwebserver.resources | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: 8081
+          name: http
+        {{- with .Values.probes.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.probes.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        env:
+        # CP/DP endpoints come from the CP core dnsdomains configmap.
+        - name: TP_DP_PROXY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_DP_PROXY_HOST
+        - name: TP_CP_WEB_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_WEB_SERVER_HOST
+        - name: TP_CP_O11Y_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_O11Y_HOST
+              optional: true
+        # CP monitoring service (dpstatus): gates instance registration on the MFT adapter's health.
+        - name: TP_CP_MONITORING_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_MONITORING_HOST
+              optional: true
+        # user-subscription service (USM): polled for CP maintenance-mode (READ_ONLY) status.
+        - name: TP_CP_USER_SUB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "tp-control-plane-dnsdomain-configmap" . }}
+              key: TP_CP_USER_SUB_HOST
+              optional: true
+        - name: MFT_ADAPTER_TIMEOUT_MS
+          value: {{ .Values.config.MFT_ADAPTER_TIMEOUT_MS | quote }}
+        - name: MFT_API_VERSION
+          value: {{ .Values.config.MFT_API_VERSION | quote }}
+        - name: MFT_HOSTSTATS_WINDOW_SEC
+          value: {{ .Values.config.MFT_HOSTSTATS_WINDOW_SEC | quote }}
+        - name: LOG_DIR
+          value: {{ .Values.config.LOG_DIR | quote }}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+          - name: logs-share
+            mountPath: {{ .Values.config.LOG_DIR }}
+{{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+      - name: fluentbit
+        image: {{ include "mft-webserver.image.registry" . }}{{"/"}}{{ include "mft-webserver.integration.image.repository" . }}{{"/"}}{{ .Values.global.tibco.logging.fluentbit.image.name }}:{{ .Values.global.tibco.logging.fluentbit.image.tag }}
+        imagePullPolicy: {{ .Values.global.tibco.logging.fluentbit.image.pullPolicy }}
+        {{- if .Values.global.tibco.logging.fluentbit.securityContext }}
+        securityContext:
+          {{- toYaml .Values.global.tibco.logging.fluentbit.securityContext | nindent 10 }}
+        {{- end }}
+        {{- with .Values.global.tibco.logging.fluentbit.probes.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if $.Values.global.tibco.enableResourceConstraints }}
+        resources:
+          {{- toYaml .Values.global.tibco.logging.fluentbit.resources | nindent 10 }}
+        {{- end }}
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: CONTAINER_NAME
+            value: {{ include "mft-webserver.consts.appName" . }}
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        volumeMounts:
+          - name: logs-share
+            mountPath: /var/log/pods
+          - name: config-volume
+            mountPath: /fluent-bit/etc/
+{{- end }}
+      volumes:
+{{- if $.Values.global.tibco.logging.fluentbit.enabled }}
+        - name: config-volume
+          configMap:
+            name: {{ include "mft-webserver.consts.appName" . }}-fluentbit-config
+{{- end }}
+        - name: logs-share
+          emptyDir: {}
+{{- if (include "mft-webserver.container-registry.secret" .) }}
+      imagePullSecrets:
+        - name: {{ include "mft-webserver.container-registry.secret" . }}
+{{- end }}

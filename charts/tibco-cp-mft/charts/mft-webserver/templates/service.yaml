@@ -1,0 +1,21 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mft-webserver.consts.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mft-webserver.shared.labels.standard" . | nindent 4 }}
+spec:
+  ports:
+    - name: http
+      port: 3000
+      protocol: TCP
+      targetPort: 8081
+  selector:
+    {{- include "mft-webserver.shared.labels.selector" . | nindent 4 }}

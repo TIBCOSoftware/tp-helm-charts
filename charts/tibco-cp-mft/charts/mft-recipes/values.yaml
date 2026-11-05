@@ -1,0 +1,76 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      repository: ""
+      imagePullSecretName: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+imagePullSecret:
+
+capabilities:
+  mftadapter:
+    # if set to true then existing recipe will be overwritten by latest recipe.
+    overwriteRecipe: "true"
+    # set to true for latest version of recipe
+    isLatest: "true"
+    # Timestamp of capability release
+    releaseDate: "2026/9/30"
+    # Either a link to document or the document itself specifying what was fixed in this release.
+    releaseNotes: ""
+    # dp-mft-adapter chart+image the recipe installs on the DP; keep in lockstep with the published DP chart.
+    dpMftAdapter:
+      version: "1.0.0"
+      tag: "149"
+
+# The recipe-publish/cleanup jobs run this distroless base image (busybox sh + cp/rm only).
+image:
+  name: common-distroless-base-debian-debug
+  registry: ""
+  repo: ""
+  tag: 13.7
+  pullPolicy: IfNotPresent
+
+# Pod runs unprivileged (uid/gid/fsGroup 1000) with the runtime-default seccomp profile.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+      - CAP_NET_RAW
+
+scripts:
+  resources:
+    requests:
+      cpu: 150m
+      memory: 150Mi
+    limits:
+      cpu: 300m
+      memory: 300Mi
+
+# Enable the post-delete cleanup job that removes the MFT adapter recipe.
+recipeCleanupJob: false
+
+probes:
+  startupProbe: {}
+  # enable startup probe only if security policy is blocking you from deployment, otherwise its not recommended to use it

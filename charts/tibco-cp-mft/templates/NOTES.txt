@@ -1,0 +1,12 @@
+{{/*
+  Copyright (c) 2023-2026. Cloud Software Group, Inc.
+  This file is subject to the license terms contained
+  in the license file that is distributed with this file.
+*/}}
+
+TIBCO Control Plane — MFT capability ({{ .Chart.Version }}) installed.
+
+Components:
+{{- if index .Values "mft-webserver" "enabled" }}
+  - mft-webserver (tp-cp-mft-webserver): CP MFT UI + API, routed at /cp/mft
+{{- end }}

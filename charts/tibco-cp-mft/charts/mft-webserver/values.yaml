@@ -1,0 +1,133 @@
+# Copyright (c) 2023-2026. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+
+# Global section (injected by the CP provisioner); placeholders below are for local helm template/lint.
+global:
+  tibco:
+    containerRegistry:
+      url: ""
+      username: ""
+      password: ""
+      # name of a pre-existing imagePullSecret; if set, username/password are ignored
+      secret: ""
+      repository: ""
+      imagePullSecretName: ""
+    controlPlaneInstanceId: ""
+    enableResourceConstraints: true
+    serviceAccount: ""
+    logging:
+      fluentbit:
+        enabled: true
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          tag: 5.1.5
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        probes:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/uptime
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+  external:
+    storage:
+      pvcName: "control-plane-pvc"
+
+config:
+  # Published tp-mft-webserver image build; bump when a newer image is published.
+  MFT_WEBSERVER_IMAGE_TAG: "241"
+
+  # Proxied on-prem call timeout (ms); above slow catalog reads but under the adapter's 60s timeout.
+  MFT_ADAPTER_TIMEOUT_MS: "45000"
+  MFT_API_VERSION: "v7.1"
+  MFT_HOSTSTATS_WINDOW_SEC: "300"
+
+  # Log directory (a mounted emptyDir) so the pod can run with a read-only root filesystem.
+  LOG_DIR: "/tmp/webserver-logs"
+
+replicaCount: 1
+
+hpa:
+  cpu: 70
+  memory: 70
+  maxReplicas: 3
+  minReplicas: 1
+
+# Pod runs unprivileged (uid/gid/fsGroup 1000) with the runtime-default seccomp profile.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: "Always"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  # Server writes logs to LOG_DIR (emptyDir), so the root filesystem stays read-only.
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+mftwebserver:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+probes:
+  readinessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/cp/mft/api/v1/health"
+      port: 8081
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    httpGet:
+      scheme: HTTP
+      path: "/cp/mft/api/v1/health"
+      port: 8081
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  startupProbe: {}
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+
+tolerations: []
