@@ -51,8 +51,8 @@ on:
         description: 'Clean up → tibco-cp-mcp-hub'
         type: boolean
         default: false
-      chart_tibco_cp_mft:
-        description: 'Clean up → tibco-cp-mft'
+      chart_tibco_cp_ai_agent:
+        description: 'Clean up → tibco-cp-ai-agent'
         type: boolean
         default: false
       dry_run:
@@ -201,7 +201,7 @@ jobs:
           [[ "${{ inputs.chart_tibco_cp_devhub }}"                 == "true" ]] && SELECTED="$SELECTED tibco-cp-devhub"
           [[ "${{ inputs.chart_tibco_cp_addon_eventprocessing }}"  == "true" ]] && SELECTED="$SELECTED tibco-cp-addon-eventprocessing"
           [[ "${{ inputs.chart_tibco_cp_mcp_hub }}"                == "true" ]] && SELECTED="$SELECTED tibco-cp-mcp-hub"
-          [[ "${{ inputs.chart_tibco_cp_mft }}"                    == "true" ]] && SELECTED="$SELECTED tibco-cp-mft"
+          [[ "${{ inputs.chart_tibco_cp_ai_agent }}"               == "true" ]] && SELECTED="$SELECTED tibco-cp-ai-agent"
           SELECTED="${SELECTED# }"
 
           if [[ -z "$SELECTED" ]]; then
@@ -252,7 +252,7 @@ jobs:
       - name: Full inventory scan
         if: inputs.inventory_only == true
         run: |
-          ALL_CHARTS="tibco-cp-base tibco-cp-bw tibco-cp-flogo tibco-cp-devhub tibco-cp-addon-eventprocessing tibco-cp-mcp-hub tibco-cp-mft"
+          ALL_CHARTS="tibco-cp-base tibco-cp-bw tibco-cp-flogo tibco-cp-devhub tibco-cp-addon-eventprocessing tibco-cp-mcp-hub tibco-cp-ai-agent"
           GRAND_TOTAL=0
 
           {
